@@ -170,8 +170,8 @@ function gemv_W!(
     β::T) where {T}
 
 
- #treat W like zero
- y .= β.*y
+    #treat W like zero
+    y .= β.*y
 
 end
 
