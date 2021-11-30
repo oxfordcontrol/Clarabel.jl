@@ -3,8 +3,9 @@
 # ---------------
 
 mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
-    n
-    m
+
+    n           #PJG: not used?
+    m           #PJG: not used?
     KKT
 
     #solution vector for constant part of KKT solves
@@ -22,7 +23,8 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
     factors
     WtW   # PJG: temporary for debugging
 
-    function DefaultKKTSolver{T}(data::DefaultProblemData{T}) where {T}
+    function DefaultKKTSolver{T}(
+        data::DefaultProblemData{T}) where {T}
 
         Z   = spzeros(data.n,data.n)
         WtW = -sparse(I(data.m)*1.)
@@ -50,6 +52,7 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
 
         new(data.n,data.m,KKT,lhs_cb,lhs_cb_x,
             lhs_cb_z,work,work_x, work_z,nothing,nothing)
+
     end
 
 end
@@ -59,7 +62,9 @@ DefaultKKTSolver(args...) = DefaultKKTSolver{DefaultFloat}(args...)
 
 
 
-function UpdateKKTSystem!(kktsolver::DefaultKKTSolver{T},scalings::DefaultConeScalings{T}) where {T}
+function UpdateKKTSystem!(
+    kktsolver::DefaultKKTSolver{T},
+    scalings::DefaultConeScalings{T}) where {T}
 
     #PJG : for now, just build the scaling matrix
     # and reconstruct KKT in some inefficient way
@@ -77,7 +82,9 @@ function UpdateKKTSystem!(kktsolver::DefaultKKTSolver{T},scalings::DefaultConeSc
 end
 
 
-function SolveKKTConstantRHS!(kktsolver::DefaultKKTSolver{T},data::DefaultProblemData{T}) where {T}
+function SolveKKTConstantRHS!(
+    kktsolver::DefaultKKTSolver{T},
+    data::DefaultProblemData{T}) where {T}
 
     # QDLDL solves in place, so copy [-c;b] into it and solve
     # over to the solution vector
@@ -87,9 +94,10 @@ function SolveKKTConstantRHS!(kktsolver::DefaultKKTSolver{T},data::DefaultProble
 
 end
 
-function SolveKKTInitialPoint!(kktsolver::DefaultKKTSolver{T},
-                      variables::DefaultVariables{T},
-                      data::DefaultProblemData{T}) where{T}
+function SolveKKTInitialPoint!(
+    kktsolver::DefaultKKTSolver{T},
+    variables::DefaultVariables{T},
+    data::DefaultProblemData{T}) where{T}
 
     # solve with [0;b] as a RHS to get (x,s) initializers
     kktsolver.work_x .= 0.
@@ -106,12 +114,13 @@ function SolveKKTInitialPoint!(kktsolver::DefaultKKTSolver{T},
 
 end
 
-function SolveKKT!(kktsolver::DefaultKKTSolver{T},
-                   lhs::DefaultVariables{T},
-                   rhs::DefaultVariables{T},
-                   variables::DefaultVariables{T},
-                   scalings::DefaultConeScalings{T},
-                   data::DefaultProblemData{T}) where{T}
+function SolveKKT!(
+    kktsolver::DefaultKKTSolver{T},
+    lhs::DefaultVariables{T},
+    rhs::DefaultVariables{T},
+    variables::DefaultVariables{T},
+    scalings::DefaultConeScalings{T},
+    data::DefaultProblemData{T}) where{T}
 
     work   = kktsolver.work
     constx = kktsolver.lhs_cb_x

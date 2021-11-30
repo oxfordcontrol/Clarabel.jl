@@ -1,6 +1,8 @@
 
 
-function PrintStatus(status::DefaultStatus{T},settings::Settings) where {T}
+function PrintStatus(
+    status::DefaultStatus{T},
+    settings::Settings) where {T}
 
     if(settings.verbose == false) return end
 
@@ -13,17 +15,16 @@ function PrintStatus(status::DefaultStatus{T},settings::Settings) where {T}
     @printf("%.2e  ", status.gap)
     if(status.iterations > 0)
         @printf("%.2e  ", status.step_length)
-        #@printf("%.2e  ", status.sigma)
     else
         @printf(" ------   ") #status.step_length
-        #@printf(" ------   ") #status.sigma
     end
 
     @printf("\n")
 
 end
 
-function PrintHeader(s::Solver{T}) where {T}
+function PrintHeader(
+    s::Solver{T}) where {T}
 
     if(s.settings.verbose == false) return end
 
@@ -51,13 +52,14 @@ function PrintHeader(s::Solver{T}) where {T}
     @printf("%s", "k/t       ")
     @printf("%s", "gap       ")
     @printf("%s", "step      ")
-    #@printf("%s", "sigma     ")
     @printf("\n")
     println("-----------------------------------------------------------------------------------")
 
 end
 
-function PrintFooter(status::DefaultStatus{T},settings::Settings) where {T}
+function PrintFooter(
+    status::DefaultStatus{T},
+    settings::Settings) where {T}
 
     if(settings.verbose == false) return end
 

@@ -1,4 +1,5 @@
-function DefaultConeScalings{T}(cone_info::ConeInfo) where {T}
+function DefaultConeScalings{T}(
+    cone_info::ConeInfo) where {T}
 
     #look up constructors for every cone type and
     #build an array of appropriately sized cones.
@@ -23,11 +24,13 @@ function DefaultConeScalings{T}(cone_info::ConeInfo) where {T}
     totalorder = sum(cone -> order(cone), cones)
 
     DefaultConeScalings(cone_info,cones,k_zerocone,k_nncone,k_socone,totaldim,totalorder)
+
 end
 
 
-function UpdateScalings!(scalings::DefaultConeScalings{T},
-                         variables::DefaultVariables{T}) where {T}
+function UpdateScalings!(
+    scalings::DefaultConeScalings{T},
+    variables::DefaultVariables{T}) where {T}
 
     cones  = scalings.cones
     sviews = variables.s.views
@@ -43,14 +46,16 @@ function UpdateScalings!(scalings::DefaultConeScalings{T},
 
 end
 
-function IdentityScalings!(scalings::DefaultConeScalings{T},
-                           variables::DefaultVariables{T}) where {T}
+function IdentityScalings!(
+    scalings::DefaultConeScalings{T},
+    variables::DefaultVariables{T}) where {T}
 
     foreach(IdentityScaling!,scalings.cones)
 
 end
 
-function make_scaling_matrix(scalings::DefaultConeScalings{T}) where {T}
+function make_scaling_matrix(
+    scalings::DefaultConeScalings{T}) where {T}
 
     # PJG: This is super inefficient and only for
     # temporary use.  I am computing W^TW here.

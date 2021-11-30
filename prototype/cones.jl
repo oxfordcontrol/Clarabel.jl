@@ -13,11 +13,14 @@ end
 # -------------------------------------
 
 struct ZeroCone{T} <: AbstractCone{T}
+
 	dim::DefaultInt
+
 	function ZeroCone{T}(dim::Integer) where {T}
 		dim >= 1 || throw(DomainError(dim, "dimension must be positive"))
 		new(dim)
 	end
+
 end
 
 ZeroCone(args...) = ZeroCone{DefaultFloat}(args...)
@@ -31,7 +34,7 @@ struct NonnegativeCone{T} <: AbstractCone{T}
 
 	dim::DefaultInt
 
-	#internal working variables
+	#internal working variables for W
 	w::Vector{T}
 
 	function NonnegativeCone{T}(dim) where {T}
@@ -41,6 +44,7 @@ struct NonnegativeCone{T} <: AbstractCone{T}
 		new(dim,w)
 
 	end
+
 end
 
 NonnegativeCone(args...) = NonnegativeCone{DefaultFloat}(args...)
@@ -53,6 +57,7 @@ mutable struct SecondOrderCone{T} <: AbstractCone{T}
 
 	dim::DefaultInt
 
+	#internal working variables for W and its products
 	w::Vector{T}
 
 	#vectors for rank 2 update representation of W^2
@@ -63,8 +68,6 @@ mutable struct SecondOrderCone{T} <: AbstractCone{T}
 	d::T
 	η::T
 
-
-
 	function SecondOrderCone{T}(dim::Integer) where {T}
 		dim >= 2 ? new(dim) : throw(DomainError(dim, "dimension must be >= 2"))
 		w = Vector{T}(undef,dim)
@@ -74,6 +77,7 @@ mutable struct SecondOrderCone{T} <: AbstractCone{T}
 		η = 0.
 		new(dim,w,u,v,d,η)
 	end
+	
 end
 
 SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)

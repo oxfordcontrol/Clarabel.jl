@@ -2,13 +2,14 @@
 # -------------------------------------
 # setup!
 # -------------------------------------
-function Setup!(s::Solver{T},
-                c::Vector{T},
-                A::AbstractMatrix{T},
-                b::Vector{T},
-                cone_types::Vector{SupportedCones},
-                cone_dims::Vector{Int},
-                settings::Settings{T} = Settings()) where{T}
+function Setup!(
+    s::Solver{T},
+    c::Vector{T},
+    A::AbstractMatrix{T},
+    b::Vector{T},
+    cone_types::Vector{SupportedCones},
+    cone_dims::Vector{Int},
+    settings::Settings{T} = Settings()) where{T}
 
     cone_info   = ConeInfo(cone_types,cone_dims)
 
@@ -30,7 +31,8 @@ end
 # -------------------------------------
 # solve!
 # -------------------------------------
-function Solve!(s::Solver{T}) where{T}
+function Solve!(
+    s::Solver{T}) where{T}
 
     #various initializations
     ResetStatus(s.status)
@@ -135,8 +137,9 @@ function SaveScalarStatus(status,μ,α,σ,iter)
 end
 
 
-function AddToVariables!(variables::DefaultVariables{T},
-                        step::DefaultVariables{T}, α::T) where {T}
+function AddToVariables!(
+    variables::DefaultVariables{T},
+    step::DefaultVariables{T}, α::T) where {T}
 
     variables.x     .+= α*step.x
     variables.s.vec .+= α*step.s.vec
@@ -148,9 +151,10 @@ end
 
 
 
-function CalcStepLength(variables::DefaultVariables{T},
-                        step::DefaultVariables{T},
-                        scalings::DefaultConeScalings{T},) where {T}
+function CalcStepLength(
+    variables::DefaultVariables{T},
+    step::DefaultVariables{T},
+    scalings::DefaultConeScalings{T},) where {T}
 
     ατ    = step.τ < 0 ? -variables.τ / step.τ : 1/eps(T)
     ακ    = step.κ < 0 ? -variables.κ / step.κ : 1/eps(T)
@@ -162,14 +166,17 @@ end
 
 # Mehrotra heuristic
 function CalcCenteringParameter(α::T) where{T}
+
     σ = (1-α)^3
+
 end
 
 
-function CalcAffineStepRHS!(d::DefaultVariables{T},
-                            r::DefaultResiduals{T},
-                            variables::DefaultVariables{T},
-                            scalings::DefaultConeScalings{T}) where{T}
+function CalcAffineStepRHS!(
+    d::DefaultVariables{T},
+    r::DefaultResiduals{T},
+    variables::DefaultVariables{T},
+    scalings::DefaultConeScalings{T}) where{T}
 
     d.x     .=  r.rx
     d.z.vec .= -r.rz .+ variables.s.vec
@@ -181,12 +188,13 @@ end
 
 # PJG: CalcCombinedStepRHS! modifies the step values
 # in place to be economical with memory
-function CalcCombinedStepRHS!(d::DefaultVariables{T},
-                              r::DefaultResiduals{T},
-                              variables::DefaultVariables{T},
-                              scalings::DefaultConeScalings{T},
-                              step::DefaultVariables{T},
-                              σ::T, μ::T) where {T}
+function CalcCombinedStepRHS!(
+    d::DefaultVariables{T},
+    r::DefaultResiduals{T},
+    variables::DefaultVariables{T},
+    scalings::DefaultConeScalings{T},
+    step::DefaultVariables{T},
+    σ::T, μ::T) where {T}
 
     # assumes that the affine RHS currently occupies d,
     # so only applies incremental changes to get the
@@ -216,23 +224,6 @@ end
 
 function DefaultStart!(s::Solver{T}) where {T}
 
-    # #PJG: Reimplement to use the
-    # #linear solve method in CVXOPT
-    # #Also, this choice doesn't make
-    # #sense for all cone types
-    # s.variables.x .= 2
-    # s.variables.s.vec .= 1
-    # #PJG : gnarly hack.  Need generic cone-wise method
-    # for i in eachindex(s.data.cone_info.types)
-    #     if(s.data.cone_info.types[i] == ZeroConeT)
-    #         s.variables.s.views[i] .= 0
-    #     end
-    # end
-    # s.variables.z.vec .= 3
-    # s.variables.τ  = 1
-    # s.variables.κ  = 1
-    # s.variables.λ.vec .= 1
-
     #set all scalings to identity (or zero for the zero cone)
     IdentityScalings!(s.scalings,s.variables)
     #Refactor
@@ -249,16 +240,18 @@ function DefaultStart!(s::Solver{T}) where {T}
 end
 
 
-function CalcMu(variables::DefaultVariables{T},
-                    residuals::DefaultResiduals{T},
-                    scalings::DefaultConeScalings{T}) where {T}
+function CalcMu(
+    variables::DefaultVariables{T},
+    residuals::DefaultResiduals{T},
+    scalings::DefaultConeScalings{T}) where {T}
 
   μ = (residuals.dot_sz + variables.τ * variables.κ)/(scalings.total_order + 1)
 
 end
 
 
-function UpdateResiduals!(s::Solver{T}) where {T}
+function UpdateResiduals!(
+    s::Solver{T}) where {T}
 
   residuals = s.residuals
   data      = s.data
@@ -294,12 +287,13 @@ function UpdateResiduals!(s::Solver{T}) where {T}
 
 end
 
-function CheckTermination(status::DefaultStatus{T},
-                          data::DefaultProblemData{T},
-                          variables::DefaultVariables{T},
-                          residuals::DefaultResiduals{T},
-                          scalings::DefaultConeScalings{T},
-                          settings::Settings{T}) where {T}
+function CheckTermination(
+    status::DefaultStatus{T},
+    data::DefaultProblemData{T},
+    variables::DefaultVariables{T},
+    residuals::DefaultResiduals{T},
+    scalings::DefaultConeScalings{T},
+    settings::Settings{T}) where {T}
 
     #optimality termination check should be computed w.r.t
     #the unscaled x and z variables.
