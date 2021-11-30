@@ -23,8 +23,9 @@ mutable struct SplitVector{T} <: AbstractVariables{T}
     #array of data views of type Vector{T}
     views::Vector{VectorView{T}}
 
-    function SplitVector{T}(n::Integer,
-                            cone_info::ConeInfo) where {T}
+    function SplitVector{T}(
+        n::Integer,
+        cone_info::ConeInfo) where {T}
 
         vec   = Vector{T}(undef,n)
         views = Vector{VectorView{T}}(undef, length(cone_info.types))
@@ -67,9 +68,10 @@ mutable struct DefaultVariables{T} <: AbstractVariables{T}
     #PJG:I don't think lambda belongs here because
     #there is no lambda required for the step directions
 
-    function DefaultVariables{T}(n::Integer,
-                                 m::Integer,
-                                 cone_info::ConeInfo) where {T}
+    function DefaultVariables{T}(
+        n::Integer,
+        m::Integer,
+        cone_info::ConeInfo) where {T}
 
         x = Vector{T}(undef,n)
         s = SplitVector{T}(m,cone_info)
@@ -97,11 +99,6 @@ mutable struct DefaultConeScalings{T} <: AbstractConeScalings{T}
 
     # vector of objects containing the scalings
     cones::Vector{AbstractCone{T}}
-
-    #Count of each cone type.
-    k_zerocone::DefaultInt
-    k_nncone::DefaultInt
-    k_socone::DefaultInt
 
     #composite cone sizes
     #not convinced that these belong here.  Maybe in problem data

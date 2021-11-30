@@ -12,18 +12,11 @@ function DefaultConeScalings{T}(
         push!(cones, ConeDict[type](dim))
     end
 
-    #count the number of each cone type
-    #PJG: assumed to be properly ordered
-    #e.g. SOCs come last
-    k_zerocone = count(==(ZeroConeT),cone_info.types)
-    k_nncone   = count(==(NonnegativeConeT),cone_info.types)
-    k_socone   = count(==(SecondOrderConeT),cone_info.types)
-
     # total dimension and order (not the same for SO or zero cone)
     totaldim   = sum(cone -> dim(cone)  , cones)
     totalorder = sum(cone -> order(cone), cones)
 
-    DefaultConeScalings(cone_info,cones,k_zerocone,k_nncone,k_socone,totaldim,totalorder)
+    DefaultConeScalings(cone_info,cones,totaldim,totalorder)
 
 end
 

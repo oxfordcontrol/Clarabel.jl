@@ -4,54 +4,60 @@
 
 mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
 
-    n           #PJG: not used?
-    m           #PJG: not used?
-    KKT
+    n  #cols in A
+    m  #rows in A
+    p  #extra KKT columns for sparse SOCs
+
+    KKT::SparseMatrixCSC{T}
+    factors
 
     #solution vector for constant part of KKT solves
     lhs_cb::Vector{T}
     #views into constant solution LHS
     lhs_cb_x::VectorView{T}
     lhs_cb_z::VectorView{T}
+    lhs_cb_p::VectorView{T}
 
     #work vector for other solutions and its views
     work::Vector{T}
     work_x::VectorView{T}
     work_z::VectorView{T}
+    work_p::VectorView{T}
 
-
-    factors
-    WtW   # PJG: temporary for debugging
 
     function DefaultKKTSolver{T}(
         data::DefaultProblemData{T}) where {T}
 
-        Z   = spzeros(data.n,data.n)
-        WtW = -sparse(I(data.m)*1.)
-        A   = data.A
-        KKT = [Z A'; A WtW]
+        n = data.n
+        m = data.m
+        p = 2*data.cone_info.k_socone
 
-        #work vector serving as both LHS and RHS
-        #for linear system solves (solves in place)
-        work  = Vector{T}(undef,data.n + data.m)
-
-        #views into the work vector
-        work_x = view(work,1:data.n)
-        work_z = view(work,(data.n+1):(data.n+data.m))
+        #KKT, factors = initialize_kkt_matrix(data)
+        #PJG: this function is ropey AF
+        KKT,factors = initialize_kkt_matrix(data.A,n,m,p)
 
         #the RHS/LHS for the constant part of the reduced
         #solve and its solution (solves in place)
-        lhs_cb = Vector{T}(undef,data.n + data.m)
+        lhs_cb = Vector{T}(undef,n + m + p)
 
         #views into the LHS solution for x/z partition
-        lhs_cb_x = view(lhs_cb,1:data.n)
-        lhs_cb_z = view(lhs_cb,(data.n+1):(data.n+data.m))
+        lhs_cb_x = view(lhs_cb,1:n)
+        lhs_cb_z = view(lhs_cb,(n+1):(n+m))
+        lhs_cb_p = view(lhs_cb,(n+m+1):(n+m+p))
 
-        # PJG: need to allocate space here for factors
-        # Left as nothing for now
+        #work vector serving as both LHS and RHS
+        #for linear system solves (solves in place)
+        work  = Vector{T}(undef, n + m + p)
 
-        new(data.n,data.m,KKT,lhs_cb,lhs_cb_x,
-            lhs_cb_z,work,work_x, work_z,nothing,nothing)
+        #views into the work vector
+        work_x = view(work,1:n)
+        work_z = view(work,(n+1):(n+m))
+        work_p = view(work,(n+m+1):(n+m+p))
+
+
+        new(n,m,p,KKT,nothing,
+            lhs_cb,lhs_cb_x,lhs_cb_z,lhs_cb_p,
+            work, work_x, work_z, work_p)
 
     end
 
@@ -60,24 +66,37 @@ end
 DefaultKKTSolver(args...) = DefaultKKTSolver{DefaultFloat}(args...)
 
 
+function initialize_kkt_matrix(A,n,m,p) where{T}
+
+    D1  = sparse(I(n)*0.)
+    D2  = sparse(I(m)*1.)
+    D3  = sparse(I(p)*1.)
+    KKT = [D1 A'; A D2]
+    KKT = blockdiag(KKT,D3)
+    factors = nothing
+
+    return KKT, factors
+
+end
 
 
 function UpdateKKTSystem!(
     kktsolver::DefaultKKTSolver{T},
     scalings::DefaultConeScalings{T}) where {T}
 
+    n = kktsolver.n
+    m = kktsolver.m
+    p = kktsolver.p
+
     #PJG : for now, just build the scaling matrix
     # and reconstruct KKT in some inefficient way
     WtW = make_scaling_matrix(scalings)
 
     #drop this block into the lower RHS of KKT
-    kktsolver.KKT[(kktsolver.n+1):end,(kktsolver.n+1):end] .= -WtW
-
+    kktsolver.KKT[(n+1):(m+n),(n+1):(m+n)] .= -WtW
+    
     #refactor.  For now, just overwrite the factors
     kktsolver.factors = qdldl(kktsolver.KKT)
-
-    #PJG: remember the W block for debugging
-    kktsolver.WtW = WtW
 
 end
 
@@ -87,9 +106,12 @@ function SolveKKTConstantRHS!(
     data::DefaultProblemData{T}) where {T}
 
     # QDLDL solves in place, so copy [-c;b] into it and solve
-    # over to the solution vector
+    # over to the solution vector.   Don't forget to
+    # zero out the sparse cone variables at end
     kktsolver.lhs_cb_x .= -data.c;
     kktsolver.lhs_cb_z .=  data.b;
+    kktsolver.lhs_cb_p .=  0.;
+
     solve!(kktsolver.factors,kktsolver.lhs_cb)
 
 end
@@ -100,8 +122,10 @@ function SolveKKTInitialPoint!(
     data::DefaultProblemData{T}) where{T}
 
     # solve with [0;b] as a RHS to get (x,s) initializers
+    # zero out the sparse cone variables at end
     kktsolver.work_x .= 0.
     kktsolver.work_z .= data.b
+    kktsolver.work_p .= 0.
     solve!(kktsolver.factors,kktsolver.work)
     variables.x      .= kktsolver.work_x
     variables.s.vec  .= kktsolver.work_z
@@ -109,6 +133,7 @@ function SolveKKTInitialPoint!(
     # solve with [-c;-] as a RHS to get z initializer
     kktsolver.work_x .= -data.c
     kktsolver.work_z .=  0.
+    kktsolver.work_p .=  0.
     solve!(kktsolver.factors,kktsolver.work)
     variables.z.vec  .= kktsolver.work_z
 
@@ -122,18 +147,18 @@ function SolveKKT!(
     scalings::DefaultConeScalings{T},
     data::DefaultProblemData{T}) where{T}
 
-    work   = kktsolver.work
     constx = kktsolver.lhs_cb_x
     constz = kktsolver.lhs_cb_z
 
     # assemble the right hand side and solve in place
-    work[1:data.n]       .= rhs.x
-    work[(data.n+1):end] .= rhs.z.vec
+    kktsolver.work_x .= rhs.x
+    kktsolver.work_z .= rhs.z.vec
+    kktsolver.work_p .= 0
     solve!(kktsolver.factors,kktsolver.work)
 
     #copy back into the solution to get (Δx₂,Δz₂)
-    lhs.x     .= work[1:data.n]
-    lhs.z.vec .= work[(data.n+1):end]
+    lhs.x     .= kktsolver.work_x
+    lhs.z.vec .= kktsolver.work_z
 
     #solve for Δτ
     lhs.τ  = rhs.τ - rhs.κ/variables.τ + dot(data.c,lhs.x) + dot(data.b,lhs.z.vec)

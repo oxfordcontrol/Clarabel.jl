@@ -77,7 +77,7 @@ mutable struct SecondOrderCone{T} <: AbstractCone{T}
         η = 0.
         new(dim,w,u,v,d,η)
     end
-    
+
 end
 
 SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
@@ -105,7 +105,20 @@ mutable struct ConeInfo
     types::Vector{SupportedCones}
     dims::Vector{Int}
 
+    #Count of each cone type.
+    k_zerocone::DefaultInt
+    k_nncone::DefaultInt
+    k_socone::DefaultInt
+
     function ConeInfo(types,dims)
-        new(types,dims)
+
+        #count the number of each cone type
+        #PJG: assumed to be properly ordered
+        #e.g. SOCs come last
+        k_zerocone = count(==(ZeroConeT),       types)
+        k_nncone   = count(==(NonnegativeConeT),types)
+        k_socone   = count(==(SecondOrderConeT),types)
+
+        new(types,dims,k_zerocone,k_nncone,k_socone)
     end
 end
