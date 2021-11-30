@@ -9,15 +9,15 @@ mutable struct Settings{T <: AbstractFloat}
     tol_feas::T
 
     function Settings{T}(;
-    	max_iter = 50,
+        max_iter = 50,
         verbose = true,
         tol_gap_abs = 1e-7,
         tol_gap_rel = 1e-6,
         tol_feas    = 1e-5) where {T}
 
-		new(max_iter,verbose,tol_gap_abs,tol_gap_rel,tol_feas)
+        new(max_iter,verbose,tol_gap_abs,tol_gap_rel,tol_feas)
 
-	end
+    end
 end
 
 # Default to DefaultFloat type for reals

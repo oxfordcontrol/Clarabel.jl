@@ -161,8 +161,8 @@ DefaultResiduals(args...) = DefaultResiduals{DefaultFloat}(args...)
 mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
 
     c::Vector{T}
-	A::AbstractMatrix{T}
-	b::Vector{T}
+    A::AbstractMatrix{T}
+    b::Vector{T}
     n::DefaultInt
     m::DefaultInt
     cone_info::ConeInfo
@@ -187,24 +187,24 @@ DefaultProblemData(args...) = DefaultProblemData{DefaultFloat}(args...)
 # ---------------
 
 @enum SolverStatus begin
-	UNSOLVED           = 0
-	SOLVED
-	PRIMAL_INFEASIBLE
+    UNSOLVED           = 0
+    SOLVED
+    PRIMAL_INFEASIBLE
     DUAL_INFEASIBLE
     MAX_ITERATIONS
 end
 
 const SolverStatusDict = Dict(
-	UNSOLVED    =>  "unsolved",
-	SOLVED      =>  "solved",
-	PRIMAL_INFEASIBLE =>  "primal infeasible",
+    UNSOLVED    =>  "unsolved",
+    SOLVED      =>  "solved",
+    PRIMAL_INFEASIBLE =>  "primal infeasible",
     DUAL_INFEASIBLE =>  "dual infeasible",
     MAX_ITERATIONS  =>  "iteration limit"
 )
 
 mutable struct DefaultStatus{T} <: AbstractStatus{T}
 
-	cost_primal::T
+    cost_primal::T
     cost_dual::T
     res_primal::T
     res_dual::T
