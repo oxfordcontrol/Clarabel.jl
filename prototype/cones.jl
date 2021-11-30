@@ -49,10 +49,30 @@ NonnegativeCone(args...) = NonnegativeCone{DefaultFloat}(args...)
 # Second Order Cone
 # ----------------------------------------------------
 
-struct SecondOrderCone{T} <: AbstractCone{T}
+mutable struct SecondOrderCone{T} <: AbstractCone{T}
+
 	dim::DefaultInt
+
+	w::Vector{T}
+
+	#vectors for rank 2 update representation of W^2
+	u::Vector{T}
+	v::Vector{T}
+
+	#additional scalar terms for rank-2 rep
+	d::T
+	η::T
+
+
+
 	function SecondOrderCone{T}(dim::Integer) where {T}
 		dim >= 2 ? new(dim) : throw(DomainError(dim, "dimension must be >= 2"))
+		w = Vector{T}(undef,dim)
+		u = Vector{T}(undef,dim)
+		v = Vector{T}(undef,dim)
+		d = 1.
+		η = 0.
+		new(dim,w,u,v,d,η)
 	end
 end
 
@@ -66,13 +86,13 @@ SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
 @enum SupportedCones begin
 	ZeroConeT
 	NonnegativeConeT
-	SecondOrderT
+	SecondOrderConeT
 end
 
 const ConeDict = Dict(
 	ZeroConeT =>  ZeroCone,
 	NonnegativeConeT =>  NonnegativeCone,
-	SecondOrderT     =>  SecondOrderCone
+	SecondOrderConeT =>  SecondOrderCone
 )
 
 mutable struct ConeInfo

@@ -16,9 +16,9 @@ function DefaultConeScalings{T}(cone_info::ConeInfo) where {T}
     #e.g. SOCs come last
     k_zerocone = count(==(ZeroConeT),cone_info.types)
     k_nncone   = count(==(NonnegativeConeT),cone_info.types)
-    k_socone   = count(==(SecondOrderT),cone_info.types)
+    k_socone   = count(==(SecondOrderConeT),cone_info.types)
 
-    # total dimension and order (not the same for SOC)
+    # total dimension and order (not the same for SO or zero cone)
     totaldim   = sum(cone -> dim(cone)  , cones)
     totalorder = sum(cone -> order(cone), cones)
 
@@ -58,7 +58,7 @@ function make_scaling_matrix(scalings::DefaultConeScalings{T}) where {T}
     WtW = SparseMatrixCSC(zeros(0,0))
 
     for i = 1:length(scalings.cones)
-        Wnext = make_WTW(scalings.cones[i])
+        Wnext = sparse(make_WTW(scalings.cones[i]))
         WtW = blockdiag(WtW,Wnext)
     end
 
