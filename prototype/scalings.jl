@@ -46,20 +46,3 @@ function IdentityScalings!(
     foreach(IdentityScaling!,scalings.cones)
 
 end
-
-function make_scaling_matrix(
-    scalings::DefaultConeScalings{T}) where {T}
-
-    # PJG: This is super inefficient and only for
-    # temporary use.  I am computing W^TW here.
-
-    WtW = SparseMatrixCSC(zeros(0,0))
-
-    for i = 1:length(scalings.cones)
-        Wnext = sparse(make_WTW(scalings.cones[i]))
-        WtW = blockdiag(WtW,Wnext)
-    end
-
-    return WtW
-
-end

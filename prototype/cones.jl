@@ -113,8 +113,6 @@ mutable struct ConeInfo
     function ConeInfo(types,dims)
 
         #count the number of each cone type
-        #PJG: assumed to be properly ordered
-        #e.g. SOCs come last
         k_zerocone = count(==(ZeroConeT),       types)
         k_nncone   = count(==(NonnegativeConeT),types)
         k_socone   = count(==(SecondOrderConeT),types)

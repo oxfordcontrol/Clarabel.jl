@@ -1,6 +1,6 @@
 module IPSolver
 
-    using SparseArrays, LinearAlgebra, QDLDL, Printf
+    using SparseArrays, LinearAlgebra, QDLDL, AMD, Printf
     const DefaultFloat = Float64
     const DefaultInt   = LinearAlgebra.BlasInt
 

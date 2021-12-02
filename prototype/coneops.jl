@@ -9,6 +9,16 @@ dim(K::AbstractCone{T}) where {T} = K.dim
 order(K::AbstractCone{T}) where {T} = K.dim
 
 
+# The diagonal part of the KKT scaling
+# matrix for each cone
+function set_scaling_diagonal!(
+    scalings::DefaultConeScalings,
+    diagW2::SplitVector{T}) where {T}
+
+    foreach(set_scaling_diagonal!,scalings.cones,diagW2.views)
+
+end
+
 # x = y ∘ z
 function circle_op!(
     scalings::DefaultConeScalings,
@@ -198,12 +208,11 @@ function add_scaled_e!(
 
 end
 
-function make_WTW(
-    K::ZeroCone{T}) where {T}
+function set_scaling_diagonal!(
+    K::ZeroCone{T},
+    diagW2::VectorView{T}) where {T}
 
-    #PJG: crazy inefficient
-    WTW = spzeros(K.dim,K.dim)
-
+    diagW2 .= 0.
 end
 
 function step_length(
@@ -251,11 +260,8 @@ function circle_op!(
     y::VectorView{T},
     z::VectorView{T}) where {T}
 
-    # PJG: note that we call λ ∘ λ at some point, which
-    # ends up re-squaring the square root in UpdateScaling!.
-    # Maybe could be implemented more efficiently.
     x .= y.*z
-
+    
 end
 
 # implements x = y \ z for the nn cone
@@ -322,11 +328,11 @@ function add_scaled_e!(
 
 end
 
-function make_WTW(
-    K::NonnegativeCone{T}) where {T}
+function set_scaling_diagonal!(
+    K::NonnegativeCone{T},
+    diagW2::VectorView{T}) where {T}
 
-    #PJG: TEMPORARY /  INEFFICIENT
-    WTW = SparseMatrixCSC(Diagonal(K.w.^2))
+    diagW2 .= -K.w.^2
 
 end
 
@@ -378,6 +384,9 @@ function UpdateScaling!(
     #term in the rank-2 update form of W^TW
     K.d = w0sq/2 + w1sq/2 * (1 - (α*α)/(1+w1sq*β))
 
+    #the leading scalar term for W^TW
+    K.η = sqrt(sscale/zscale)
+
     #the vectors for the rank two update
     #representation of W^TW
     u0 = sqrt(w0sq + w1sq - K.d)
@@ -389,9 +398,6 @@ function UpdateScaling!(
     K.v[1] = 0.
     K.v[2:end] .= v1.*K.w[2:end]
 
-    #the leading scalar term for W^TW
-    K.η = sqrt(sscale/zscale)
-
     #λ = Wz
     gemv_W!(K,false,z,λ,1.,0.)
 
@@ -400,11 +406,12 @@ end
 function IdentityScaling!(
     K::SecondOrderCone{T}) where {T}
 
-    K.u .= 0
-    K.v .= 0
+    K.d  = 1.
+    K.u .= 0.
+    K.v .= 0.
     K.η  = 1.
-    K.w[1]      = 0
-    K.w[2:end] .= 0
+    K.w[1]      = 0.
+    K.w[2:end] .= 0.
 end
 
 
@@ -509,14 +516,12 @@ function add_scaled_e!(
 
 end
 
+function set_scaling_diagonal!(
+    K::SecondOrderCone{T},
+    diagW2::VectorView{T}) where {T}
 
-function make_WTW(
-    K::SecondOrderCone{T}) where {T}
-
-    #PJG: TEMPORARY /  *very* INEFFICIENT
-    W2 = Matrix(I(K.dim)*1.)
-    W2[1] = K.d
-    W2 = K.η^2 .* (W2 + K.u*K.u' - K.v*K.v')
+    diagW2    .= -(K.η^2)
+    diagW2[1] *= K.d
 
 end
 

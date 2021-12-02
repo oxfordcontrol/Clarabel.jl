@@ -10,6 +10,11 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
 
     KKT::SparseMatrixCSC{T}
     factors
+    perm
+
+    # a vector for storing the scaling
+    # matrix diagonal entries
+    diagW2::SplitVector{T}
 
     #solution vector for constant part of KKT solves
     lhs_cb::Vector{T}
@@ -34,7 +39,11 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
 
         #KKT, factors = initialize_kkt_matrix(data)
         #PJG: this function is ropey AF
-        KKT,factors = initialize_kkt_matrix(data.A,n,m,p)
+        KKT,factors,perm = initialize_kkt_matrix(data.A,n,m,p)
+
+        #a vector for storing diagonal
+        #terms of the scaling matrix
+        diagW2 = SplitVector{T}(m,data.cone_info)
 
         #the RHS/LHS for the constant part of the reduced
         #solve and its solution (solves in place)
@@ -55,7 +64,7 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
         work_p = view(work,(n+m+1):(n+m+p))
 
 
-        new(n,m,p,KKT,nothing,
+        new(n,m,p,KKT,nothing,nothing,diagW2,
             lhs_cb,lhs_cb_x,lhs_cb_z,lhs_cb_p,
             work, work_x, work_z, work_p)
 
@@ -68,17 +77,19 @@ DefaultKKTSolver(args...) = DefaultKKTSolver{DefaultFloat}(args...)
 
 function initialize_kkt_matrix(A,n,m,p) where{T}
 
+    #PJG: this is crazy inefficient
     D1  = sparse(I(n)*0.)
     D2  = sparse(I(m)*1.)
     D3  = sparse(I(p)*1.)
-    KKT = [D1 A'; A D2]
+    ZA  = spzeros(m,n)
+    KKT = [D1 A'; ZA D2]  #upper triangle only
     KKT = blockdiag(KKT,D3)
     factors = nothing
+    perm    = nothing
 
-    return KKT, factors
+    return KKT, factors, perm
 
 end
-
 
 function UpdateKKTSystem!(
     kktsolver::DefaultKKTSolver{T},
@@ -88,15 +99,53 @@ function UpdateKKTSystem!(
     m = kktsolver.m
     p = kktsolver.p
 
-    #PJG : for now, just build the scaling matrix
-    # and reconstruct KKT in some inefficient way
-    WtW = make_scaling_matrix(scalings)
+    set_scaling_diagonal!(scalings,kktsolver.diagW2)
 
-    #drop this block into the lower RHS of KKT
-    kktsolver.KKT[(n+1):(m+n),(n+1):(m+n)] .= -WtW
-    
+    #set the diagonal of the KKT matrix
+    #PJG: this is super inefficient
+    for i = 1:m
+        kktsolver.KKT[(n+i),(n+i)] = kktsolver.diagW2.vec[i]
+    end
+
+    #add the scaled u and v columns.
+    #only needed on the upper triangle
+    colidx = n+1    #the first column of current cone
+    pidx   = n+m+1  #next SOC expansion column goes here
+
+    for i = 1:length(scalings.cone_info.types)
+
+        conedim = scalings.cone_info.dims[i]
+
+        if(scalings.cone_info.types[i] == SecondOrderConeT)
+
+            K  = scalings.cones[i]
+            η2 = K.η^2
+
+            #add scaled u and v columns here
+            rows = (colidx):(colidx+conedim-1)
+            kktsolver.KKT[rows,pidx]   .= (-η2).*K.v
+            kktsolver.KKT[rows,pidx+1] .= (-η2).*K.u
+
+            #add 1/-1 to diagonal in the extended rows/cols
+            kktsolver.KKT[pidx,pidx]      = -η2
+            kktsolver.KKT[pidx+1,pidx+1]  = +η2
+            pidx += 2
+        end
+
+        colidx += conedim
+
+    end
+
+    #PJG: permumation should be decided at
+    #initialization, but compute it once here
+    #instead until the KKT initialization is
+    #properly place sparse vectors on the borders
+    if(isnothing(kktsolver.perm))
+        kktsolver.perm = amd(kktsolver.KKT)
+    end
+
     #refactor.  For now, just overwrite the factors
-    kktsolver.factors = qdldl(kktsolver.KKT)
+    kktsolver.factors = qdldl(kktsolver.KKT;perm=kktsolver.perm)
 
 end
 

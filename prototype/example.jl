@@ -4,6 +4,7 @@ using .IPSolver
 using LinearAlgebra
 using Printf
 using ClearStacktrace
+using StatProfilerHTML
 
 A = SparseMatrixCSC(I(3)*1.)
 A = [A;-A].*2
