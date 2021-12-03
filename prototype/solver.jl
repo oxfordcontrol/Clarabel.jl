@@ -16,14 +16,18 @@ function Setup!(
     s.settings  = settings
     s.data      = DefaultProblemData(c,A,b,cone_info)
     s.scalings  = DefaultConeScalings(cone_info)
-    s.variables = DefaultVariables(s.data.n,s.data.m,cone_info)
+    s.variables = DefaultVariables(s.data.n,cone_info)
     s.residuals = DefaultResiduals(s.data.n,s.data.m)
-    s.kktsolver = DefaultKKTSolver(s.data)
+    if(settings.direct_kkt_solver == true)
+        s.kktsolver = DefaultKKTSolverDirect(s.data,s.scalings)
+    else
+        s.kktsolver = DefaultKKTSolverIndirect(s.data,s.scalings)
+    end
     s.status    = DefaultStatus()
 
     # work variables for assembling step direction LHS/RHS
-    s.step_rhs  = DefaultVariables(s.data.n,s.data.m,s.scalings.cone_info)
-    s.step_lhs  = DefaultVariables(s.data.n,s.data.m,s.scalings.cone_info)
+    s.step_rhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
+    s.step_lhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
 
 end
 
@@ -32,7 +36,8 @@ end
 # solve!
 # -------------------------------------
 function Solve!(
-    s::Solver{T}) where{T}
+    s::Solver{T}
+) where{T}
 
     #various initializations
     ResetStatus(s.status)
@@ -158,7 +163,7 @@ function CalcStepLength(
 
     ατ    = step.τ < 0 ? -variables.τ / step.τ : 1/eps(T)
     ακ    = step.κ < 0 ? -variables.κ / step.κ : 1/eps(T)
-    αcone = step_length(scalings, step.z, step.s, variables.z, variables.s, variables.λ )
+    αcone = step_length(scalings, step.z, step.s, variables.z, variables.s, scalings.λ )
 
     α     = min(ατ,ακ,αcone,1.)
 
@@ -180,7 +185,7 @@ function CalcAffineStepRHS!(
 
     d.x     .=  r.rx
     d.z.vec .= -r.rz .+ variables.s.vec
-    circle_op!(scalings, d.s, variables.λ, variables.λ)
+    circle_op!(scalings, d.s, scalings.λ, scalings.λ)
     d.τ      =  r.rτ
     d.κ      =  variables.τ * variables.κ
 
@@ -216,7 +221,7 @@ function CalcCombinedStepRHS!(
     d.s.vec .+= d.z.vec
 
     # now build d.z from scratch
-    inv_circle_op!(scalings, d.z, variables.λ, d.s)           #dz = λ \ ds
+    inv_circle_op!(scalings, d.z, scalings.λ, d.s)            #dz = λ \ ds
     gemv_W!(scalings, false, d.z, d.z, 1., 0.)                #dz = Wdz
     d.z.vec .+= -(1-σ).*r.rz
 

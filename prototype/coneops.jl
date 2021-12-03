@@ -84,6 +84,34 @@ function gemv_Winv!(
     foreach((c,x,y)->gemv_Winv!(c,is_transpose,x,y,α,β),cones,xv,yv)
 end
 
+# computes y = (W^TW){-1}x
+function mul_WtWinv!(
+    scalings::DefaultConeScalings,
+    x::SplitVector{T},
+    y::SplitVector{T}) where {T}
+
+    cones = scalings.cones
+    xv    = x.views
+    yv    = y.views
+
+    foreach((c,x,y)->mul_WtW!(c,x,y),cones,xv,yv)
+
+end
+
+# computes y = (W^TW)x
+function mul_WtW!(
+    scalings::DefaultConeScalings,
+    x::SplitVector{T},
+    y::SplitVector{T}) where {T}
+
+    cones = scalings.cones
+    xv    = x.views
+    yv    = y.views
+
+    foreach((c,x,y)->mul_WtW!(c,x,y),cones,xv,yv)
+
+end
+
 #computes y = y + αe
 function add_scaled_e!(
     scalings::DefaultConeScalings,
@@ -199,6 +227,28 @@ function gemv_Winv!(
 
 end
 
+# implements y = W^TW^{-1}x
+function mul_WtWinv!(
+    K::ZeroCone{T},
+    x::VectorView{T},
+    y::VectorView{T}) where {T}
+
+  #treat inv(W^TW) like zero
+  y .= 0
+
+end
+
+# implements y = W^TWx
+function mul_WtW!(
+    K::ZeroCone{T},
+    x::VectorView{T},
+    y::VectorView{T}) where {T}
+
+  #treat inv(W^TW) like zero
+  y .= 0
+
+end
+
 # implements y = y + αe for the nn cone
 function add_scaled_e!(
     K::ZeroCone{T},
@@ -261,7 +311,7 @@ function circle_op!(
     z::VectorView{T}) where {T}
 
     x .= y.*z
-    
+
 end
 
 # implements x = y \ z for the nn cone
@@ -292,7 +342,7 @@ end
 
 # implements y = αWx + βy for the nn cone
 function gemv_W!(
-    K::NonnegativeCone,
+    K::NonnegativeCone{T},
     is_transpose::Bool,
     x::VectorView{T},
     y::VectorView{T},
@@ -306,7 +356,7 @@ end
 
 # implements y = αWx + βy for the nn cone
 function gemv_Winv!(
-    K::NonnegativeCone,
+    K::NonnegativeCone{T},
     is_transpose::Bool,
     x::VectorView{T},
     y::VectorView{T},
@@ -315,6 +365,26 @@ function gemv_Winv!(
 
   #W is diagonal, so ignore transposition
   y .= α.*(x./K.w) + β.*y
+
+end
+
+# implements y = W^TW^{-1}x
+function mul_WtWinv!(
+    K::NonnegativeCone{T},
+    x::VectorView{T},
+    y::VectorView{T}) where {T}
+
+  y .= x./(K.w.^2)
+
+end
+
+# implements y = W^TW^x
+function mul_WtW!(
+    K::NonnegativeCone{T},
+    x::VectorView{T},
+    y::VectorView{T}) where {T}
+
+  y .= x.*(K.w.^2)
 
 end
 
@@ -465,7 +535,7 @@ end
 
 # implements y = αWx + βy for the socone
 function gemv_W!(
-    K::SecondOrderCone,
+    K::SecondOrderCone{T},
     is_transpose::Bool,
     x::VectorView{T},
     y::VectorView{T},
@@ -486,7 +556,7 @@ end
 
 # implements y = αWx + βy for the nn cone
 function gemv_Winv!(
-    K::SecondOrderCone,
+    K::SecondOrderCone{T},
     is_transpose::Bool,
     x::VectorView{T},
     y::VectorView{T},
@@ -503,6 +573,34 @@ function gemv_Winv!(
     for i = 2:length(y)
         y[i] = (α/K.η)*(x[i] + c*K.w[i]) + β*y[i]
     end
+
+end
+
+# implements y = W^TW^{-1}x
+function mul_WtWinv!(
+    K::SecondOrderCone{T},
+    x::VectorView{T},
+    y::VectorView{T}) where {T}
+
+    #PJG: W is symmetric, so just multiply
+    #by the inverse twice.  Could be made
+    #faster if needed
+    gemv_Winv!(K,true,y,y,1.0,0.0)
+    gemv_Winv!(K,true,x,y,1.0,0.0)
+
+end
+
+# implements y = W^TWx
+function mul_WtW!(
+    K::SecondOrderCone{T},
+    x::VectorView{T},
+    y::VectorView{T}) where {T}
+
+    #PJG: W is symmetric, so just multiply
+    #by W twice.  Could be made
+    #faster if needed
+    gemv_W!(K,true,y,y,1.0,0.0)
+    gemv_W!(K,true,x,y,1.0,0.0)
 
 end
 

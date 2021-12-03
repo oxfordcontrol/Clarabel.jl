@@ -1,8 +1,8 @@
 # ---------------
-# KKT Solver
+# KKT Solver (direct method)
 # ---------------
 
-mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
+mutable struct DefaultKKTSolverDirect{T} <: AbstractKKTSolver{T}
 
     n  #cols in A
     m  #rows in A
@@ -30,8 +30,9 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
     work_p::VectorView{T}
 
 
-    function DefaultKKTSolver{T}(
-        data::DefaultProblemData{T}) where {T}
+    function DefaultKKTSolverDirect{T}(
+        data::DefaultProblemData{T},
+        scalings::DefaultConeScalings) where {T}
 
         n = data.n
         m = data.m
@@ -43,7 +44,7 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
 
         #a vector for storing diagonal
         #terms of the scaling matrix
-        diagW2 = SplitVector{T}(m,data.cone_info)
+        diagW2 = SplitVector{T}(data.cone_info)
 
         #the RHS/LHS for the constant part of the reduced
         #solve and its solution (solves in place)
@@ -72,7 +73,7 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
 
 end
 
-DefaultKKTSolver(args...) = DefaultKKTSolver{DefaultFloat}(args...)
+DefaultKKTSolverDirect(args...) = DefaultKKTSolverDirect{DefaultFloat}(args...)
 
 
 function initialize_kkt_matrix(A,n,m,p) where{T}
@@ -92,7 +93,7 @@ function initialize_kkt_matrix(A,n,m,p) where{T}
 end
 
 function UpdateKKTSystem!(
-    kktsolver::DefaultKKTSolver{T},
+    kktsolver::DefaultKKTSolverDirect{T},
     scalings::DefaultConeScalings{T}) where {T}
 
     n = kktsolver.n
@@ -139,7 +140,7 @@ function UpdateKKTSystem!(
     #PJG: permumation should be decided at
     #initialization, but compute it once here
     #instead until the KKT initialization is
-    #properly place sparse vectors on the borders
+    #properly placing sparse vectors on the borders
     if(isnothing(kktsolver.perm))
         kktsolver.perm = amd(kktsolver.KKT)
     end
@@ -151,7 +152,7 @@ end
 
 
 function SolveKKTConstantRHS!(
-    kktsolver::DefaultKKTSolver{T},
+    kktsolver::DefaultKKTSolverDirect{T},
     data::DefaultProblemData{T}) where {T}
 
     # QDLDL solves in place, so copy [-c;b] into it and solve
@@ -166,7 +167,7 @@ function SolveKKTConstantRHS!(
 end
 
 function SolveKKTInitialPoint!(
-    kktsolver::DefaultKKTSolver{T},
+    kktsolver::DefaultKKTSolverDirect{T},
     variables::DefaultVariables{T},
     data::DefaultProblemData{T}) where{T}
 
@@ -179,7 +180,7 @@ function SolveKKTInitialPoint!(
     variables.x      .= kktsolver.work_x
     variables.s.vec  .= kktsolver.work_z
 
-    # solve with [-c;-] as a RHS to get z initializer
+    # solve with [-c;0] as a RHS to get z initializer
     kktsolver.work_x .= -data.c
     kktsolver.work_z .=  0.
     kktsolver.work_p .=  0.
@@ -189,7 +190,7 @@ function SolveKKTInitialPoint!(
 end
 
 function SolveKKT!(
-    kktsolver::DefaultKKTSolver{T},
+    kktsolver::DefaultKKTSolverDirect{T},
     lhs::DefaultVariables{T},
     rhs::DefaultVariables{T},
     variables::DefaultVariables{T},
@@ -219,7 +220,7 @@ function SolveKKT!(
     lhs.z.vec .+= lhs.τ .* constz
 
     #solve for Δs = -Wᵀ(λ \ dₛ + WΔz)
-    inv_circle_op!(scalings, lhs.s, variables.λ, rhs.s) #Δs = λ \ dₛ
+    inv_circle_op!(scalings, lhs.s, scalings.λ, rhs.s) #Δs = λ \ dₛ
     gemv_W!(scalings, false, lhs.z, lhs.s,  1., 1.)   #Δs = WΔz + Δs
     gemv_W!(scalings,  true, lhs.s, lhs.s, -1., 0.)   #Δs = -WᵀΔs
 

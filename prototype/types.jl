@@ -24,10 +24,9 @@ mutable struct SplitVector{T} <: AbstractVariables{T}
     views::Vector{VectorView{T}}
 
     function SplitVector{T}(
-        n::Integer,
         cone_info::ConeInfo) where {T}
 
-        vec   = Vector{T}(undef,n)
+        vec   = Vector{T}(undef,cone_info.totaldim)
         views = Vector{VectorView{T}}(undef, length(cone_info.types))
 
         # loop over the sets and create views
@@ -62,25 +61,18 @@ mutable struct DefaultVariables{T} <: AbstractVariables{T}
     z::SplitVector{T}
     τ::T
     κ::T
-    #PJG: Not convinced that this belongs here
-    λ::SplitVector{T}
-
-    #PJG:I don't think lambda belongs here because
-    #there is no lambda required for the step directions
 
     function DefaultVariables{T}(
         n::Integer,
-        m::Integer,
         cone_info::ConeInfo) where {T}
 
         x = Vector{T}(undef,n)
-        s = SplitVector{T}(m,cone_info)
-        z = SplitVector{T}(m,cone_info)
+        s = SplitVector{T}(cone_info)
+        z = SplitVector{T}(cone_info)
         τ = T(1)
         κ = T(1)
-        λ = SplitVector{T}(m,cone_info)
 
-        new(x,s,z,τ,κ,λ)
+        new(x,s,z,τ,κ)
     end
 
 end
@@ -100,10 +92,11 @@ mutable struct DefaultConeScalings{T} <: AbstractConeScalings{T}
     # vector of objects containing the scalings
     cones::Vector{AbstractCone{T}}
 
-    #composite cone sizes
-    #not convinced that these belong here.  Maybe in problem data
-    #where it can also be checked for dimensional compatibility
-    total_dim::DefaultInt
+    # scaled variable λ = Wz = W^{-1}s
+    λ::SplitVector{T}
+
+    #composite cone order.  Note the
+    #same as dimension for zero or SO cones
     total_order::DefaultInt
 
 end
@@ -116,8 +109,6 @@ DefaultConeScalings(args...) = DefaultConeScalings{DefaultFloat}(args...)
 # ---------------
 # residuals
 # ---------------
-
-#PJG: NB -- struct is identical to Variables structure
 
 mutable struct DefaultResiduals{T} <: AbstractResiduals{T}
 
@@ -169,10 +160,16 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     norm_b::T
 
     function DefaultProblemData{T}(c,A,b,cone_info) where {T}
+
         n         = length(c)
         m         = length(b)
-        #PJG: dimension sanity checks here
+
+        m == size(A)[1] || throw(ErrorException("A and b incompatible dimensions."))
+        n == size(A)[2] || throw(ErrorException("A and c incompatible dimensions."))
+        m == sum(cone_info.dims) || throw(ErrorException("Incompatible cone dimensions."))
+
         new(c,A,b,n,m,cone_info,norm(c),norm(b))
+
     end
 
 end

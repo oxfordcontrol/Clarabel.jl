@@ -110,13 +110,17 @@ mutable struct ConeInfo
     k_nncone::DefaultInt
     k_socone::DefaultInt
 
+    #total dimension
+    totaldim::DefaultInt
+
     function ConeInfo(types,dims)
 
         #count the number of each cone type
         k_zerocone = count(==(ZeroConeT),       types)
         k_nncone   = count(==(NonnegativeConeT),types)
         k_socone   = count(==(SecondOrderConeT),types)
+        totaldim   = sum(dims)
 
-        new(types,dims,k_zerocone,k_nncone,k_socone)
+        new(types,dims,k_zerocone,k_nncone,k_socone,totaldim)
     end
 end

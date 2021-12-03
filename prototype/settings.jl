@@ -7,15 +7,17 @@ mutable struct Settings{T <: AbstractFloat}
     tol_gap_abs::T
     tol_gap_rel::T
     tol_feas::T
+    direct_kkt_solver::Bool
 
     function Settings{T}(;
         max_iter = 50,
         verbose = true,
         tol_gap_abs = 1e-7,
         tol_gap_rel = 1e-6,
-        tol_feas    = 1e-5) where {T}
+        tol_feas    = 1e-5,
+        direct_kkt_solver = true) where {T}
 
-        new(max_iter,verbose,tol_gap_abs,tol_gap_rel,tol_feas)
+        new(max_iter,verbose,tol_gap_abs,tol_gap_rel,tol_feas,direct_kkt_solver)
 
     end
 end

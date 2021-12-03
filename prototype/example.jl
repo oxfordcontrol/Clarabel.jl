@@ -36,20 +36,21 @@ cone_dims  = [3,3]
 #solve in JuMP
 using JuMP
 using MosekTools, OSQP, ECOS
-@printf("\n\nJuMP\n-------------------------\n\n")
-model = Model(ECOS.Optimizer)
-@variable(model, x[1:3])
-@constraint(model, c1, A*x .<= b)
-@objective(model, Min, sum(c.*x))
 
-#Run the opimization
-optimize!(model)
-print(JuMP.value.(x))
+# @printf("\n\nJuMP\n-------------------------\n\n")
+# model = Model(ECOS.Optimizer)
+# @variable(model, x[1:3])
+# @constraint(model, c1, A*x .<= b)
+# @objective(model, Min, sum(c.*x))
+#
+# #Run the opimization
+# optimize!(model)
+# print(JuMP.value.(x))
+#
+# @printf("\n\n-------------------------\n\n")
+# @printf("\nClarabel\n-------------------------\n\n")
 
-@printf("\n\n-------------------------\n\n")
-@printf("\nClarabel\n-------------------------\n\n")
-
-settings = IPSolver.Settings(max_iter=20)
+settings = IPSolver.Settings(max_iter=20,direct_kkt_solver=false)
 solver   = IPSolver.Solver()
 IPSolver.Setup!(solver,c,A,b,cone_types,cone_dims,settings)
 IPSolver.Solve!(solver)

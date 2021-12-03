@@ -12,11 +12,12 @@ function DefaultConeScalings{T}(
         push!(cones, ConeDict[type](dim))
     end
 
-    # total dimension and order (not the same for SO or zero cone)
-    totaldim   = sum(cone -> dim(cone)  , cones)
+    # total cone order (not the same as dimension for SO and zero)
     totalorder = sum(cone -> order(cone), cones)
 
-    DefaultConeScalings(cone_info,cones,totaldim,totalorder)
+    λ = SplitVector{T}(cone_info)
+
+    DefaultConeScalings(cone_info,cones,λ,totalorder)
 
 end
 
@@ -28,13 +29,10 @@ function UpdateScalings!(
     cones  = scalings.cones
     sviews = variables.s.views
     zviews = variables.z.views
-    λviews = variables.λ.views
+    λviews = scalings.λ.views
 
     # update scalings by passing subview to each of
-    # the appropriate cone types.   Done here via
-    # multiple dispatch, but in C by assuming that
-    # the cones appear in the appropriate order and
-    # according to the counts in cone_info
+    # the appropriate cone types.   
     foreach(UpdateScaling!,cones,sviews,zviews,λviews)
 
 end
