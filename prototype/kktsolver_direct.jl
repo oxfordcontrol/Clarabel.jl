@@ -195,7 +195,12 @@ function SolveKKT!(
     rhs::DefaultVariables{T},
     variables::DefaultVariables{T},
     scalings::DefaultConeScalings{T},
-    data::DefaultProblemData{T}) where{T}
+    data::DefaultProblemData{T},
+    phase = :affine) where{T}
+
+    #PJG: possible that phase is not needed since
+    #warm starting solutions to newton steps
+    #maybe doesn't make any sense
 
     constx = kktsolver.lhs_cb_x
     constz = kktsolver.lhs_cb_z

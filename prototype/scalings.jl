@@ -22,7 +22,7 @@ function DefaultConeScalings{T}(
 end
 
 
-function UpdateScalings!(
+function UpdateScaling!(
     scalings::DefaultConeScalings{T},
     variables::DefaultVariables{T}) where {T}
 
@@ -32,12 +32,12 @@ function UpdateScalings!(
     λviews = scalings.λ.views
 
     # update scalings by passing subview to each of
-    # the appropriate cone types.   
+    # the appropriate cone types.
     foreach(UpdateScaling!,cones,sviews,zviews,λviews)
 
 end
 
-function IdentityScalings!(
+function IdentityScaling!(
     scalings::DefaultConeScalings{T},
     variables::DefaultVariables{T}) where {T}
 

@@ -1,5 +1,6 @@
 using IterativeSolvers
 using LinearMaps
+import Krylov
 
 # ---------------
 # KKT Solver (indirect method)
@@ -23,13 +24,11 @@ mutable struct DefaultKKTSolverIndirect{T} <: AbstractKKTSolver{T}
     lhs_cb_z::VectorView{T}
 
     #RHS solution vector for variable/step part of KKT solves
+    #carry two lhs_step vectors to allow warm start behaviour
+    #in the two different solve directions at each IP iteration
     rhs_step::Vector{T}
-    lhs_step::Vector{T}
-    #views into variable RHS and solution
-    rhs_step_x::VectorView{T}
-    rhs_step_z::VectorView{T}
-    lhs_step_x::VectorView{T}
-    lhs_step_z::VectorView{T}
+    lhs_step_affine::Vector{T}
+    lhs_step_combined::Vector{T}
 
 
     function DefaultKKTSolverIndirect{T}(
@@ -53,21 +52,22 @@ mutable struct DefaultKKTSolverIndirect{T} <: AbstractKKTSolver{T}
         lhs_cb_x = view(lhs_cb,1:n)
         lhs_cb_z = view(lhs_cb,(n+1):(n+m))
 
-
         ##solution vector for variable/step part of 3x3 KKT solves
         rhs_step = Vector{T}(undef,n + m)
-        lhs_step = Vector{T}(undef,n + m)
-        #views into the solution solution for x/z partition
-        rhs_step_x = view(rhs_step,1:n)
-        rhs_step_z = view(rhs_step,(n+1):(n+m))
-        lhs_step_x = view(lhs_step,1:n)
-        lhs_step_z = view(lhs_step,(n+1):(n+m))
+        lhs_step_affine   = Vector{T}(undef,n + m)
+        lhs_step_combined = Vector{T}(undef,n + m)
+
+        #zero all the LHS terms for minres! so we
+        #don't accidentally warm start somewhere gnarly
+        lhs_cb .= 0.0
+        lhs_step_affine   .= 0.0
+        lhs_step_combined .= 0.0
+
 
         return new(n,m,KKTmap,work,
             rhs_cb,lhs_cb,
             rhs_cb_x,rhs_cb_z,lhs_cb_x,lhs_cb_z,
-            rhs_step,lhs_step,
-            rhs_step_x,rhs_step_z,lhs_step_x,lhs_step_z)
+            rhs_step,lhs_step_affine,lhs_step_combined)
 
     end
 
@@ -126,8 +126,20 @@ function _solve_kkt!(
     b::Vector{T},
     ) where {T}
 
-    x .= 0.
-    minres!(x,kktsolver.KKTmap,b)
+
+    # @printf("DEBUG: minres LHS norm on entry %f\n",norm(x))
+    # @printf("DEBUG: minres RHS norm on entry %f\n",norm(x))
+    #tmp,history = minres!(x,kktsolver.KKTmap,b,abstol=1e-3,reltol=0,log=true)
+    tmp,stats = Krylov.minres(kktsolver.KKTmap,b)
+    x .= tmp
+    # println("DEBUG: ", history)
+    # norms = history.data[:resnorm]
+    # first = length(norms) > 0 ? norms[1] : NaN
+    # last = length(norms) > 0 ? norms[end] : NaN
+    # @printf("DEBUG: resnorm start/end = %f/%f\n", first,last)
+    # @printf("DEBUG: minres LHS norm on exit  %f\n",norm(x))
+
+
 
 
 end
@@ -149,7 +161,7 @@ function SolveKKTConstantRHS!(
 
     # minres does NOT solve in place, so really only
     # need to copy [-c;b] into the RHS one time.
-    # Could be move to constructor for efficiency
+    # Could be moved to constructor for efficiency
     kktsolver.rhs_cb_x .= -data.c;
     kktsolver.rhs_cb_z .=  data.b;
 
@@ -162,21 +174,30 @@ function SolveKKTInitialPoint!(
     variables::DefaultVariables{T},
     data::DefaultProblemData{T}) where{T}
 
+    # arbitrarly choose lhs_cb/rhs_cb space for solving,
+    # then set it back to zero when done.
+
     # solve with [0;b] as a RHS to get (x,s) initializers
-    # zero out the sparse cone variables at end
-    kktsolver.rhs_step_x .= 0.
-    kktsolver.rhs_step_z .= data.b
+    kktsolver.rhs_cb_x .= 0.
+    kktsolver.rhs_cb_z .= data.b
+    kktsolver.lhs_cb   .= 0.
 
-    _solve_kkt!(kktsolver,kktsolver.lhs_step,kktsolver.rhs_step)
+    _solve_kkt!(kktsolver,kktsolver.lhs_cb,kktsolver.rhs_cb)
 
-    variables.x      .= kktsolver.lhs_step_x
-    variables.s.vec  .= kktsolver.rhs_step_z
+    variables.x      .= kktsolver.lhs_cb_x
+    variables.s.vec  .= kktsolver.rhs_cb_z
 
     # solve with [-c;0] as a RHS to get z initializer
-    kktsolver.rhs_step_x .= -data.c
-    kktsolver.rhs_step_z .=  0.
-    _solve_kkt!(kktsolver,kktsolver.lhs_step,kktsolver.rhs_step)
-    variables.z.vec  .= kktsolver.lhs_step_z
+    # zero LHS so I don't warm start from (x,s) solution
+    kktsolver.rhs_cb_x .= -data.c
+    kktsolver.rhs_cb_z .=  0.
+    kktsolver.lhs_cb   .=  0.
+    _solve_kkt!(kktsolver,kktsolver.lhs_cb,kktsolver.rhs_cb)
+    variables.z.vec  .= kktsolver.lhs_cb_z
+
+    #rezero the LHS one last time so that SolveKKTConstantRHS!
+    #isn't warm starting from this old solution
+    kktsolver.lhs_cb .= 0.
 
 end
 
@@ -186,19 +207,38 @@ function SolveKKT!(
     rhs::DefaultVariables{T},
     variables::DefaultVariables{T},
     scalings::DefaultConeScalings{T},
-    data::DefaultProblemData{T}) where{T}
+    data::DefaultProblemData{T},
+    phase = :affine) where{T}
+
+    m = data.m
+    n = data.n
 
     constx = kktsolver.lhs_cb_x
     constz = kktsolver.lhs_cb_z
 
+    #configure a different LHS vector depending
+    #on the solve phase, so that we will warm
+    #start each phase independently between iterations
+    #PJG: Maybe this doesn't make sense.   THe proper
+    #warm start point for a Newton step solve is zero
+    if phase == :affine
+        kkt_lhs_step = kktsolver.lhs_step_affine
+    else
+        kkt_lhs_step = kktsolver.lhs_step_combined
+    end
+
     # assemble the right hand side and solve in place
-    kktsolver.rhs_step_x .= rhs.x
-    kktsolver.rhs_step_z .= rhs.z.vec
-    _solve_kkt!(kktsolver,kktsolver.lhs_step,kktsolver.rhs_step)
+    kktsolver.rhs_step[1:n]     .= rhs.x
+    kktsolver.rhs_step[n+1:n+m] .= rhs.z.vec
+
+    # use a different lhs vector for the :affine
+    # and :combined step to improve warm starting
+
+    _solve_kkt!(kktsolver,kkt_lhs_step,kktsolver.rhs_step)
 
     #copy back into the solution to get (Δx₂,Δz₂)
-    lhs.x     .= kktsolver.lhs_step_x
-    lhs.z.vec .= kktsolver.lhs_step_z
+    lhs.x     .= kkt_lhs_step[1:n]
+    lhs.z.vec .= kkt_lhs_step[n+1:n+m]
 
     #solve for Δτ
     lhs.τ  = rhs.τ - rhs.κ/variables.τ + dot(data.c,lhs.x) + dot(data.b,lhs.z.vec)

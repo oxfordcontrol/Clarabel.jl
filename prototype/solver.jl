@@ -78,7 +78,7 @@ function Solve!(
 
         #update the scalings
         #--------------
-        UpdateScalings!(s.scalings,s.variables)
+        UpdateScaling!(s.scalings,s.variables)
 
         #update the KKT system
         #--------------
@@ -91,7 +91,7 @@ function Solve!(
         #calculate the affine step
         #--------------
         CalcAffineStepRHS!(s.step_rhs, s.residuals, s.variables, s.scalings)
-        SolveKKT!(s.kktsolver, s.step_lhs, s.step_rhs, s.variables, s.scalings, s.data)
+        SolveKKT!(s.kktsolver, s.step_lhs, s.step_rhs, s.variables, s.scalings, s.data,:affine)
 
         #calculate step length and centering parameter
         #--------------
@@ -101,7 +101,7 @@ function Solve!(
         #calculate the combined step and length
         #--------------
         CalcCombinedStepRHS!(s.step_rhs,s.residuals,s.variables,s.scalings,s.step_lhs,σ,μ)
-        SolveKKT!(s.kktsolver, s.step_lhs, s.step_rhs, s.variables, s.scalings, s.data)
+        SolveKKT!(s.kktsolver, s.step_lhs, s.step_rhs, s.variables, s.scalings, s.data,:combined)
 
         #compute final step length and update the current iterate
         #--------------
@@ -230,7 +230,7 @@ end
 function DefaultStart!(s::Solver{T}) where {T}
 
     #set all scalings to identity (or zero for the zero cone)
-    IdentityScalings!(s.scalings,s.variables)
+    IdentityScaling!(s.scalings,s.variables)
     #Refactor
     UpdateKKTSystem!(s.kktsolver,s.scalings)
     #solve for primal/dual initial points via KKT

@@ -44,6 +44,7 @@ mutable struct SplitVector{T} <: AbstractVariables{T}
 
 end
 
+SplitVector(args...) = SplitVector{DefaultFloat}(args...)
 
 
 # -------------------------------------
