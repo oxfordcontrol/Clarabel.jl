@@ -1,3 +1,7 @@
+
+#local files / testing
+_*.jl
+
 # Prerequisites
 *.d
 
