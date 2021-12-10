@@ -1,8 +1,8 @@
 
-
-function PrintStatus(
+function print_status(
     status::DefaultStatus{T},
-    settings::Settings) where {T}
+    settings::Settings
+) where {T}
 
     if(settings.verbose == false) return end
 
@@ -21,12 +21,16 @@ function PrintStatus(
 
     @printf("\n")
 
+    return nothing
 end
 
-function PrintHeader(
-    s::Solver{T}) where {T}
+function print_header(
+    status::DefaultStatus{T},
+    settings::Settings,
+    data::DefaultProblemData{T}
+) where {T}
 
-    if(s.settings.verbose == false) return end
+    if(settings.verbose == false) return end
 
     println("-----------------------------------------------")
     println("      Clarabel v0.0.0  -  Clever Acronym       ")
@@ -34,15 +38,15 @@ function PrintHeader(
     println("         University of Oxford, 2021            ")
     println("-----------------------------------------------")
     println("problem:")
-    @printf("variables     = %i, ", s.data.n)
-    @printf("constraints   = %i\n", s.data.m)
-    @printf("nnz(A)        = %i, ", nnz(s.data.A))
-    @printf("cones         = %i\n", length(s.data.cone_info.types))
-    @printf(": zero        = %i\n", (s.data.cone_info.k_zerocone))
-    @printf(": nonnegative = %i\n", (s.data.cone_info.k_nncone))
-    @printf(": secondorder = %i\n", (s.data.cone_info.k_socone))
+    @printf("variables     = %i, ", data.n)
+    @printf("constraints   = %i\n", data.m)
+    @printf("nnz(A)        = %i, ", nnz(data.A))
+    @printf("cones         = %i\n", length(data.cone_info.types))
+    @printf(": zero        = %i\n", (data.cone_info.k_zerocone))
+    @printf(": nonnegative = %i\n", (data.cone_info.k_nncone))
+    @printf(": secondorder = %i\n", (data.cone_info.k_socone))
     @printf("settings = \n")
-    dump(s.settings)
+    dump(settings)
     @printf("\n")
 
     #print a subheader for the iterations info
@@ -57,15 +61,19 @@ function PrintHeader(
     @printf("\n")
     println("-----------------------------------------------------------------------------------")
 
+    return nothing
 end
 
-function PrintFooter(
+function print_footer(
     status::DefaultStatus{T},
-    settings::Settings) where {T}
+    settings::Settings
+) where {T}
 
     if(settings.verbose == false) return end
 
     println("-----------------------------------------------------------------------------------")
     @printf("Terminated with status = %s\n",SolverStatusDict[status.status])
     @printf("solve time = %s\n",status.solve_time)
+
+    return nothing
 end

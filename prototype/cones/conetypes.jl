@@ -1,4 +1,3 @@
-
 # -------------------------------------
 # abstract type defs
 # -------------------------------------
@@ -41,7 +40,7 @@ struct NonnegativeCone{T} <: AbstractCone{T}
 
         dim >= 1 || throw(DomainError(dim, "dimension must be positive"))
         w = Vector{T}(undef,dim)
-        new(dim,w)
+        return new(dim,w)
 
     end
 
@@ -75,12 +74,19 @@ mutable struct SecondOrderCone{T} <: AbstractCone{T}
         v = Vector{T}(undef,dim)
         d = 1.
         η = 0.
-        new(dim,w,u,v,d,η)
+        return new(dim,w,u,v,d,η)
     end
 
 end
 
 SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
+
+# -------------------------------------
+# collection of cones for composite
+# operations on a compound set
+# -------------------------------------
+
+const ConeSet{T} = Vector{AbstractCone{T}}
 
 
 # -------------------------------------
@@ -94,9 +100,9 @@ SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
 end
 
 const ConeDict = Dict(
-    ZeroConeT =>  ZeroCone,
-    NonnegativeConeT =>  NonnegativeCone,
-    SecondOrderConeT =>  SecondOrderCone
+           ZeroConeT => ZeroCone,
+    NonnegativeConeT => NonnegativeCone,
+    SecondOrderConeT => SecondOrderCone
 )
 
 mutable struct ConeInfo
@@ -121,6 +127,6 @@ mutable struct ConeInfo
         k_socone   = count(==(SecondOrderConeT),types)
         totaldim   = sum(dims)
 
-        new(types,dims,k_zerocone,k_nncone,k_socone,totaldim)
+        return new(types,dims,k_zerocone,k_nncone,k_socone,totaldim)
     end
 end

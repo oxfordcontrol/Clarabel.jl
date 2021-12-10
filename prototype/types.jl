@@ -85,26 +85,24 @@ DefaultVariables(args...) = DefaultVariables{DefaultFloat}(args...)
 # scalings
 # ---------------
 
-mutable struct DefaultConeScalings{T} <: AbstractConeScalings{T}
+mutable struct DefaultScalings{T} <: AbstractConeScalings{T}
 
     # specification from the problem statement
     cone_info::ConeInfo
 
-    # vector of objects containing the scalings
-    cones::Vector{AbstractCone{T}}
+    # vector of objects implementing the scalings
+    cones::ConeSet{T}
 
     # scaled variable λ = Wz = W^{-1}s
     λ::SplitVector{T}
 
-    #composite cone order.  Note the
+    #composite cone order.  NB: Not the
     #same as dimension for zero or SO cones
     total_order::DefaultInt
 
 end
 
-DefaultConeScalings(args...) = DefaultConeScalings{DefaultFloat}(args...)
-
-
+DefaultScalings(args...) = DefaultScalings{DefaultFloat}(args...)
 
 
 # ---------------
@@ -212,7 +210,6 @@ mutable struct DefaultStatus{T} <: AbstractStatus{T}
     status::SolverStatus
 
     function DefaultStatus{T}() where {T}
-        #new(ntuple(x->0, fieldcount(DefaultStatus)-1),UNSOLVED...)
         new( (ntuple(x->0, fieldcount(DefaultStatus)-1)...,UNSOLVED)...)
     end
 
