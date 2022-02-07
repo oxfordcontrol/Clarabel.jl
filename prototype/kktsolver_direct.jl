@@ -49,7 +49,7 @@ mutable struct DefaultKKTSolverDirect{T} <: AbstractKKTSolver{T}
 
         #KKT, factors = initialize_kkt_matrix(data)
         #PJG: this function is ropey AF
-        KKT,factors,perm = _initialize_kkt_matrix(data.A,n,m,p)
+        KKT,factors,perm = _initialize_kkt_matrix(data.P,data.A,n,m,p)
 
         #a vector for storing diagonal
         #terms of the scaling matrix
@@ -69,6 +69,7 @@ mutable struct DefaultKKTSolverDirect{T} <: AbstractKKTSolver{T}
         rhs_cb_x = view(rhs_cb,1:n)
         rhs_cb_z = view(rhs_cb,(n+1):(n+m))
         rhs_cb_p = view(rhs_cb,(n+m+1):(n+m+p))
+
         rhs_cb_x .= -data.c;
         rhs_cb_z .=  data.b;
         rhs_cb_p .=  0.0;
@@ -96,14 +97,13 @@ end
 DefaultKKTSolverDirect(args...) = DefaultKKTSolverDirect{DefaultFloat}(args...)
 
 
-function _initialize_kkt_matrix(A,n,m,p) where{T}
+function _initialize_kkt_matrix(P,A,n,m,p) where{T}
 
     #PJG: this is crazy inefficient
-    D1  = sparse(I(n)*0.0)
     D2  = sparse(I(m)*1.)
     D3  = sparse(I(p)*1.)
     ZA  = spzeros(m,n)
-    KKT = [D1 A'; ZA D2]  #upper triangle only
+    KKT = [triu(P) A'; ZA D2]  #upper triangle only
     KKT = blockdiag(KKT,D3)
     factors = nothing
     perm    = nothing
@@ -244,9 +244,17 @@ function kkt_solve!(
     lhs.x     .= kktsolver.work_x
     lhs.z.vec .= kktsolver.work_z
 
+    #PJG: temporary wasteful of memory to compute stuff here
+    ξ  = variables.x / variables.τ
+    P  = data.P
+
     #solve for Δτ
-    lhs.τ  = rhs.τ - rhs.κ/variables.τ + dot(data.c,lhs.x) + dot(data.b,lhs.z.vec)
+    lhs.τ  = rhs.τ - rhs.κ/variables.τ + 2*dot(ξ,P,lhs.x) + dot(data.c,lhs.x) + dot(data.b,lhs.z.vec)
     lhs.τ /= variables.κ/variables.τ - dot(data.c,constx) - dot(data.b,constz)
+             + dot(ξ - lhs.x,P,ξ - lhs.x) - dot(lhs.x,P,lhs.x)
+
+    #PJG: NB: the denominator lhs.τ can be written in a nicer way, but it involves
+    #the norm of Wz.   Leaving it this way for now
 
     #shift solution by pre-computed constant terms
     #to get (Δx, Δz) = (Δx₂,Δz₂) + Δτ(Δx₁,Δz₁)

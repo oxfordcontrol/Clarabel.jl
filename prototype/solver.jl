@@ -4,6 +4,7 @@
 # -------------------------------------
 function setup!(
     s::Solver{T},
+    P::AbstractMatrix{T},
     c::Vector{T},
     A::AbstractMatrix{T},
     b::Vector{T},
@@ -15,7 +16,7 @@ function setup!(
     cone_info   = ConeInfo(cone_types,cone_dims)
 
     s.settings  = settings
-    s.data      = DefaultProblemData(c,A,b,cone_info)
+    s.data      = DefaultProblemData(P,c,A,b,cone_info)
     s.scalings  = DefaultScalings(cone_info)
     s.variables = DefaultVariables(s.data.n,cone_info)
     s.residuals = DefaultResiduals(s.data.n,s.data.m)
@@ -92,7 +93,10 @@ function solve!(
 
         #calculate the affine step
         #--------------
-        calc_affine_step_rhs!(s.step_rhs, s.residuals, s.variables, s.scalings)
+        calc_affine_step_rhs!(
+            s.step_rhs, s.residuals,
+            s.data, s.variables, s.scalings
+        )
         kkt_solve!(
             s.kktsolver, s.step_lhs, s.step_rhs,
             s.variables, s.scalings, s.data
@@ -100,19 +104,22 @@ function solve!(
 
         #calculate step length and centering parameter
         #--------------
+        #PJG: Debug
+        #print("\nMaking AFFINE length\n")
         α = calc_step_length(s.variables,s.step_lhs,s.scalings)
         σ = calc_centering_parameter(α)
 
         #calculate the combined step and length
         #--------------
         calc_combined_step_rhs!(
-            s.step_rhs,s.residuals,s.variables,
-            s.scalings,s.step_lhs,σ,μ
+            s.step_rhs, s.residuals,
+            s.data, s.variables, s.scalings,
+            s.step_lhs, σ, μ
         )
         kkt_solve!(
             s.kktsolver, s.step_lhs, s.step_rhs,
             s.variables, s.scalings, s.data
-            )
+        )
 
         #compute final step length and update the current iterate
         #--------------
@@ -121,6 +128,9 @@ function solve!(
 
         #record scalar values from this iteration
         status_save_scalars(s.status,μ,α,σ,iter)
+
+        #PJG: debug. Rescale homogenous variables
+        #debug_rescale(s)
 
     end
 

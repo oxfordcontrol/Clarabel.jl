@@ -125,6 +125,7 @@ mutable struct DefaultResiduals{T} <: AbstractResiduals{T}
     dot_cx::T
     dot_bz::T
     dot_sz::T
+    dot_xPx::T
 
     function DefaultResiduals{T}(n::Integer,
                                  m::Integer) where {T}
@@ -147,6 +148,7 @@ DefaultResiduals(args...) = DefaultResiduals{DefaultFloat}(args...)
 
 mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
 
+    P::AbstractMatrix{T}
     c::Vector{T}
     A::AbstractMatrix{T}
     b::Vector{T}
@@ -158,7 +160,7 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     norm_c::T
     norm_b::T
 
-    function DefaultProblemData{T}(c,A,b,cone_info) where {T}
+    function DefaultProblemData{T}(P,c,A,b,cone_info) where {T}
 
         n         = length(c)
         m         = length(b)
@@ -167,7 +169,7 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
         n == size(A)[2] || throw(ErrorException("A and c incompatible dimensions."))
         m == sum(cone_info.dims) || throw(ErrorException("Incompatible cone dimensions."))
 
-        new(c,A,b,n,m,cone_info,norm(c),norm(b))
+        new(P,c,A,b,n,m,cone_info,norm(c),norm(b))
 
     end
 

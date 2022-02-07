@@ -47,6 +47,7 @@ end
 function calc_affine_step_rhs!(
     d::DefaultVariables{T},
     r::DefaultResiduals{T},
+    data::DefaultProblemData{T},
     variables::DefaultVariables{T},
     scalings::DefaultScalings{T}
 ) where{T}
@@ -66,6 +67,7 @@ end
 function calc_combined_step_rhs!(
     d::DefaultVariables{T},
     r::DefaultResiduals{T},
+    data::DefaultProblemData{T},
     variables::DefaultVariables{T},
     scalings::DefaultScalings{T},
     step::DefaultVariables{T},
@@ -77,12 +79,29 @@ function calc_combined_step_rhs!(
     # NB: calc_combined_step_rhs! modifies the step values
     # in place to be economical with memory
 
+    # PJG: Except for here.  Temporarily allocating
+    # vectors here for QP implementation
+    ξ   = variables.x./variables.τ
+    q   = step.x - ξ.*step.τ
+
+    #PJG: Mehrotra style higher order correction.
+
+    #try to get all higher orders instead?
+    tmph = 1/(variables.τ + step.τ) * dot(variables.x + step.x,data.P, variables.x + step.x)
+    tmph -= dot(variables.x,data.P, variables.x)/variables.τ
+    tmph -= 2*dot(variables.x,data.P,step.x)
+    tmph += dot(ξ,data.P,ξ)*step.τ
+
+    tmp2 = dot(q,data.P,q) / variables.τ   #PJG: second order approximation only
+    tmp0 = 0.  #PJG no higher order correction
+
     # assume that the affine RHS currently occupies d,
     # so only applies incremental changes to get the
     # combined corrector step
     d.x .*= (1. - σ)
     d.τ  *= (1. - σ)
-    d.κ  += step.τ * step.κ - σ*μ
+    d.τ  += tmp0
+    d.κ  += - σ*μ + step.τ * step.κ
 
     # d.s and d.z are harder if we want to be
     # economical with allocated memory.  Modify the

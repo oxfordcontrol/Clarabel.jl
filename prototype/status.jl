@@ -12,8 +12,8 @@ function check_termination!(
     τinv = 1 / variables.τ
 
     #primal and dual costs
-    status.cost_primal =  residuals.dot_cx*τinv
-    status.cost_dual   = -residuals.dot_bz*τinv
+    status.cost_primal =  residuals.dot_cx*τinv + residuals.dot_xPx * τinv * τinv / 2
+    status.cost_dual   = -residuals.dot_bz*τinv - residuals.dot_xPx * τinv * τinv / 2
 
     #primal and dual residuals
     status.res_primal  = norm(residuals.rx) * τinv / max(1,data.norm_c)

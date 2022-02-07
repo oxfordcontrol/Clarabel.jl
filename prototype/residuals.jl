@@ -8,6 +8,7 @@ function residuals_update!(
   cx        = dot(data.c,variables.x)
   bz        = dot(data.b,variables.z.vec)
   sz        = dot(variables.s.vec,variables.z.vec)
+  xPx       = dot(variables.x, data.P, variables.x)
 
   #partial residual calc so I can catch the
   #norms of the matrix vector products
@@ -19,18 +20,19 @@ function residuals_update!(
   residuals.norm_Atz = norm(residuals.rx)
 
   #finish the residual calculation
-  residuals.rx .= -residuals.rx - data.c * variables.τ
+  residuals.rx .= -data.P*variables.x - residuals.rx - data.c * variables.τ
   residuals.rz .= +residuals.rz - data.b * variables.τ + variables.s.vec
-  residuals.rτ = cx + bz + variables.κ
+  residuals.rτ  = cx + bz + variables.κ + xPx/variables.τ
 
   #relative residuals (scaled)
   residuals.norm_rz     = norm(residuals.rz)
   residuals.norm_rx     = norm(residuals.rx)
 
   #various dot products for later use (all with scaled variables)
-  residuals.dot_cx = cx
-  residuals.dot_bz = bz
-  residuals.dot_sz = sz
+  residuals.dot_cx  = cx
+  residuals.dot_bz  = bz
+  residuals.dot_sz  = sz
+  residuals.dot_xPx = xPx
 
   return nothing
 end
