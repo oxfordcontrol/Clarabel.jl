@@ -7,6 +7,9 @@ using ClearStacktrace
 using StatProfilerHTML
 
 A = SparseMatrixCSC(I(3)*1.)
+P = SparseMatrixCSC(I(3)*1.)
+P[1,1] = 25
+P .*= 1
 A = [A;-A].*2
 c = [3.;-2.;1.]
 b = ones(Float64,6)
@@ -41,7 +44,7 @@ using MosekTools, OSQP, ECOS
 model = Model(ECOS.Optimizer)
 @variable(model, x[1:3])
 @constraint(model, c1, A*x .<= b)
-@objective(model, Min, sum(c.*x))
+@objective(model, Min, sum(c.*x) + 1/2*x'*P*x)
 
 #Run the opimization
 optimize!(model)
@@ -53,12 +56,12 @@ print(JuMP.value.(x))
 
 settings = IPSolver.Settings(max_iter=20,verbose=true,direct_kkt_solver=true)
 solver   = IPSolver.Solver()
-IPSolver.setup!(solver,c,A,b,cone_types,cone_dims,settings)
+IPSolver.setup!(solver,P,c,A,b,cone_types,cone_dims,settings)
 IPSolver.solve!(solver)
 
-@printf("\nClarabel (Indirect)\n-------------------------\n\n")
-
-settings = IPSolver.Settings(max_iter=20,verbose=true,direct_kkt_solver=false)
-solver   = IPSolver.Solver()
-IPSolver.setup!(solver,c,A,b,cone_types,cone_dims,settings)
-IPSolver.solve!(solver)
+# @printf("\nClarabel (Indirect)\n-------------------------\n\n")
+#
+# settings = IPSolver.Settings(max_iter=20,verbose=true,direct_kkt_solver=false)
+# solver   = IPSolver.Solver()
+# IPSolver.setup!(solver,c,A,b,cone_types,cone_dims,settings)
+# IPSolver.solve!(solver)

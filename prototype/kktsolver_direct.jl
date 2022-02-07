@@ -249,7 +249,8 @@ function kkt_solve!(
     P  = data.P
 
     #solve for Δτ
-    lhs.τ  = rhs.τ - rhs.κ/variables.τ + 2*dot(ξ,P,lhs.x) + dot(data.c,lhs.x) + dot(data.b,lhs.z.vec)
+    lhs.τ  = + rhs.τ - rhs.κ/variables.τ + 2*dot(ξ,P,lhs.x) + dot(data.c,lhs.x) + dot(data.b,lhs.z.vec)
+
     lhs.τ /= variables.κ/variables.τ - dot(data.c,constx) - dot(data.b,constz)
              + dot(ξ - lhs.x,P,ξ - lhs.x) - dot(lhs.x,P,lhs.x)
 

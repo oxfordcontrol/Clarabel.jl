@@ -25,7 +25,7 @@ function setup!(
     else
         s.kktsolver = DefaultKKTSolverIndirect(s.data,s.scalings)
     end
-    s.status    = DefaultStatus()
+    s.info    = DefaultInfo()
 
     # work variables for assembling step direction LHS/RHS
     s.step_rhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
@@ -43,7 +43,7 @@ function solve!(
 ) where{T}
 
     #various initializations
-    status_reset!(s.status)
+    info_reset!(s.info)
     iter   = 0
     isdone = false
 
@@ -53,7 +53,7 @@ function solve!(
 
     #solver release info, solver config
     #problem dimensions, cone type etc
-    print_header(s.status,s.settings,s.data)
+    print_header(s.info,s.settings,s.data)
 
     #initialize variables to some reasonable starting point
     solver_default_start!(s)
@@ -61,9 +61,7 @@ function solve!(
     #----------
     # main loop
     #----------
-    while iter <= s.settings.max_iter
-
-        iter += 1
+    while true
 
         #update the residuals
         #--------------
@@ -76,11 +74,13 @@ function solve!(
         #convergence check and printing
         #--------------
         isdone = check_termination!(
-            s.status,s.data,s.variables,
-            s.residuals,s.scalings,s.settings
+            s.info,s.data,s.variables,
+            s.residuals,s.scalings,s.settings,
+            iter == s.settings.max_iter
         )
-        print_status(s.status,s.settings)
+        iter += 1
 
+        print_status(s.info,s.settings)
         isdone && break
 
         #update the scalings
@@ -104,8 +104,6 @@ function solve!(
 
         #calculate step length and centering parameter
         #--------------
-        #PJG: Debug
-        #print("\nMaking AFFINE length\n")
         α = calc_step_length(s.variables,s.step_lhs,s.scalings)
         σ = calc_centering_parameter(α)
 
@@ -127,15 +125,16 @@ function solve!(
         variables_add_step!(s.variables,s.step_lhs,α)
 
         #record scalar values from this iteration
-        status_save_scalars(s.status,μ,α,σ,iter)
+        info_save_scalars(s.info,μ,α,σ,iter)
 
         #PJG: debug. Rescale homogenous variables
         #debug_rescale(s)
 
     end
 
-    status_finalize!(s.status)
-    print_footer(s.status,s.settings)
+    info_finalize!(s.info)
+    variables_finalize!(s.variables,s.info.status)
+    print_footer(s.info,s.settings)
 
     return nothing
 end

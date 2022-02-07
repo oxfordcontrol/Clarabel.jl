@@ -6,7 +6,7 @@ abstract type AbstractConeScalings{T <: AbstractFloat}   end
 abstract type AbstractResiduals{T <: AbstractFloat}   end
 abstract type AbstractProblemData{T <: AbstractFloat} end
 abstract type AbstractKKTSolver{T <: AbstractFloat} end
-abstract type AbstractStatus{T <: AbstractFloat} end
+abstract type AbstractInfo{T <: AbstractFloat} end
 abstract type AbstractCone{T} end
 
 
@@ -197,7 +197,7 @@ const SolverStatusDict = Dict(
     MAX_ITERATIONS  =>  "iteration limit"
 )
 
-mutable struct DefaultStatus{T} <: AbstractStatus{T}
+mutable struct DefaultInfo{T} <: AbstractInfo{T}
 
     cost_primal::T
     cost_dual::T
@@ -211,13 +211,13 @@ mutable struct DefaultStatus{T} <: AbstractStatus{T}
     solve_time::T
     status::SolverStatus
 
-    function DefaultStatus{T}() where {T}
-        new( (ntuple(x->0, fieldcount(DefaultStatus)-1)...,UNSOLVED)...)
+    function DefaultInfo{T}() where {T}
+        new( (ntuple(x->0, fieldcount(DefaultInfo)-1)...,UNSOLVED)...)
     end
 
 end
 
-DefaultStatus(args...) = DefaultStatus{DefaultFloat}(args...)
+DefaultInfo(args...) = DefaultInfo{DefaultFloat}(args...)
 
 # -------------------------------------
 # top level solver type
@@ -230,7 +230,7 @@ mutable struct Solver{T <: AbstractFloat}
     scalings::Union{AbstractConeScalings{T},Nothing}
     residuals::Union{AbstractResiduals{T},Nothing}
     kktsolver::Union{AbstractKKTSolver{T},Nothing}
-    status::Union{AbstractStatus{T},Nothing}
+    info::Union{AbstractInfo{T},Nothing}
     settings::Union{Settings{T},Nothing}
     step_lhs::Union{AbstractVariables{T},Nothing}
     step_rhs::Union{AbstractVariables{T},Nothing}

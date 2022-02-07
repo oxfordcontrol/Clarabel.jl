@@ -12,7 +12,7 @@ module IPSolver
     include("./variables.jl")
     include("./residuals.jl")
     include("./scalings.jl")
-    include("./status.jl")
+    include("./info.jl")
     include("./kktsolver_direct.jl")
     include("./kktsolver_indirect.jl")
     include("./printing.jl")

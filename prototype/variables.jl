@@ -133,3 +133,24 @@ function variables_shift_to_cone!(
     variables.τ = 1
     variables.κ = 1
 end
+
+function variables_finalize!(
+    variables::DefaultVariables,
+    status::SolverStatus
+    )
+
+    #if we have an infeasible problem, unscale
+    #using κ to get an infeasibility certificate.
+    #Otherwise using τ to get a solution.
+    if(status == PRIMAL_INFEASIBLE || status == DUAL_INFEASIBLE)
+        scaleinv = 1. / variables.κ
+    else
+        scaleinv = 1. / variables.τ
+    end
+
+    variables.x .*= scaleinv
+    variables.z.vec .*= scaleinv
+    variables.s.vec .*= scaleinv
+    variables.τ *= scaleinv
+    variables.κ *= scaleinv
+end

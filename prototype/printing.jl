@@ -1,22 +1,22 @@
 
 function print_status(
-    status::DefaultStatus{T},
+    info::DefaultInfo{T},
     settings::Settings
 ) where {T}
 
     if(settings.verbose == false) return end
 
-    @printf("%3d  ", status.iterations)
-    @printf("% .4e  ", status.cost_primal)
-    @printf("% .4e  ", status.cost_dual)
-    @printf("%.2e  ", status.res_primal)
-    @printf("%.2e  ", status.res_dual)
-    @printf("%.2e  ", status.ktratio)
-    @printf("%.2e  ", status.gap)
-    if(status.iterations > 0)
-        @printf("%.2e  ", status.step_length)
+    @printf("%3d  ", info.iterations)
+    @printf("% .4e  ", info.cost_primal)
+    @printf("% .4e  ", info.cost_dual)
+    @printf("%.2e  ", info.res_primal)
+    @printf("%.2e  ", info.res_dual)
+    @printf("%.2e  ", info.ktratio)
+    @printf("%.2e  ", info.gap)
+    if(info.iterations > 0)
+        @printf("%.2e  ", info.step_length)
     else
-        @printf(" ------   ") #status.step_length
+        @printf(" ------   ") #info.step_length
     end
 
     @printf("\n")
@@ -25,7 +25,7 @@ function print_status(
 end
 
 function print_header(
-    status::DefaultStatus{T},
+    info::DefaultInfo{T},
     settings::Settings,
     data::DefaultProblemData{T}
 ) where {T}
@@ -65,15 +65,15 @@ function print_header(
 end
 
 function print_footer(
-    status::DefaultStatus{T},
+    info::DefaultInfo{T},
     settings::Settings
 ) where {T}
 
     if(settings.verbose == false) return end
 
     println("-----------------------------------------------------------------------------------")
-    @printf("Terminated with status = %s\n",SolverStatusDict[status.status])
-    @printf("solve time = %s\n",status.solve_time)
+    @printf("Terminated with status = %s\n",SolverStatusDict[info.status])
+    @printf("solve time = %s\n",info.solve_time)
 
     return nothing
 end
