@@ -142,7 +142,7 @@ function variables_finalize!(
     #if we have an infeasible problem, unscale
     #using κ to get an infeasibility certificate.
     #Otherwise using τ to get a solution.
-    if(status == PRIMAL_INFEASIBLE || status == DUAL_INFEASIBLE)
+    if(status == PRIMAL_INFEASIBLE || status == DUAL_INFEASIBLE || status == MAX_ITERATIONS)
         scaleinv = 1. / variables.κ
     else
         scaleinv = 1. / variables.τ
