@@ -38,13 +38,17 @@ function print_header(
     println("         University of Oxford, 2021            ")
     println("-----------------------------------------------")
     println("problem:")
-    @printf("variables     = %i, ", data.n)
+    @printf("variables     = %i\n", data.n)
     @printf("constraints   = %i\n", data.m)
-    @printf("nnz(A)        = %i, ", nnz(data.A))
+    @printf("nnz(P)        = %i\n", nnz(data.A))
+    @printf("nnz(A)        = %i\n", nnz(data.P))
     @printf("cones         = %i\n", length(data.cone_info.types))
-    @printf(": zero        = %i\n", (data.cone_info.k_zerocone))
-    @printf(": nonnegative = %i\n", (data.cone_info.k_nncone))
-    @printf(": secondorder = %i\n", (data.cone_info.k_socone))
+    @printf(": zero        = %i", data.cone_info.type_counts[ZeroConeT])
+    print_conedims_by_type(data.cone_info, ZeroConeT)
+    @printf(": nonnegative = %i", data.cone_info.type_counts[NonnegativeConeT])
+    print_conedims_by_type(data.cone_info, NonnegativeConeT)
+    @printf(": secondorder = %i", data.cone_info.type_counts[SecondOrderConeT])
+    print_conedims_by_type(data.cone_info, SecondOrderConeT)
     @printf("settings = \n")
     dump(settings)
     @printf("\n")
@@ -62,6 +66,36 @@ function print_header(
     println("-----------------------------------------------------------------------------------")
 
     return nothing
+end
+
+function print_conedims_by_type(c::ConeInfo, type::SupportedCones)
+
+    maxlistlen = 5
+
+    #how many of this type of cone?
+    count = c.type_counts[type]
+    dims  = c.dims[c.types .== type]
+
+    #none?
+    if count == 0
+        #print nothing
+
+    elseif count <= maxlistlen
+        #print them all
+        @printf("  dim = (")
+        foreach(x->@printf("%i,",x),dims[1:end-1])
+        @printf("%i)",dims[end])
+
+    else
+        #print first (maxlistlen-1) and the final one
+        @printf("  dim = (")
+        foreach(x->@printf("%i,",x),dims[1:(maxlistlen-1)])
+        @printf("...,%i)",dims[end])
+    end
+
+    @printf("\n")
+
+
 end
 
 function print_footer(

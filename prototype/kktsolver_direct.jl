@@ -45,7 +45,7 @@ mutable struct DefaultKKTSolverDirect{T} <: AbstractKKTSolver{T}
 
         n = data.n
         m = data.m
-        p = 2*data.cone_info.k_socone
+        p = 2*data.cone_info.type_counts[SecondOrderConeT]
 
         #KKT, factors = initialize_kkt_matrix(data)
         #PJG: this function is ropey AF

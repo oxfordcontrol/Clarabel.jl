@@ -1,3 +1,21 @@
+# -------------------------------------
+# utility constructor that includes
+# both object creation and setup
+#--------------------------------------
+function Solver(
+    P::AbstractMatrix{T},
+    c::Vector{T},
+    A::AbstractMatrix{T},
+    b::Vector{T},
+    cone_types::Vector{SupportedCones},
+    cone_dims::Vector{Int},
+    settings::Settings{T} = Settings{T}()
+) where{T}
+
+    s = Solver{T}()
+    setup!(s,P,c,A,b,cone_types,cone_dims,settings)
+    return s
+end
 
 # -------------------------------------
 # setup!
@@ -10,7 +28,7 @@ function setup!(
     b::Vector{T},
     cone_types::Vector{SupportedCones},
     cone_dims::Vector{Int},
-    settings::Settings{T} = Settings()
+    settings::Settings{T} = Settings{T}()
 ) where{T}
 
     cone_info   = ConeInfo(cone_types,cone_dims)

@@ -102,7 +102,7 @@ end
 const ConeDict = Dict(
            ZeroConeT => ZeroCone,
     NonnegativeConeT => NonnegativeCone,
-    SecondOrderConeT => SecondOrderCone
+        SecondOrderConeT => SecondOrderCone
 )
 
 mutable struct ConeInfo
@@ -112,9 +112,7 @@ mutable struct ConeInfo
     dims::Vector{Int}
 
     #Count of each cone type.
-    k_zerocone::DefaultInt
-    k_nncone::DefaultInt
-    k_socone::DefaultInt
+    type_counts::Dict{SupportedCones,Int}
 
     #total dimension
     totaldim::DefaultInt
@@ -122,11 +120,14 @@ mutable struct ConeInfo
     function ConeInfo(types,dims)
 
         #count the number of each cone type
-        k_zerocone = count(==(ZeroConeT),       types)
-        k_nncone   = count(==(NonnegativeConeT),types)
-        k_socone   = count(==(SecondOrderConeT),types)
+        type_counts = Dict{SupportedCones,Int}()
+        for coneT in instances(SupportedCones)
+            type_counts[coneT] = count(==(coneT), types)
+        end
+
+        #total dimension of all cones together
         totaldim   = sum(dims)
 
-        return new(types,dims,k_zerocone,k_nncone,k_socone,totaldim)
+        return new(types,dims,type_counts,totaldim)
     end
 end

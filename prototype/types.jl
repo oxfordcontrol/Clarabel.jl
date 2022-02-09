@@ -115,11 +115,11 @@ mutable struct DefaultResiduals{T} <: AbstractResiduals{T}
     rz::Vector{T}
     rτ::T
 
-    norm_Ax::T
-    norm_Atz::T
-
     norm_rz::T
     norm_rx::T
+
+    norm_pinf::T
+    norm_dinf::T
 
     #various inner products
     dot_cx::T

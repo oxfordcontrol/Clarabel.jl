@@ -10,18 +10,18 @@ function residuals_update!(
   sz        = dot(variables.s.vec,variables.z.vec)
   xPx       = dot(variables.x, data.P, variables.x)
 
-  #partial residual calc so I can catch the
-  #norms of the matrix vector products
-  residuals.rx = data.A'* variables.z.vec
-  residuals.rz = data.A * variables.x
+  #partial residual calc so we can check primal/dual
+  #infeasibility conditions
+  residuals.rx .= data.P * variables.x + data.A'* variables.z.vec
+  residuals.rz .= data.A * variables.x + variables.s.vec
 
-  #matrix vector product norm (scaled)
-  residuals.norm_Ax  = norm(residuals.rz)
-  residuals.norm_Atz = norm(residuals.rx)
+  #norms for infeasibility checks (scaled)
+  residuals.norm_pinf  = norm(residuals.rx)
+  residuals.norm_dinf  = norm(residuals.rz)
 
   #finish the residual calculation
-  residuals.rx .= -data.P*variables.x - residuals.rx - data.c * variables.τ
-  residuals.rz .= +residuals.rz - data.b * variables.τ + variables.s.vec
+  residuals.rx .= -residuals.rx - data.c * variables.τ
+  residuals.rz .= +residuals.rz - data.b * variables.τ
   residuals.rτ  = cx + bz + variables.κ + xPx/variables.τ
 
   #relative residuals (scaled)
