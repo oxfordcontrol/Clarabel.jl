@@ -13,8 +13,14 @@ module IPSolver
     include("./residuals.jl")
     include("./scalings.jl")
     include("./info.jl")
-    include("./kktsolver_direct.jl")
-    include("./kktsolver_indirect.jl")
+
+    #linear subsolver implementations
+    #must precede the KKT solver typedef
+    include("./linsys/linearsolver_defaults.jl")
+    include("./linsys/linearsolver_qdldl.jl")
+    include("./linsys/linearsolver_utils.jl")
+
+    include("./kkt.jl")
     include("./printing.jl")
     include("./solver.jl")
 

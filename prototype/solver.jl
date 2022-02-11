@@ -39,7 +39,7 @@ function setup!(
     s.variables = DefaultVariables(s.data.n,cone_info)
     s.residuals = DefaultResiduals(s.data.n,s.data.m)
     if(settings.direct_kkt_solver == true)
-        s.kktsolver = DefaultKKTSolverDirect(s.data,s.scalings)
+        s.kktsolver = DefaultKKTSolver(s.data,s.scalings)
     else
         s.kktsolver = DefaultKKTSolverIndirect(s.data,s.scalings)
     end
@@ -105,9 +105,10 @@ function solve!(
         #--------------
         scaling_update!(s.scalings,s.variables)
 
-        #update the KKT system
+        #update the KKT system and the constant
+        #parts of its solution
         #--------------
-        kkt_update!(s.kktsolver,s.scalings)
+        kkt_update!(s.kktsolver,s.data,s.scalings)
 
         #calculate the affine step
         #--------------
@@ -170,7 +171,7 @@ function solver_default_start!(s::Solver{T}) where {T}
     #set all scalings to identity (or zero for the zero cone)
     scaling_identity!(s.scalings)
     #Refactor
-    kkt_update!(s.kktsolver,s.scalings)
+    kkt_update!(s.kktsolver,s.data,s.scalings)
     #solve for primal/dual initial points via KKT
     kkt_solve_initial_point!(s.kktsolver,s.variables,s.data)
     #fix up (z,s) so that they are in the cone

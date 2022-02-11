@@ -15,7 +15,7 @@ abstract type AbstractCone{T} end
 # get this type with views into the subcomponents
 # ---------------------------------------
 
-mutable struct SplitVector{T} <: AbstractVariables{T}
+mutable struct SplitVector{T}
 
     #contiguous array of source data
     vec::Vector{T}
