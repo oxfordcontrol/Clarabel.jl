@@ -38,11 +38,7 @@ function setup!(
     s.scalings  = DefaultScalings(cone_info)
     s.variables = DefaultVariables(s.data.n,cone_info)
     s.residuals = DefaultResiduals(s.data.n,s.data.m)
-    if(settings.direct_kkt_solver == true)
-        s.kktsolver = DefaultKKTSolver(s.data,s.scalings)
-    else
-        s.kktsolver = DefaultKKTSolverIndirect(s.data,s.scalings)
-    end
+    s.kktsolver = DefaultKKTSolver(s.data,s.scalings)
     s.info    = DefaultInfo()
 
     # work variables for assembling step direction LHS/RHS
@@ -145,9 +141,6 @@ function solve!(
 
         #record scalar values from this iteration
         info_save_scalars(s.info,μ,α,σ,iter)
-
-        #PJG: debug. Rescale homogenous variables
-        #debug_rescale(s)
 
     end
 

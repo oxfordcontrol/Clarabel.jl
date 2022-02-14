@@ -5,7 +5,7 @@ function calc_mu(
     scalings::DefaultScalings{T}
 ) where {T}
 
-  μ = (residuals.dot_sz + variables.τ * variables.κ)/(scalings.total_order + 1)
+  μ = (residuals.dot_sz + variables.τ * variables.κ)/(scalings.total_degree + 1)
 
   return μ
 end
@@ -142,7 +142,7 @@ function variables_finalize!(
     #if we have an infeasible problem, unscale
     #using κ to get an infeasibility certificate.
     #Otherwise using τ to get a solution.
-    if(status == PRIMAL_INFEASIBLE || status == DUAL_INFEASIBLE || status == MAX_ITERATIONS)
+    if(status == PRIMAL_INFEASIBLE || status == DUAL_INFEASIBLE)
         scaleinv = 1. / variables.κ
     else
         scaleinv = 1. / variables.τ

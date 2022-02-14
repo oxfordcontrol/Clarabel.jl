@@ -68,7 +68,7 @@ end
 
 function info_save_scalars(info,μ,α,σ,iter)
 
-    info.gap = μ
+    info.gap = μ  #PJG: this is not the gap, it's gap/(m+1)
     info.step_length = α
     info.sigma = σ
     info.iterations = iter

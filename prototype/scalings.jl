@@ -13,12 +13,12 @@ function DefaultScalings{T}(
         push!(cones, ConeDict[type](dim))
     end
 
-    # total cone order (not the same as dimension for SO and zero)
-    totalorder = sum(cone -> order(cone), cones)
+    # total cone degree (not the same as dimension for SOC and zero cone)
+    totaldegree = sum(cone -> degree(cone), cones)
 
     λ = SplitVector{T}(cone_info)
 
-    return DefaultScalings(cone_info,cones,λ,totalorder)
+    return DefaultScalings(cone_info,cones,λ,totaldegree)
 end
 
 function scaling_update!(

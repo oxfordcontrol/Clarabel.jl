@@ -1,5 +1,5 @@
 # ---------------
-# KKT Solver (direct method)
+# KKT Solver
 # ---------------
 
 mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
@@ -12,12 +12,18 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
     linsys::AbstractLinearSolver{T}
 
     #solution vector for constant part of KKT solves
-    lhs_cb::Vector{T}
-    lhs_cb_x::VectorView{T}
-    lhs_cb_z::VectorView{T}
-    lhs_cb_p::VectorView{T}
+    lhs_const::Vector{T}
+    lhs_const_x::VectorView{T}
+    lhs_const_z::VectorView{T}
+    lhs_const_p::VectorView{T}
 
-    #work vector for other solutions and its views
+    #solution vector for general KKT solves
+    lhs::Vector{T}
+    lhs_x::VectorView{T}
+    lhs_z::VectorView{T}
+    lhs_p::VectorView{T}
+
+    #work vector for solves, e.g. right hand sides
     work::Vector{T}
     work_x::VectorView{T}
     work_z::VectorView{T}
@@ -44,13 +50,19 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
             p = 0
         end
 
-        #the LHS for the constant part of the reduced
-        #solve and its solution
-        lhs_cb = Vector{T}(undef,n + m + p)
-        #views into the RHS/LHS for x/z partition
-        lhs_cb_x = view(lhs_cb,1:n)
-        lhs_cb_z = view(lhs_cb,(n+1):(n+m))
-        lhs_cb_p = view(lhs_cb,(n+m+1):(n+m+p))
+        #the LHS constant part of the reduced solve
+        lhs_const   = Vector{T}(undef,n + m + p)
+        #views into the LHS for x/z partition
+        lhs_const_x = view(lhs_const,1:n)
+        lhs_const_z = view(lhs_const,(n+1):(n+m))
+        lhs_const_p = view(lhs_const,(n+m+1):(n+m+p))
+
+        #the LHS for other solves
+        lhs      = Vector{T}(undef,n + m + p)
+        #views into the LHS for x/z partition
+        lhs_x    = view(lhs,1:n)
+        lhs_z    = view(lhs,(n+1):(n+m))
+        lhs_p    = view(lhs,(n+m+1):(n+m+p))
 
         #work vector for other solves
         work  = Vector{T}(undef, n + m + p)
@@ -62,7 +74,8 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
 
         return new(
             n,m,p,linsys,
-            lhs_cb,lhs_cb_x,lhs_cb_z,lhs_cb_p,
+            lhs_const,lhs_const_x,lhs_const_z,lhs_const_p,
+            lhs,lhs_x,lhs_z,lhs_p,
             work, work_x, work_z, work_p)
 
     end
@@ -93,11 +106,13 @@ function _kkt_solve_constant_rhs!(
     data::DefaultProblemData{T}
 ) where {T}
 
-    kktsolver.lhs_cb_x .= -data.c;
-    kktsolver.lhs_cb_z .=  data.b;
-    kktsolver.lhs_cb_p .=  0.0;
+    #make the RHS for the constant part
+    #of the reduced solve
+    kktsolver.work_x .= -data.c;
+    kktsolver.work_z .=  data.b;
+    kktsolver.work_p .=  0.0;
 
-    linsys_solve!(kktsolver.linsys,kktsolver.lhs_cb)
+    linsys_solve!(kktsolver.linsys,kktsolver.lhs_const,kktsolver.work)
 
     return nothing
 end
@@ -114,17 +129,17 @@ function kkt_solve_initial_point!(
     kktsolver.work_x .= 0.0
     kktsolver.work_z .= data.b
     kktsolver.work_p .= 0.0
-    linsys_solve!(kktsolver.linsys,kktsolver.work)
-    variables.x      .= kktsolver.work_x
-    variables.s.vec  .= kktsolver.work_z
+    linsys_solve!(kktsolver.linsys,kktsolver.lhs,kktsolver.work)
+    variables.x      .=  kktsolver.lhs_x
+    variables.s.vec  .= -kktsolver.lhs_z
 
     # solve with [-c;0] as a RHS to get z initializer
     # zero out any sparse cone variables at end
     kktsolver.work_x .= -data.c
     kktsolver.work_z .=  0.0
     kktsolver.work_p .=  0.0
-    linsys_solve!(kktsolver.linsys,kktsolver.work)
-    variables.z.vec  .= kktsolver.work_z
+    linsys_solve!(kktsolver.linsys,kktsolver.lhs,kktsolver.work)
+    variables.z.vec  .= kktsolver.lhs_z
 
     return nothing
 end
@@ -140,34 +155,40 @@ function kkt_solve!(
 ) where{T}
 
     cones = scalings.cones
-    constx = kktsolver.lhs_cb_x
-    constz = kktsolver.lhs_cb_z
+    constx = kktsolver.lhs_const_x
+    constz = kktsolver.lhs_const_z
 
-    # assemble the right hand side and solve in place
+    # assemble the right hand side and solve
     kktsolver.work_x .= rhs.x
     kktsolver.work_z .= rhs.z.vec
     kktsolver.work_p .= 0
-    linsys_solve!(kktsolver.linsys,kktsolver.work)
+
+    linsys_solve!(kktsolver.linsys,kktsolver.lhs,kktsolver.work)
 
     #copy back into the solution to get (Δx₂,Δz₂)
-    lhs.x     .= kktsolver.work_x
-    lhs.z.vec .= kktsolver.work_z
+    lhs.x     .= kktsolver.lhs_x
+    lhs.z.vec .= kktsolver.lhs_z
 
-    #PJG: temporary wasteful of memory to compute stuff here
-    ξ  = variables.x / variables.τ
-    P  = data.P
+    #use workx as scratch space now that lhs is copied
+    ξ   = kktsolver.work_x
+    ξ  .= variables.x / variables.τ
+    P   = data.P
 
     #solve for Δτ
-    lhs.τ  = + rhs.τ - rhs.κ/variables.τ
-             + 2*dot(ξ,P,lhs.x) + dot(data.c,lhs.x)
-             + dot(data.b,lhs.z.vec)
+    tau_num = rhs.τ  + dot(data.c,lhs.x) + dot(data.b,lhs.z.vec) - rhs.κ/variables.τ + 2*dot(ξ,P,lhs.x)
 
-    lhs.τ /= + variables.κ/variables.τ - dot(data.c,constx)
-             - dot(data.b,constz) + dot(ξ - lhs.x,P,ξ - lhs.x)
-             - dot(lhs.x,P,lhs.x)
+    tau_den = (variables.κ/variables.τ - dot(data.c,constx) - dot(data.b,constz) + dot(ξ - lhs.x,P,ξ - lhs.x) - dot(lhs.x,P,lhs.x))
 
-    #PJG: NB: the denominator lhs.τ can be written in a nicer way,
-    #but it involves the norm of Wz.   Leaving it this way for now
+    #PJG: the version below fails when using static regularization,
+    # because |Wz| ends up orders of magnitude
+    #too small relative to the equivalent combination
+    #of linear terms.   Maybe regularization of P from
+    #the outset and using that internally would alleviate
+    #this problem?   That really treats it like a QP though,
+    #which is maybe not the same thing (residuals will be
+    #wrong, for example)
+    #tau_den = variables.κ/variables.τ + normWz1sq
+    lhs.τ  = tau_num/tau_den
 
     #shift solution by pre-computed constant terms
     #to get (Δx, Δz) = (Δx₂,Δz₂) + Δτ(Δx₁,Δz₁)
@@ -177,7 +198,12 @@ function kkt_solve!(
     #solve for Δs = -Wᵀ(λ \ dₛ + WΔz)
     cones_inv_circle_op!(cones, lhs.s, scalings.λ, rhs.s) #Δs = λ \ dₛ
     cones_gemv_W!(cones, false, lhs.z, lhs.s,  1., 1.)    #Δs = WΔz + Δs
-    cones_gemv_W!(cones,  true, lhs.s, lhs.s, -1., 0.0)   #Δs = -WᵀΔs
+
+    #PJG: problem here.  Can't multiply in place so allocating memory
+    #caution, trying to assign Δs = -WᵀΔs produces a bug
+    tmp1_sv = deepcopy(lhs.z)
+    tmp1_sv.vec .= lhs.s.vec
+    cones_gemv_W!(cones,  true, tmp1_sv, lhs.s, -1., 0.0)   #Δs = -WᵀΔs
 
     #solve for Δκ
     lhs.κ = -(rhs.κ + variables.κ * lhs.τ) / variables.τ

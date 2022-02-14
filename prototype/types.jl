@@ -27,6 +27,11 @@ mutable struct SplitVector{T}
         cone_info::ConeInfo) where {T}
 
         vec   = Vector{T}(undef,cone_info.totaldim)
+        #NB: failure to initialize here gives an error
+        #because λ is updated using gemv! style update.
+        #This fails if undefs include NaN entries
+        vec  .= 0
+
         views = Vector{VectorView{T}}(undef, length(cone_info.types))
 
         # loop over the sets and create views
@@ -96,9 +101,9 @@ mutable struct DefaultScalings{T} <: AbstractConeScalings{T}
     # scaled variable λ = Wz = W^{-1}s
     λ::SplitVector{T}
 
-    #composite cone order.  NB: Not the
+    #composite cone degree.  NB: Not the
     #same as dimension for zero or SO cones
-    total_order::DefaultInt
+    total_degree::DefaultInt
 
 end
 

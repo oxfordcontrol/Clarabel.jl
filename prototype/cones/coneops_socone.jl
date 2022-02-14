@@ -2,8 +2,8 @@
 # Second Order Cone
 # ----------------------------------------------------
 
-#PJG: AD thesis p17 : should this be one?  Or maybe 2 according to Sturm?
-order(K::SecondOrderCone{T}) where {T} = K.dim
+#degree = 1 for SOC, since e'*e = 1
+degree(K::SecondOrderCone{T}) where {T} = 1
 
 function update_scaling!(
     K::SecondOrderCone{T},
@@ -15,7 +15,7 @@ function update_scaling!(
     #first calculate the scaled vector w
     zscale = sqrt(z[1]^2 - dot(z[2:end],z[2:end]))
     sscale = sqrt(s[1]^2 - dot(s[2:end],s[2:end]))
-    gamma  = sqrt((1 + dot(s,z)/zscale/sscale) / 2)
+    gamma  = sqrt((1 + dot(s,z)/(zscale*sscale) ) / 2)
 
     K.w         .= s./(2*sscale*gamma)
     K.w[1]      += z[1]/(2*zscale*gamma)
@@ -72,6 +72,12 @@ function get_diagonal_scaling!(
     diagW2::VectorView{T}
 ) where {T}
 
+    #NB: we are returning here the D block from the
+    #sparse representation of -W^TW, but not the
+    #extra two entries at the bottom right of the block.
+    #The SplitVector for s and z (and its views) don't
+    #know anything about the 2 extra sparsifying entries
+
     diagW2    .= -(K.η^2)
     diagW2[1] *= K.d
 
@@ -105,11 +111,12 @@ function inv_circle_op!(
     z::VectorView{T}
 ) where {T}
 
-    p = (y[1]^2 - dot(y[2:end],y[2:end]))
+    p    = (y[1]^2 - dot(y[2:end],y[2:end]))
+    pinv = 1/p
     v = dot(y[2:end],z[2:end])
 
-    x[1]      =  (y[1]*z[1] - v)/p
-    x[2:end] .=  ((v/y[1] - z[1])/p).*y[2:end] + (1/y[1]).*z[2:end]
+    x[1]      = (y[1]*z[1] - v)*pinv
+    x[2:end] .= pinv*(v/y[1] - z[1]).*y[2:end] + (1/y[1]).*z[2:end]
 
     return nothing
 end
