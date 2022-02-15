@@ -32,5 +32,7 @@ module IPSolver
 
     #PJG : temporary debugging utils
     include("./debug.jl")
+    include("./debug_coneops.jl")
+    #include("./kkt_debug.jl")
 
 end

@@ -77,6 +77,8 @@ function solve!(
     #----------
     while true
 
+        debug_rescale(s.variables)
+
         #update the residuals
         #--------------
         residuals_update!(s.residuals,s.variables,s.data)
@@ -122,6 +124,9 @@ function solve!(
         α = calc_step_length(s.variables,s.step_lhs,s.scalings)
         σ = calc_centering_parameter(α)
 
+        #DEBUG: PJG cap the centering parameter using a heuristic
+        debug_cap_centering_param(iter,σ,μ)
+
         #calculate the combined step and length
         #--------------
         calc_combined_step_rhs!(
@@ -136,7 +141,9 @@ function solve!(
 
         #compute final step length and update the current iterate
         #--------------
-        α = 0.99*calc_step_length(s.variables,s.step_lhs,s.scalings) #PJG: make tunable
+        α  = calc_step_length(s.variables,s.step_lhs,s.scalings)
+        α *= s.settings.max_step_fraction
+
         variables_add_step!(s.variables,s.step_lhs,α)
 
         #record scalar values from this iteration

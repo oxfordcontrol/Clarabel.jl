@@ -171,7 +171,7 @@ function linsys_solve!(
     Ksym = Symmetric(K)
 
     for i = 1:3
-        work .= b - Ksym*x              #this is e = b - Kξ
+        work .= b - Ksym*x                    #this is e = b - Kξ
         QDLDL.solve!(linsys.factors,work)     #this is Δξ
         x .+= work
     end

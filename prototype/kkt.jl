@@ -129,6 +129,7 @@ function kkt_solve_initial_point!(
     kktsolver.work_x .= 0.0
     kktsolver.work_z .= data.b
     kktsolver.work_p .= 0.0
+
     linsys_solve!(kktsolver.linsys,kktsolver.lhs,kktsolver.work)
     variables.x      .=  kktsolver.lhs_x
     variables.s.vec  .= -kktsolver.lhs_z
@@ -138,6 +139,7 @@ function kkt_solve_initial_point!(
     kktsolver.work_x .= -data.c
     kktsolver.work_z .=  0.0
     kktsolver.work_p .=  0.0
+
     linsys_solve!(kktsolver.linsys,kktsolver.lhs,kktsolver.work)
     variables.z.vec  .= kktsolver.lhs_z
 
@@ -175,7 +177,7 @@ function kkt_solve!(
     P   = data.P
 
     #solve for Δτ
-    tau_num = rhs.τ  + dot(data.c,lhs.x) + dot(data.b,lhs.z.vec) - rhs.κ/variables.τ + 2*dot(ξ,P,lhs.x)
+    tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.c,lhs.x) + dot(data.b,lhs.z.vec) + 2*dot(ξ,P,lhs.x)
 
     tau_den = (variables.κ/variables.τ - dot(data.c,constx) - dot(data.b,constz) + dot(ξ - lhs.x,P,ξ - lhs.x) - dot(lhs.x,P,lhs.x))
 
