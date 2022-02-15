@@ -100,7 +100,7 @@ function calc_combined_step_rhs!(
     # combined corrector step
     d.x .*= (1. - σ)
     d.τ  *= (1. - σ)
-    d.τ  += tmp0
+    d.τ  += tmp2
     d.κ  += - σ*μ + step.τ * step.κ
 
     # d.s and d.z are harder if we want to be
