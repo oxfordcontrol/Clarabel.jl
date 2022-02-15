@@ -24,7 +24,12 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
     # matrix diagonal entries
     diagW2::SplitVector{T}
 
-    function QDLDLLinearSolver{T}(P,A,cone_info,m,n) where {T}
+    #settings.   This just points back
+    #to the main solver settings.  It
+    #is not taking an internal copy
+    settings::Settings{T}
+
+    function QDLDLLinearSolver{T}(P,A,cone_info,m,n,settings) where {T}
 
         #solving in sparse format.  Need this many
         #extra variables for SOCs
@@ -60,7 +65,7 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
         perm    = nothing
         diagW2 = SplitVector{T}(cone_info)
 
-        return new(m,n,p,work,KKT,factors,perm,Dsigns,diagW2)
+        return new(m,n,p,work,KKT,factors,perm,Dsigns,diagW2,settings)
     end
 
 end

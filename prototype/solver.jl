@@ -38,7 +38,7 @@ function setup!(
     s.scalings  = DefaultScalings(cone_info)
     s.variables = DefaultVariables(s.data.n,cone_info)
     s.residuals = DefaultResiduals(s.data.n,s.data.m)
-    s.kktsolver = DefaultKKTSolver(s.data,s.scalings)
+    s.kktsolver = DefaultKKTSolver(s.data,s.scalings,s.settings)
     s.info    = DefaultInfo()
 
     # work variables for assembling step direction LHS/RHS

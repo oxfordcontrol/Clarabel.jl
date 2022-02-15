@@ -33,7 +33,8 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
         function DefaultKKTSolver{T}(
             data::DefaultProblemData{T},
             scalings::DefaultScalings{T},
-            solvertype::DataType = QDLDLLinearSolver{T}
+            settings::Settings{T},
+            solvertype::DataType = QDLDLLinearSolver{T},
         ) where {T}
 
         #basic problem dimensions
@@ -41,7 +42,7 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
         m = data.m
 
         #create the linear solver
-        linsys = solvertype(data.P,data.A,data.cone_info,m,n)
+        linsys = solvertype(data.P,data.A,data.cone_info,m,n,settings)
 
         #does our solver use sparse SOC format?
         if linsys_is_soc_sparse_format(linsys)
