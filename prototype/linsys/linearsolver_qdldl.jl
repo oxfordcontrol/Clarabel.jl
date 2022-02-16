@@ -59,7 +59,10 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
         #diagonal here, and then subsequent modifications
         #to WtW should reapply regularization at the modified
         #entries only
-        KKT = KKT + Diagonal(Dsigns).*1e-7
+        if(settings.static_regularization_enable)
+            eps = settings.static_regularization_eps
+            KKT .+= Diagonal(Dsigns).*eps
+        end
 
         factors = nothing
         perm    = nothing
@@ -91,6 +94,7 @@ function linsys_update!(
     n = linsys.n
     m = linsys.m
     p = linsys.p
+    settings = linsys.settings
 
     scaling_get_diagonal!(scalings,linsys.diagW2)
 
@@ -135,8 +139,11 @@ function linsys_update!(
     #Note that we don't want to shift elements in the ULHS
     #(corresponding to P) since we already shifted them
     #at initialization and haven't overwritten it
-    for i = (n+1):(n+m+p)
-        linsys.KKT[i,i] += linsys.Dsigns[i]*1e-7
+    if(settings.static_regularization_enable)
+        eps = settings.static_regularization_eps
+        for i = (n+1):(n+m+p)
+            linsys.KKT[i,i] += linsys.Dsigns[i]*eps
+        end
     end
 
     #PJG: permutation should be decided at
@@ -148,9 +155,15 @@ function linsys_update!(
     end
 
     #refactor.  PJG: For now, just overwrite the factors
-    linsys.factors = qdldl(linsys.KKT;
-                           perm=linsys.perm,
-                           Dsigns = linsys.Dsigns)
+    signs = settings.dynamic_regularization_enable ? linsys.Dsigns : nothing
+
+    linsys.factors =qdldl(
+            linsys.KKT;
+            perm   = linsys.perm,
+            Dsigns = linsys.Dsigns,
+            regularize_eps   = settings.dynamic_regularization_eps,
+            regularize_delta = settings.dynamic_regularization_delta
+        )
 
 
     return nothing
@@ -163,20 +176,46 @@ function linsys_solve!(
     b::Vector{T}
 ) where {T}
 
-    normb = norm(b)
+    normb = norm(b,Inf)
     work  = linsys.work
+
+    #iterative refinement params
+    IR_enable    = linsys.settings.iterative_refinement_enable
+    IR_reltol    = linsys.settings.iterative_refinement_reltol
+    IR_abstol    = linsys.settings.iterative_refinement_abstol
+    IR_maxiter   = linsys.settings.iterative_refinement_max_iter
+    IR_stopratio = linsys.settings.iterative_refinement_stop_ratio
 
     #make an initial solve
     x .= b
     QDLDL.solve!(linsys.factors,x)
 
+    if(!IR_enable); return nothing; end  #done
+
     #PJG: Note that K is only triu, so need to
     #be careful when computing the residual here
     K = linsys.KKT
     Ksym = Symmetric(K)
+    lastnorme = Inf
 
-    for i = 1:3
+    for i = 1:IR_maxiter
+
         work .= b - Ksym*x                    #this is e = b - Kξ
+        norme = norm(work,Inf)
+
+        # test for convergence before committing
+        # to a refinement step
+        if(norme <= IR_abstol + IR_reltol*normb)
+            return nothing
+        end
+
+        #if we haven't improved by at least the halting
+        #ratio since the last pass through, then abort
+        if(lastnorme/norme < IR_stopratio)
+            return nothing
+        end
+
+        #make a refinement and continue
         QDLDL.solve!(linsys.factors,work)     #this is Δξ
         x .+= work
     end
