@@ -2,7 +2,7 @@
 # Zero Cone
 # -------------------------------------
 
-order(K::ZeroCone{T}) where {T} = 0
+degree(K::ZeroCone{T}) where {T} = 0
 
 function update_scaling!(
     K::ZeroCone{T},

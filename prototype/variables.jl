@@ -5,7 +5,7 @@ function calc_mu(
     scalings::DefaultScalings{T}
 ) where {T}
 
-  μ = (residuals.dot_sz + variables.τ * variables.κ)/(scalings.total_order + 1)
+  μ = (residuals.dot_sz + variables.τ * variables.κ)/(scalings.total_degree + 1)
 
   return μ
 end
@@ -100,7 +100,7 @@ function calc_combined_step_rhs!(
     # combined corrector step
     d.x .*= (1. - σ)
     d.τ  *= (1. - σ)
-    d.τ  += tmp0
+    d.τ  += tmp2
     d.κ  += - σ*μ + step.τ * step.κ
 
     # d.s and d.z are harder if we want to be
@@ -142,7 +142,7 @@ function variables_finalize!(
     #if we have an infeasible problem, unscale
     #using κ to get an infeasibility certificate.
     #Otherwise using τ to get a solution.
-    if(status == PRIMAL_INFEASIBLE || status == DUAL_INFEASIBLE || status == MAX_ITERATIONS)
+    if(status == PRIMAL_INFEASIBLE || status == DUAL_INFEASIBLE)
         scaleinv = 1. / variables.κ
     else
         scaleinv = 1. / variables.τ

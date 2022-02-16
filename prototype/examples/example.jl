@@ -8,7 +8,7 @@ using StatProfilerHTML
 
 A = SparseMatrixCSC(I(3)*1.)
 P = SparseMatrixCSC(I(3)*1.)
-P[1,1] = 25
+#P[1,1] = 25
 P .*= 0
 A = [A;-A].*2
 c = [3.;-2.;1.]
@@ -27,16 +27,16 @@ cone_dims  = [3,3]
 # b[1] = -1
 # b[4] = -1
 
-# dual infeasible variation
-P = SparseMatrixCSC(I(3)*1.)
-P[1,1] = 0
-A = SparseMatrixCSC(I(3)*1.)
-A = [A;-A]
-A[4,1] = 1      #swap lower bound on first variable to redundant upper
-c = [1.;0;0]
-b = ones(Float64,6)
-cone_types = [IPSolver.NonnegativeConeT, IPSolver.NonnegativeConeT]
-cone_dims  = [3,3]
+# # dual infeasible variation
+# P = SparseMatrixCSC(I(3)*1.)
+# P[1,1] = 0
+# A = SparseMatrixCSC(I(3)*1.)
+# A = [A;-A]
+# A[4,1] = 1      #swap lower bound on first variable to redundant upper
+# c = [1.;0;0]
+# b = ones(Float64,6)
+# cone_types = [IPSolver.NonnegativeConeT, IPSolver.NonnegativeConeT]
+# cone_dims  = [3,3]
 
 #solve in JuMP
 using JuMP
@@ -50,7 +50,10 @@ model = Model(ECOS.Optimizer)
 
 #Run the opimization
 optimize!(model)
-print(JuMP.value.(x))
+ex = JuMP.value.(x)
+es = b - A*ex
+ez = -JuMP.dual.(c1)
+
 #
 # @printf("\n\n-------------------------\n\n")
 @printf("\n\n-------------------------\n\n")
@@ -58,12 +61,16 @@ print(JuMP.value.(x))
 
 settings = IPSolver.Settings(max_iter=20,verbose=true,direct_kkt_solver=true)
 solver   = IPSolver.Solver()
-IPSolver.setup!(solver,P,c,A,b,cone_types,cone_dims,settings)
+IPSolver.setup!(solver,P.*1,c,A,b,cone_types,cone_dims,settings)
 IPSolver.solve!(solver)
 
-# @printf("\nClarabel (Indirect)\n-------------------------\n\n")
-#
-# settings = IPSolver.Settings(max_iter=20,verbose=true,direct_kkt_solver=false)
-# solver   = IPSolver.Solver()
-# IPSolver.setup!(solver,c,A,b,cone_types,cone_dims,settings)
-# IPSolver.solve!(solver)
+s = solver
+
+data = s.data
+vars = s.variables
+res  = s.residuals
+x = vars.x
+z = vars.z.vec
+s = vars.s.vec
+τ = vars.τ
+κ = vars.κ

@@ -2,12 +2,11 @@
 # Default implementations for cone operations
 # --------------------------------------------
 
-# Order of the cone is the same as dimension
-# by default.   Order will be defined differently
-# for the zero cone though (order=0 in that case)
+# degree of the cone is the same as dimension
+# by default.   Degree will be defined differently
+# for the zero cone and SOC (0 and 1, respectively)
 dim(K::AbstractCone{T}) where {T} = K.dim
-order(K::AbstractCone{T}) where {T} = K.dim
-
+degree(K::AbstractCone{T}) where {T} = K.dim
 
 # All other operations will throw an error
 # if a type specific implementation has been

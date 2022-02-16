@@ -38,11 +38,7 @@ function setup!(
     s.scalings  = DefaultScalings(cone_info)
     s.variables = DefaultVariables(s.data.n,cone_info)
     s.residuals = DefaultResiduals(s.data.n,s.data.m)
-    if(settings.direct_kkt_solver == true)
-        s.kktsolver = DefaultKKTSolverDirect(s.data,s.scalings)
-    else
-        s.kktsolver = DefaultKKTSolverIndirect(s.data,s.scalings)
-    end
+    s.kktsolver = DefaultKKTSolver(s.data,s.scalings,s.settings)
     s.info    = DefaultInfo()
 
     # work variables for assembling step direction LHS/RHS
@@ -81,6 +77,8 @@ function solve!(
     #----------
     while true
 
+        debug_rescale(s.variables)
+
         #update the residuals
         #--------------
         residuals_update!(s.residuals,s.variables,s.data)
@@ -105,9 +103,10 @@ function solve!(
         #--------------
         scaling_update!(s.scalings,s.variables)
 
-        #update the KKT system
+        #update the KKT system and the constant
+        #parts of its solution
         #--------------
-        kkt_update!(s.kktsolver,s.scalings)
+        kkt_update!(s.kktsolver,s.data,s.scalings)
 
         #calculate the affine step
         #--------------
@@ -125,6 +124,9 @@ function solve!(
         α = calc_step_length(s.variables,s.step_lhs,s.scalings)
         σ = calc_centering_parameter(α)
 
+        #DEBUG: PJG cap the centering parameter using a heuristic
+        debug_cap_centering_param(iter,σ,μ)
+
         #calculate the combined step and length
         #--------------
         calc_combined_step_rhs!(
@@ -139,14 +141,13 @@ function solve!(
 
         #compute final step length and update the current iterate
         #--------------
-        α = 0.99*calc_step_length(s.variables,s.step_lhs,s.scalings) #PJG: make tunable
+        α  = calc_step_length(s.variables,s.step_lhs,s.scalings)
+        α *= s.settings.max_step_fraction
+
         variables_add_step!(s.variables,s.step_lhs,α)
 
         #record scalar values from this iteration
         info_save_scalars(s.info,μ,α,σ,iter)
-
-        #PJG: debug. Rescale homogenous variables
-        #debug_rescale(s)
 
     end
 
@@ -170,7 +171,7 @@ function solver_default_start!(s::Solver{T}) where {T}
     #set all scalings to identity (or zero for the zero cone)
     scaling_identity!(s.scalings)
     #Refactor
-    kkt_update!(s.kktsolver,s.scalings)
+    kkt_update!(s.kktsolver,s.data,s.scalings)
     #solve for primal/dual initial points via KKT
     kkt_solve_initial_point!(s.kktsolver,s.variables,s.data)
     #fix up (z,s) so that they are in the cone
