@@ -5,8 +5,8 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     max_iter::DefaultInt    = 50
     verbose::Bool           = true
-    tol_gap_abs::T          = 1e-7
-    tol_gap_rel::T          = 1e-6
+    tol_gap_abs::T          = 1e-8
+    tol_gap_rel::T          = 1e-8
     tol_feas::T             = 1e-5
     direct_kkt_solver::Bool = true
 
@@ -26,7 +26,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     iterative_refinement_reltol::T      = 1e-10
     iterative_refinement_abstol::T      = 1e-10
     iterative_refinement_max_iter::Int  = 10
-    iterative_refinement_halt_ratio::T  = 2
+    iterative_refinement_stop_ratio::T  = 2.
 
 end
 
