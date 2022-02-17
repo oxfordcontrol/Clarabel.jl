@@ -2,6 +2,16 @@
 # Nonnegative Cone
 # -------------------------------------
 
+function rectify_equilibration!(
+    K::NonnegativeCone{T},
+    enew::VectorView{T},
+    eold::VectorView{T}
+) where{T}
+
+    #allow elementwise equilibration scaling
+    return false
+end
+
 function update_scaling!(
     K::NonnegativeCone{T},
     s::VectorView{T},

@@ -35,7 +35,7 @@ function setup!(
 
     s.settings  = settings
     s.data      = DefaultProblemData(P,c,A,b,cone_info)
-    s.scalings  = DefaultScalings(cone_info)
+    s.scalings  = DefaultScalings(s.data.n,cone_info,settings)
     s.variables = DefaultVariables(s.data.n,cone_info)
     s.residuals = DefaultResiduals(s.data.n,s.data.m)
     s.kktsolver = DefaultKKTSolver(s.data,s.scalings,s.settings)
@@ -44,6 +44,11 @@ function setup!(
     # work variables for assembling step direction LHS/RHS
     s.step_rhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
     s.step_lhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
+
+    #equilibrate problem data immediately on setup.
+    #this prevents multiple equlibrations if solve!
+    #is called more than once
+    equilibrate!(s.scalings,s.data,s.settings)
 
     return nothing
 end

@@ -9,15 +9,15 @@ function check_termination!(
 ) where {T}
 
     #optimality termination check should be computed w.r.t
-    #the unscaled x and z variables.
+    #the pre-homogenization x and z variables.
     τinv = 1 / variables.τ
 
     #primal and dual costs
-    info.cost_primal =  residuals.dot_cx*τinv + residuals.dot_xPx * τinv * τinv / 2
+    info.cost_primal =  residuals.dot_qx*τinv + residuals.dot_xPx * τinv * τinv / 2
     info.cost_dual   = -residuals.dot_bz*τinv - residuals.dot_xPx * τinv * τinv / 2
 
     #primal and dual residuals
-    info.res_primal  = norm(residuals.rx) * τinv / max(1,data.norm_c)
+    info.res_primal  = norm(residuals.rx) * τinv / max(1,data.norm_q)
     info.res_dual    = norm(residuals.rz) * τinv / max(1,data.norm_b)
 
     #absolute and relative gaps
@@ -41,15 +41,17 @@ function check_termination!(
 
     #check for primal infeasibility
     #---------------------
-    #PJG:Using unscaled variables here.   Double check normalization term (see notes)
+    #PJG:Using unhomogenized variables here.   Double check normalization term (see notes)
+    #DEBUG: Possibly fatal problem here if norm_q is huge
     elseif(residuals.dot_bz < 0 &&
-           residuals.norm_pinf/max(1,data.norm_c) < settings.tol_feas)
+           residuals.norm_pinf/max(1,data.norm_q) < settings.tol_feas)
         info.status = PRIMAL_INFEASIBLE
 
     #check for dual infeasibility
     #---------------------
     #PJG:Using unscaled variables here.   Double check normalization term (see notes)
-    elseif(residuals.dot_cx < 0 &&
+    #DEBUG: Fatal problem here if norm_b is hube
+    elseif(residuals.dot_qx < 0 &&
            residuals.norm_dinf/max(1,data.norm_b) < settings.tol_feas)
         info.status = DUAL_INFEASIBLE
 
@@ -68,7 +70,7 @@ end
 
 function info_save_scalars(info,μ,α,σ,iter)
 
-    info.gap = μ  #PJG: this is not the gap, it's gap/(m+1)
+    info.gap = μ  #DEBUG PJG: this is not the gap, it's gap/(m+1)
     info.step_length = α
     info.sigma = σ
     info.iterations = iter

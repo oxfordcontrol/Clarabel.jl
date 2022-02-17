@@ -4,6 +4,17 @@
 
 degree(K::ZeroCone{T}) where {T} = 0
 
+function rectify_equilibration!(
+    K::ZeroCone{T},
+    δ::VectorView{T},
+    e::VectorView{T}
+) where{T}
+
+    #allow elementwise equilibration scaling
+    return false
+end
+
+
 function update_scaling!(
     K::ZeroCone{T},
     s::VectorView{T},

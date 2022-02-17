@@ -30,6 +30,9 @@ module IPSolver
     include("./cones/coneops_nncone.jl")
     include("./cones/coneops_socone.jl")
 
+    include("./equilibration.jl")
+    include("./mathutils.jl")
+
     #PJG : temporary debugging utils
     include("./debug.jl")
     include("./debug_coneops.jl")

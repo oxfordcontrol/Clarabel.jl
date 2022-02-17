@@ -2,6 +2,26 @@
 # dispatch operators for multiple cones
 # -----------------------------------------------------
 
+function cones_rectify_equilibration!(
+    cones::ConeSet{T},
+     δ::SplitVector{T},
+     e::SplitVector{T}
+) where{T}
+
+    any_changed = false
+
+    #we will update e <- \delta .*e using return values
+    #from this function.  default is to do nothing at all
+    δ.vec .= 1
+
+    for i = eachindex(cones)
+        any_changed |= rectify_equilibration!(cones[i],δ.views[i],e.views[i])
+    end
+
+    return any_changed
+end
+
+
 function cones_update_scaling!(
     cones::ConeSet{T},
     s::SplitVector{T},
@@ -15,6 +35,7 @@ function cones_update_scaling!(
 
     return nothing
 end
+
 
 function cones_set_identity_scaling!(
     cones::ConeSet{T}

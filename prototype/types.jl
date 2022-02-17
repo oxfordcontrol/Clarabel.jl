@@ -90,7 +90,7 @@ DefaultVariables(args...) = DefaultVariables{DefaultFloat}(args...)
 # scalings
 # ---------------
 
-mutable struct DefaultScalings{T} <: AbstractConeScalings{T}
+struct DefaultScalings{T} <: AbstractConeScalings{T}
 
     # specification from the problem statement
     cone_info::ConeInfo
@@ -104,6 +104,22 @@ mutable struct DefaultScalings{T} <: AbstractConeScalings{T}
     #composite cone degree.  NB: Not the
     #same as dimension for zero or SO cones
     total_degree::DefaultInt
+
+    #scaling matrices for problem data equilibration
+    #fields d,e,dinv,einv are vectors of scaling values
+    #The other fields are diagonal views for convenience
+    d::Vector{T}
+    dinv::Vector{T}
+    D::Diagonal{T}
+    Dinv::Diagonal{T}
+
+    e::SplitVector{T}
+    einv::SplitVector{T}
+    E::Diagonal{T}
+    Einv::Diagonal{T}
+
+    #overall scaling for objective function
+    c::Ref{T}
 
 end
 
@@ -127,7 +143,7 @@ mutable struct DefaultResiduals{T} <: AbstractResiduals{T}
     norm_dinf::T
 
     #various inner products
-    dot_cx::T
+    dot_qx::T
     dot_bz::T
     dot_sz::T
     dot_xPx::T
@@ -154,7 +170,7 @@ DefaultResiduals(args...) = DefaultResiduals{DefaultFloat}(args...)
 mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
 
     P::AbstractMatrix{T}
-    c::Vector{T}
+    q::Vector{T}
     A::AbstractMatrix{T}
     b::Vector{T}
     n::DefaultInt
@@ -162,19 +178,19 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     cone_info::ConeInfo
 
     #some static info about the problem data
-    norm_c::T
+    norm_q::T
     norm_b::T
 
-    function DefaultProblemData{T}(P,c,A,b,cone_info) where {T}
+    function DefaultProblemData{T}(P,q,A,b,cone_info) where {T}
 
-        n         = length(c)
+        n         = length(q)
         m         = length(b)
 
         m == size(A)[1] || throw(ErrorException("A and b incompatible dimensions."))
         n == size(A)[2] || throw(ErrorException("A and c incompatible dimensions."))
         m == sum(cone_info.dims) || throw(ErrorException("Incompatible cone dimensions."))
 
-        new(P,c,A,b,n,m,cone_info,norm(c),norm(b))
+        new(P,q,A,b,n,m,cone_info,norm(q),norm(b))
 
     end
 

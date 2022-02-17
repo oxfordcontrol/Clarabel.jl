@@ -109,7 +109,7 @@ function _kkt_solve_constant_rhs!(
 
     #make the RHS for the constant part
     #of the reduced solve
-    kktsolver.work_x .= -data.c;
+    kktsolver.work_x .= -data.q;
     kktsolver.work_z .=  data.b;
     kktsolver.work_p .=  0.0;
 
@@ -137,7 +137,7 @@ function kkt_solve_initial_point!(
 
     # solve with [-c;0] as a RHS to get z initializer
     # zero out any sparse cone variables at end
-    kktsolver.work_x .= -data.c
+    kktsolver.work_x .= -data.q
     kktsolver.work_z .=  0.0
     kktsolver.work_p .=  0.0
 
@@ -178,9 +178,9 @@ function kkt_solve!(
     P   = data.P
 
     #solve for Δτ
-    tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.c,lhs.x) + dot(data.b,lhs.z.vec) + 2*dot(ξ,P,lhs.x)
+    tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,lhs.x) + dot(data.b,lhs.z.vec) + 2*dot(ξ,P,lhs.x)
 
-    tau_den = (variables.κ/variables.τ - dot(data.c,constx) - dot(data.b,constz) + dot(ξ - lhs.x,P,ξ - lhs.x) - dot(lhs.x,P,lhs.x))
+    tau_den = (variables.κ/variables.τ - dot(data.q,constx) - dot(data.b,constz) + dot(ξ - lhs.x,P,ξ - lhs.x) - dot(lhs.x,P,lhs.x))
 
     #PJG: the version below fails when using static regularization,
     # because |Wz| ends up orders of magnitude

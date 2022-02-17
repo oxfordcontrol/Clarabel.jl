@@ -28,6 +28,12 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     iterative_refinement_max_iter::Int  = 10
     iterative_refinement_stop_ratio::T  = 2.
 
+    #data equilibration
+    equilibrate_enable::Integer         = true
+    equilibrate_max_iter::Integer       = 10
+    equilibrate_min_scaling::T          = 1e-4
+    equilibrate_max_scaling::T          = 1e+4
+
 end
 
 # Default to DefaultFloat type for reals
