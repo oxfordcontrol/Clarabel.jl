@@ -180,17 +180,13 @@ function kkt_solve!(
     #solve for Δτ
     tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,lhs.x) + dot(data.b,lhs.z.vec) + 2*dot(ξ,P,lhs.x)
 
-    tau_den = (variables.κ/variables.τ - dot(data.q,constx) - dot(data.b,constz) + dot(ξ - lhs.x,P,ξ - lhs.x) - dot(lhs.x,P,lhs.x))
+    #now offset ξ for the quadratic form in the denominator
+    ξ_minus_x    = ξ   #alias to ξ, same as work_x
+    ξ_minus_x  .-= lhs.x
 
-    #PJG: the version below fails when using static regularization,
-    # because |Wz| ends up orders of magnitude
-    #too small relative to the equivalent combination
-    #of linear terms.   Maybe regularization of P from
-    #the outset and using that internally would alleviate
-    #this problem?   That really treats it like a QP though,
-    #which is maybe not the same thing (residuals will be
-    #wrong, for example)
-    #tau_den = variables.κ/variables.τ + normWz1sq
+    tau_den = (variables.κ/variables.τ - dot(data.q,constx) - dot(data.b,constz) + dot(ξ_minus_x,P,ξ_minus_x) - dot(lhs.x,P,lhs.x))
+
+    # Δτ = tau_num/tau_den
     lhs.τ  = tau_num/tau_den
 
     #shift solution by pre-computed constant terms

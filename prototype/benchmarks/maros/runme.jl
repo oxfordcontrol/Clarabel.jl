@@ -1,31 +1,34 @@
 
 using Revise
-include("../IPSolver.jl")
+include("../../IPSolver.jl")
 using .IPSolver
 using LinearAlgebra
 using Printf
 using MAT
 using JuMP
 using OSQP, ECOS
-include("./utils.jl")
+include(joinpath(@__DIR__,"utils.jl"))
 
 
 function print_header()
 
     println("                             ECOS                             CLARABEL          ")
-    println("                  TIME       STAT       COST   |     TIME       STAT       COST      ")
+    println("                  TIME       STAT       COST      |   TIME       STAT       COST      |   REFOBJ     SPEEDUP ")
     println("------------------------------------------------------------------------------------------------")
 
 end
 
-function print_row(i,name,result_ecos,result_clarabel)
+function print_row(i,name,result_ecos,result_clarabel, ref_sol)
 
-    @printf("%3i %-9s : ", i, name)
+    @printf("%3d %-9s : ", i, name)
 
     for result in [result_ecos,result_clarabel]
         stat = @sprintf("%s",result.status)[1:6]
-        @printf("%+9.2e   %-4s    %+9.2e  : ", result.time, stat, result.cost)
+        @printf("%+9.2e   %-4s    %+10.3e  : ", result.time, stat, result.cost)
     end
+    speedup = result_ecos.time / result_clarabel.time
+    @printf("%+9.3e  ", ref_sol)
+    @printf("%+9.3f  ", speedup)
     @printf("\n")
 
 end
@@ -42,10 +45,13 @@ result_osqp = []
 result_clarabel = []
 names = []
 
-#This file indices cause segfaults in JuMP (not ECOS).  Just skip them
-badfiles = [78 79 117]
+#These file indices cause segfaults in JuMP (not ECOS).  Just skip them
+badfiles = [78, 79, 117]
+push!(badfiles,36)   #this is EXDATA, which is huge
 
-for FNUM = 1:length(files) #length(files)
+solve_list = 1:length(files)
+
+for FNUM = solve_list #length(files)
 
     if(any(FNUM .== badfiles))
         continue
@@ -64,11 +70,18 @@ for FNUM = 1:length(files) #length(files)
 
     # push!(result_osqp, solve_osqp(probdata))
 
-    push!(result_clarabel,solve_clarabel(probdata))
+    push!(result_clarabel,solve_clarabel(probdata)[1])
 
 end
 
+#Note objective function source file doesn't
+#include underscores in problem names
+refsols = get_ref_solutions(joinpath(@__DIR__,"ref_solutions.txt"))
+no_underscore = x -> replace(x,"_" => "")
+
 print_header()
 for i = 1:length(result_ecos)
-    print_row(i, names[i], result_ecos[i],result_clarabel[i])
+    objname = no_underscore(names[i])
+    print_row(i, names[i], result_ecos[i],result_clarabel[i], refsols[objname])
+
 end

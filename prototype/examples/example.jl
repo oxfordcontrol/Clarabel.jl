@@ -3,15 +3,16 @@ include("../IPSolver.jl")
 using .IPSolver
 using LinearAlgebra
 using Printf
-using ClearStacktrace
 using StatProfilerHTML
 
 A = SparseMatrixCSC(I(3)*1.)
 P = SparseMatrixCSC(I(3)*1.)
 #P[1,1] = 25
-P .*= 0
+P[2,2] = 2.; P[3,3] = 3.
 A = [A;-A].*2
-c = [3.;-2.;1.]
+A[1,1] = 100
+A[end,end] = 100
+c = [3.;-2.;1.]*10
 b = ones(Float64,6)
 cone_types = [IPSolver.NonnegativeConeT, IPSolver.NonnegativeConeT]
 cone_dims  = [3,3]
@@ -44,27 +45,27 @@ using MosekTools, OSQP, ECOS
 
 @printf("\n\nJuMP\n-------------------------\n\n")
 model = Model(ECOS.Optimizer)
-@variable(model, x[1:3])
-@constraint(model, c1, A*x .<= b)
-@objective(model, Min, sum(c.*x) + 1/2*x'*P*x)
+@variable(model, Jx[1:3])
+@constraint(model, c1, A*Jx .<= b)
+@objective(model, Min, sum(c.*Jx) + 1/2*Jx'*P*Jx)
 
 #Run the opimization
 optimize!(model)
-ex = JuMP.value.(x)
-es = b - A*ex
-ez = -JuMP.dual.(c1)
+Jx = JuMP.value.(Jx)
+Js = b - A*Jx
+Jz = -JuMP.dual.(c1)
 
 #
 # @printf("\n\n-------------------------\n\n")
 @printf("\n\n-------------------------\n\n")
 @printf("\nClarabel (Direct)\n-------------------------\n\n")
 
-settings = IPSolver.Settings(max_iter=20,verbose=true,direct_kkt_solver=true)
-solver   = IPSolver.Solver()
-IPSolver.setup!(solver,P.*1,c,A,b,cone_types,cone_dims,settings)
-IPSolver.solve!(solver)
+settings = IPSolver.Settings(max_iter=20,verbose=true,direct_kkt_solver=true,equilibrate_enable = true)
+solver1   = IPSolver.Solver()
+IPSolver.setup!(solver1,P,c,A,b,cone_types,cone_dims,settings)
+IPSolver.solve!(solver1)
 
-s = solver
+s = solver1
 
 data = s.data
 vars = s.variables
@@ -74,3 +75,19 @@ z = vars.z.vec
 s = vars.s.vec
 τ = vars.τ
 κ = vars.κ
+
+D     = solver1.scalings.D
+Dinv  = solver1.scalings.Dinv
+E     = solver1.scalings.E
+Einv  = solver1.scalings.Einv
+cscale = solver1.scalings.c[]
+
+dA = deepcopy(solver1.data.A)
+dP = deepcopy(solver1.data.P)
+dq = deepcopy(solver1.data.q)
+db = deepcopy(solver1.data.b)
+
+settings = IPSolver.Settings(max_iter=20,verbose=true,direct_kkt_solver=true,equilibrate_enable = false)
+solver2   = IPSolver.Solver()
+IPSolver.setup!(solver2,dP,dq,dA,db,cone_types,cone_dims,settings)
+IPSolver.solve!(solver2)

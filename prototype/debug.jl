@@ -2,11 +2,10 @@
 
 function debug_cap_centering_param(iter,σ,μ)
     #don't allow solutions that are *too* optimal
-    floor = max(1e-24,30^(-iter/3.))
-    if(iter > 4 && μ*σ < floor)
+    floor = 1e-24
+    if(iter > 1 && μ*σ < floor)
         σ = floor/μ
     end
-
     return σ
 end
 

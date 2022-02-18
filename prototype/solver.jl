@@ -38,6 +38,13 @@ function setup!(
     s.scalings  = DefaultScalings(s.data.n,cone_info,settings)
     s.variables = DefaultVariables(s.data.n,cone_info)
     s.residuals = DefaultResiduals(s.data.n,s.data.m)
+
+    #equilibrate problem data immediately on setup.
+    #this prevents multiple equlibrations if solve!
+    #is called more than once.  Do this before
+    #creating kksolver and its factors
+    equilibrate!(s.scalings,s.data,s.settings)
+
     s.kktsolver = DefaultKKTSolver(s.data,s.scalings,s.settings)
     s.info    = DefaultInfo()
 
@@ -45,10 +52,6 @@ function setup!(
     s.step_rhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
     s.step_lhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
 
-    #equilibrate problem data immediately on setup.
-    #this prevents multiple equlibrations if solve!
-    #is called more than once
-    equilibrate!(s.scalings,s.data,s.settings)
 
     return nothing
 end
@@ -130,7 +133,8 @@ function solve!(
         σ = calc_centering_parameter(α)
 
         #DEBUG: PJG cap the centering parameter using a heuristic
-        debug_cap_centering_param(iter,σ,μ)
+        #σ = debug_cap_centering_param(iter,σ,μ)
+        #@printf("μ = %e, σμ = %e\n", μ, σ*μ)
 
         #calculate the combined step and length
         #--------------
@@ -157,7 +161,7 @@ function solve!(
     end
 
     info_finalize!(s.info)
-    variables_finalize!(s.variables,s.info.status)
+    variables_finalize!(s.variables, s.scalings, s.info.status)
     print_footer(s.info,s.settings)
 
     return nothing

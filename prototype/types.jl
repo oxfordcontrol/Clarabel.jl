@@ -132,17 +132,17 @@ DefaultScalings(args...) = DefaultScalings{DefaultFloat}(args...)
 
 mutable struct DefaultResiduals{T} <: AbstractResiduals{T}
 
+    #the main KKT residuals
     rx::Vector{T}
     rz::Vector{T}
     rτ::T
 
-    norm_rz::T
-    norm_rx::T
+    #partial residuals for infeasibility checks
+    rx_inf::Vector{T}
+    rz_inf::Vector{T}
 
-    norm_pinf::T
-    norm_dinf::T
-
-    #various inner products
+    #various inner products.
+    #NB: these are invariant w.r.t equilibration
     dot_qx::T
     dot_bz::T
     dot_sz::T
@@ -155,7 +155,10 @@ mutable struct DefaultResiduals{T} <: AbstractResiduals{T}
         rz = Vector{T}(undef,m)
         rτ = T(1)
 
-        new(rx,rz,rτ)
+        rx_inf = Vector{T}(undef,n)
+        rz_inf = Vector{T}(undef,m)
+
+        new(rx,rz,rτ,rx_inf,rz_inf,0.,0.,0.,0.)
     end
 
 end
@@ -177,9 +180,10 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     m::DefaultInt
     cone_info::ConeInfo
 
-    #some static info about the problem data
-    norm_q::T
-    norm_b::T
+    #some static info about the problem data prior to
+    #any scaling from equilibration
+    norm_q_no_scaling::T
+    norm_b_no_scaling::T
 
     function DefaultProblemData{T}(P,q,A,b,cone_info) where {T}
 
@@ -189,6 +193,13 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
         m == size(A)[1] || throw(ErrorException("A and b incompatible dimensions."))
         n == size(A)[2] || throw(ErrorException("A and c incompatible dimensions."))
         m == sum(cone_info.dims) || throw(ErrorException("Incompatible cone dimensions."))
+
+        #take an internal copy of all problem
+        #data, since we are going to scale it
+        P = deepcopy(P)
+        A = deepcopy(A)
+        q = deepcopy(q)
+        b = deepcopy(b)
 
         new(P,q,A,b,n,m,cone_info,norm(q),norm(b))
 
@@ -224,6 +235,8 @@ mutable struct DefaultInfo{T} <: AbstractInfo{T}
     cost_dual::T
     res_primal::T
     res_dual::T
+    res_primal_inf::T
+    res_dual_inf::T
     gap::T
     step_length::T
     sigma::T

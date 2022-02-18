@@ -7,13 +7,14 @@ using JuMP
 using OSQP, ECOS
 
 
-file = "QSCAGR25.mat"
+file = "HS53.mat"
 
 srcpath = joinpath(@__DIR__,"mat",file)
 
 probdata = matread(srcpath)
 
 solve_ecos(probdata)
+#solve_osqp(probdata)
 out = solve_clarabel(probdata)
 
 solver = out[2]

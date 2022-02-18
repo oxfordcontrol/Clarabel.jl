@@ -12,20 +12,34 @@ function check_termination!(
     #the pre-homogenization x and z variables.
     τinv = 1 / variables.τ
 
-    #primal and dual costs
-    info.cost_primal =  residuals.dot_qx*τinv + residuals.dot_xPx * τinv * τinv / 2
-    info.cost_dual   = -residuals.dot_bz*τinv - residuals.dot_xPx * τinv * τinv / 2
+    #shortcuts for the equilibration matrices
+    D = scalings.D; Dinv = scalings.Dinv
+    E = scalings.E; Einv = scalings.Einv
+    cscale = scalings.c[]
 
-    #primal and dual residuals
-    info.res_primal  = norm(residuals.rx) * τinv / max(1,data.norm_q)
-    info.res_dual    = norm(residuals.rz) * τinv / max(1,data.norm_b)
+    #primal and dual costs. do products are invariant w.r.t
+    #equilibration, but we still need to back out the overall
+    #objective scaling term c
+    info.cost_primal =  (+residuals.dot_qx*τinv + residuals.dot_xPx * τinv * τinv / 2)/cscale
+    info.cost_dual   =  (-residuals.dot_bz*τinv - residuals.dot_xPx * τinv * τinv / 2)/cscale
+
+    #primal and dual residuals.   Need to invert the equilibration
+    #DEBUG: PJG need to check whether should be multiplying
+    #D or Dinv here for the residuals (all 4 lines)
+    info.res_primal  = norm(Einv * residuals.rz) * τinv
+    info.res_dual    = norm(Dinv * residuals.rx) * τinv
+
+    #primal and dual infeasibility residuals.   Need to invert the equilibration
+    #DEBUG: PJG do I have these the right way around
+    info.res_primal_inf = norm((Einv * residuals.rz_inf))
+    info.res_dual_inf   = norm((Dinv * residuals.rx_inf))
 
     #absolute and relative gaps
-    abs_gap   = residuals.dot_sz * τinv * τinv
+    gap_abs   = residuals.dot_sz * τinv * τinv
     if(info.cost_primal > 0 && info.cost_dual < 0)
-        rel_gap = 1/eps()
+        gap_rel = 1/eps()
     else
-        rel_gap = abs_gap / min(abs(info.cost_primal),abs(info.cost_dual))
+        gap_rel = gap_abs / min(abs(info.cost_primal),abs(info.cost_dual))
     end
 
     #κ/τ
@@ -33,26 +47,27 @@ function check_termination!(
 
     #check for convergence
     #---------------------
-    if( (abs_gap < settings.tol_gap_abs) || (rel_gap < settings.tol_gap_rel)
+    if( ((gap_abs < settings.tol_gap_abs) || (gap_rel < settings.tol_gap_rel))
         && (info.res_primal < settings.tol_feas)
         && (info.res_dual   < settings.tol_feas)
     )
         info.status = SOLVED
 
     #check for primal infeasibility
+    #PJG: Still not sure how to properly normalize here
+    #maybe should be done via cost.   Using RHS is a disaster
+    #NB: delete unscaled norm field  in data if not sued
     #---------------------
-    #PJG:Using unhomogenized variables here.   Double check normalization term (see notes)
     #DEBUG: Possibly fatal problem here if norm_q is huge
     elseif(residuals.dot_bz < 0 &&
-           residuals.norm_pinf/max(1,data.norm_q) < settings.tol_feas)
+           info.res_primal_inf < settings.tol_feas)
         info.status = PRIMAL_INFEASIBLE
 
     #check for dual infeasibility
     #---------------------
-    #PJG:Using unscaled variables here.   Double check normalization term (see notes)
-    #DEBUG: Fatal problem here if norm_b is hube
+    #DEBUG: Fatal problem here if norm_b is huge
     elseif(residuals.dot_qx < 0 &&
-           residuals.norm_dinf/max(1,data.norm_b) < settings.tol_feas)
+           info.res_dual_inf < settings.tol_feas)
         info.status = DUAL_INFEASIBLE
 
 

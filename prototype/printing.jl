@@ -40,8 +40,8 @@ function print_header(
     println("problem:")
     @printf("variables     = %i\n", data.n)
     @printf("constraints   = %i\n", data.m)
-    @printf("nnz(P)        = %i\n", nnz(data.P))
-    @printf("nnz(A)        = %i\n", nnz(data.A))
+    @printf("nnz(P)        = %i   : norm = %e\n", nnz(data.P), norm(data.P))
+    @printf("nnz(A)        = %i   : norm = %e\n", nnz(data.A), norm(data.A))
     @printf("cones         = %i\n", length(data.cone_info.types))
     @printf(": zero        = %i", data.cone_info.type_counts[ZeroConeT])
     print_conedims_by_type(data.cone_info, ZeroConeT)
@@ -50,7 +50,7 @@ function print_header(
     @printf(": secondorder = %i", data.cone_info.type_counts[SecondOrderConeT])
     print_conedims_by_type(data.cone_info, SecondOrderConeT)
     @printf("settings = \n")
-    dump(settings)
+    #dump(settings)
     @printf("\n")
 
     #print a subheader for the iterations info

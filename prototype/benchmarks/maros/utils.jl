@@ -2,6 +2,7 @@ using Revise
 using MAT, JuMP
 using LinearAlgebra
 using Printf
+using DelimitedFiles
 
 Base.@kwdef struct TestResult
     time::Float64
@@ -12,7 +13,7 @@ end
 function dropinfs(A,b)
 
     b = b[:]
-    finidx = findall(<(1e20), abs.(b))
+    finidx = findall(<(5e19), abs.(b))
     b = b[finidx]
     A = A[finidx,:]
     return A,b
@@ -124,7 +125,14 @@ end
 function solve_clarabel(vars)
 
     P,c,A,b,cone_types,cone_dims = data_clarabel_form(vars)
-    settings = IPSolver.Settings(max_iter=100,direct_kkt_solver=true,verbose = true)
+    settings = IPSolver.Settings(
+            max_iter=50,
+            direct_kkt_solver=true,
+            #static_regularization_eps = 1e-7,
+            #dynamic_regularization_delta = 5e-7,
+            verbose = true,
+            equilibrate_enable = true,
+    )
     solver   = IPSolver.Solver()
     IPSolver.setup!(solver,P,c,A,b,cone_types,cone_dims,settings)
     IPSolver.solve!(solver)
@@ -147,5 +155,21 @@ function solve_clarabel(vars)
     end
 
     return TestResult(time,status,cost), solver
+
+end
+
+function get_ref_solutions(filename)
+
+    data = readdlm(filename;header=true)[1]
+    #drops second header element.  Last column is objective
+    out = Dict{String,Float64}()
+
+    for i = 1:size(data,1)
+        key = uppercase(data[i,1])
+        obj = data[i,end]
+        out[key] = obj
+    end
+
+    return out
 
 end
