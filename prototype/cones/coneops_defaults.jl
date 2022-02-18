@@ -1,3 +1,5 @@
+import Statistics: mean
+
 ## -------------------------------------------
 # Default implementations for cone operations
 # --------------------------------------------
@@ -7,6 +9,23 @@
 # for the zero cone and SOC (0 and 1, respectively)
 dim(K::AbstractCone{T}) where {T} = K.dim
 degree(K::AbstractCone{T}) where {T} = K.dim
+
+
+#NB: custom rectify functions should return
+#true unless δ == e on return
+function rectify_equilibration!(
+    K::AbstractCone{T},
+    δ::VectorView{T},
+    e::VectorView{T}
+) where{T}
+
+    #all cones default to scalar equilibration
+    #unless otherwise specified
+    tmp    = mean(e)
+    @.δ    = tmp / e
+
+    return true
+end
 
 # All other operations will throw an error
 # if a type specific implementation has been

@@ -2,11 +2,10 @@
 
 function debug_cap_centering_param(iter,σ,μ)
     #don't allow solutions that are *too* optimal
-    floor = max(1e-24,30^(-iter/3.))
-    if(iter > 4 && μ*σ < floor)
+    floor = 1e-24
+    if(iter > 1 && μ*σ < floor)
         σ = floor/μ
     end
-
     return σ
 end
 
@@ -133,7 +132,7 @@ function debug_manual_kkt_solve45(variables,data,scalings,res,lhs_step)
     P = data.P
     A = data.A
     b = data.b
-    c = data.c
+    q = data.q
     z = variables.z
     s = variables.s
     τ = variables.τ
@@ -151,9 +150,9 @@ function debug_manual_kkt_solve45(variables,data,scalings,res,lhs_step)
 
     #form big linear system as in (36)
     M = [
-     P         A'     c;
+     P         A'     q;
     -A       WtW      b;
-    -c'       -b'     κ/τ;
+    -q'       -b'     κ/τ;
     ]
 
     #println("M (1 step)")
@@ -212,13 +211,13 @@ function debug_manual_kkt_solve45(variables,data,scalings,res,lhs_step)
 
     # #compute the residuals
     # println("    solve acc. row1 = ", (-data.A*Δx  - Δs + Δτ*data.b - res.rz))
-    # println("    solve acc. row2 = ", (data.P*Δx + data.A'*Δz + Δτ*data.c - res.rx))
+    # println("    solve acc. row2 = ", (data.P*Δx + data.A'*Δz + Δτ*data.q - res.rx))
     # println("    solve acc. row3 = ", -Δκ - c'*Δx - b'*Δz - res.rτ)
     # println()
     #
     # #compute the residuals
     # println("    affine step acc. row1 = ", (-data.A*xnew  - snew + τnew*data.b))
-    # println("    affine step acc. row2 = ", (data.P*xnew + A'*znew + τnew*data.c))
+    # println("    affine step acc. row2 = ", (data.P*xnew + A'*znew + τnew*data.q))
     # println("    affine step acc. row3 = ", -κnew - c'*xnew - b'*znew)
     # println("    affine step acc. row4 = ", -κnew - c'*xnew - b'*znew)
     # println()
@@ -254,7 +253,7 @@ function debug_manual_kkt_solve_2step(variables,data,scalings,res,lhs_step,kktso
     P = data.P
     A = data.A
     b = data.b
-    c = data.c
+    q = data.q
     z = variables.z
     s = variables.s
     τ = variables.τ
@@ -277,7 +276,7 @@ function debug_manual_kkt_solve_2step(variables,data,scalings,res,lhs_step,kktso
       A       -WtW
     ]
 
-    rhs = [-data.c;
+    rhs = [-data.q;
            data.b]
 
     #solve as a big linear system
@@ -293,7 +292,7 @@ function debug_manual_kkt_solve_2step(variables,data,scalings,res,lhs_step,kktso
     #println("2 step M")
     #display(Matrix(M))
 
-    rhssp = [-data.c;
+    rhssp = [-data.q;
               data.b;zeros(p)]
 
     #solve as a big linear system
@@ -330,20 +329,20 @@ function debug_manual_kkt_solve_2step(variables,data,scalings,res,lhs_step,kktso
     println()
 
     Wz1 = W*z1
-    num = ( (dτ - dκ*τ) + c'*x2 + b'*z2  )
+    num = ( (dτ - dκ*τ) + q'*x2 + b'*z2  )
 
-    den1 = κ/τ - (c'*x1 + b'*z1)
+    den1 = κ/τ - (q'*x1 + b'*z1)
     den2 = (κ/τ + dot(Wz1,Wz1))
     den = den1
 
     println("    Δτ pieces: \n     ----------")
     println("    dτ - dκ/τ = ", (dτ - dκ*τ))
-    println("    + c'Δx2   = ", c'*x2)
+    println("    + c'Δx2   = ", q'*x2)
     println("    + b'Δz2   = ", b'*z2 )
     println("      tau_num = ", num)
     println()
     println("    τ/κ       = ", κ/τ)
-    println("    - c'Δx1   = ", -c'*x1)
+    println("    - c'Δx1   = ", -q'*x1)
     println("    - b'Δz1   = ", -b'*z1)
     println("    norm(Wz1) = ",dot(Wz1,Wz1))
     println("    tau_den   = ", den1)
@@ -387,13 +386,13 @@ function debug_manual_kkt_solve_2step(variables,data,scalings,res,lhs_step,kktso
 
     # #compute the residuals
     # println("    solve acc. row1 = ", (-data.A*Δx  - Δs + Δτ*data.b - res.rz))
-    # println("    solve acc. row2 = ", (data.P*Δx + data.A'*Δz + Δτ*data.c - res.rx))
+    # println("    solve acc. row2 = ", (data.P*Δx + data.A'*Δz + Δτ*data.q - res.rx))
     # println("    solve acc. row3 = ", -Δκ - c'*Δx - b'*Δz - res.rτ)
     # println()
     #
     # #compute the residuals
     # println("    affine step acc. row1 = ", (-data.A*xnew  - snew + τnew*data.b))
-    # println("    affine step acc. row2 = ", (data.P*xnew + A'*znew + τnew*data.c))
+    # println("    affine step acc. row2 = ", (data.P*xnew + A'*znew + τnew*data.q))
     # println("    affine step acc. row3 = ", -κnew - c'*xnew - b'*znew)
     # println("    affine step acc. row4 = ", -κnew - c'*xnew - b'*znew)
     # println()
@@ -430,7 +429,7 @@ function debug_manual_kkt_solve(variables,data,scalings,res,lhs_step)
     P = data.P
     A = data.A
     b = data.b
-    c = data.c
+    q = data.q
     z = variables.z
     s = variables.s
     τ = variables.τ
@@ -449,7 +448,7 @@ function debug_manual_kkt_solve(variables,data,scalings,res,lhs_step)
     M = [
     Z(n,m)    Z(n,1)    -P        -A'    -c;
      I(m)     Z(m,1)     A     Z(m,m)    -b;
-    Z(1,m)      1        c'        b'     0;
+    Z(1,m)      1        q'        b'     0;
     LWit      Z(m,1)  Z(m,n)      LW    Z(m,1);
     Z(1,m)      τ     Z(1,n)   Z(1,m)     κ
     ]
@@ -492,13 +491,13 @@ function debug_manual_kkt_solve(variables,data,scalings,res,lhs_step)
 
     # #compute the residuals
     # println("    solve acc. row1 = ", (-data.A*Δx  - Δs + Δτ*data.b - res.rz))
-    # println("    solve acc. row2 = ", (data.P*Δx + data.A'*Δz + Δτ*data.c - res.rx))
+    # println("    solve acc. row2 = ", (data.P*Δx + data.A'*Δz + Δτ*data.q - res.rx))
     # println("    solve acc. row3 = ", -Δκ - c'*Δx - b'*Δz - res.rτ)
     # println()
     #
     # #compute the residuals
     # println("    affine step acc. row1 = ", (-data.A*xnew  - snew + τnew*data.b))
-    # println("    affine step acc. row2 = ", (data.P*xnew + A'*znew + τnew*data.c))
+    # println("    affine step acc. row2 = ", (data.P*xnew + A'*znew + τnew*data.q))
     # println("    affine step acc. row3 = ", -κnew - c'*xnew - b'*znew)
     # println("    affine step acc. row4 = ", -κnew - c'*xnew - b'*znew)
     # println()
@@ -536,7 +535,7 @@ function debug_check_full_step_residuals(variables,lhs,res,data,scalings,rhs)
 
     #compute the residuals
     println("Primal feasibility res = ", norm(data.A*xnew  + snew - data.b))
-    println("Dual   feasibility res = ", norm(data.P*xnew + data.A'*znew + data.c))
+    println("Dual   feasibility res = ", norm(data.P*xnew + data.A'*znew + data.q))
     println()
 
     #check to see if we have solved the step equation correctly
@@ -544,11 +543,11 @@ function debug_check_full_step_residuals(variables,lhs,res,data,scalings,rhs)
     r = res
     d = lhs
 
-    row1 = -data.P*d.x - data.A'*d.z.vec - data.c*d.τ + r.rx
+    row1 = -data.P*d.x - data.A'*d.z.vec - data.q*d.τ + r.rx
 
     row2 = +data.A*d.x + d.s.vec - data.b*d.τ + r.rz
 
-    row3 = d.κ + data.c'*d.x + data.b'*d.z.vec + r.rτ
+    row3 = d.κ + data.q'*d.x + data.b'*d.z.vec + r.rτ
 
     #row 4-----------
     λ = scalings.λ

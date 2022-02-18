@@ -136,12 +136,15 @@ end
 
 function variables_finalize!(
     variables::DefaultVariables,
+    scalings::DefaultScalings,
     status::SolverStatus
     )
 
-    #if we have an infeasible problem, unscale
+    #undo the homogenization
+    #
+    #if we have an infeasible problem, normalize
     #using κ to get an infeasibility certificate.
-    #Otherwise using τ to get a solution.
+    #Otherwise use τ to get a solution.
     if(status == PRIMAL_INFEASIBLE || status == DUAL_INFEASIBLE)
         scaleinv = 1. / variables.κ
     else
@@ -153,4 +156,14 @@ function variables_finalize!(
     variables.s.vec .*= scaleinv
     variables.τ *= scaleinv
     variables.κ *= scaleinv
+
+    #undo the equilibration
+    d = scalings.d; dinv = scalings.dinv
+    e = scalings.e; einv = scalings.einv
+    cscale = scalings.c[]
+
+    variables.x     .*=     d
+    variables.z.vec .*=     e.vec ./ cscale
+    variables.s.vec .*=  einv.vec
+
 end

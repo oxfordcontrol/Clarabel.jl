@@ -1,5 +1,10 @@
+using LinearAlgebra
+
+
 function DefaultScalings{T}(
-    cone_info::ConeInfo
+    nvars::Int,
+    cone_info::ConeInfo,
+    settings::Settings
 ) where {T}
 
     #look up constructors for every cone type and
@@ -16,10 +21,28 @@ function DefaultScalings{T}(
     # total cone degree (not the same as dimension for SOC and zero cone)
     totaldegree = sum(cone -> degree(cone), cones)
 
+    #scaled version s and z
     λ = SplitVector{T}(cone_info)
 
-    return DefaultScalings(cone_info,cones,λ,totaldegree)
+    #Left/Right diagonal scaling for problem data
+    d    = Vector{T}(undef,nvars)
+    dinv = Vector{T}(undef,nvars)
+    D    = Diagonal(d)
+    Dinv = Diagonal(dinv)
+
+    e    = SplitVector{T}(cone_info)
+    einv = SplitVector{T}(cone_info)
+    E    = Diagonal(e.vec)
+    Einv = Diagonal(einv.vec)
+
+    c    = Ref{T}(1.)
+
+    return DefaultScalings(
+            cone_info,cones,λ,totaldegree,
+            d,dinv,D,Dinv,e,einv,E,Einv,c
+           )
 end
+
 
 function scaling_update!(
     scalings::DefaultScalings{T},
