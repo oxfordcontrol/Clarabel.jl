@@ -17,6 +17,9 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
     factors
     perm
 
+    #symmetric view for residual calcs
+    KKTsym::Symmetric{T, SparseMatrixCSC{T,Int64}}
+
     #the expected signs of D in LDL
     Dsigns::Vector{Int}
 
@@ -35,12 +38,16 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
         #extra variables for SOCs
         p = 2*cone_info.type_counts[SecondOrderConeT]
 
-        #refinement workspace
+        #iterative refinement work vector
         work = Vector{T}(undef,n+m+p)
 
         #PJG: partly building the KKT matrix here.
         #not properly including the W part yet
         KKT = _assemble_kkt_matrix(P,A,m,n,p)
+
+        #KKT will be triu data only, but we will want
+        #the following to allow products like KKT*x
+        KKTsym = Symmetric(KKT)
 
         #the expected signs of D in LDL
         Dsigns = ones(Int,n+m+p)
@@ -68,7 +75,7 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
         perm    = nothing
         diagW2 = SplitVector{T}(cone_info)
 
-        return new(m,n,p,work,KKT,factors,perm,Dsigns,diagW2,settings)
+        return new(m,n,p,work,KKT,factors,perm,KKTsym,Dsigns,diagW2,settings)
     end
 
 end
@@ -192,15 +199,18 @@ function linsys_solve!(
 
     if(!IR_enable); return nothing; end  #done
 
-    #PJG: Note that K is only triu, so need to
+    #PJG: Note that K is only triu data, so need to
     #be careful when computing the residual here
-    K = linsys.KKT
-    Ksym = Symmetric(K)
+    K      = linsys.KKT
+    KKTsym = linsys.KKTsym
     lastnorme = Inf
 
     for i = 1:IR_maxiter
 
-        work .= b - Ksym*x                    #this is e = b - Kξ
+        #this is work = error = b - Kξ
+        work .= b
+        mul!(work,KKTsym,x,1.,-1.)
+
         norme = norm(work,Inf)
 
         # test for convergence before committing
