@@ -4,11 +4,12 @@
 
 function rectify_equilibration!(
     K::NonnegativeCone{T},
-    enew::VectorView{T},
-    eold::VectorView{T}
+    δ::VectorView{T},
+    e::VectorView{T}
 ) where{T}
 
     #allow elementwise equilibration scaling
+    δ .= e
     return false
 end
 

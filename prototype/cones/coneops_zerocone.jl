@@ -11,6 +11,7 @@ function rectify_equilibration!(
 ) where{T}
 
     #allow elementwise equilibration scaling
+    δ .= e
     return false
 end
 

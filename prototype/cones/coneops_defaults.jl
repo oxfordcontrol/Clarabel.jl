@@ -10,6 +10,9 @@ import Statistics: mean
 dim(K::AbstractCone{T}) where {T} = K.dim
 degree(K::AbstractCone{T}) where {T} = K.dim
 
+
+#NB: custom rectify functions should return
+#true unless δ == e on return
 function rectify_equilibration!(
     K::AbstractCone{T},
     δ::VectorView{T},
@@ -18,7 +21,7 @@ function rectify_equilibration!(
 
     #all cones default to scalar equilibration
     #unless otherwise specified
-    tmp    = mean(eold)
+    tmp    = mean(e)
     @.δ    = tmp / e
 
     return true
