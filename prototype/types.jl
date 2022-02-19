@@ -180,10 +180,11 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     m::DefaultInt
     cone_info::ConeInfo
 
-    #some static info about the problem data prior to
-    #any scaling from equilibration
-    norm_q_no_scaling::T
-    norm_b_no_scaling::T
+    # we will require products P*x, but will
+    # only store triu(P).   Use this convenience
+    # object for now
+    Psym::AbstractMatrix{T}
+
 
     function DefaultProblemData{T}(P,q,A,b,cone_info) where {T}
 
@@ -196,12 +197,13 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
 
         #take an internal copy of all problem
         #data, since we are going to scale it
-        P = deepcopy(P)
+        P = triu(P)
+        Psym = Symmetric(P)
         A = deepcopy(A)
         q = deepcopy(q)
         b = deepcopy(b)
 
-        new(P,q,A,b,n,m,cone_info,norm(q),norm(b))
+        new(P,q,A,b,n,m,cone_info,Psym)
 
     end
 

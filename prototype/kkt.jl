@@ -175,7 +175,7 @@ function kkt_solve!(
     #use workx as scratch space now that lhs is copied
     ξ   = kktsolver.work_x
     ξ  .= variables.x / variables.τ
-    P   = data.P
+    P   = data.Psym
 
     #solve for Δτ
     tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,lhs.x) + dot(data.b,lhs.z.vec) + 2*dot(ξ,P,lhs.x)

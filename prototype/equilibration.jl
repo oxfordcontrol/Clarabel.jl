@@ -39,6 +39,7 @@ function equilibrate!(
     ework = scalings.einv
 
 	#references to problem data
+    #note that P may be triu, but it shouldn't matter
 	P = data.P; A = data.A
 	q = data.q; b = data.b
 

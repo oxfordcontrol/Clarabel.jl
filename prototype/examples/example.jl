@@ -83,7 +83,7 @@ Einv  = solver1.scalings.Einv
 cscale = solver1.scalings.c[]
 
 dA = deepcopy(solver1.data.A)
-dP = deepcopy(solver1.data.P)
+dP = deepcopy(solver1.data.P + solver1.data.P' - Diagonal(solver1.data.P))
 dq = deepcopy(solver1.data.q)
 db = deepcopy(solver1.data.b)
 

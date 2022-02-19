@@ -209,7 +209,7 @@ function linsys_solve!(
 
         #this is work = error = b - Kξ
         work .= b
-        mul!(work,KKTsym,x,1.,-1.)
+        mul!(work,KKTsym,x,-1.,1.)
 
         norme = norm(work,Inf)
 

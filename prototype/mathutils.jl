@@ -23,9 +23,9 @@ function kkt_col_norms!(
     norm_RHS::AbstractVector{T}
 ) where {T}
 
-	col_norms!(norm_LHS, P, reset = true)   #start from zero
-	col_norms!(norm_LHS, A, reset = false)  #incrementally from P norms
-	row_norms!(norm_RHS, A)                 #same as column norms of A'
+	col_norms_sym!(norm_LHS, P, reset = true)   #start from zero.  P can be triu
+	col_norms!(norm_LHS, A, reset = false)       #incrementally from P norms
+	row_norms!(norm_RHS, A)                      #same as column norms of A'
 
 	return nothing
 end
@@ -49,6 +49,35 @@ function col_norms!(
 	end
 	return v
 end
+
+#column norms of a matrix assumed to be symmetric.
+#this works even if only tril or triu part is supplied
+#don't worry about inspecting diagonal elements twice
+#since we are taking inf norms here anyway
+
+function col_norms_sym!(
+    v::Vector{Tf},
+	A::SparseMatrixCSC{Tf,Ti};
+    reset::Bool = true
+) where {Tf <: AbstractFloat, Ti <: Integer}
+
+	if reset
+		fill!(v, 0)
+	end
+
+	@inbounds for i = eachindex(v)
+		for j = A.colptr[i]:(A.colptr[i + 1] - 1)
+			tmp = abs(A.nzval[j])
+            r   = A.rowval[j]
+			v[i] = v[i] > tmp ? v[i] : tmp
+            v[r] = v[r] > tmp ? v[r] : tmp
+		end
+	end
+	return v
+end
+
+
+
 
 
 function row_norms!(

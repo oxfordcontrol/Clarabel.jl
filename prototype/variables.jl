@@ -87,12 +87,12 @@ function calc_combined_step_rhs!(
     #PJG: Mehrotra style higher order correction.
 
     #try to get all higher orders instead?
-    tmph = 1/(variables.τ + step.τ) * dot(variables.x + step.x,data.P, variables.x + step.x)
-    tmph -= dot(variables.x,data.P, variables.x)/variables.τ
-    tmph -= 2*dot(variables.x,data.P,step.x)
-    tmph += dot(ξ,data.P,ξ)*step.τ
+    tmph = 1/(variables.τ + step.τ) * dot(variables.x + step.x,data.Psym, variables.x + step.x)
+    tmph -= dot(variables.x,data.Psym, variables.x)/variables.τ
+    tmph -= 2*dot(variables.x,data.Psym,step.x)
+    tmph += dot(ξ,data.Psym,ξ)*step.τ
 
-    tmp2 = dot(q,data.P,q) / variables.τ   #PJG: second order approximation only
+    tmp2 = dot(q,data.Psym,q) / variables.τ   #PJG: second order approximation only
     tmp0 = 0.  #PJG no higher order correction
 
     # assume that the affine RHS currently occupies d,

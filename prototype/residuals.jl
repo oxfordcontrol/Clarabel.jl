@@ -8,13 +8,13 @@ function residuals_update!(
   qx        = dot(data.q,variables.x)
   bz        = dot(data.b,variables.z.vec)
   sz        = dot(variables.s.vec,variables.z.vec)
-  xPx       = dot(variables.x, data.P, variables.x)
+  xPx       = dot(variables.x, data.Psym, variables.x)
 
   #partial residual calc so we can check primal/dual
   #infeasibility conditions
 
-  #Same as: residuals.rx_inf .= -data.P * variables.x - data.A'* variables.z.vec
-  mul!(residuals.rx_inf, data.P , variables.x)
+  #Same as: residuals.rx_inf .= -data.Psym * variables.x - data.A'* variables.z.vec
+  mul!(residuals.rx_inf, data.Psym , variables.x)
   mul!(residuals.rx_inf, data.A', variables.z.vec, -1.,-1.)
 
   #Same as:  residuals.rz_inf .=  data.A * variables.x + variables.s.vec
