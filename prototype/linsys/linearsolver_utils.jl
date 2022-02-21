@@ -178,8 +178,9 @@ function _kkt_assemble_csc(
             col = m + n + 2*socidx - 1
 
             #fill structural zeros for u and v columns for this cone
-            _kkt_fill_colvec(K, maps.SOC_u[socidx], col    , headidx + n,conedim) #u
-            _kkt_fill_colvec(K, maps.SOC_v[socidx], col + 1, headidx + n,conedim) #v
+            #note v is the first extra column, u is second
+            _kkt_fill_colvec(K, maps.SOC_v[socidx], col    , headidx + n,conedim) #u
+            _kkt_fill_colvec(K, maps.SOC_u[socidx], col + 1, headidx + n,conedim) #v
 
             socidx += 1
         end
