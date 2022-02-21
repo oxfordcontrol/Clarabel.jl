@@ -29,6 +29,9 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
     work_z::VectorView{T}
     work_p::VectorView{T}
 
+    #a work SplitVector to simplify solving for Δs
+    work_sv::SplitVector{T}
+
 
         function DefaultKKTSolver{T}(
             data::DefaultProblemData{T},
@@ -72,12 +75,15 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
         work_z = view(work,(n+1):(n+m))
         work_p = view(work,(n+m+1):(n+m+p))
 
+        #a split vector compatible with s and z
+        work_sv = SplitVector(data.cone_info)
+
 
         return new(
             n,m,p,linsys,
             lhs_const,lhs_const_x,lhs_const_z,lhs_const_p,
             lhs,lhs_x,lhs_z,lhs_p,
-            work, work_x, work_z, work_p)
+            work, work_x, work_z, work_p,work_sv)
 
     end
 
@@ -177,14 +183,14 @@ function kkt_solve!(
     ξ  .= variables.x / variables.τ
     P   = data.Psym
 
-    #solve for Δτ
-    tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,lhs.x) + dot(data.b,lhs.z.vec) + 2*dot(ξ,P,lhs.x)
+    #solve for Δτ.  NB: dot is incredible slow for P::Symmetric
+    tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,lhs.x) + dot(data.b,lhs.z.vec) + 2*(ξ'*(P*lhs.x))
 
     #now offset ξ for the quadratic form in the denominator
     ξ_minus_x    = ξ   #alias to ξ, same as work_x
     ξ_minus_x  .-= lhs.x
 
-    tau_den = (variables.κ/variables.τ - dot(data.q,constx) - dot(data.b,constz) + dot(ξ_minus_x,P,ξ_minus_x) - dot(lhs.x,P,lhs.x))
+    tau_den = (variables.κ/variables.τ - dot(data.q,constx) - dot(data.b,constz) + ξ_minus_x'*(P*ξ_minus_x) - lhs.x'*(P*lhs.x))
 
     # Δτ = tau_num/tau_den
     lhs.τ  = tau_num/tau_den
@@ -195,14 +201,10 @@ function kkt_solve!(
     lhs.z.vec .+= lhs.τ .* constz
 
     #solve for Δs = -Wᵀ(λ \ dₛ + WΔz)
-    cones_inv_circle_op!(cones, lhs.s, scalings.λ, rhs.s) #Δs = λ \ dₛ
-    cones_gemv_W!(cones, false, lhs.z, lhs.s,  1., 1.)    #Δs = WΔz + Δs
-
-    #PJG: problem here.  Can't multiply in place so allocating memory
-    #caution, trying to assign Δs = -WᵀΔs produces a bug
-    tmp1_sv = deepcopy(lhs.z)
-    tmp1_sv.vec .= lhs.s.vec
-    cones_gemv_W!(cones,  true, tmp1_sv, lhs.s, -1., 0.0)   #Δs = -WᵀΔs
+    tmpsv = kktsolver.work_sv
+    cones_inv_circle_op!(cones, tmpsv, scalings.λ, rhs.s) #Δs = λ \ dₛ
+    cones_gemv_W!(cones, false, lhs.z, tmpsv,  1., 1.)    #Δs = WΔz + Δs
+    cones_gemv_W!(cones,  true, tmpsv, lhs.s, -1., 0.0)   #Δs = -WᵀΔs
 
     #solve for Δκ
     lhs.κ = -(rhs.κ + variables.κ * lhs.τ) / variables.τ

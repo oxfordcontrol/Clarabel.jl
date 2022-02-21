@@ -581,3 +581,24 @@ function debug_check_full_step_residuals(variables,lhs,res,data,scalings,rhs)
     println("\n")
 
 end
+
+
+
+#implement the conic inverse and square roots
+function soc_inverse(u)
+
+    J = -I(length(u)).*1.
+    J[1] = 1.
+    uinv = J*u
+    uinv = uinv ./ dot(u,J,u)
+    return uinv
+end
+
+function my_inv_circle(λ,v)
+
+    λ0 = λ[1]
+    λ1 = λ[2:end]
+    n  = length(λ1)
+    M  = [λ0 λ1';λ1 λ0*I(n)]
+    return M\v
+end

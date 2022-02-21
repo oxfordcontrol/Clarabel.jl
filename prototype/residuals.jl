@@ -8,7 +8,9 @@ function residuals_update!(
   qx        = dot(data.q,variables.x)
   bz        = dot(data.b,variables.z.vec)
   sz        = dot(variables.s.vec,variables.z.vec)
-  xPx       = dot(variables.x, data.Psym, variables.x)
+
+  #NB: dot is crazy slow for P::Symmetric
+  xPx       = variables.x'*(data.Psym*variables.x)
 
   #partial residual calc so we can check primal/dual
   #infeasibility conditions

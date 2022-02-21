@@ -1,3 +1,5 @@
+using TimerOutputs
+
 # -------------------------------------
 # abstract type defs
 # -------------------------------------
@@ -245,10 +247,12 @@ mutable struct DefaultInfo{T} <: AbstractInfo{T}
     ktratio::T
     iterations::DefaultInt
     solve_time::T
+    timer::TimerOutput
     status::SolverStatus
 
     function DefaultInfo{T}() where {T}
-        new( (ntuple(x->0, fieldcount(DefaultInfo)-1)...,UNSOLVED)...)
+        mytimer = TimerOutput()
+        new( (ntuple(x->0, fieldcount(DefaultInfo)-2)...,mytimer,UNSOLVED)...)
     end
 
 end

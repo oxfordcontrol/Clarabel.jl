@@ -102,7 +102,7 @@ function gemv_W!(
 ) where {T}
 
     #W is diagonal so ignore transposition
-    y .= α.*(K.w.*x) + β.*y
+    @. y = α*(K.w*x) + β*y
 
     return nothing
 end
@@ -170,10 +170,15 @@ function step_length(
      λ::VectorView{T}
 ) where {T}
 
-    f    = (dv,v)->(dv<0 ? -v/dv : 1/eps(T))
-    αz   = minimum(map(f, dz, z))
-    αs   = minimum(map(f, ds, s))
-    α    = min(αz,αs)
+    αz = 1/eps(T)
+    αs = 1/eps(T)
+
+    for i in eachindex(ds)
+        αz = dz[i] < 0 ? min(αz,-z[i]/dz[i]) : αz
+        αs = ds[i] < 0 ? min(αs,-s[i]/ds[i]) : αs
+    end
+
+    α = min(αz,αs)
 
     return α
 end

@@ -165,7 +165,7 @@ function print_footer(
 
     println("-----------------------------------------------------------------------------------")
     @printf("Terminated with status = %s\n",SolverStatusDict[info.status])
-    @printf("solve time = %s\n",info.solve_time)
+    @printf("solve time = %s\n",(info.solve_time))
 
     return nothing
 end

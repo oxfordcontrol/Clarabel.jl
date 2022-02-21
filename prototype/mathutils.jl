@@ -15,6 +15,22 @@ function inv_sqrt!(v::Vector{T}) where{T <: Real}
 end
 
 
+#2-norm of the product M*v
+function scaled_norm(M::Diagonal{T},v::Vector{T}) where{T}
+    return scaled_norm(M.diag,v)
+end
+
+#2-norm of the product a.*b
+function scaled_norm(m::Vector{T},v::Vector{T}) where{T}
+    t = 0.
+    for i in eachindex(v)
+        p  = m[i]*v[i]
+        t += p*p
+    end
+    return sqrt(t)
+end
+
+
 
 function kkt_col_norms!(
     P::AbstractMatrix{T},

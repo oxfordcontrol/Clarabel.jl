@@ -31,7 +31,9 @@ function cones_update_scaling!(
 
     # update scalings by passing subview to each of
     # the appropriate cone types.
-    foreach(update_scaling!,cones,s.views,z.views,λ.views)
+    for i = 1:length(cones)
+        update_scaling!(cones[i],s.views[i],z.views[i],λ.views[i])
+    end
 
     return nothing
 end
@@ -41,7 +43,9 @@ function cones_set_identity_scaling!(
     cones::ConeSet{T}
 ) where {T}
 
-    foreach(set_identity_scaling!,cones)
+    for i = 1:length(cones)
+        set_identity_scaling!(cones[i])
+    end
 
     return nothing
 end
@@ -54,7 +58,9 @@ function cones_get_diagonal_scaling!(
     diagW2::SplitVector{T}
 ) where {T}
 
-    foreach(get_diagonal_scaling!,cones,diagW2.views)
+    for i = 1:length(cones)
+        get_diagonal_scaling!(cones[i],diagW2.views[i])
+    end
     return nothing
 end
 
@@ -66,7 +72,9 @@ function cones_circle_op!(
     z::SplitVector{T}
 ) where {T}
 
-    foreach(circle_op!,cones,x.views,y.views,z.views)
+    for i = 1:length(cones)
+        circle_op!(cones[i],x.views[i],y.views[i],z.views[i])
+    end
     return nothing
 end
 
@@ -78,7 +86,9 @@ function cones_inv_circle_op!(
     z::SplitVector{T}
 ) where {T}
 
-    foreach(inv_circle_op!,cones,x.views,y.views,z.views)
+    for i = 1:length(cones)
+        inv_circle_op!(cones[i],x.views[i],y.views[i],z.views[i])
+    end
     return nothing
 end
 
@@ -88,7 +98,9 @@ function cones_shift_to_cone!(
     z::SplitVector{T}
 ) where {T}
 
-    foreach(shift_to_cone!,cones,z.views)
+    for i = 1:length(cones)
+        shift_to_cone!(cones[i],z.views[i])
+    end
     return nothing
 end
 
@@ -103,7 +115,9 @@ function cones_gemv_W!(
     β::T
 ) where {T}
 
-    foreach((c,x,y)->gemv_W!(c,is_transpose,x,y,α,β),cones,x.views,y.views)
+    for i = 1:length(cones)
+        gemv_W!(cones[i],is_transpose,x.views[i],y.views[i],α,β)
+    end
     return nothing
 end
 
@@ -118,7 +132,9 @@ function cones_gemv_Winv!(
     β::T
 ) where {T}
 
-    foreach((c,x,y)->gemv_Winv!(c,is_transpose,x,y,α,β),cones,x.views,y.views)
+    for i = 1:length(cones)
+        gemv_Winv!(cones[i],is_transpose,x.views[i],y.views[i],α,β)
+    end
     return nothing
 end
 
@@ -129,7 +145,10 @@ function cones_mul_WtWinv!(
     y::SplitVector{T}
 ) where {T}
 
-    foreach(mul_WtWinv!,cones,x.views,y.views)
+    for i = 1:length(cones)
+        mul_WtWinv!(cones[i],x.views[i],y.views[i])
+    end
+
     return nothing
 end
 
@@ -140,7 +159,9 @@ function cones_mul_WtW!(
     y::SplitVector{T}
 ) where {T}
 
-    foreach(mul_WtW!,cones,x.views,y.views)
+    for i = 1:length(cones)
+        mul_WtW!(cones[i],x.views[i],y.views[i])
+    end
     return nothing
 end
 
@@ -151,7 +172,9 @@ function cones_add_scaled_e!(
     α::T
 ) where {T}
 
-    foreach((c,x)->add_scaled_e!(c,x,α),cones,x.views)
+    for i = 1:length(cones)
+        add_scaled_e!(cones[i],x.views[i],α)
+    end
     return nothing
 end
 
@@ -171,6 +194,11 @@ function cones_step_length(
     s     = s.views
     λ     = λ.views
 
-    α = minimum(map(step_length,cones,dz,ds,z,s,λ))
+    α = 1/eps(T)
+    for i = eachindex(cones)
+        nextα = step_length(cones[i],dz[i],ds[i],z[i],s[i],λ[i])
+        α = min(α, nextα)
+    end
+
     return α
 end
