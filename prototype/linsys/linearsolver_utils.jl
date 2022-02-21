@@ -9,11 +9,12 @@ struct KKTDataMaps
     SOC_v::Vector{Vector{Int}}      #off diag dense columns v
     SOC_D::Vector{Int}              #diag of just the sparse SOC expansion D
 
-    #all of above terms should be disjoint and there union
-    #should cover all of the data in the KKT matrix.  Now
-    #we make one last redundant index that will tell us where
+    #all of above terms should be disjoint and their union
+    #should cover all of the uset data in the KKT matrix.  Now
+    #we make two last redundant indices that will tell us where
     #the whole diagonal is, including structural zeros.
 
+    diagP::Vector{Int}
     diag_full::Vector{Int}
 
     function KKTDataMaps(P,A,cone_info)
@@ -24,6 +25,12 @@ struct KKTDataMaps
         P       = zeros(Int,nnz(P))
         A       = zeros(Int,nnz(A))
         diagWtW = zeros(Int,m)
+
+        #the diagonal of the ULHS block P.
+        #NB : we fill in structural zeros here even if the matrix
+        #P is empty (e.g. as in an LP), so we can have entries in
+        #index Pdiag that are not present in the index P
+        diagP  = zeros(Int,n)
 
         #now do the SOC expansion pieces
         nsoc = cone_info.type_counts[IPSolver.SecondOrderConeT]
@@ -44,27 +51,9 @@ struct KKTDataMaps
 
         diag_full = zeros(Int,m+n+p)
 
-        return new(P,A,diagWtW,SOC_u,SOC_v,SOC_D,diag_full)
+        return new(P,A,diagWtW,SOC_u,SOC_v,SOC_D,diagP,diag_full)
     end
 
-end
-
-function _assemble_kkt_matrix(P,A,m,n,p) where{T}
-
-    #PJG: this is crazy inefficient
-    #I will temporarily use / add 1e-300 here
-    #just to force KKT to have diagonal entries
-    #in its sparsity pattern.
-
-    D2  = sparse(I(m)*1e-300)
-    D3  = sparse(I(p)*1e-300)
-    ZA  = spzeros(m,n)
-
-    E   = I(n).*1e-300
-    KKT = [triu(P + E) A'; ZA D2]  #upper triangle only
-    KKT = blockdiag(KKT,D3)
-
-    return KKT
 end
 
 
@@ -197,6 +186,9 @@ function _kkt_assemble_csc(
     #as needed and the matrix is triu, so the diagonal
     #entries are just index by the last element in each column
     maps.diag_full .= K.colptr[2:end] .- 1
+
+    #and the diagonal of just the upper left
+    maps.diagP     .= K.colptr[2:(n+1)] .- 1
 
 end
 

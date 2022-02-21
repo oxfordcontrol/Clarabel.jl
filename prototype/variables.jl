@@ -93,14 +93,14 @@ function calc_combined_step_rhs!(
 
     #NB: dot is incredibly slow for P::Symmetric
     tmp2 = (q'*(data.Psym*q)) / variables.τ   #PJG: second order approximation only
-    # tmp0 = 0.  #PJG no higher order correction
+    tmp0 = 0.  #PJG no higher order correction
 
     # assume that the affine RHS currently occupies d,
     # so only applies incremental changes to get the
     # combined corrector step
     d.x .*= (1. - σ)
     d.τ  *= (1. - σ)
-    d.τ  += tmp2
+    d.τ  += tmp0
     d.κ  += - σ*μ + step.τ * step.κ
 
     # d.s and d.z are harder if we want to be

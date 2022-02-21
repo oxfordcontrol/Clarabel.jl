@@ -251,8 +251,17 @@ mutable struct DefaultInfo{T} <: AbstractInfo{T}
     status::SolverStatus
 
     function DefaultInfo{T}() where {T}
-        mytimer = TimerOutput()
-        new( (ntuple(x->0, fieldcount(DefaultInfo)-2)...,mytimer,UNSOLVED)...)
+
+        to = TimerOutput()
+        #setup the main timer sections here and
+        #zero them.   This ensures that the sections
+        #exists if we try to clear them later
+        @timeit to "setup!" begin (nothing) end
+        @timeit to "solve!" begin (nothing) end
+        reset_timer!(to["setup!"])
+        reset_timer!(to["solve!"])
+
+        new( (ntuple(x->0, fieldcount(DefaultInfo)-2)...,to,UNSOLVED)...)
     end
 
 end

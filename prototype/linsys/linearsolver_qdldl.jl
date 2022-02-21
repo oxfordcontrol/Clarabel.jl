@@ -43,10 +43,6 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
         #iterative refinement work vector
         work = Vector{T}(undef,n+m+p)
 
-        #PJG: partly building the KKT matrix here.
-        #not properly including the W part yet
-        KKT = _assemble_kkt_matrix(P,A,m,n,p)
-
         KKT, KKTmaps = _assemble_kkt_matrix_fast(P,A,cone_info)
 
         #KKT will be triu data only, but we will want
@@ -67,9 +63,9 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
 
         #PJG:DEBUG.  I don't really know how static
         #regularization is meant to work.   Just add
-        #it to whole diagonal here for a start
+        #it to the diagonal of P here to start
         if(settings.static_regularization_enable)
-            @. KKT.nzval[KKTmaps.diag_full] += Dsigns*settings.static_regularization_eps
+            @. KKT.nzval[KKTmaps.diagP] += settings.static_regularization_eps
         end
 
 
@@ -157,17 +153,19 @@ function linsys_update!(
 
     end
 
-    #perturb the diagonal terms that we have just overwritten
-    #with a new version of WtW with static regularizers.
-    #Note that we don't want to shift elements in the ULHS
-    #(corresponding to P) since we already shifted them
-    #at initialization and haven't overwritten it
+    #Perturb the diagonal terms WtW that we have just overwritten
+    #with static regularizers.  Note that we don't want to shift
+    #elements in the ULHS #(corresponding to P) since we already
+    #shifted them at initialization and haven't overwritten it
     if(settings.static_regularization_enable)
         eps = settings.static_regularization_eps
-        #DEBUG: NOT SURE HOW THIS REALLY WORKS
-        # for i = (n+1):(n+m+p)
-        #     linsys.KKT[i,i] += linsys.Dsigns[i]*eps
-        # end
+        offset_values!(F,maps.diag_full,eps,linsys.Dsigns)
+        offset_values!(F,maps.diagP,-eps)  #undo to the P shift
+
+        #and the same for the KKT matrix we are still
+        #relying on for the iterative refinement calc
+        @. KKT.nzval[maps.diag_full] += eps*linsys.Dsigns
+        @. KKT.nzval[maps.diagP]     -= eps
     end
 
     #refactor with new data
@@ -210,7 +208,6 @@ function linsys_solve!(
         #this is work = error = b - Kξ
         work .= b
         mul!(work,KKTsym,x,-1.,1.)
-
         norme = norm(work,Inf)
 
         # test for convergence before committing

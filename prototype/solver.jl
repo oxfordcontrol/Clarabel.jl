@@ -33,9 +33,8 @@ function setup!(
 
     #make this first to create the timers
     s.info    = DefaultInfo()
-    s.info.timer = TimerOutput()  #DEBUG: the one in the constructor doesn't work
 
-    @timeit s.info.timer "setup" begin
+    @timeit s.info.timer "setup!" begin
 
         cone_info   = ConeInfo(cone_types,cone_dims)
 
@@ -49,9 +48,13 @@ function setup!(
         #this prevents multiple equlibrations if solve!
         #is called more than once.  Do this before
         #creating kksolver and its factors
-        equilibrate!(s.scalings,s.data,s.settings)
+        @timeit s.info.timer "equilibrate" begin
+            equilibrate!(s.scalings,s.data,s.settings)
+        end
 
-        s.kktsolver = DefaultKKTSolver(s.data,s.scalings,s.settings)
+        @timeit s.info.timer "kkt init" begin
+            s.kktsolver = DefaultKKTSolver(s.data,s.scalings,s.settings)
+        end
 
         # work variables for assembling step direction LHS/RHS
         s.step_rhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
@@ -84,21 +87,23 @@ function solve!(
     #problem dimensions, cone type etc
     print_header(s.info,s.settings,s.data)
 
-    #initialize variables to some reasonable starting point
-    @timeit timer "default start" solver_default_start!(s)
+    @timeit timer "solve!" begin
 
-    #----------
-    # main loop
-    #----------
-    @timeit timer "IP iteration" begin
+        #initialize variables to some reasonable starting point
+        @timeit timer "default start" solver_default_start!(s)
 
+        @timeit timer "IP iteration" begin
+
+        #----------
+        # main loop
+        #----------
         while true
 
             debug_rescale(s.variables)
 
             #update the residuals
             #--------------
-            @timeit timer "residuals" residuals_update!(s.residuals,s.variables,s.data)
+            residuals_update!(s.residuals,s.variables,s.data)
 
             #calculate duality gap (scaled)
             #--------------
@@ -106,15 +111,16 @@ function solve!(
 
             #convergence check and printing
             #--------------
-            isdone = check_termination!(
+            @timeit timer "check termination" begin
+                isdone = check_termination!(
                 s.info,s.data,s.variables,
                 s.residuals,s.scalings,s.settings,
                 iter == s.settings.max_iter
-            )
+                )
+            end
             iter += 1
-
             disable_timer!(timer)
-            print_status(s.info,s.settings)
+            @notimeit print_status(s.info,s.settings)
             enable_timer!(timer)
             isdone && break
 
@@ -133,11 +139,12 @@ function solve!(
                 s.step_rhs, s.residuals,
                 s.data, s.variables, s.scalings
             )
-            @timeit timer "kkt solve affine" begin
-            kkt_solve!(
-                s.kktsolver, s.step_lhs, s.step_rhs,
-                s.variables, s.scalings, s.data
-            )
+
+            @timeit timer "kkt solve" begin
+                kkt_solve!(
+                    s.kktsolver, s.step_lhs, s.step_rhs,
+                    s.variables, s.scalings, s.data
+                )
             end
 
             #calculate step length and centering parameter
@@ -156,11 +163,13 @@ function solve!(
                 s.data, s.variables, s.scalings,
                 s.step_lhs, σ, μ
             )
-            @timeit timer "kkt solve combined" begin
-            kkt_solve!(
+
+
+            @timeit timer "kkt solve" begin
+                kkt_solve!(
                 s.kktsolver, s.step_lhs, s.step_rhs,
                 s.variables, s.scalings, s.data
-            )
+                )
             end
 
             #compute final step length and update the current iterate
@@ -173,10 +182,16 @@ function solve!(
             #record scalar values from this iteration
             info_save_scalars(s.info,μ,α,σ,iter)
 
-        end
-    end #end IP iteration timer
+        end  #end while
+        #----------
+        #----------
 
-    variables_finalize!(s.variables, s.scalings, s.info.status)
+        end #end IP iteration timer
+
+        variables_finalize!(s.variables, s.scalings, s.info.status)
+
+    end #end solve! timer
+
     info_finalize!(s.info)
     print_footer(s.info,s.settings)
 

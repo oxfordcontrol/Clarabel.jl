@@ -18,8 +18,8 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     #dynamic regularization parameters
     dynamic_regularization_enable::Bool = true
-    dynamic_regularization_eps::T       = 1e-12
-    dynamic_regularization_delta::T     = 1e-7
+    dynamic_regularization_eps::T       = 1e-13
+    dynamic_regularization_delta::T     = 2e-7
 
     #iterative refinement
     iterative_refinement_enable::Bool   = true

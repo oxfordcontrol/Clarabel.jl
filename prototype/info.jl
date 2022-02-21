@@ -99,7 +99,9 @@ function info_reset!(info)
     info.status     = UNSOLVED
     info.iterations = 0
     info.solve_time = 0
-    TimerOutputs.reset_timer!(info.timer)
+
+    #reset the solve! timer, but keep the setup!
+    reset_timer!(info.timer["solve!"])
 
     return nothing
 end
@@ -108,7 +110,6 @@ function info_finalize!(info)
 
     #TimerOutputs reports in nanoseconds
     info.solve_time = TimerOutputs.tottime(info.timer)*1e-9
-    TimerOutputs.disable_timer!(info.timer)
 
     return nothing
 end
