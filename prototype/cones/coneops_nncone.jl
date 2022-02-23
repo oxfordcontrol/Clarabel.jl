@@ -20,8 +20,8 @@ function update_scaling!(
     λ::VectorView{T}
 ) where {T}
 
-    λ   .= sqrt.(s.*z)
-    K.w .= sqrt.(s./z)
+    @. λ   = sqrt(s*z)
+    @. K.w = sqrt(s/z)
 
     return nothing
 end
@@ -41,7 +41,7 @@ function get_diagonal_scaling!(
     diagW2::VectorView{T}
 ) where {T}
 
-    diagW2 .= -K.w.^2
+    @. diagW2 = -K.w^2
 
     return nothing
 end
@@ -55,7 +55,7 @@ function circle_op!(
     z::VectorView{T}
 ) where {T}
 
-    x .= y.*z
+    @. x = y*z
 
     return nothing
 end
@@ -68,7 +68,7 @@ function inv_circle_op!(
     z::VectorView{T}
 ) where {T}
 
-    x .= z./y
+    @. x = z/y
 
     return nothing
 end
@@ -83,8 +83,8 @@ function shift_to_cone!(
     if(α < eps(T))
         #done in two stages since otherwise (1-α) = -α for
         #large α, which makes z exactly 0. (or worse, -0.0 )
-        z .+= -α
-        z .+=  1
+        @. z += -α
+        @. z +=  1
     end
 
     return nothing
@@ -101,10 +101,13 @@ function gemv_W!(
     β::T
 ) where {T}
 
-    #W is diagonal so ignore transposition
-    @. y = α*(K.w*x) + β*y
+  #W is diagonal so ignore transposition
+  #@. y = α*(x*K.w) + β*y
+  @inbounds for i = eachindex(y)
+      y[i] = α*(x[i]*K.w[i]) + β*y[i]
+  end
 
-    return nothing
+  return nothing
 end
 
 # implements y = αW^{-1}x + βy for the nn cone
@@ -118,7 +121,10 @@ function gemv_Winv!(
 ) where {T}
 
   #W is diagonal, so ignore transposition
-  y .= α.*(x./K.w) + β.*y
+  #@. y = α*(x/K.w) + β.*y
+  @inbounds for i = eachindex(y)
+      y[i] = α*(x[i]/K.w[i]) + β*y[i]
+  end
 
   return nothing
 end
@@ -130,7 +136,7 @@ function mul_WtWinv!(
     y::VectorView{T}
 ) where {T}
 
-  y .= x./(K.w.^2)
+  @. y = x/(K.w^2)
 
   return nothing
 end
@@ -142,7 +148,7 @@ function mul_WtW!(
     y::VectorView{T}
 ) where {T}
 
-  y .= x.*(K.w.^2)
+  @. y = x*(K.w^2)
 
   return nothing
 end
@@ -154,7 +160,7 @@ function add_scaled_e!(
 ) where {T}
 
     #e is a vector of ones, so just shift
-    x .+= α
+    @. x += α
 
     return nothing
 end

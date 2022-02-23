@@ -138,8 +138,8 @@ function kkt_solve_initial_point!(
     kktsolver.work_p .= 0.0
 
     linsys_solve!(kktsolver.linsys,kktsolver.lhs,kktsolver.work)
-    variables.x      .=  kktsolver.lhs_x
-    variables.s.vec  .= -kktsolver.lhs_z
+    @. variables.x      =  kktsolver.lhs_x
+    @. variables.s.vec  = -kktsolver.lhs_z
 
     # solve with [-c;0] as a RHS to get z initializer
     # zero out any sparse cone variables at end
@@ -148,7 +148,7 @@ function kkt_solve_initial_point!(
     kktsolver.work_p .=  0.0
 
     linsys_solve!(kktsolver.linsys,kktsolver.lhs,kktsolver.work)
-    variables.z.vec  .= kktsolver.lhs_z
+    @. variables.z.vec = kktsolver.lhs_z
 
     return nothing
 end
@@ -183,14 +183,14 @@ function kkt_solve!(
     ξ  .= variables.x / variables.τ
     P   = data.Psym
 
-    #solve for Δτ.  NB: dot is incredible slow for P::Symmetric
-    tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,lhs.x) + dot(data.b,lhs.z.vec) + 2*(ξ'*(P*lhs.x))
+    #solve for Δτ.
+    tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,lhs.x) + dot(data.b,lhs.z.vec) + 2*symdot(ξ,P,lhs.x)
 
     #now offset ξ for the quadratic form in the denominator
     ξ_minus_x    = ξ   #alias to ξ, same as work_x
     ξ_minus_x  .-= lhs.x
 
-    tau_den = (variables.κ/variables.τ - dot(data.q,constx) - dot(data.b,constz) + ξ_minus_x'*(P*ξ_minus_x) - lhs.x'*(P*lhs.x))
+    tau_den = (variables.κ/variables.τ - dot(data.q,constx) - dot(data.b,constz) + symdot(ξ_minus_x,P,ξ_minus_x) - symdot(lhs.x,P,lhs.x))
 
     # Δτ = tau_num/tau_den
     lhs.τ  = tau_num/tau_den

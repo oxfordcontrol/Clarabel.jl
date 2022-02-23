@@ -34,11 +34,11 @@ function variables_add_step!(
     step::DefaultVariables{T}, α::T
 ) where {T}
 
-    variables.x     .+= α*step.x
-    variables.s.vec .+= α*step.s.vec
-    variables.z.vec .+= α*step.z.vec
-    variables.τ      += α*step.τ
-    variables.κ      += α*step.κ
+    @. variables.x     += α*step.x
+    @. variables.s.vec += α*step.s.vec
+    @. variables.z.vec += α*step.z.vec
+    variables.τ        += α*step.τ
+    variables.κ        += α*step.κ
 
     return nothing
 end
@@ -54,11 +54,11 @@ function calc_affine_step_rhs!(
 
     cones = scalings.cones
 
-    d.x     .=  r.rx
-    d.z.vec .= -r.rz .+ variables.s.vec
+    @. d.x    .=  r.rx
+    @. d.z.vec = -r.rz + variables.s.vec
     cones_circle_op!(cones, d.s, scalings.λ, scalings.λ)
-    d.τ      =  r.rτ
-    d.κ      =  variables.τ * variables.κ
+    d.τ        =  r.rτ
+    d.κ        =  variables.τ * variables.κ
 
     return nothing
 end
@@ -81,8 +81,8 @@ function calc_combined_step_rhs!(
 
     # PJG: Except for here.  Temporarily allocating
     # vectors here for QP implementation
-    ξ   = variables.x./variables.τ
-    q   = step.x - ξ.*step.τ
+    #ξ   = variables.x./variables.τ
+    #q   = step.x - ξ.*step.τ
 
     #PJG: Mehrotra style higher order correction.
     #try to get all higher orders instead?
@@ -92,16 +92,16 @@ function calc_combined_step_rhs!(
     # tmph += dot(ξ,data.Psym,ξ)*step.τ
 
     #NB: dot is incredibly slow for P::Symmetric
-    tmp2 = (q'*(data.Psym*q)) / variables.τ   #PJG: second order approximation only
+    #tmp2 = symdot(q,data.Psym,q) / variables.τ   #PJG: second order approximation only
     tmp0 = 0.  #PJG no higher order correction
 
     # assume that the affine RHS currently occupies d,
     # so only applies incremental changes to get the
     # combined corrector step
-    d.x .*= (1. - σ)
-    d.τ  *= (1. - σ)
-    d.τ  += tmp0
-    d.κ  += - σ*μ + step.τ * step.κ
+    @. d.x *= (1. - σ)
+       d.τ *= (1. - σ)
+       d.τ += tmp0
+       d.κ += - σ*μ + step.τ * step.κ
 
     # d.s and d.z are harder if we want to be
     # economical with allocated memory.  Modify the
@@ -112,12 +112,12 @@ function calc_combined_step_rhs!(
     cones_gemv_Winv!(cones, false, step.s, step.s,  1., 0.)      #Δs = W⁻¹Δs
     cones_circle_op!(cones, d.z, step.s, step.z)                 #tmp = W⁻¹Δs ∘ WΔz
     cones_add_scaled_e!(cones,d.z,-σ*μ)                          #tmp = tmp -σμe
-    d.s.vec .+= d.z.vec
+    @. d.s.vec += d.z.vec
 
     # now build d.z from scratch
     cones_inv_circle_op!(cones, d.z, scalings.λ, d.s)  #dz = λ \ ds
     cones_gemv_W!(cones, false, d.z, d.z, 1., 0.)      #dz = Wdz
-    d.z.vec .+= -(1-σ).*r.rz
+    @. d.z.vec += -(1-σ)*r.rz
 
     return nothing
 end
@@ -138,7 +138,7 @@ function variables_finalize!(
     variables::DefaultVariables,
     scalings::DefaultScalings,
     status::SolverStatus
-    )
+)
 
     #undo the homogenization
     #
@@ -151,9 +151,9 @@ function variables_finalize!(
         scaleinv = 1. / variables.τ
     end
 
-    variables.x .*= scaleinv
-    variables.z.vec .*= scaleinv
-    variables.s.vec .*= scaleinv
+    @. variables.x *= scaleinv
+    @. variables.z.vec *= scaleinv
+    @. variables.s.vec *= scaleinv
     variables.τ *= scaleinv
     variables.κ *= scaleinv
 
@@ -162,8 +162,8 @@ function variables_finalize!(
     e = scalings.e; einv = scalings.einv
     cscale = scalings.c[]
 
-    variables.x     .*=     d
-    variables.z.vec .*=     e.vec ./ cscale
-    variables.s.vec .*=  einv.vec
+    @. variables.x     *=     d
+    @. variables.z.vec *=     e.vec ./ cscale
+    @. variables.s.vec *=  einv.vec
 
 end

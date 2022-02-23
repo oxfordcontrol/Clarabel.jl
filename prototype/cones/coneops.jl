@@ -12,7 +12,7 @@ function cones_rectify_equilibration!(
 
     #we will update e <- \delta .*e using return values
     #from this function.  default is to do nothing at all
-    δ.vec .= 1
+    @. δ.vec = 1
 
     for i = eachindex(cones)
         any_changed |= rectify_equilibration!(cones[i],δ.views[i],e.views[i])

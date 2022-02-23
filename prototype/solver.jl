@@ -126,7 +126,7 @@ function solve!(
 
             #update the scalings
             #--------------
-            @timeit timer "scaling" scaling_update!(s.scalings,s.variables)
+            @timeit timer "NT scaling" scaling_update!(s.scalings,s.variables)
 
             #update the KKT system and the constant
             #parts of its solution
@@ -174,7 +174,7 @@ function solve!(
 
             #compute final step length and update the current iterate
             #--------------
-            α  = calc_step_length(s.variables,s.step_lhs,s.scalings)
+            @timeit timer "step length" α  = calc_step_length(s.variables,s.step_lhs,s.scalings)
             α *= s.settings.max_step_fraction
 
             variables_add_step!(s.variables,s.step_lhs,α)
