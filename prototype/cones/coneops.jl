@@ -115,7 +115,7 @@ function cones_gemv_W!(
     β::T
 ) where {T}
 
-    for i = 1:length(cones)
+    for i = eachindex(cones)
         gemv_W!(cones[i],is_transpose,x.views[i],y.views[i],α,β)
     end
     return nothing
