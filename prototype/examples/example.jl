@@ -60,34 +60,7 @@ Jz = -JuMP.dual.(c1)
 @printf("\n\n-------------------------\n\n")
 @printf("\nClarabel (Direct)\n-------------------------\n\n")
 
-settings = IPSolver.Settings(max_iter=20,verbose=true,direct_kkt_solver=true,equilibrate_enable = true)
-solver1   = IPSolver.Solver()
-IPSolver.setup!(solver1,P,c,A,b,cone_types,cone_dims,settings)
-IPSolver.solve!(solver1)
-
-s = solver1
-
-data = s.data
-vars = s.variables
-res  = s.residuals
-x = vars.x
-z = vars.z.vec
-s = vars.s.vec
-τ = vars.τ
-κ = vars.κ
-
-D     = solver1.scalings.D
-Dinv  = solver1.scalings.Dinv
-E     = solver1.scalings.E
-Einv  = solver1.scalings.Einv
-cscale = solver1.scalings.c[]
-
-dA = deepcopy(solver1.data.A)
-dP = deepcopy(solver1.data.P)
-dq = deepcopy(solver1.data.q)
-db = deepcopy(solver1.data.b)
-
-settings = IPSolver.Settings(max_iter=20,verbose=true,direct_kkt_solver=true,equilibrate_enable = false)
-solver2   = IPSolver.Solver()
-IPSolver.setup!(solver2,dP,dq,dA,db,cone_types,cone_dims,settings)
-IPSolver.solve!(solver2)
+settings = IPSolver.Settings(max_iter=20,verbose=false,direct_kkt_solver=true,equilibrate_enable = true)
+solver   = IPSolver.Solver()
+IPSolver.setup!(solver,P,c,A,b,cone_types,cone_dims,settings)
+IPSolver.solve!(solver)

@@ -117,6 +117,10 @@ mutable struct ConeInfo
     #total dimension
     totaldim::DefaultInt
 
+    #a vector showing the overall index of the
+    #first element in each cone.  For convenience
+    headidx::Vector{Int}
+
     function ConeInfo(types,dims)
 
         #count the number of each cone type
@@ -125,9 +129,20 @@ mutable struct ConeInfo
             type_counts[coneT] = count(==(coneT), types)
         end
 
-        #total dimension of all cones together
-        totaldim   = sum(dims)
+        headidx = Vector{Int}(undef,length(dims))
+        if(length(dims) >= 0)
+            #index of first element in each cone
+            headidx[1] = 1
+            for i = 2:length(dims)
+                headidx[i] = headidx[i-1] + dims[i-1]
+            end
 
-        return new(types,dims,type_counts,totaldim)
+            #total dimension of all cones together
+            totaldim = headidx[end] + dims[end] - 1
+        else
+            totaldim = 0
+        end
+
+        return new(types,dims,type_counts,totaldim,headidx)
     end
 end

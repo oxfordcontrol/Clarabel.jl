@@ -1,3 +1,6 @@
+import LinearAlgebra: dot
+
+
 function clip(
     s::Real,
     min_thresh::Real,
@@ -15,6 +18,22 @@ function inv_sqrt!(v::Vector{T}) where{T <: Real}
 end
 
 
+#2-norm of the product M*v
+function scaled_norm(M::Diagonal{T},v::Vector{T}) where{T}
+    return scaled_norm(M.diag,v)
+end
+
+#2-norm of the product a.*b
+function scaled_norm(m::Vector{T},v::Vector{T}) where{T}
+    t = 0.
+    for i in eachindex(v)
+        p  = m[i]*v[i]
+        t += p*p
+    end
+    return sqrt(t)
+end
+
+
 
 function kkt_col_norms!(
     P::AbstractMatrix{T},
@@ -23,9 +42,9 @@ function kkt_col_norms!(
     norm_RHS::AbstractVector{T}
 ) where {T}
 
-	col_norms!(norm_LHS, P, reset = true)   #start from zero
-	col_norms!(norm_LHS, A, reset = false)  #incrementally from P norms
-	row_norms!(norm_RHS, A)                 #same as column norms of A'
+	col_norms_sym!(norm_LHS, P, reset = true)   #start from zero.  P can be triu
+	col_norms!(norm_LHS, A, reset = false)       #incrementally from P norms
+	row_norms!(norm_RHS, A)                      #same as column norms of A'
 
 	return nothing
 end
@@ -49,6 +68,35 @@ function col_norms!(
 	end
 	return v
 end
+
+#column norms of a matrix assumed to be symmetric.
+#this works even if only tril or triu part is supplied
+#don't worry about inspecting diagonal elements twice
+#since we are taking inf norms here anyway
+
+function col_norms_sym!(
+    v::Vector{Tf},
+	A::SparseMatrixCSC{Tf,Ti};
+    reset::Bool = true
+) where {Tf <: AbstractFloat, Ti <: Integer}
+
+	if reset
+		fill!(v, 0)
+	end
+
+	@inbounds for i = eachindex(v)
+		for j = A.colptr[i]:(A.colptr[i + 1] - 1)
+			tmp = abs(A.nzval[j])
+            r   = A.rowval[j]
+			v[i] = v[i] > tmp ? v[i] : tmp
+            v[r] = v[r] > tmp ? v[r] : tmp
+		end
+	end
+	return v
+end
+
+
+
 
 
 function row_norms!(
@@ -152,3 +200,46 @@ lrmul!(L::Diagonal,
 lrmul!(L::IdentityMatrix,
 	M::AbstractMatrix,
 	R::Diagonal) = L.λ ? LinearAlgebra.rmul!(M, R) : M .= zero(eltype(M))
+
+
+#Julia SparseArrays dot function is very slow for Symmtric
+#matrices.  See https://github.com/JuliaSparse/SparseArrays.jl/issues/83
+function symdot(
+    x::AbstractArray{Tf},
+    A::Symmetric{Tf,SparseMatrixCSC{Tf,Ti}},
+    y::AbstractArray{Tf}
+    ) where{Tf <: Real,Ti}
+
+    if(A.uplo != 'U')
+        error("Only implemented for upper triangular matrices")
+    end
+    M = A.data
+
+    m, n = size(A)
+    (length(x) == m && n == length(y)) || throw(DimensionMismatch())
+    if iszero(m) || iszero(n)
+        return dot(zero(eltype(x)), zero(eltype(A)), zero(eltype(y)))
+    end
+
+    Mc = M.colptr
+    Mr = M.rowval
+    Mv = M.nzval
+
+    out = zero(Tf)
+
+    @inbounds for j = 1:n    #col number
+        tmp1 = zero(Tf)
+        tmp2 = zero(Tf)
+        for p = Mc[j]:(Mc[j+1]-1)
+            i = Mr[p]  #row number
+            if (i < j)  #triu terms only
+                tmp1 += Mv[p]*x[i]
+                tmp2 += Mv[p]*y[i]
+            elseif i == j
+                out += Mv[p]*x[i]*y[i]
+            end
+        end
+        out += tmp1*y[j] + tmp2*x[j]
+    end
+    return out
+end

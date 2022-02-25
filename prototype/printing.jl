@@ -24,6 +24,7 @@ function print_status(
     return nothing
 end
 
+
 function print_header(
     info::DefaultInfo{T},
     settings::Settings,
@@ -32,25 +33,24 @@ function print_header(
 
     if(settings.verbose == false) return end
 
-    println("-----------------------------------------------")
-    println("      Clarabel v0.0.0  -  Clever Acronym       ")
-    println("            (c) Paul Goulart                   ")
-    println("         University of Oxford, 2021            ")
-    println("-----------------------------------------------")
+    println("-------------------------------------------------------------")
+    println("             Clarabel v0.0.0  -  Clever Acronym              ")
+    println("                   (c) Paul Goulart                          ")
+    println("                University of Oxford, 2022                   ")
+    println("-------------------------------------------------------------")
     println("problem:")
-    @printf("variables     = %i\n", data.n)
-    @printf("constraints   = %i\n", data.m)
-    @printf("nnz(P)        = %i   : norm = %e\n", nnz(data.P), norm(data.P))
-    @printf("nnz(A)        = %i   : norm = %e\n", nnz(data.A), norm(data.A))
-    @printf("cones         = %i\n", length(data.cone_info.types))
-    @printf(": zero        = %i", data.cone_info.type_counts[ZeroConeT])
+    @printf("  variables     = %i\n", data.n)
+    @printf("  constraints   = %i\n", data.m)
+    @printf("  nnz(P)        = %i\n", nnz(data.P))
+    @printf("  nnz(A)        = %i\n", nnz(data.A))
+    @printf("  cones         = %i\n", length(data.cone_info.types))
+    @printf("  : zero        = %i", data.cone_info.type_counts[ZeroConeT])
     print_conedims_by_type(data.cone_info, ZeroConeT)
-    @printf(": nonnegative = %i", data.cone_info.type_counts[NonnegativeConeT])
+    @printf("  : nonnegative = %i", data.cone_info.type_counts[NonnegativeConeT])
     print_conedims_by_type(data.cone_info, NonnegativeConeT)
-    @printf(": secondorder = %i", data.cone_info.type_counts[SecondOrderConeT])
+    @printf("  : secondorder = %i", data.cone_info.type_counts[SecondOrderConeT])
     print_conedims_by_type(data.cone_info, SecondOrderConeT)
-    @printf("settings = \n")
-    #dump(settings)
+    print_settings(settings)
     @printf("\n")
 
     #print a subheader for the iterations info
@@ -68,6 +68,61 @@ function print_header(
     return nothing
 end
 
+
+function bool_on_off(v::Bool)
+    return  v ? "on" : "off"
+end
+
+
+
+function print_settings(settings::Settings)
+
+    set = settings
+    @printf("settings:\n")
+    @printf("  max iter = %i, max step = %.f, tol_feas = %0.1e\n",
+        set.max_iter,
+        set.max_step_fraction,
+        set.tol_feas
+    )
+    #
+    @printf("  tol_abs = %0.1e, tol_rel = %0.1e,\n",
+        set.tol_gap_abs,
+        set.tol_gap_rel
+    )
+
+    @printf("  static reg : %s, ϵ = %0.1e\n",
+        bool_on_off(set.static_regularization_enable),
+        set.static_regularization_eps
+    )
+    #
+    @printf("  dynamic reg: %s, ϵ = %0.1e, δ = %0.1e\n",
+        bool_on_off(set.dynamic_regularization_enable),
+        set.dynamic_regularization_eps,
+        set.dynamic_regularization_delta
+    )
+    @printf("  iter refine: %s, reltol = %0.1e, abstol = %0.1e, \n",
+        bool_on_off(set.iterative_refinement_enable),
+        set.iterative_refinement_reltol,
+        set.iterative_refinement_abstol
+    )
+    @printf("               max iter = %d, stop ratio = %.1f\n",
+        set.iterative_refinement_max_iter,
+        set.iterative_refinement_stop_ratio
+    )
+    @printf("  equilibrate: %s, min_scale = %0.1e, max_scale = %0.1e\n",
+        bool_on_off(set.equilibrate_enable),
+        set.equilibrate_min_scaling,
+        set.equilibrate_max_scaling
+    )
+    @printf("               max iter = %d\n",
+        set.equilibrate_max_iter,
+    )
+
+    return nothing
+end
+
+
+
 function print_conedims_by_type(c::ConeInfo, type::SupportedCones)
 
     maxlistlen = 5
@@ -79,6 +134,9 @@ function print_conedims_by_type(c::ConeInfo, type::SupportedCones)
     #none?
     if count == 0
         #print nothing
+
+    elseif count == 1
+        @printf("  dim = %i",dims[1])
 
     elseif count <= maxlistlen
         #print them all
@@ -107,7 +165,7 @@ function print_footer(
 
     println("-----------------------------------------------------------------------------------")
     @printf("Terminated with status = %s\n",SolverStatusDict[info.status])
-    @printf("solve time = %s\n",info.solve_time)
+    @printf("solve time = %s\n",(info.solve_time))
 
     return nothing
 end

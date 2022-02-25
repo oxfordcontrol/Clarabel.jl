@@ -24,15 +24,12 @@ function check_termination!(
     info.cost_dual   =  (-residuals.dot_bz*τinv - residuals.dot_xPx * τinv * τinv / 2)/cscale
 
     #primal and dual residuals.   Need to invert the equilibration
-    #DEBUG: PJG need to check whether should be multiplying
-    #D or Dinv here for the residuals (all 4 lines)
-    info.res_primal  = norm(Einv * residuals.rz) * τinv
-    info.res_dual    = norm(Dinv * residuals.rx) * τinv
+    info.res_primal  = scaled_norm(Einv,residuals.rz) * τinv
+    info.res_dual    = scaled_norm(Dinv,residuals.rx) * τinv
 
     #primal and dual infeasibility residuals.   Need to invert the equilibration
-    #DEBUG: PJG do I have these the right way around
-    info.res_primal_inf = norm((Einv * residuals.rz_inf))
-    info.res_dual_inf   = norm((Dinv * residuals.rx_inf))
+    info.res_primal_inf = scaled_norm(Einv,residuals.rz_inf)
+    info.res_dual_inf   = scaled_norm(Dinv,residuals.rx_inf)
 
     #absolute and relative gaps
     gap_abs   = residuals.dot_sz * τinv * τinv
@@ -56,7 +53,6 @@ function check_termination!(
     #check for primal infeasibility
     #PJG: Still not sure how to properly normalize here
     #maybe should be done via cost.   Using RHS is a disaster
-    #NB: delete unscaled norm field  in data if not sued
     #---------------------
     #DEBUG: Possibly fatal problem here if norm_q is huge
     elseif(residuals.dot_bz < 0 &&
@@ -98,14 +94,18 @@ function info_reset!(info)
 
     info.status     = UNSOLVED
     info.iterations = 0
-    info.solve_time = time()
+    info.solve_time = 0
+
+    #reset the solve! timer, but keep the setup!
+    reset_timer!(info.timer["solve!"])
 
     return nothing
 end
 
 function info_finalize!(info)
 
-    info.solve_time = time() - info.solve_time
+    #TimerOutputs reports in nanoseconds
+    info.solve_time = TimerOutputs.tottime(info.timer)*1e-9
 
     return nothing
 end

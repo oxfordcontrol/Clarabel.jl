@@ -15,10 +15,10 @@ function equilibrate!(
     #if equilibration is disabled, return identities
     #everywhere
     if(!settings.equilibrate_enable)
-        scalings.d          .= one(T)
-        scalings.e.vec      .= one(T)
-        scalings.dinv       .= one(T)
-        scalings.einv.vec   .= one(T)
+        @. scalings.d          = one(T)
+        @. scalings.e.vec      = one(T)
+        @. scalings.dinv       = one(T)
+        @. scalings.einv.vec   = one(T)
         return
     end
 
@@ -39,6 +39,7 @@ function equilibrate!(
     ework = scalings.einv
 
 	#references to problem data
+    #note that P may be triu, but it shouldn't matter
 	P = data.P; A = data.A
 	q = data.q; b = data.b
 
@@ -92,15 +93,15 @@ function equilibrate!(
 	end
 
 	#update the inverse scaling data
-	scalings.dinv     .= one(T) ./ d
-	scalings.einv.vec .= one(T) ./ e.vec
+	@. scalings.dinv     = one(T) / d
+	@. scalings.einv.vec = one(T) / e.vec
 
 	return nothing
 end
 
 
 function limit_scaling!(s::Vector{T}, minval::T, maxval::T) where {T}
-	@.s = clip(s, minval, maxval, one(T))
+	@. s = clip(s, minval, maxval, one(T))
 
 	return nothing
 end

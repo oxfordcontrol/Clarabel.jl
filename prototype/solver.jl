@@ -31,27 +31,36 @@ function setup!(
     settings::Settings{T} = Settings{T}()
 ) where{T}
 
-    cone_info   = ConeInfo(cone_types,cone_dims)
-
-    s.settings  = settings
-    s.data      = DefaultProblemData(P,c,A,b,cone_info)
-    s.scalings  = DefaultScalings(s.data.n,cone_info,settings)
-    s.variables = DefaultVariables(s.data.n,cone_info)
-    s.residuals = DefaultResiduals(s.data.n,s.data.m)
-
-    #equilibrate problem data immediately on setup.
-    #this prevents multiple equlibrations if solve!
-    #is called more than once.  Do this before
-    #creating kksolver and its factors
-    equilibrate!(s.scalings,s.data,s.settings)
-
-    s.kktsolver = DefaultKKTSolver(s.data,s.scalings,s.settings)
+    #make this first to create the timers
     s.info    = DefaultInfo()
 
-    # work variables for assembling step direction LHS/RHS
-    s.step_rhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
-    s.step_lhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
+    @timeit s.info.timer "setup!" begin
 
+        cone_info   = ConeInfo(cone_types,cone_dims)
+
+        s.settings  = settings
+        s.data      = DefaultProblemData(P,c,A,b,cone_info)
+        s.scalings  = DefaultScalings(s.data.n,cone_info,settings)
+        s.variables = DefaultVariables(s.data.n,cone_info)
+        s.residuals = DefaultResiduals(s.data.n,s.data.m)
+
+        #equilibrate problem data immediately on setup.
+        #this prevents multiple equlibrations if solve!
+        #is called more than once.  Do this before
+        #creating kksolver and its factors
+        @timeit s.info.timer "equilibrate" begin
+            equilibrate!(s.scalings,s.data,s.settings)
+        end
+
+        @timeit s.info.timer "kkt init" begin
+            s.kktsolver = DefaultKKTSolver(s.data,s.scalings,s.settings)
+        end
+
+        # work variables for assembling step direction LHS/RHS
+        s.step_rhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
+        s.step_lhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
+
+    end
 
     return nothing
 end
@@ -68,6 +77,7 @@ function solve!(
     info_reset!(s.info)
     iter   = 0
     isdone = false
+    timer  = s.info.timer
 
     #initial residuals and duality gap
     gap       = T(0)
@@ -77,91 +87,112 @@ function solve!(
     #problem dimensions, cone type etc
     print_header(s.info,s.settings,s.data)
 
-    #initialize variables to some reasonable starting point
-    solver_default_start!(s)
+    @timeit timer "solve!" begin
 
-    #----------
-    # main loop
-    #----------
-    while true
+        #initialize variables to some reasonable starting point
+        @timeit timer "default start" solver_default_start!(s)
 
-        debug_rescale(s.variables)
+        @timeit timer "IP iteration" begin
 
-        #update the residuals
-        #--------------
-        residuals_update!(s.residuals,s.variables,s.data)
+        #----------
+        # main loop
+        #----------
+        while true
 
-        #calculate duality gap (scaled)
-        #--------------
-        μ = calc_mu(s.variables, s.residuals, s.scalings)
+            debug_rescale(s.variables)
 
-        #convergence check and printing
-        #--------------
-        isdone = check_termination!(
-            s.info,s.data,s.variables,
-            s.residuals,s.scalings,s.settings,
-            iter == s.settings.max_iter
-        )
-        iter += 1
+            #update the residuals
+            #--------------
+            residuals_update!(s.residuals,s.variables,s.data)
 
-        print_status(s.info,s.settings)
-        isdone && break
+            #calculate duality gap (scaled)
+            #--------------
+            μ = calc_mu(s.variables, s.residuals, s.scalings)
 
-        #update the scalings
-        #--------------
-        scaling_update!(s.scalings,s.variables)
+            #convergence check and printing
+            #--------------
+            @timeit timer "check termination" begin
+                isdone = check_termination!(
+                s.info,s.data,s.variables,
+                s.residuals,s.scalings,s.settings,
+                iter == s.settings.max_iter
+                )
+            end
+            iter += 1
+            disable_timer!(timer)
+            @notimeit print_status(s.info,s.settings)
+            enable_timer!(timer)
+            isdone && break
 
-        #update the KKT system and the constant
-        #parts of its solution
-        #--------------
-        kkt_update!(s.kktsolver,s.data,s.scalings)
+            #update the scalings
+            #--------------
+            @timeit timer "NT scaling" scaling_update!(s.scalings,s.variables)
 
-        #calculate the affine step
-        #--------------
-        calc_affine_step_rhs!(
-            s.step_rhs, s.residuals,
-            s.data, s.variables, s.scalings
-        )
-        kkt_solve!(
-            s.kktsolver, s.step_lhs, s.step_rhs,
-            s.variables, s.scalings, s.data
-        )
+            #update the KKT system and the constant
+            #parts of its solution
+            #--------------
+            @timeit timer "kkt update" kkt_update!(s.kktsolver,s.data,s.scalings)
 
-        #calculate step length and centering parameter
-        #--------------
-        α = calc_step_length(s.variables,s.step_lhs,s.scalings)
-        σ = calc_centering_parameter(α)
+            #calculate the affine step
+            #--------------
+            calc_affine_step_rhs!(
+                s.step_rhs, s.residuals,
+                s.data, s.variables, s.scalings
+            )
 
-        #DEBUG: PJG cap the centering parameter using a heuristic
-        #σ = debug_cap_centering_param(iter,σ,μ)
-        #@printf("μ = %e, σμ = %e\n", μ, σ*μ)
+            @timeit timer "kkt solve" begin
+                kkt_solve!(
+                    s.kktsolver, s.step_lhs, s.step_rhs,
+                    s.variables, s.scalings, s.data
+                )
+            end
 
-        #calculate the combined step and length
-        #--------------
-        calc_combined_step_rhs!(
-            s.step_rhs, s.residuals,
-            s.data, s.variables, s.scalings,
-            s.step_lhs, σ, μ
-        )
-        kkt_solve!(
-            s.kktsolver, s.step_lhs, s.step_rhs,
-            s.variables, s.scalings, s.data
-        )
+            #calculate step length and centering parameter
+            #--------------
+            α = calc_step_length(s.variables,s.step_lhs,s.scalings)
+            σ = calc_centering_parameter(α)
 
-        #compute final step length and update the current iterate
-        #--------------
-        α  = calc_step_length(s.variables,s.step_lhs,s.scalings)
-        α *= s.settings.max_step_fraction
+            #DEBUG: PJG cap the centering parameter using a heuristic
+            #σ = debug_cap_centering_param(iter,σ,μ)
+            #@printf("μ = %e, σμ = %e\n", μ, σ*μ)
 
-        variables_add_step!(s.variables,s.step_lhs,α)
+            #calculate the combined step and length
+            #--------------
+            calc_combined_step_rhs!(
+                s.step_rhs, s.residuals,
+                s.data, s.variables, s.scalings,
+                s.step_lhs, σ, μ
+            )
 
-        #record scalar values from this iteration
-        info_save_scalars(s.info,μ,α,σ,iter)
 
-    end
+            @timeit timer "kkt solve" begin
+                kkt_solve!(
+                s.kktsolver, s.step_lhs, s.step_rhs,
+                s.variables, s.scalings, s.data
+                )
+            end
+
+            #compute final step length and update the current iterate
+            #--------------
+            @timeit timer "step length" α  = calc_step_length(s.variables,s.step_lhs,s.scalings)
+            α *= s.settings.max_step_fraction
+
+            variables_add_step!(s.variables,s.step_lhs,α)
+
+            #record scalar values from this iteration
+            info_save_scalars(s.info,μ,α,σ,iter)
+
+        end  #end while
+        #----------
+        #----------
+
+        end #end IP iteration timer
+
+        variables_finalize!(s.variables, s.scalings, s.info.status)
+
+    end #end solve! timer
 
     info_finalize!(s.info)
-    variables_finalize!(s.variables, s.scalings, s.info.status)
     print_footer(s.info,s.settings)
 
     return nothing

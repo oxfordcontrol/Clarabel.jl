@@ -15,14 +15,19 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
     #KKT matrix and its LDL factors
     KKT::SparseMatrixCSC{T}
     factors
-    perm
+
+    #KKT mappings from problem data to KKT
+    KKTmaps::KKTDataMaps
+
+    #symmetric view for residual calcs
+    KKTsym::Symmetric{T, SparseMatrixCSC{T,Int64}}
 
     #the expected signs of D in LDL
     Dsigns::Vector{Int}
 
-    # a vector for storing the scaling
-    # matrix diagonal entries
-    diagW2::SplitVector{T}
+    # a vector for storing the diagonal entries
+    # of the WtW block in the KKT matrix
+    diagWtW::SplitVector{T}
 
     #settings.   This just points back
     #to the main solver settings.  It
@@ -35,12 +40,14 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
         #extra variables for SOCs
         p = 2*cone_info.type_counts[SecondOrderConeT]
 
-        #refinement workspace
+        #iterative refinement work vector
         work = Vector{T}(undef,n+m+p)
 
-        #PJG: partly building the KKT matrix here.
-        #not properly including the W part yet
-        KKT = _assemble_kkt_matrix(P,A,m,n,p)
+        KKT, KKTmaps = _assemble_kkt_matrix_fast(P,A,cone_info)
+
+        #KKT will be triu data only, but we will want
+        #the following to allow products like KKT*x
+        KKTsym = Symmetric(KKT)
 
         #the expected signs of D in LDL
         Dsigns = ones(Int,n+m+p)
@@ -54,21 +61,28 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
             sign *= -1
         end
 
-        #PJG:DEBUG
-        #add dynamic regularization.   Just adds to the
-        #diagonal here, and then subsequent modifications
-        #to WtW should reapply regularization at the modified
-        #entries only
+        #PJG:DEBUG.  I don't really know how static
+        #regularization is meant to work.   Just add
+        #it to the diagonal of P here to start
         if(settings.static_regularization_enable)
-            eps = settings.static_regularization_eps
-            KKT .+= Diagonal(Dsigns).*eps
+            @. KKT.nzval[KKTmaps.diagP] += settings.static_regularization_eps
         end
 
-        factors = nothing
-        perm    = nothing
-        diagW2 = SplitVector{T}(cone_info)
 
-        return new(m,n,p,work,KKT,factors,perm,Dsigns,diagW2,settings)
+        #make a logical factorization to fix memory allocations
+        factors = qdldl(
+            KKT;
+            Dsigns = Dsigns,
+            regularize_eps   = settings.dynamic_regularization_eps,
+            regularize_delta = settings.dynamic_regularization_delta,
+            logical          = true
+        )
+
+        #updates to the diagonal of KKT will be
+        #assigned here before updating matrix entries
+        diagWtW = SplitVector{T}(cone_info)
+
+        return new(m,n,p,work,KKT,factors,KKTmaps,KKTsym,Dsigns,diagWtW,settings)
     end
 
 end
@@ -95,76 +109,67 @@ function linsys_update!(
     m = linsys.m
     p = linsys.p
     settings = linsys.settings
+    KKT  = linsys.KKT
+    F    = linsys.factors
+    maps = linsys.KKTmaps
 
-    scaling_get_diagonal!(scalings,linsys.diagW2)
+    scaling_get_diagonal!(scalings,linsys.diagWtW)
 
-    #set the diagonal of the W^tW block in the KKT matrix
-    #PJG: this is super inefficient
-    for i = 1:m
-        linsys.KKT[(n+i),(n+i)] = linsys.diagW2.vec[i]
-    end
+    #Set the diagonal of the W^tW block in the KKT matrix.
+    #Note that we need to do this both for the KKT matrix
+    #that we have constructed and also for the version
+    #that is stored internally in our factorization.
+    #PJG: Debug:
+    #The former is need for iterative refinement.  Maybe we
+    #could get away without using it and just writing a
+    #multiplication operator for the QDLDL object.
+    update_values!(F,maps.diagWtW,linsys.diagWtW.vec)
+    KKT.nzval[maps.diagWtW] .= linsys.diagWtW.vec
 
-    #add off diagonal the scaled u and v columns.
-    #only needed on the upper triangle
-    colidx = n+1    #the first column of current cone
-    pidx   = n+m+1  #next SOC expansion column goes here
+    #update the scaled u and v columns.
+    cidx = 1        #which of the SOCs are we working on?
 
     for i = 1:length(scalings.cone_info.types)
-
-        conedim = scalings.cone_info.dims[i]
-
         if(scalings.cone_info.types[i] == SecondOrderConeT)
 
-            K  = scalings.cones[i]
-            η2 = K.η^2
+                K  = scalings.cones[i]
+                η2 = K.η^2
 
-            #add scaled u and v columns here
-            #PJG: this is super inefficient
-            rows = (colidx):(colidx+conedim-1)
-            linsys.KKT[rows,pidx]   .= (-η2).*K.v
-            linsys.KKT[rows,pidx+1] .= (-η2).*K.u
+                update_values!(F,maps.SOC_u[cidx],(-η2).*K.u)
+                update_values!(F,maps.SOC_v[cidx],(-η2).*K.v)
 
-            #add 1/-1 to diagonal in the extended rows/cols
-            linsys.KKT[pidx,pidx]      = -η2
-            linsys.KKT[pidx+1,pidx+1]  = +η2
-            pidx += 2
+                KKT.nzval[maps.SOC_u[cidx]] .= (-η2).*K.u
+                KKT.nzval[maps.SOC_v[cidx]] .= (-η2).*K.v
+
+                #add η^2*(1/-1) to diagonal in the extended rows/cols
+                update_values!(F,[maps.SOC_D[cidx*2-1]],[-η2])
+                update_values!(F,[maps.SOC_D[cidx*2  ]],[+η2])
+
+                KKT.nzval[maps.SOC_D[cidx*2-1]] = -η2
+                KKT.nzval[maps.SOC_D[cidx*2  ]] = +η2
+
+                cidx += 1
         end
-
-        colidx += conedim
 
     end
 
-    #perturb the diagonal terms that we are just overwritten
-    #with a new version of WtW with static regularizers.
-    #Note that we don't want to shift elements in the ULHS
-    #(corresponding to P) since we already shifted them
-    #at initialization and haven't overwritten it
+    #Perturb the diagonal terms WtW that we have just overwritten
+    #with static regularizers.  Note that we don't want to shift
+    #elements in the ULHS #(corresponding to P) since we already
+    #shifted them at initialization and haven't overwritten it
     if(settings.static_regularization_enable)
         eps = settings.static_regularization_eps
-        for i = (n+1):(n+m+p)
-            linsys.KKT[i,i] += linsys.Dsigns[i]*eps
-        end
+        offset_values!(F,maps.diag_full,eps,linsys.Dsigns)
+        offset_values!(F,maps.diagP,-eps)  #undo to the P shift
+
+        #and the same for the KKT matrix we are still
+        #relying on for the iterative refinement calc
+        @. KKT.nzval[maps.diag_full] += eps*linsys.Dsigns
+        @. KKT.nzval[maps.diagP]     -= eps
     end
 
-    #PJG: permutation should be decided at
-    #initialization, but compute it once here
-    #instead until the KKT initialization is
-    #properly placing sparse vectors on the borders
-    if(isnothing(linsys.perm))
-        linsys.perm = amd(linsys.KKT)
-    end
-
-    #refactor.  PJG: For now, just overwrite the factors
-    signs = settings.dynamic_regularization_enable ? linsys.Dsigns : nothing
-
-    linsys.factors =qdldl(
-            linsys.KKT;
-            perm   = linsys.perm,
-            Dsigns = linsys.Dsigns,
-            regularize_eps   = settings.dynamic_regularization_eps,
-            regularize_delta = settings.dynamic_regularization_delta
-        )
-
+    #refactor with new data
+    refactor!(F)
 
     return nothing
 end
@@ -192,15 +197,17 @@ function linsys_solve!(
 
     if(!IR_enable); return nothing; end  #done
 
-    #PJG: Note that K is only triu, so need to
+    #PJG: Note that K is only triu data, so need to
     #be careful when computing the residual here
-    K = linsys.KKT
-    Ksym = Symmetric(K)
+    K      = linsys.KKT
+    KKTsym = linsys.KKTsym
     lastnorme = Inf
 
     for i = 1:IR_maxiter
 
-        work .= b - Ksym*x                    #this is e = b - Kξ
+        #this is work = error = b - Kξ
+        work .= b
+        mul!(work,KKTsym,x,-1.,1.)
         norme = norm(work,Inf)
 
         # test for convergence before committing

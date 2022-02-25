@@ -1,3 +1,5 @@
+using TimerOutputs
+
 # -------------------------------------
 # abstract type defs
 # -------------------------------------
@@ -15,7 +17,7 @@ abstract type AbstractCone{T} end
 # get this type with views into the subcomponents
 # ---------------------------------------
 
-mutable struct SplitVector{T}
+struct SplitVector{T}
 
     #contiguous array of source data
     vec::Vector{T}
@@ -26,12 +28,10 @@ mutable struct SplitVector{T}
     function SplitVector{T}(
         cone_info::ConeInfo) where {T}
 
-        vec   = Vector{T}(undef,cone_info.totaldim)
-        #NB: failure to initialize here gives an error
-        #because λ is updated using gemv! style update.
-        #This fails if undefs include NaN entries
-        vec  .= 0
-
+        #undef initialization would possibly result
+        #in Infs or NaNs, causing failure in gemv!
+        #style vector updates
+        vec   = zeros(T,cone_info.totaldim)
         views = Vector{VectorView{T}}(undef, length(cone_info.types))
 
         # loop over the sets and create views
@@ -180,10 +180,11 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     m::DefaultInt
     cone_info::ConeInfo
 
-    #some static info about the problem data prior to
-    #any scaling from equilibration
-    norm_q_no_scaling::T
-    norm_b_no_scaling::T
+    # we will require products P*x, but will
+    # only store triu(P).   Use this convenience
+    # object for now
+    Psym::AbstractMatrix{T}
+
 
     function DefaultProblemData{T}(P,q,A,b,cone_info) where {T}
 
@@ -196,12 +197,13 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
 
         #take an internal copy of all problem
         #data, since we are going to scale it
-        P = deepcopy(P)
+        P = triu(P)
+        Psym = Symmetric(P)
         A = deepcopy(A)
         q = deepcopy(q)
         b = deepcopy(b)
 
-        new(P,q,A,b,n,m,cone_info,norm(q),norm(b))
+        new(P,q,A,b,n,m,cone_info,Psym)
 
     end
 
@@ -243,10 +245,21 @@ mutable struct DefaultInfo{T} <: AbstractInfo{T}
     ktratio::T
     iterations::DefaultInt
     solve_time::T
+    timer::TimerOutput
     status::SolverStatus
 
     function DefaultInfo{T}() where {T}
-        new( (ntuple(x->0, fieldcount(DefaultInfo)-1)...,UNSOLVED)...)
+
+        to = TimerOutput()
+        #setup the main timer sections here and
+        #zero them.   This ensures that the sections
+        #exists if we try to clear them later
+        @timeit to "setup!" begin (nothing) end
+        @timeit to "solve!" begin (nothing) end
+        reset_timer!(to["setup!"])
+        reset_timer!(to["solve!"])
+
+        new( (ntuple(x->0, fieldcount(DefaultInfo)-2)...,to,UNSOLVED)...)
     end
 
 end
