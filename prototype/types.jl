@@ -1,3 +1,5 @@
+using TimerOutputs
+
 # -------------------------------------
 # abstract type defs
 # -------------------------------------
@@ -6,7 +8,7 @@ abstract type AbstractConeScalings{T <: AbstractFloat}   end
 abstract type AbstractResiduals{T <: AbstractFloat}   end
 abstract type AbstractProblemData{T <: AbstractFloat} end
 abstract type AbstractKKTSolver{T <: AbstractFloat} end
-abstract type AbstractStatus{T <: AbstractFloat} end
+abstract type AbstractInfo{T <: AbstractFloat} end
 abstract type AbstractCone{T} end
 
 
@@ -15,7 +17,7 @@ abstract type AbstractCone{T} end
 # get this type with views into the subcomponents
 # ---------------------------------------
 
-mutable struct SplitVector{T} <: AbstractVariables{T}
+struct SplitVector{T}
 
     #contiguous array of source data
     vec::Vector{T}
@@ -26,7 +28,10 @@ mutable struct SplitVector{T} <: AbstractVariables{T}
     function SplitVector{T}(
         cone_info::ConeInfo) where {T}
 
-        vec   = Vector{T}(undef,cone_info.totaldim)
+        #undef initialization would possibly result
+        #in Infs or NaNs, causing failure in gemv!
+        #style vector updates
+        vec   = zeros(T,cone_info.totaldim)
         views = Vector{VectorView{T}}(undef, length(cone_info.types))
 
         # loop over the sets and create views
@@ -85,26 +90,40 @@ DefaultVariables(args...) = DefaultVariables{DefaultFloat}(args...)
 # scalings
 # ---------------
 
-mutable struct DefaultConeScalings{T} <: AbstractConeScalings{T}
+struct DefaultScalings{T} <: AbstractConeScalings{T}
 
     # specification from the problem statement
     cone_info::ConeInfo
 
-    # vector of objects containing the scalings
-    cones::Vector{AbstractCone{T}}
+    # vector of objects implementing the scalings
+    cones::ConeSet{T}
 
     # scaled variable λ = Wz = W^{-1}s
     λ::SplitVector{T}
 
-    #composite cone order.  Note the
+    #composite cone degree.  NB: Not the
     #same as dimension for zero or SO cones
-    total_order::DefaultInt
+    total_degree::DefaultInt
+
+    #scaling matrices for problem data equilibration
+    #fields d,e,dinv,einv are vectors of scaling values
+    #The other fields are diagonal views for convenience
+    d::Vector{T}
+    dinv::Vector{T}
+    D::Diagonal{T}
+    Dinv::Diagonal{T}
+
+    e::SplitVector{T}
+    einv::SplitVector{T}
+    E::Diagonal{T}
+    Einv::Diagonal{T}
+
+    #overall scaling for objective function
+    c::Ref{T}
 
 end
 
-DefaultConeScalings(args...) = DefaultConeScalings{DefaultFloat}(args...)
-
-
+DefaultScalings(args...) = DefaultScalings{DefaultFloat}(args...)
 
 
 # ---------------
@@ -113,20 +132,21 @@ DefaultConeScalings(args...) = DefaultConeScalings{DefaultFloat}(args...)
 
 mutable struct DefaultResiduals{T} <: AbstractResiduals{T}
 
+    #the main KKT residuals
     rx::Vector{T}
     rz::Vector{T}
     rτ::T
 
-    norm_Ax::T
-    norm_Atz::T
+    #partial residuals for infeasibility checks
+    rx_inf::Vector{T}
+    rz_inf::Vector{T}
 
-    norm_rz::T
-    norm_rx::T
-
-    #various inner products
-    dot_cx::T
+    #various inner products.
+    #NB: these are invariant w.r.t equilibration
+    dot_qx::T
     dot_bz::T
     dot_sz::T
+    dot_xPx::T
 
     function DefaultResiduals{T}(n::Integer,
                                  m::Integer) where {T}
@@ -135,7 +155,10 @@ mutable struct DefaultResiduals{T} <: AbstractResiduals{T}
         rz = Vector{T}(undef,m)
         rτ = T(1)
 
-        new(rx,rz,rτ)
+        rx_inf = Vector{T}(undef,n)
+        rz_inf = Vector{T}(undef,m)
+
+        new(rx,rz,rτ,rx_inf,rz_inf,0.,0.,0.,0.)
     end
 
 end
@@ -149,27 +172,38 @@ DefaultResiduals(args...) = DefaultResiduals{DefaultFloat}(args...)
 
 mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
 
-    c::Vector{T}
+    P::AbstractMatrix{T}
+    q::Vector{T}
     A::AbstractMatrix{T}
     b::Vector{T}
     n::DefaultInt
     m::DefaultInt
     cone_info::ConeInfo
 
-    #some static info about the problem data
-    norm_c::T
-    norm_b::T
+    # we will require products P*x, but will
+    # only store triu(P).   Use this convenience
+    # object for now
+    Psym::AbstractMatrix{T}
 
-    function DefaultProblemData{T}(c,A,b,cone_info) where {T}
 
-        n         = length(c)
+    function DefaultProblemData{T}(P,q,A,b,cone_info) where {T}
+
+        n         = length(q)
         m         = length(b)
 
         m == size(A)[1] || throw(ErrorException("A and b incompatible dimensions."))
         n == size(A)[2] || throw(ErrorException("A and c incompatible dimensions."))
         m == sum(cone_info.dims) || throw(ErrorException("Incompatible cone dimensions."))
 
-        new(c,A,b,n,m,cone_info,norm(c),norm(b))
+        #take an internal copy of all problem
+        #data, since we are going to scale it
+        P = triu(P)
+        Psym = Symmetric(P)
+        A = deepcopy(A)
+        q = deepcopy(q)
+        b = deepcopy(b)
+
+        new(P,q,A,b,n,m,cone_info,Psym)
 
     end
 
@@ -197,28 +231,40 @@ const SolverStatusDict = Dict(
     MAX_ITERATIONS  =>  "iteration limit"
 )
 
-mutable struct DefaultStatus{T} <: AbstractStatus{T}
+mutable struct DefaultInfo{T} <: AbstractInfo{T}
 
     cost_primal::T
     cost_dual::T
     res_primal::T
     res_dual::T
+    res_primal_inf::T
+    res_dual_inf::T
     gap::T
     step_length::T
     sigma::T
     ktratio::T
     iterations::DefaultInt
     solve_time::T
+    timer::TimerOutput
     status::SolverStatus
 
-    function DefaultStatus{T}() where {T}
-        #new(ntuple(x->0, fieldcount(DefaultStatus)-1),UNSOLVED...)
-        new( (ntuple(x->0, fieldcount(DefaultStatus)-1)...,UNSOLVED)...)
+    function DefaultInfo{T}() where {T}
+
+        to = TimerOutput()
+        #setup the main timer sections here and
+        #zero them.   This ensures that the sections
+        #exists if we try to clear them later
+        @timeit to "setup!" begin (nothing) end
+        @timeit to "solve!" begin (nothing) end
+        reset_timer!(to["setup!"])
+        reset_timer!(to["solve!"])
+
+        new( (ntuple(x->0, fieldcount(DefaultInfo)-2)...,to,UNSOLVED)...)
     end
 
 end
 
-DefaultStatus(args...) = DefaultStatus{DefaultFloat}(args...)
+DefaultInfo(args...) = DefaultInfo{DefaultFloat}(args...)
 
 # -------------------------------------
 # top level solver type
@@ -231,7 +277,7 @@ mutable struct Solver{T <: AbstractFloat}
     scalings::Union{AbstractConeScalings{T},Nothing}
     residuals::Union{AbstractResiduals{T},Nothing}
     kktsolver::Union{AbstractKKTSolver{T},Nothing}
-    status::Union{AbstractStatus{T},Nothing}
+    info::Union{AbstractInfo{T},Nothing}
     settings::Union{Settings{T},Nothing}
     step_lhs::Union{AbstractVariables{T},Nothing}
     step_rhs::Union{AbstractVariables{T},Nothing}

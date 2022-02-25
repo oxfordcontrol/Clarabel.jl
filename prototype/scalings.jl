@@ -1,5 +1,11 @@
-function DefaultConeScalings{T}(
-    cone_info::ConeInfo) where {T}
+using LinearAlgebra
+
+
+function DefaultScalings{T}(
+    nvars::Int,
+    cone_info::ConeInfo,
+    settings::Settings
+) where {T}
 
     #look up constructors for every cone type and
     #build an array of appropriately sized cones.
@@ -12,35 +18,61 @@ function DefaultConeScalings{T}(
         push!(cones, ConeDict[type](dim))
     end
 
-    # total cone order (not the same as dimension for SO and zero)
-    totalorder = sum(cone -> order(cone), cones)
+    # total cone degree (not the same as dimension for SOC and zero cone)
+    totaldegree = sum(cone -> degree(cone), cones)
 
+    #scaled version s and z
     λ = SplitVector{T}(cone_info)
 
-    DefaultConeScalings(cone_info,cones,λ,totalorder)
+    #Left/Right diagonal scaling for problem data
+    d    = Vector{T}(undef,nvars)
+    dinv = Vector{T}(undef,nvars)
+    D    = Diagonal(d)
+    Dinv = Diagonal(dinv)
 
+    e    = SplitVector{T}(cone_info)
+    einv = SplitVector{T}(cone_info)
+    E    = Diagonal(e.vec)
+    Einv = Diagonal(einv.vec)
+
+    c    = Ref{T}(1.)
+
+    return DefaultScalings(
+            cone_info,cones,λ,totaldegree,
+            d,dinv,D,Dinv,e,einv,E,Einv,c
+           )
 end
 
 
-function UpdateScaling!(
-    scalings::DefaultConeScalings{T},
-    variables::DefaultVariables{T}) where {T}
+function scaling_update!(
+    scalings::DefaultScalings{T},
+    variables::DefaultVariables{T}
+) where {T}
 
-    cones  = scalings.cones
-    sviews = variables.s.views
-    zviews = variables.z.views
-    λviews = scalings.λ.views
-
-    # update scalings by passing subview to each of
-    # the appropriate cone types.
-    foreach(UpdateScaling!,cones,sviews,zviews,λviews)
-
+    # we call via this function instead of calling
+    # the operation on the Vector{AbstractCones{T}} directly
+    # so that we can isolate the top level solver from
+    # our default implementation of the scaling update
+    cones_update_scaling!(scalings.cones,variables.s,variables.z,scalings.λ)
+    return nothing
 end
 
-function IdentityScaling!(
-    scalings::DefaultConeScalings{T},
-    variables::DefaultVariables{T}) where {T}
 
-    foreach(IdentityScaling!,scalings.cones)
+#set all scalings to identity (or zero for the zero cone)
+function scaling_identity!(
+    scalings::DefaultScalings{T}
+) where {T}
+
+    cones_set_identity_scaling!(scalings.cones)
+    return nothing
+end
+
+
+function scaling_get_diagonal!(
+    scalings::DefaultScalings{T},
+    diagW2::SplitVector{T}
+) where {T}
+
+    cones_get_diagonal_scaling!(scalings.cones,diagW2)
 
 end

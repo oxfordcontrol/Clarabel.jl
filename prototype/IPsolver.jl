@@ -5,15 +5,37 @@ module IPSolver
     const DefaultInt   = LinearAlgebra.BlasInt
 
     include("./consttypes.jl")
+    include("./cones/conetypes.jl")
     include("./settings.jl")
-    include("./cones.jl")
+
     include("./types.jl")
     include("./variables.jl")
+    include("./residuals.jl")
     include("./scalings.jl")
-    include("./kktsolver_direct.jl")
-    include("./kktsolver_indirect_minres.jl")
+    include("./info.jl")
+
+    #linear subsolver implementations
+    #must precede the KKT solver typedef
+    include("./linsys/linearsolver_defaults.jl")
+    include("./linsys/linearsolver_utils.jl")
+    include("./linsys/linearsolver_qdldl.jl")
+
+    include("./kkt.jl")
     include("./printing.jl")
-    include("./coneops.jl")
     include("./solver.jl")
+
+    include("./cones/coneops.jl")
+    include("./cones/coneops_defaults.jl")
+    include("./cones/coneops_zerocone.jl")
+    include("./cones/coneops_nncone.jl")
+    include("./cones/coneops_socone.jl")
+
+    include("./equilibration.jl")
+    include("./mathutils.jl")
+
+    #PJG : temporary debugging utils
+    include("./debug.jl")
+    include("./debug_coneops.jl")
+    #include("./kkt_debug.jl")
 
 end

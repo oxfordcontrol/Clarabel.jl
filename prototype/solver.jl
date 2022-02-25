@@ -1,349 +1,221 @@
-
 # -------------------------------------
-# setup!
-# -------------------------------------
-function Setup!(
-    s::Solver{T},
+# utility constructor that includes
+# both object creation and setup
+#--------------------------------------
+function Solver(
+    P::AbstractMatrix{T},
     c::Vector{T},
     A::AbstractMatrix{T},
     b::Vector{T},
     cone_types::Vector{SupportedCones},
     cone_dims::Vector{Int},
-    settings::Settings{T} = Settings()) where{T}
+    settings::Settings{T} = Settings{T}()
+) where{T}
 
-    cone_info   = ConeInfo(cone_types,cone_dims)
+    s = Solver{T}()
+    setup!(s,P,c,A,b,cone_types,cone_dims,settings)
+    return s
+end
 
-    s.settings  = settings
-    s.data      = DefaultProblemData(c,A,b,cone_info)
-    s.scalings  = DefaultConeScalings(cone_info)
-    s.variables = DefaultVariables(s.data.n,cone_info)
-    s.residuals = DefaultResiduals(s.data.n,s.data.m)
-    if(settings.direct_kkt_solver == true)
-        s.kktsolver = DefaultKKTSolverDirect(s.data,s.scalings)
-    else
-        s.kktsolver = DefaultKKTSolverIndirect(s.data,s.scalings)
+# -------------------------------------
+# setup!
+# -------------------------------------
+function setup!(
+    s::Solver{T},
+    P::AbstractMatrix{T},
+    c::Vector{T},
+    A::AbstractMatrix{T},
+    b::Vector{T},
+    cone_types::Vector{SupportedCones},
+    cone_dims::Vector{Int},
+    settings::Settings{T} = Settings{T}()
+) where{T}
+
+    #make this first to create the timers
+    s.info    = DefaultInfo()
+
+    @timeit s.info.timer "setup!" begin
+
+        cone_info   = ConeInfo(cone_types,cone_dims)
+
+        s.settings  = settings
+        s.data      = DefaultProblemData(P,c,A,b,cone_info)
+        s.scalings  = DefaultScalings(s.data.n,cone_info,settings)
+        s.variables = DefaultVariables(s.data.n,cone_info)
+        s.residuals = DefaultResiduals(s.data.n,s.data.m)
+
+        #equilibrate problem data immediately on setup.
+        #this prevents multiple equlibrations if solve!
+        #is called more than once.  Do this before
+        #creating kksolver and its factors
+        @timeit s.info.timer "equilibrate" begin
+            equilibrate!(s.scalings,s.data,s.settings)
+        end
+
+        @timeit s.info.timer "kkt init" begin
+            s.kktsolver = DefaultKKTSolver(s.data,s.scalings,s.settings)
+        end
+
+        # work variables for assembling step direction LHS/RHS
+        s.step_rhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
+        s.step_lhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
+
     end
-    s.status    = DefaultStatus()
 
-    # work variables for assembling step direction LHS/RHS
-    s.step_rhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
-    s.step_lhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
-
+    return nothing
 end
 
 
 # -------------------------------------
 # solve!
 # -------------------------------------
-function Solve!(
+function solve!(
     s::Solver{T}
 ) where{T}
 
     #various initializations
-    ResetStatus(s.status)
+    info_reset!(s.info)
     iter   = 0
     isdone = false
+    timer  = s.info.timer
 
     #initial residuals and duality gap
     gap       = T(0)
     sigma     = T(0)
 
-    #hi to user!
-    PrintHeader(s)
+    #solver release info, solver config
+    #problem dimensions, cone type etc
+    print_header(s.info,s.settings,s.data)
 
-    #initialize variables to some reasonable starting point
-    DefaultStart!(s)
+    @timeit timer "solve!" begin
 
-    #----------
-    # main loop
-    #----------
-    while iter <= s.settings.max_iter
+        #initialize variables to some reasonable starting point
+        @timeit timer "default start" solver_default_start!(s)
 
-        iter += 1
+        @timeit timer "IP iteration" begin
 
-        #update the residuals
-        #--------------
-        UpdateResiduals!(s)
+        #----------
+        # main loop
+        #----------
+        while true
 
-        #calculate duality gap (scaled)
-        #--------------
-        μ = CalcMu(s.variables, s.residuals, s.scalings)
+            debug_rescale(s.variables)
 
-        #convergence check and printing
-        #--------------
-        isdone = CheckTermination(s.status,s.data,s.variables,s.residuals,s.scalings,s.settings)
-        PrintStatus(s.status,s.settings)
+            #update the residuals
+            #--------------
+            residuals_update!(s.residuals,s.variables,s.data)
 
-        isdone && break
+            #calculate duality gap (scaled)
+            #--------------
+            μ = calc_mu(s.variables, s.residuals, s.scalings)
 
-        #update the scalings
-        #--------------
-        UpdateScaling!(s.scalings,s.variables)
+            #convergence check and printing
+            #--------------
+            @timeit timer "check termination" begin
+                isdone = check_termination!(
+                s.info,s.data,s.variables,
+                s.residuals,s.scalings,s.settings,
+                iter == s.settings.max_iter
+                )
+            end
+            iter += 1
+            disable_timer!(timer)
+            @notimeit print_status(s.info,s.settings)
+            enable_timer!(timer)
+            isdone && break
 
-        #update the KKT system
-        #--------------
-        UpdateKKTSystem!(s.kktsolver,s.scalings)
+            #update the scalings
+            #--------------
+            @timeit timer "NT scaling" scaling_update!(s.scalings,s.variables)
 
-        #calculate KKT solution for constant terms
-        #--------------
-        SolveKKTConstantRHS!(s.kktsolver,s.data)
+            #update the KKT system and the constant
+            #parts of its solution
+            #--------------
+            @timeit timer "kkt update" kkt_update!(s.kktsolver,s.data,s.scalings)
 
-        #calculate the affine step
-        #--------------
-        CalcAffineStepRHS!(s.step_rhs, s.residuals, s.variables, s.scalings)
-        SolveKKT!(s.kktsolver, s.step_lhs, s.step_rhs, s.variables, s.scalings, s.data,:affine)
+            #calculate the affine step
+            #--------------
+            calc_affine_step_rhs!(
+                s.step_rhs, s.residuals,
+                s.data, s.variables, s.scalings
+            )
 
-        #calculate step length and centering parameter
-        #--------------
-        α = CalcStepLength(s.variables,s.step_lhs,s.scalings)
-        σ = CalcCenteringParameter(α)
+            @timeit timer "kkt solve" begin
+                kkt_solve!(
+                    s.kktsolver, s.step_lhs, s.step_rhs,
+                    s.variables, s.scalings, s.data
+                )
+            end
 
-        #calculate the combined step and length
-        #--------------
-        CalcCombinedStepRHS!(s.step_rhs,s.residuals,s.variables,s.scalings,s.step_lhs,σ,μ)
-        SolveKKT!(s.kktsolver, s.step_lhs, s.step_rhs, s.variables, s.scalings, s.data,:combined)
+            #calculate step length and centering parameter
+            #--------------
+            α = calc_step_length(s.variables,s.step_lhs,s.scalings)
+            σ = calc_centering_parameter(α)
 
-        #compute final step length and update the current iterate
-        #--------------
-        α = 0.99*CalcStepLength(s.variables,s.step_lhs,s.scalings) #PJG: make tunable
-        AddToVariables!(s.variables,s.step_lhs,α)
+            #DEBUG: PJG cap the centering parameter using a heuristic
+            #σ = debug_cap_centering_param(iter,σ,μ)
+            #@printf("μ = %e, σμ = %e\n", μ, σ*μ)
 
-        #record scalar values from this iteration
-        SaveScalarStatus(s.status,μ,α,σ,iter)
+            #calculate the combined step and length
+            #--------------
+            calc_combined_step_rhs!(
+                s.step_rhs, s.residuals,
+                s.data, s.variables, s.scalings,
+                s.step_lhs, σ, μ
+            )
 
-    end
 
-    FinalizeStatus(s.status)
-    PrintFooter(s.status,s.settings)
+            @timeit timer "kkt solve" begin
+                kkt_solve!(
+                s.kktsolver, s.step_lhs, s.step_rhs,
+                s.variables, s.scalings, s.data
+                )
+            end
 
+            #compute final step length and update the current iterate
+            #--------------
+            @timeit timer "step length" α  = calc_step_length(s.variables,s.step_lhs,s.scalings)
+            α *= s.settings.max_step_fraction
+
+            variables_add_step!(s.variables,s.step_lhs,α)
+
+            #record scalar values from this iteration
+            info_save_scalars(s.info,μ,α,σ,iter)
+
+        end  #end while
+        #----------
+        #----------
+
+        end #end IP iteration timer
+
+        variables_finalize!(s.variables, s.scalings, s.info.status)
+
+    end #end solve! timer
+
+    info_finalize!(s.info)
+    print_footer(s.info,s.settings)
+
+    return nothing
 end
 
-function ResetStatus(status)
-
-    status.status     = UNSOLVED
-    status.iterations = 0
-    status.solve_time = time()
-
-end
-
-function FinalizeStatus(status)
-
-    status.solve_time = time() - status.solve_time
-
-end
-
-function SaveScalarStatus(status,μ,α,σ,iter)
-
-    status.gap = μ
-    status.step_length = α
-    status.sigma = σ
-    status.iterations = iter
-
-end
-
-
-function AddToVariables!(
-    variables::DefaultVariables{T},
-    step::DefaultVariables{T}, α::T) where {T}
-
-    variables.x     .+= α*step.x
-    variables.s.vec .+= α*step.s.vec
-    variables.z.vec .+= α*step.z.vec
-    variables.τ      += α*step.τ
-    variables.κ      += α*step.κ
-
-end
-
-
-
-function CalcStepLength(
-    variables::DefaultVariables{T},
-    step::DefaultVariables{T},
-    scalings::DefaultConeScalings{T},) where {T}
-
-    ατ    = step.τ < 0 ? -variables.τ / step.τ : 1/eps(T)
-    ακ    = step.κ < 0 ? -variables.κ / step.κ : 1/eps(T)
-    αcone = step_length(scalings, step.z, step.s, variables.z, variables.s, scalings.λ )
-
-    α     = min(ατ,ακ,αcone,1.)
-
-end
 
 # Mehrotra heuristic
-function CalcCenteringParameter(α::T) where{T}
+function calc_centering_parameter(α::T) where{T}
 
-    σ = (1-α)^3
-
+    return σ = (1-α)^3
 end
 
 
-function CalcAffineStepRHS!(
-    d::DefaultVariables{T},
-    r::DefaultResiduals{T},
-    variables::DefaultVariables{T},
-    scalings::DefaultConeScalings{T}) where{T}
-
-    d.x     .=  r.rx
-    d.z.vec .= -r.rz .+ variables.s.vec
-    circle_op!(scalings, d.s, scalings.λ, scalings.λ)
-    d.τ      =  r.rτ
-    d.κ      =  variables.τ * variables.κ
-
-end
-
-# PJG: CalcCombinedStepRHS! modifies the step values
-# in place to be economical with memory
-function CalcCombinedStepRHS!(
-    d::DefaultVariables{T},
-    r::DefaultResiduals{T},
-    variables::DefaultVariables{T},
-    scalings::DefaultConeScalings{T},
-    step::DefaultVariables{T},
-    σ::T, μ::T) where {T}
-
-    # assumes that the affine RHS currently occupies d,
-    # so only applies incremental changes to get the
-    # combined corrector step
-    d.x .*= (1. - σ)
-    d.τ  *= (1. - σ)
-    d.κ  += step.τ * step.κ - σ*μ
-
-    # d.s and d.z are  harder if we want to be
-    # economical with allocated memory.  Modify the
-    # step.z and step.s vectors in place since they
-    # are from the affine step and not needed now.
-    # Also use d.z as temporary space to hold
-    # W⁻¹Δs ∘ WΔz
-    gemv_W!(scalings,  false, step.z, step.z,  1., 0.)        #Δz = WΔz
-    gemv_Winv!(scalings, false, step.s, step.s,  1., 0.)      #Δs = W⁻¹Δs
-    circle_op!(scalings, d.z, step.s, step.z)                 #tmp = W⁻¹Δs ∘ WΔz
-    add_scaled_e!(scalings,d.z,-σ*μ)                          #tmp = tmp -σμe
-    d.s.vec .+= d.z.vec
-
-    # now build d.z from scratch
-    inv_circle_op!(scalings, d.z, scalings.λ, d.s)            #dz = λ \ ds
-    gemv_W!(scalings, false, d.z, d.z, 1., 0.)                #dz = Wdz
-    d.z.vec .+= -(1-σ).*r.rz
-
-end
-
-function DefaultStart!(s::Solver{T}) where {T}
+function solver_default_start!(s::Solver{T}) where {T}
 
     #set all scalings to identity (or zero for the zero cone)
-    IdentityScaling!(s.scalings,s.variables)
+    scaling_identity!(s.scalings)
     #Refactor
-    UpdateKKTSystem!(s.kktsolver,s.scalings)
+    kkt_update!(s.kktsolver,s.data,s.scalings)
     #solve for primal/dual initial points via KKT
-    SolveKKTInitialPoint!(s.kktsolver,s.variables,s.data)
+    kkt_solve_initial_point!(s.kktsolver,s.variables,s.data)
     #fix up (z,s) so that they are in the cone
-    shift_to_cone!(s.scalings, s.variables.s)
-    shift_to_cone!(s.scalings, s.variables.z)
+    variables_shift_to_cone!(s.variables, s.scalings)
 
-    s.variables.τ = 1
-    s.variables.κ = 1
-
-end
-
-
-function CalcMu(
-    variables::DefaultVariables{T},
-    residuals::DefaultResiduals{T},
-    scalings::DefaultConeScalings{T}) where {T}
-
-  μ = (residuals.dot_sz + variables.τ * variables.κ)/(scalings.total_order + 1)
-
-end
-
-
-function UpdateResiduals!(
-    s::Solver{T}) where {T}
-
-  residuals = s.residuals
-  data      = s.data
-  variables = s.variables
-
-  #scalars used locally more than once
-  cx        = dot(data.c,variables.x)
-  bz        = dot(data.b,variables.z.vec)
-  sz        = dot(variables.s.vec,variables.z.vec)
-
-  #partial residual calc so I can catch the
-  #norms of the matrix vector products
-  residuals.rx = data.A'* variables.z.vec
-  residuals.rz = data.A * variables.x
-
-  #matrix vector product norm (scaled)
-  residuals.norm_Ax  = norm(residuals.rz)
-  residuals.norm_Atz = norm(residuals.rx)
-
-  #finish the residual calculation
-  residuals.rx .= -residuals.rx - data.c * variables.τ
-  residuals.rz .= +residuals.rz - data.b * variables.τ + variables.s.vec
-  residuals.rτ = cx + bz + variables.κ
-
-  #relative residuals (scaled)
-  residuals.norm_rz     = norm(residuals.rz)
-  residuals.norm_rx     = norm(residuals.rx)
-
-  #various dot products for later use (all with scaled variables)
-  residuals.dot_cx = cx
-  residuals.dot_bz = bz
-  residuals.dot_sz = sz
-
-end
-
-function CheckTermination(
-    status::DefaultStatus{T},
-    data::DefaultProblemData{T},
-    variables::DefaultVariables{T},
-    residuals::DefaultResiduals{T},
-    scalings::DefaultConeScalings{T},
-    settings::Settings{T}) where {T}
-
-    #optimality termination check should be computed w.r.t
-    #the unscaled x and z variables.
-    τinv = 1 / variables.τ
-
-    #primal and dual costs
-    status.cost_primal =  residuals.dot_cx*τinv
-    status.cost_dual   = -residuals.dot_bz*τinv
-
-    #primal and dual residuals
-    status.res_primal  = norm(residuals.rx) * τinv / max(1,data.norm_c)
-    status.res_dual    = norm(residuals.rz) * τinv / max(1,data.norm_b)
-
-    #absolute and relative gaps
-    abs_gap   = residuals.dot_sz * τinv * τinv
-    if(status.cost_primal > 0 && status.cost_dual < 0)
-        rel_gap = 1/eps()
-    else
-        rel_gap = abs_gap / min(abs(status.cost_primal),abs(status.cost_dual))
-    end
-
-    #κ/τ
-    status.ktratio = variables.κ / variables.τ
-
-    #check for convergence
-    #---------------------
-    if(    (abs_gap < settings.tol_gap_abs) || (rel_gap < settings.tol_gap_rel)
-        && ( status.res_primal < settings.tol_feas)
-        && ( status.res_dual   < settings.tol_feas)
-      )
-        status.status = SOLVED
-
-    #check for primal infeasibility
-    #---------------------
-    #PJG:Using unscaled variables here.   Double check normalization term (see notes)
-    elseif(status.cost_dual > 0 && residuals.norm_Atz / max(1,data.norm_c) < settings.tol_feas)
-        status.status = PRIMAL_INFEASIBLE
-
-    #check for dual infeasibility
-    #---------------------
-    #PJG:Using unscaled variables here.   Double check normalization term (see notes)
-    elseif(status.cost_primal < 0 && residuals.norm_Ax / max(1,data.norm_b) < settings.tol_feas)
-        status.status = DUAL_INFEASIBLE
-    end
-
-    return is_done = status.status != UNSOLVED
-
+    return nothing
 end
