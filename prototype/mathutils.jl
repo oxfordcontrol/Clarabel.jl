@@ -11,7 +11,7 @@ function clip(
 end
 
 
-function inv_sqrt!(v::Vector{T}) where{T <: Real}
+function inv_sqrt!(v::AbstractVector{T}) where{T <: Real}
 	@fastmath v .= one(T) ./ sqrt.(v)
 
     return nothing
@@ -19,12 +19,12 @@ end
 
 
 #2-norm of the product M*v
-function scaled_norm(M::Diagonal{T},v::Vector{T}) where{T}
+function scaled_norm(M::Diagonal{T},v::AbstractVector{T}) where{T}
     return scaled_norm(M.diag,v)
 end
 
 #2-norm of the product a.*b
-function scaled_norm(m::Vector{T},v::Vector{T}) where{T}
+function scaled_norm(m::AbstractVector{T},v::AbstractVector{T}) where{T}
     t = 0.
     for i in eachindex(v)
         p  = m[i]*v[i]
@@ -51,7 +51,7 @@ end
 
 
 function col_norms!(
-    v::Array{Tf, 1},
+    v::AbstractVector{Tf},
 	A::SparseMatrixCSC{Tf,Ti};
     reset::Bool = true
 ) where {Tf <: AbstractFloat, Ti <: Integer}
@@ -75,7 +75,7 @@ end
 #since we are taking inf norms here anyway
 
 function col_norms_sym!(
-    v::Vector{Tf},
+    v::AbstractVector{Tf},
 	A::SparseMatrixCSC{Tf,Ti};
     reset::Bool = true
 ) where {Tf <: AbstractFloat, Ti <: Integer}
@@ -100,7 +100,7 @@ end
 
 
 function row_norms!(
-    v::Array{Tf, 1},
+    v::AbstractVector{Tf},
 	A::SparseMatrixCSC{Tf, Ti};
 	reset::Bool = true
 ) where{Tf <: AbstractFloat, Ti <: Integer}

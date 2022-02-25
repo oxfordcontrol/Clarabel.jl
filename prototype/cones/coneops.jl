@@ -4,15 +4,15 @@
 
 function cones_rectify_equilibration!(
     cones::ConeSet{T},
-     δ::SplitVector{T},
-     e::SplitVector{T}
+     δ::ConicVector{T},
+     e::ConicVector{T}
 ) where{T}
 
     any_changed = false
 
     #we will update e <- \delta .*e using return values
     #from this function.  default is to do nothing at all
-    @. δ.vec = 1
+    δ .= 1
 
     for i = eachindex(cones)
         any_changed |= rectify_equilibration!(cones[i],δ.views[i],e.views[i])
@@ -24,9 +24,9 @@ end
 
 function cones_update_scaling!(
     cones::ConeSet{T},
-    s::SplitVector{T},
-    z::SplitVector{T},
-    λ::SplitVector{T}
+    s::ConicVector{T},
+    z::ConicVector{T},
+    λ::ConicVector{T}
 ) where {T}
 
     # update scalings by passing subview to each of
@@ -55,7 +55,7 @@ end
 # matrix for each cone
 function cones_get_diagonal_scaling!(
     cones::ConeSet{T},
-    diagW2::SplitVector{T}
+    diagW2::ConicVector{T}
 ) where {T}
 
     for i = 1:length(cones)
@@ -67,9 +67,9 @@ end
 # x = y ∘ z
 function cones_circle_op!(
     cones::ConeSet{T},
-    x::SplitVector{T},
-    y::SplitVector{T},
-    z::SplitVector{T}
+    x::ConicVector{T},
+    y::ConicVector{T},
+    z::ConicVector{T}
 ) where {T}
 
     for i = 1:length(cones)
@@ -81,9 +81,9 @@ end
 # x = y \ z
 function cones_inv_circle_op!(
     cones::ConeSet{T},
-    x::SplitVector{T},
-    y::SplitVector{T},
-    z::SplitVector{T}
+    x::ConicVector{T},
+    y::ConicVector{T},
+    z::ConicVector{T}
 ) where {T}
 
     for i = 1:length(cones)
@@ -95,7 +95,7 @@ end
 # place a vector to some nearby point in the cone
 function cones_shift_to_cone!(
     cones::ConeSet{T},
-    z::SplitVector{T}
+    z::ConicVector{T}
 ) where {T}
 
     for i = 1:length(cones)
@@ -109,8 +109,8 @@ end
 function cones_gemv_W!(
     cones::ConeSet{T},
     is_transpose::Bool,
-    x::SplitVector{T},
-    y::SplitVector{T},
+    x::ConicVector{T},
+    y::ConicVector{T},
     α::T,
     β::T
 ) where {T}
@@ -126,8 +126,8 @@ end
 function cones_gemv_Winv!(
     cones::ConeSet{T},
     is_transpose::Bool,
-    x::SplitVector{T},
-    y::SplitVector{T},
+    x::ConicVector{T},
+    y::ConicVector{T},
     α::T,
     β::T
 ) where {T}
@@ -141,8 +141,8 @@ end
 # computes y = (W^TW){-1}x
 function cones_mul_WtWinv!(
     cones::ConeSet{T},
-    x::SplitVector{T},
-    y::SplitVector{T}
+    x::ConicVector{T},
+    y::ConicVector{T}
 ) where {T}
 
     for i = 1:length(cones)
@@ -155,8 +155,8 @@ end
 # computes y = (W^TW)x
 function cones_mul_WtW!(
     cones::ConeSet{T},
-    x::SplitVector{T},
-    y::SplitVector{T}
+    x::ConicVector{T},
+    y::ConicVector{T}
 ) where {T}
 
     for i = 1:length(cones)
@@ -168,7 +168,7 @@ end
 #computes y = y + αe
 function cones_add_scaled_e!(
     cones::ConeSet{T},
-    x::SplitVector{T},
+    x::ConicVector{T},
     α::T
 ) where {T}
 
@@ -181,11 +181,11 @@ end
 # maximum allowed step length over all cones
 function cones_step_length(
     cones::ConeSet{T},
-    dz::SplitVector{T},
-    ds::SplitVector{T},
-     z::SplitVector{T},
-     s::SplitVector{T},
-     λ::SplitVector{T}
+    dz::ConicVector{T},
+    ds::ConicVector{T},
+     z::ConicVector{T},
+     s::ConicVector{T},
+     λ::ConicVector{T}
 ) where {T}
 
     dz    = dz.views

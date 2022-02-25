@@ -8,6 +8,7 @@ module IPSolver
     include("./cones/conetypes.jl")
     include("./settings.jl")
 
+    include("./conicvector.jl")
     include("./types.jl")
     include("./variables.jl")
     include("./residuals.jl")
