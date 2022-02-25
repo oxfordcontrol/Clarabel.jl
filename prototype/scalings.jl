@@ -22,7 +22,7 @@ function DefaultScalings{T}(
     totaldegree = sum(cone -> degree(cone), cones)
 
     #scaled version s and z
-    λ = SplitVector{T}(cone_info)
+    λ = ConicVector{T}(cone_info)
 
     #Left/Right diagonal scaling for problem data
     d    = Vector{T}(undef,nvars)
@@ -30,12 +30,12 @@ function DefaultScalings{T}(
     D    = Diagonal(d)
     Dinv = Diagonal(dinv)
 
-    e    = SplitVector{T}(cone_info)
-    einv = SplitVector{T}(cone_info)
-    E    = Diagonal(e.vec)
-    Einv = Diagonal(einv.vec)
+    e    = ConicVector{T}(cone_info)
+    einv = ConicVector{T}(cone_info)
+    E    = Diagonal(e)
+    Einv = Diagonal(einv)
 
-    c    = Ref{T}(1.)
+    c    = Ref(T(1.))
 
     return DefaultScalings(
             cone_info,cones,λ,totaldegree,
@@ -70,7 +70,7 @@ end
 
 function scaling_get_diagonal!(
     scalings::DefaultScalings{T},
-    diagW2::SplitVector{T}
+    diagW2::ConicVector{T}
 ) where {T}
 
     cones_get_diagonal_scaling!(scalings.cones,diagW2)

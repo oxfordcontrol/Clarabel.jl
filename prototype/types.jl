@@ -12,45 +12,6 @@ abstract type AbstractInfo{T <: AbstractFloat} end
 abstract type AbstractCone{T} end
 
 
-# -------------------------------------
-# vectors defined w.r.t. to conic constraints
-# get this type with views into the subcomponents
-# ---------------------------------------
-
-struct SplitVector{T}
-
-    #contiguous array of source data
-    vec::Vector{T}
-
-    #array of data views of type Vector{T}
-    views::Vector{VectorView{T}}
-
-    function SplitVector{T}(
-        cone_info::ConeInfo) where {T}
-
-        #undef initialization would possibly result
-        #in Infs or NaNs, causing failure in gemv!
-        #style vector updates
-        vec   = zeros(T,cone_info.totaldim)
-        views = Vector{VectorView{T}}(undef, length(cone_info.types))
-
-        # loop over the sets and create views
-        last = 0
-        for i = eachindex(cone_info.dims)
-            first  = last + 1
-            last   = last + cone_info.dims[i]
-            rng = first:last
-            views[i] = view(vec, rng)
-        end
-
-        return new(vec, views)
-
-    end
-
-end
-
-SplitVector(args...) = SplitVector{DefaultFloat}(args...)
-
 
 # -------------------------------------
 # default solver subcomponent implementations
@@ -63,8 +24,8 @@ SplitVector(args...) = SplitVector{DefaultFloat}(args...)
 mutable struct DefaultVariables{T} <: AbstractVariables{T}
 
     x::Vector{T}
-    s::SplitVector{T}
-    z::SplitVector{T}
+    s::ConicVector{T}
+    z::ConicVector{T}
     τ::T
     κ::T
 
@@ -73,8 +34,8 @@ mutable struct DefaultVariables{T} <: AbstractVariables{T}
         cone_info::ConeInfo) where {T}
 
         x = Vector{T}(undef,n)
-        s = SplitVector{T}(cone_info)
-        z = SplitVector{T}(cone_info)
+        s = ConicVector{T}(cone_info)
+        z = ConicVector{T}(cone_info)
         τ = T(1)
         κ = T(1)
 
@@ -99,7 +60,7 @@ struct DefaultScalings{T} <: AbstractConeScalings{T}
     cones::ConeSet{T}
 
     # scaled variable λ = Wz = W^{-1}s
-    λ::SplitVector{T}
+    λ::ConicVector{T}
 
     #composite cone degree.  NB: Not the
     #same as dimension for zero or SO cones
@@ -113,13 +74,13 @@ struct DefaultScalings{T} <: AbstractConeScalings{T}
     D::Diagonal{T}
     Dinv::Diagonal{T}
 
-    e::SplitVector{T}
-    einv::SplitVector{T}
+    e::ConicVector{T}
+    einv::ConicVector{T}
     E::Diagonal{T}
     Einv::Diagonal{T}
 
     #overall scaling for objective function
-    c::Ref{T}
+    c::Base.RefValue{T}
 
 end
 

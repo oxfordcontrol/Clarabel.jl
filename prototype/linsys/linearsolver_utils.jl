@@ -185,10 +185,10 @@ function _kkt_assemble_csc(
     #We have filled in structural zeros on it everywhere
     #as needed and the matrix is triu, so the diagonal
     #entries are just index by the last element in each column
-    maps.diag_full .= K.colptr[2:end] .- 1
+    @views maps.diag_full .= K.colptr[2:end] .- 1
 
     #and the diagonal of just the upper left
-    maps.diagP     .= K.colptr[2:(n+1)] .- 1
+    @views maps.diagP     .= K.colptr[2:(n+1)] .- 1
 
 end
 

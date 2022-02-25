@@ -29,8 +29,8 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
     work_z::VectorView{T}
     work_p::VectorView{T}
 
-    #a work SplitVector to simplify solving for Δs
-    work_sv::SplitVector{T}
+    #a work ConicVector to simplify solving for Δs
+    work_sv::ConicVector{T}
 
 
         function DefaultKKTSolver{T}(
@@ -76,7 +76,7 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
         work_p = view(work,(n+m+1):(n+m+p))
 
         #a split vector compatible with s and z
-        work_sv = SplitVector(data.cone_info)
+        work_sv = ConicVector(data.cone_info)
 
 
         return new(
@@ -138,8 +138,8 @@ function kkt_solve_initial_point!(
     kktsolver.work_p .= 0.0
 
     linsys_solve!(kktsolver.linsys,kktsolver.lhs,kktsolver.work)
-    @. variables.x      =  kktsolver.lhs_x
-    @. variables.s.vec  = -kktsolver.lhs_z
+    variables.x .=  kktsolver.lhs_x
+    variables.s .= -kktsolver.lhs_z
 
     # solve with [-c;0] as a RHS to get z initializer
     # zero out any sparse cone variables at end
@@ -148,7 +148,7 @@ function kkt_solve_initial_point!(
     kktsolver.work_p .=  0.0
 
     linsys_solve!(kktsolver.linsys,kktsolver.lhs,kktsolver.work)
-    @. variables.z.vec = kktsolver.lhs_z
+    variables.z .= kktsolver.lhs_z
 
     return nothing
 end
@@ -169,14 +169,14 @@ function kkt_solve!(
 
     # assemble the right hand side and solve
     kktsolver.work_x .= rhs.x
-    kktsolver.work_z .= rhs.z.vec
+    kktsolver.work_z .= rhs.z
     kktsolver.work_p .= 0
 
     linsys_solve!(kktsolver.linsys,kktsolver.lhs,kktsolver.work)
 
     #copy back into the solution to get (Δx₂,Δz₂)
-    lhs.x     .= kktsolver.lhs_x
-    lhs.z.vec .= kktsolver.lhs_z
+    lhs.x .= kktsolver.lhs_x
+    lhs.z .= kktsolver.lhs_z
 
     #use workx as scratch space now that lhs is copied
     ξ   = kktsolver.work_x
@@ -184,7 +184,7 @@ function kkt_solve!(
     P   = data.Psym
 
     #solve for Δτ.
-    tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,lhs.x) + dot(data.b,lhs.z.vec) + 2*symdot(ξ,P,lhs.x)
+    tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,lhs.x) + dot(data.b,lhs.z) + 2*symdot(ξ,P,lhs.x)
 
     #now offset ξ for the quadratic form in the denominator
     ξ_minus_x    = ξ   #alias to ξ, same as work_x
@@ -197,8 +197,8 @@ function kkt_solve!(
 
     #shift solution by pre-computed constant terms
     #to get (Δx, Δz) = (Δx₂,Δz₂) + Δτ(Δx₁,Δz₁)
-    lhs.x     .+= lhs.τ .* constx
-    lhs.z.vec .+= lhs.τ .* constz
+    lhs.x .+= lhs.τ .* constx
+    lhs.z .+= lhs.τ .* constz
 
     #solve for Δs = -Wᵀ(λ \ dₛ + WΔz)
     tmpsv = kktsolver.work_sv

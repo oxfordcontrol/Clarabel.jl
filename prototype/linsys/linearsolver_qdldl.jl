@@ -27,7 +27,7 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
 
     # a vector for storing the diagonal entries
     # of the WtW block in the KKT matrix
-    diagWtW::SplitVector{T}
+    diagWtW::ConicVector{T}
 
     #settings.   This just points back
     #to the main solver settings.  It
@@ -80,7 +80,7 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
 
         #updates to the diagonal of KKT will be
         #assigned here before updating matrix entries
-        diagWtW = SplitVector{T}(cone_info)
+        diagWtW = ConicVector{T}(cone_info)
 
         return new(m,n,p,work,KKT,factors,KKTmaps,KKTsym,Dsigns,diagWtW,settings)
     end
@@ -123,8 +123,8 @@ function linsys_update!(
     #The former is need for iterative refinement.  Maybe we
     #could get away without using it and just writing a
     #multiplication operator for the QDLDL object.
-    update_values!(F,maps.diagWtW,linsys.diagWtW.vec)
-    KKT.nzval[maps.diagWtW] .= linsys.diagWtW.vec
+    update_values!(F,maps.diagWtW,linsys.diagWtW)
+    KKT.nzval[maps.diagWtW] .= linsys.diagWtW
 
     #update the scaled u and v columns.
     cidx = 1        #which of the SOCs are we working on?

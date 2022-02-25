@@ -34,11 +34,11 @@ function variables_add_step!(
     step::DefaultVariables{T}, α::T
 ) where {T}
 
-    @. variables.x     += α*step.x
-    @. variables.s.vec += α*step.s.vec
-    @. variables.z.vec += α*step.z.vec
-    variables.τ        += α*step.τ
-    variables.κ        += α*step.κ
+    @. variables.x += α*step.x
+    @. variables.s += α*step.s
+    @. variables.z += α*step.z
+    variables.τ    += α*step.τ
+    variables.κ    += α*step.κ
 
     return nothing
 end
@@ -55,7 +55,7 @@ function calc_affine_step_rhs!(
     cones = scalings.cones
 
     @. d.x    .=  r.rx
-    @. d.z.vec = -r.rz + variables.s.vec
+    @. d.z     = -r.rz + variables.s
     cones_circle_op!(cones, d.s, scalings.λ, scalings.λ)
     d.τ        =  r.rτ
     d.κ        =  variables.τ * variables.κ
@@ -112,12 +112,12 @@ function calc_combined_step_rhs!(
     cones_gemv_Winv!(cones, false, step.s, step.s,  1., 0.)      #Δs = W⁻¹Δs
     cones_circle_op!(cones, d.z, step.s, step.z)                 #tmp = W⁻¹Δs ∘ WΔz
     cones_add_scaled_e!(cones,d.z,-σ*μ)                          #tmp = tmp -σμe
-    @. d.s.vec += d.z.vec
+    @. d.s += d.z
 
     # now build d.z from scratch
     cones_inv_circle_op!(cones, d.z, scalings.λ, d.s)  #dz = λ \ ds
     cones_gemv_W!(cones, false, d.z, d.z, 1., 0.)      #dz = Wdz
-    @. d.z.vec += -(1-σ)*r.rz
+    @. d.z += -(1-σ)*r.rz
 
     return nothing
 end
@@ -152,18 +152,18 @@ function variables_finalize!(
     end
 
     @. variables.x *= scaleinv
-    @. variables.z.vec *= scaleinv
-    @. variables.s.vec *= scaleinv
-    variables.τ *= scaleinv
-    variables.κ *= scaleinv
+    @. variables.z *= scaleinv
+    @. variables.s *= scaleinv
+       variables.τ *= scaleinv
+       variables.κ *= scaleinv
 
     #undo the equilibration
     d = scalings.d; dinv = scalings.dinv
     e = scalings.e; einv = scalings.einv
     cscale = scalings.c[]
 
-    @. variables.x     *=     d
-    @. variables.z.vec *=     e.vec ./ cscale
-    @. variables.s.vec *=  einv.vec
+    @. variables.x *=     d
+    @. variables.z *=     e ./ cscale
+    @. variables.s *=  einv
 
 end

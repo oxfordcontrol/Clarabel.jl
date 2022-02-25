@@ -15,10 +15,10 @@ function equilibrate!(
     #if equilibration is disabled, return identities
     #everywhere
     if(!settings.equilibrate_enable)
-        @. scalings.d          = one(T)
-        @. scalings.e.vec      = one(T)
-        @. scalings.dinv       = one(T)
-        @. scalings.einv.vec   = one(T)
+        @. scalings.d    = one(T)
+        @. scalings.e    = one(T)
+        @. scalings.dinv = one(T)
+        @. scalings.einv = one(T)
         return
     end
 
@@ -49,13 +49,13 @@ function equilibrate!(
 	#perform scaling operations for a fixed number of steps
 	for i = 1:settings.equilibrate_max_iter
 
-		kkt_col_norms!(P, A, dwork, ework.vec)
+		kkt_col_norms!(P, A, dwork, ework)
 
 		limit_scaling!(dwork, scale_min, scale_max)
-		limit_scaling!(ework.vec, scale_min, scale_max)
+		limit_scaling!(ework, scale_min, scale_max)
 
 		inv_sqrt!(dwork)
-		inv_sqrt!(ework.vec)
+		inv_sqrt!(ework)
 
 		# Scale the problem data and update the
 		# equilibration matrices
@@ -93,14 +93,14 @@ function equilibrate!(
 	end
 
 	#update the inverse scaling data
-	@. scalings.dinv     = one(T) / d
-	@. scalings.einv.vec = one(T) / e.vec
+	@. scalings.dinv = one(T) / d
+	@. scalings.einv = one(T) / e
 
 	return nothing
 end
 
 
-function limit_scaling!(s::Vector{T}, minval::T, maxval::T) where {T}
+function limit_scaling!(s::AbstractVector{T}, minval::T, maxval::T) where {T}
 	@. s = clip(s, minval, maxval, one(T))
 
 	return nothing
