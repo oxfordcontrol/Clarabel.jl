@@ -17,7 +17,7 @@ abstract type AbstractCone{T} end
 # get this type with views into the subcomponents
 # ---------------------------------------
 
-mutable struct SplitVector{T}
+struct SplitVector{T}
 
     #contiguous array of source data
     vec::Vector{T}
@@ -28,12 +28,10 @@ mutable struct SplitVector{T}
     function SplitVector{T}(
         cone_info::ConeInfo) where {T}
 
-        vec   = Vector{T}(undef,cone_info.totaldim)
-        #NB: failure to initialize here gives an error
-        #because λ is updated using gemv! style update.
-        #This fails if undefs include NaN entries
-        vec  .= 0
-
+        #undef initialization would possibly result
+        #in Infs or NaNs, causing failure in gemv!
+        #style vector updates
+        vec   = zeros(T,cone_info.totaldim)
         views = Vector{VectorView{T}}(undef, length(cone_info.types))
 
         # loop over the sets and create views
