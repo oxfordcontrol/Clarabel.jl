@@ -160,17 +160,36 @@ function kkt_solve!(
     rhs::DefaultVariables{T},
     variables::DefaultVariables{T},
     scalings::DefaultScalings{T},
-    data::DefaultProblemData{T}
+    data::DefaultProblemData{T},
+    steptype::Symbol   #:affine or :combined
 ) where{T}
 
     cones = scalings.cones
     constx = kktsolver.lhs_const_x
     constz = kktsolver.lhs_const_z
 
-    # assemble the right hand side and solve
+    # assemble the right hand side and solve.  We need to
+    # modify terms for the z part here since this solve
+    # function is based on the condensed KKT solve approach
+    # of CVXOPT
     kktsolver.work_x .= rhs.x
-    kktsolver.work_z .= rhs.z
     kktsolver.work_p .= 0
+
+    if steptype == :affine
+        #use -rz + s here as a shortcut in the affine step
+        @. kktsolver.work_z = -rhs.z + variables.s
+
+    else  #:combined expected, but general RHS should do this
+
+        #we can use the RHS outputs for work space
+        #here since we haven't solved yet
+        tmp1 = lhs.s; tmp2 = lhs.z
+        @. tmp1 = rhs.z  #Don't want to modify our RHS
+        cones_inv_circle_op!(cones, tmp2, scalings.λ, rhs.s)  #tmp2 = λ \ ds
+        cones_gemv_W!(cones, false, tmp2, tmp1, 1., -1.)      #tmp1 = - rhs.z + W(tmp2)
+        kktsolver.work_z .= tmp1
+
+    end
 
     linsys_solve!(kktsolver.linsys,kktsolver.lhs,kktsolver.work)
 

@@ -113,9 +113,9 @@ function solve!(
             #--------------
             @timeit timer "check termination" begin
                 isdone = check_termination!(
-                s.info,s.data,s.variables,
-                s.residuals,s.scalings,s.settings,
-                iter == s.settings.max_iter
+                    s.info,s.data,s.variables,
+                    s.residuals,s.scalings,s.settings,
+                    iter == s.settings.max_iter
                 )
             end
             iter += 1
@@ -143,7 +143,7 @@ function solve!(
             @timeit timer "kkt solve" begin
                 kkt_solve!(
                     s.kktsolver, s.step_lhs, s.step_rhs,
-                    s.variables, s.scalings, s.data
+                    s.variables, s.scalings, s.data, :affine
                 )
             end
 
@@ -164,11 +164,10 @@ function solve!(
                 s.step_lhs, σ, μ
             )
 
-
             @timeit timer "kkt solve" begin
                 kkt_solve!(
-                s.kktsolver, s.step_lhs, s.step_rhs,
-                s.variables, s.scalings, s.data
+                    s.kktsolver, s.step_lhs, s.step_rhs,
+                    s.variables, s.scalings, s.data, :combined
                 )
             end
 
