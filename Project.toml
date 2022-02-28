@@ -1,9 +1,0 @@
-name = "IPSolver"
-uuid = "a0d3c2ce-98d7-11ec-09ca-27185b5d189a"
-authors = ["Paul Goulart <paul.goulart@eng.ox.ac.uk>"]
-version = "0.0.1"
-
-[deps]
-
-
-[compat]
