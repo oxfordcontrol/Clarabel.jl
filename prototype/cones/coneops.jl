@@ -105,7 +105,8 @@ function cones_shift_to_cone!(
 end
 
 # computes y = αWx + βy, or y = αWᵀx + βy, i.e.
-# similar to the BLAS gemv interface
+# similar to the BLAS gemv interface.
+#Warning: x must not alias y.
 function cones_gemv_W!(
     cones::ConeSet{T},
     is_transpose::Bool,
@@ -115,6 +116,7 @@ function cones_gemv_W!(
     β::T
 ) where {T}
 
+    #@assert (x !== y)
     for i = eachindex(cones)
         gemv_W!(cones[i],is_transpose,x.views[i],y.views[i],α,β)
     end
@@ -122,7 +124,8 @@ function cones_gemv_W!(
 end
 
 # computes y = αW^{-1}x + βy, or y = αW⁻ᵀx + βy, i.e.
-# similar to the BLAS gemv interface
+# similar to the BLAS gemv interface.
+#Warning: x must not alias y.
 function cones_gemv_Winv!(
     cones::ConeSet{T},
     is_transpose::Bool,
@@ -132,19 +135,22 @@ function cones_gemv_Winv!(
     β::T
 ) where {T}
 
+    #@assert x !== y
     for i = 1:length(cones)
         gemv_Winv!(cones[i],is_transpose,x.views[i],y.views[i],α,β)
     end
     return nothing
 end
 
-# computes y = (W^TW){-1}x
+# computes y = (W^TW){-1}x.
+# Warning: x must not alias y.
 function cones_mul_WtWinv!(
     cones::ConeSet{T},
     x::ConicVector{T},
     y::ConicVector{T}
 ) where {T}
 
+    #@assert x !== y
     for i = 1:length(cones)
         mul_WtWinv!(cones[i],x.views[i],y.views[i])
     end
@@ -153,12 +159,14 @@ function cones_mul_WtWinv!(
 end
 
 # computes y = (W^TW)x
+# Warning: x must not alias y.
 function cones_mul_WtW!(
     cones::ConeSet{T},
     x::ConicVector{T},
     y::ConicVector{T}
 ) where {T}
 
+    #@assert x !== y
     for i = 1:length(cones)
         mul_WtW!(cones[i],x.views[i],y.views[i])
     end

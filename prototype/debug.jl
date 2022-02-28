@@ -109,8 +109,8 @@ function debug_soc_step_length(αz,αs,z,s,dz,ds)
     sfull = s + ds.*αs
     zfull = z + dz.*αz
 
-    norms = norm(sfull[2:end])
-    normz = norm(zfull[2:end])
+    @views norms = norm(sfull[2:end])
+    @views normz = norm(zfull[2:end])
 
     gaps = sfull[1] - norms
     gapz = zfull[1] - normz

@@ -1,13 +1,14 @@
 
-using Revise
-include("../../IPSolver.jl")
-using .IPSolver
+#using Revise
+include(joinpath(@__DIR__,"../../IPSolver.jl"))
+include(joinpath(@__DIR__,"utils.jl"))
 using LinearAlgebra
 using Printf
 using MAT
 using JuMP
 using OSQP, ECOS
-include(joinpath(@__DIR__,"utils.jl"))
+using JLD2
+
 
 
 function print_header()
@@ -46,16 +47,16 @@ result_clarabel = []
 names = []
 
 #These file indices cause segfaults in JuMP (not ECOS).  Just skip them
-badfiles = [78, 79, 117]
-push!(badfiles,36)   #this is EXDATA, which is huge
+#badfiles = [78, 79, 117]
+#push!(badfiles,36)   #this is EXDATA, which is huge
 
 solve_list = 1:length(files)
 
 for FNUM = solve_list #length(files)
 
-    if(any(FNUM .== badfiles))
-        continue
-    end
+    #if(any(FNUM .== badfiles))
+    #    continue
+    #end
 
     push!(names,files[FNUM][1:end-4])
 
@@ -66,11 +67,13 @@ for FNUM = solve_list #length(files)
     thisfile = joinpath(srcpath,files[FNUM])
     probdata = matread(thisfile)
 
-    push!(result_ecos, solve_ecos(probdata))
+    push!(result_ecos, solve_ecos_eq(probdata))
+    println("Result ECOS: ", result_ecos[end].status)
 
     # push!(result_osqp, solve_osqp(probdata))
 
-    push!(result_clarabel,solve_clarabel(probdata)[1])
+    push!(result_clarabel,solve_clarabel_eq(probdata)[1])
+    println("Result Clarabel: ", result_clarabel[end].status)
 
 end
 
@@ -85,3 +88,5 @@ for i = 1:length(result_ecos)
     print_row(i, names[i], result_ecos[i],result_clarabel[i], refsols[objname])
 
 end
+
+jldsave("maros_results_tmp0_maxiter100.jld2";names,result_ecos,result_clarabel,refsols)

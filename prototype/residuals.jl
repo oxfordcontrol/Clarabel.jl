@@ -5,10 +5,10 @@ function residuals_update!(
 ) where {T}
 
   # various inner products used multiple times
-  qx        = dot(data.q,variables.x)
-  bz        = dot(data.b,variables.z)
-  sz        = dot(variables.s,variables.z)
-  xPx       = symdot(variables.x,data.Psym,variables.x)
+  qx  = dot(data.q,variables.x)
+  bz  = dot(data.b,variables.z)
+  sz  = dot(variables.s,variables.z)
+  xPx = symdot(variables.x,data.Psym,variables.x)
 
   #partial residual calc so we can check primal/dual
   #infeasibility conditions
