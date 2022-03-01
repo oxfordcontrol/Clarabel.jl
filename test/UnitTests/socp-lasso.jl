@@ -1,4 +1,4 @@
-using Test, LinearAlgebra, Statistics, Random
+using Test, LinearAlgebra, Random, SparseArrays
 FloatT = Float64
 tol = FloatT(1e-3)
 

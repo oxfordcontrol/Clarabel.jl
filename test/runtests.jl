@@ -1,6 +1,5 @@
-using Random, Test
+using Random, Test, IPSolver
 include("./UnitTests/test_utils.jl")
-include("../IPSolver.jl")
 
 # Define the types to run the unit tests with
 UnitTestFloats = [Float32; Float64; BigFloat]
