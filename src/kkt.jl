@@ -36,8 +36,7 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
         function DefaultKKTSolver{T}(
             data::DefaultProblemData{T},
             scalings::DefaultScalings{T},
-            settings::Settings{T},
-            solvertype::DataType = QDLDLLinearSolver{T},
+            settings::Settings{T}
         ) where {T}
 
         #basic problem dimensions
@@ -45,7 +44,15 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
         m = data.m
 
         #create the linear solver
-        linsys = solvertype(data.P,data.A,data.cone_info,m,n,settings)
+        solverengine = settings.direct_solve_method
+        if solverengine == :qdldl
+            linsys = QDLDLLinearSolver{T}(data.P,data.A,data.cone_info,m,n,settings)
+        elseif solverengine == :mkl
+            linsys = MKLPardisoLinearSolver{T}(data.P,data.A,data.cone_info,m,n,settings)
+        else
+            error("Unknown solver engine type: ", solverengine)
+        end
+
 
         #does our solver use sparse SOC format?
         if linsys_is_soc_sparse_format(linsys)

@@ -5,7 +5,9 @@ version = "0.1.0"
 
 [deps]
 AMD = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
+ClearStacktrace = "710b7bb7-6527-48f4-8ff2-df22ae1c6308"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Pardiso = "46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 QDLDL = "bfc457fd-c171-5ab7-bd9e-d5dbfc242d63"

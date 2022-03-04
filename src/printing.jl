@@ -79,6 +79,11 @@ function print_settings(settings::Settings)
 
     set = settings
     @printf("settings:\n")
+
+    if(set.direct_kkt_solver)
+        @printf("  linear algebra: direct / %s\n", set.direct_solve_method)
+    end
+
     @printf("  max iter = %i, max step = %.f, tol_feas = %0.1e\n",
         set.max_iter,
         set.max_step_fraction,

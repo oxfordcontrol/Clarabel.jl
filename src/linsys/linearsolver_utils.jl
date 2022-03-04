@@ -57,10 +57,11 @@ struct KKTDataMaps
 end
 
 
-function _assemble_kkt_matrix_fast(
+function _assemble_kkt_matrix(
     P::SparseMatrixCSC{T},
     A::SparseMatrixCSC{T},
-    cone_info
+    cone_info,
+    shape::Symbol = :triu  #or tril
 ) where{T}
 
     n = size(P,1)
@@ -89,14 +90,14 @@ function _assemble_kkt_matrix_fast(
     K    = _csc_spalloc(m+n+p, m+n+p, nnzKKT)
     maps = KKTDataMaps(P,A,cone_info)
 
-    _kkt_assemble_csc(K,maps,P,A,cone_info,m,n,p)
+    _kkt_assemble_inner(K,maps,P,A,cone_info,m,n,p,shape)
 
     return K,maps
 
 end
 
 
-function _kkt_assemble_csc(
+function _kkt_assemble_inner(
     K,
     maps,
     P,
@@ -104,7 +105,8 @@ function _kkt_assemble_csc(
     cone_info,
     m,
     n,
-    p
+    p,
+    shape::Symbol
 )
 
     m = A.m
@@ -113,10 +115,18 @@ function _kkt_assemble_csc(
     #use K.p to hold nnz entries in each
     #column of the KKT matrix
     K.colptr .= 0
-    _kkt_colcount_block(K,P,1,false)
-    _kkt_colcount_missing_diag(K,P,1)
-    _kkt_colcount_block(K,A,n+1,true)
-    _kkt_colcount_diag(K,n+1,m)
+
+    if shape == :triu
+        _kkt_colcount_block(K,P,1,:N)
+        _kkt_colcount_missing_diag(K,P,1)
+        _kkt_colcount_block(K,A,n+1,:T)
+        _kkt_colcount_diag(K,n+1,m)
+    else #:tril
+        _kkt_colcount_missing_diag(K,P,1)
+        _kkt_colcount_block(K,P,1,:T)
+        _kkt_colcount_block(K,A,1,:N)
+        _kkt_colcount_diag(K,n+1,m)
+    end
 
     #count dense columns for each SOC
     socidx = 1  #which SOC are we working on?
@@ -126,12 +136,19 @@ function _kkt_assemble_csc(
 
             #we will add the u and v columns for this cone
             conedim = cone_info.dims[i]
+            headidx = cone_info.headidx[i]
 
             #which column does u go into?
             col = m + n + 2*socidx - 1
 
-            _kkt_colcount_colvec(K,conedim,col  ) #u column
-            _kkt_colcount_colvec(K,conedim,col+1) #v column
+            if shape == :triu
+                _kkt_colcount_colvec(K,conedim,headidx + n, col) #u column
+                _kkt_colcount_colvec(K,conedim,headidx + n, col+1) #v column
+            else #:tril
+                _kkt_colcount_rowvec(K,conedim,col,   headidx + n) #u row
+                _kkt_colcount_rowvec(K,conedim,col+1, headidx + n) #v row
+            end
+
 
             socidx = socidx + 1
         end
@@ -144,14 +161,20 @@ function _kkt_assemble_csc(
     #cumsum total entries to convert to K.p
     _kkt_colcount_to_colptr(K)
 
-    #fill in value for P, top left (columnwise)
-    _kkt_fill_block(K,P,maps.P,1,1,false)
-    _kkt_fill_missing_diag(K,P,1)  #after adding P, since triu form
+    if shape == :triu
+        _kkt_fill_block(K,P,maps.P,1,1,:N)
+        _kkt_fill_missing_diag(K,P,1)  #after adding P, since triu form
+        #fill in value for A, top right (transposed/rowwise)
+        _kkt_fill_block(K,A,maps.A,1,n+1,:T)
+    else #:tril
+        _kkt_fill_missing_diag(K,P,1)  #before adding P, since tril form
+        _kkt_fill_block(K,P,maps.P,1,1,:T)
+        #fill in value for A, bottom left (not transposed)
+        _kkt_fill_block(K,A,maps.A,n+1,1,:N)
+    end
 
-    #fill in value for A, top right (transposed/rowwise)
-    _kkt_fill_block(K,A,maps.A,1,n+1,true)
 
-    #fill in lower right below A' with diagonal of structural zeros
+    #fill in lower right with diagonal of structural zeros
     _kkt_fill_diag(K,maps.diagWtW,n+1,m)
 
     #fill in dense columns for each SOC
@@ -163,13 +186,18 @@ function _kkt_assemble_csc(
             conedim = cone_info.dims[i]
             headidx = cone_info.headidx[i]
 
-            #which column does u go into?
+            #which column does u go into (if triu)?
             col = m + n + 2*socidx - 1
 
             #fill structural zeros for u and v columns for this cone
-            #note v is the first extra column, u is second
-            _kkt_fill_colvec(K, maps.SOC_v[socidx], col    , headidx + n,conedim) #u
-            _kkt_fill_colvec(K, maps.SOC_u[socidx], col + 1, headidx + n,conedim) #v
+            #note v is the first extra row/column, u is second
+            if shape == :triu
+                _kkt_fill_colvec(K, maps.SOC_v[socidx], headidx + n, col,     conedim) #u
+                _kkt_fill_colvec(K, maps.SOC_u[socidx], headidx + n, col + 1, conedim) #v
+            else #:tril
+                _kkt_fill_rowvec(K, maps.SOC_v[socidx], col    , headidx + n,conedim) #u
+                _kkt_fill_rowvec(K, maps.SOC_u[socidx], col + 1, headidx + n,conedim) #v
+            end
 
             socidx += 1
         end
@@ -182,17 +210,23 @@ function _kkt_assemble_csc(
     _kkt_backshift_colptrs(K)
 
     #Now we can populate the index of the full diagonal.
-    #We have filled in structural zeros on it everywhere
-    #as needed and the matrix is triu, so the diagonal
-    #entries are just index by the last element in each column
-    @views maps.diag_full .= K.colptr[2:end] .- 1
+    #We have filled in structural zeros on it everywhere.
 
-    #and the diagonal of just the upper left
-    @views maps.diagP     .= K.colptr[2:(n+1)] .- 1
+    if shape == :triu
+        #matrix is tril, so diagonal is first in each column
+        @views maps.diag_full .= K.colptr[2:end] .- 1
+        #and the diagonal of just the upper left
+        @views maps.diagP     .= K.colptr[2:(n+1)] .- 1
 
+    else #:tril
+        #matrix is tril, so diagonal is first in each column
+        @views maps.diag_full .= K.colptr[1:end-1]
+        #and the diagonal of just the upper left
+        @views maps.diagP     .= K.colptr[1:n]
+    end
+
+    return nothing
 end
-
-
 
 
 function _csc_spalloc(m, n, nnz)
@@ -238,17 +272,32 @@ end
 #increment the K.colptr by the a number of nonzeros.
 #used to account for the placement of a column
 #vector that partially populates the column
-function _kkt_colcount_colvec(K,n,col)
+function _kkt_colcount_colvec(K,n,firstrow, firstcol)
 
     #just add the vector length to this column
-    K.colptr[col] += n
+    K.colptr[firstcol] += n
+
+end
+
+#increment the K.colptr by 1 for every element
+#used to account for the placement of a column
+#vector that partially populates the column
+function _kkt_colcount_rowvec(K,n,firstrow,firstcol)
+
+    #add one element to each of n consective columns
+    #starting from initcol.  The row index doesn't
+    #matter here.
+    for i = 1:n
+        K.colptr[firstcol + i - 1] += 1
+    end
 
 end
 
 #increment the K.colptr by the number of nonzeros in M
-function _kkt_colcount_block(K,M,initcol,istranspose)
+#shape should be :N or :T (the latter for transpose)
+function _kkt_colcount_block(K,M,initcol,shape::Symbol)
 
-    if istranspose
+    if shape == :T
         nnzM = M.colptr[end]-1
         for i = 1:nnzM
             K.colptr[M.rowval[i] + (initcol - 1)] += 1
@@ -262,14 +311,28 @@ function _kkt_colcount_block(K,M,initcol,istranspose)
     end
 end
 
-#populate values from v using the K.colptr as indicator of
-#next fill location in each row.  If v = nothing, populates
-#entries with zeros
-function _kkt_fill_colvec(K,vtoKKT,col,initrow,vlength)
+#populate a partial column with zeros using the K.colptr as indicator of
+#next fill location in each row.
+function _kkt_fill_colvec(K,vtoKKT,initrow,initcol,vlength)
 
     for i = 1:vlength
+        dest               = K.colptr[initcol]
+        K.rowval[dest]     = initrow + i - 1
+        K.nzval[dest]      = 0.
+        vtoKKT[i]          = dest
+        K.colptr[initcol] += 1
+    end
+
+end
+
+#populate a partial row with zeros using the K.colptr as indicator of
+#next fill location in each row.
+function _kkt_fill_rowvec(K,vtoKKT,initrow,initcol,vlength)
+
+    for i = 1:vlength
+        col            = initcol + i - 1
         dest           = K.colptr[col]
-        K.rowval[dest] = initrow + i - 1
+        K.rowval[dest] = initrow
         K.nzval[dest]  = 0.
         vtoKKT[i]      = dest
         K.colptr[col] += 1
@@ -279,12 +342,13 @@ end
 
 
 #populate values from M using the K.colptr as indicator of
-#next fill location in each row
-function _kkt_fill_block(K,M,MtoKKT,initrow,initcol,istranspose)
+#next fill location in each row.
+#shape should be :N or :T (the latter for transpose)
+function _kkt_fill_block(K,M,MtoKKT,initrow,initcol,shape)
 
     for i = 1:M.n
         for j = M.colptr[i]:(M.colptr[i+1]-1)
-            if istranspose
+            if shape == :T
                 col = M.rowval[j] + (initcol - 1)
                 row = i + (initrow - 1)
             else

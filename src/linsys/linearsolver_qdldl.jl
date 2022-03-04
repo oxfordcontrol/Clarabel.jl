@@ -43,7 +43,7 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
         #iterative refinement work vector
         work = Vector{T}(undef,n+m+p)
 
-        KKT, KKTmaps = _assemble_kkt_matrix_fast(P,A,cone_info)
+        KKT, KKTmaps = _assemble_kkt_matrix(P,A,cone_info,:triu)
 
         #KKT will be triu data only, but we will want
         #the following to allow products like KKT*x
