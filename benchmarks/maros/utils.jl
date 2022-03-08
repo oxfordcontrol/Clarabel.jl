@@ -1,7 +1,7 @@
 
 using MAT, JuMP, Gurobi
 using LinearAlgebra
-using .Clarabel
+using Clarabel
 using Printf
 using DelimitedFiles
 

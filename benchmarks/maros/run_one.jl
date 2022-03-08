@@ -1,7 +1,6 @@
 using Revise
 include("./utils.jl")
-include("../../Clarabel.jl")
-using .Clarabel
+using Clarabel
 using Printf
 using JuMP
 using OSQP, ECOS
