@@ -9,25 +9,25 @@ const MOI = MathOptInterface
 const MOIU = MOI.Utilities
 const SparseTriplet{T} = Tuple{Vector{<:Integer}, Vector{<:Integer}, Vector{T}}
 
-#These enumerate the cones supported by the solver and the mapping
-#from MOI Cones to IPSolver internal cone types
-#NB: When a parametric type like PowerCone{T} is eventually added
-#then this should become OptimizerSupportedMOICones{T <: Real}
-#and made parametric in supporting functions as well.  It does not
-#seem possible to make it this way now since none of the elements
-#in the Union are parametric
-const OptimizerSupportedMOICones = Union{
+# parametric union needs a parametric member.  Remove this
+# when something like MOI.PowerCone{T} support is added
+struct DummyConeType{T<:Real} end
+
+# Cones supported by the solver
+
+const OptimizerSupportedMOICones{T <: Real} = Union{
     MOI.Zeros,
     MOI.Nonnegatives,
     MOI.SecondOrderCone,
+    DummyConeType{T},    #<-placeholder until PowerCone{T} is added
     # MOI.PowerCone{T},
     # MOI.DualPowerCone{T},
     # MOI.PositiveSemidefiniteConeTriangle,
     # MOI.ExponentialCone,
     }
 
-#Optimizer will consolidate cones of these types
-#when it is possible to do so
+#Optimizer will consolidate cones of these types if possible
+
 const OptimizerMergeableTypes = [IPSolver.ZeroConeT, IPSolver.NonnegativeConeT]
 
 #mappings between MOI and internal definitions
@@ -61,8 +61,6 @@ const IPSolvertoMOIDualStatus = Dict([
     IPSolver.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBILITY_CERTIFICATE,
     IPSolver.DUAL_INFEASIBLE    =>  MOI.INFEASIBLE_POINT
 ])
-
-
 
 #-----------------------------
 # Main interface struct
@@ -138,19 +136,6 @@ function Base.show(io::IO, optimizer::Optimizer{T}) where {T}
         solvetime = round.(optimizer.inner.info.solve_time*1000,digits=2)
         println(io, " : Solve time: $(solvetime)ms")
         end
-    end
-end
-
-
-#-----------------------------
-# other methods
-#-----------------------------
-
-
-function set_user_settings!(inner::IPSolver.Solver, user_settings)
-    for (k, v) in user_settings
-        !in(k, fieldnames(typeof(inner.settings))) && error("The user setting $(k) is not defined.")
-        setfield!(inner.settings, k, v)
     end
 end
 
@@ -252,13 +237,13 @@ MOI.supports(::Optimizer, ::MOI.NumberOfThreads) = false
 MOI.supports_constraint(
     ::Optimizer,
     ::Type{<:MOI.VectorAffineFunction{T}},
-    ::Type{<:OptimizerSupportedMOICones}  #will be {T} if parametric cones are added
+    ::Type{<:OptimizerSupportedMOICones{T}}
 ) where {T} = true
 
 MOI.supports_constraint(
     ::Optimizer,
     ::Type{<:MOI.VectorOfVariables},
-    ::Type{<:OptimizerSupportedMOICones}  #will be {T} if parametric cones are added
+    ::Type{<:OptimizerSupportedMOICones{T}}
 ) where {T} = true
 
 
