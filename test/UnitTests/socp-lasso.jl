@@ -39,9 +39,9 @@ tol = FloatT(1e-3)
         A = [A1;A2;A3]
         b = [b1;b2;b3]
 
-        cone_types = [IPSolver.NonnegativeConeT,
-        IPSolver.NonnegativeConeT,
-        IPSolver.SecondOrderConeT]
+        cone_types = [Clarabel.NonnegativeConeT,
+        Clarabel.NonnegativeConeT,
+        Clarabel.SecondOrderConeT]
         cone_dims  = [length(b1),
         length(b2),
         length(b3)]
@@ -53,10 +53,10 @@ tol = FloatT(1e-3)
     @testset "SOCP - Lasso (T = $(FloatT))" begin
 
         P,c,A,b,cone_types,cone_dims = SOCP_lasso_data(FloatT)
-        solver   = IPSolver.Solver(P,c,A,b,cone_types,cone_dims)
-        IPSolver.solve!(solver)
+        solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims)
+        Clarabel.solve!(solver)
 
-        @test solver.info.status == IPSolver.SOLVED
+        @test solver.info.status == Clarabel.SOLVED
         @test isapprox(solver.info.cost_primal, -5.0233e+00, atol=tol)
 
     end

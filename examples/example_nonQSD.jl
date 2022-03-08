@@ -1,6 +1,6 @@
 using Revise
-include("../IPSolver.jl")
-using .IPSolver
+include("../Clarabel.jl")
+using .Clarabel
 using LinearAlgebra
 using Printf
 using StatProfilerHTML
@@ -14,7 +14,7 @@ function basic_QP_data_dualinf(Type::Type{T}) where {T <: AbstractFloat}
     c = T[1; -1.]
     A = sparse(T[1. 1;1. 0;])
     b = [1.;1]
-    cone_types = [IPSolver.NonnegativeConeT]
+    cone_types = [Clarabel.NonnegativeConeT]
     cone_dims  = [2,]
 
     return (P,c,A,b,cone_types,cone_dims)
@@ -41,12 +41,12 @@ optimize!(model)
 @printf("\n\n-------------------------\n\n")
 @printf("\nClarabel\n-------------------------\n\n")
 
-settings = IPSolver.Settings(max_iter=10,direct_kkt_solver=true)
-cone_types = [IPSolver.NonnegativeConeT]
+settings = Clarabel.Settings(max_iter=10,direct_kkt_solver=true)
+cone_types = [Clarabel.NonnegativeConeT]
 cone_dims  = [1,]
 
-solver   = IPSolver.Solver(P,c,A,b,cone_types,cone_dims,settings)
-IPSolver.solve!(solver)
+solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims,settings)
+Clarabel.solve!(solver)
 
 
 data = solver.data

@@ -1,7 +1,7 @@
 using Revise
 include("./utils.jl")
-include("../../IPSolver.jl")
-using .IPSolver
+include("../../Clarabel.jl")
+using .Clarabel
 using Printf
 using JuMP
 using OSQP, ECOS

@@ -1,4 +1,4 @@
-using Random, Test, IPSolver
+using Random, Test, Clarabel
 include("./UnitTests/test_utils.jl")
 
 # Define the types to run the unit tests with

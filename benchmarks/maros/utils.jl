@@ -1,7 +1,7 @@
 
 using MAT, JuMP, Gurobi
 using LinearAlgebra
-using .IPSolver
+using .Clarabel
 using Printf
 using DelimitedFiles
 
@@ -77,14 +77,14 @@ function data_clarabel_form_eq(vars)
 
     P,c,Aineq,bineq,Aeq,beq = data_ecos_form_eq(vars)
 
-    cone_types = Vector{IPSolver.SupportedCones}()
+    cone_types = Vector{Clarabel.SupportedCones}()
     cone_dims  = Vector{Int64}()
     if(length(beq) > 0)
-        push!(cone_types,IPSolver.ZeroConeT)
+        push!(cone_types,Clarabel.ZeroConeT)
         push!(cone_dims,length(beq))
     end
     if(length(bineq) > 0)
-        push!(cone_types,IPSolver.NonnegativeConeT)
+        push!(cone_types,Clarabel.NonnegativeConeT)
         push!(cone_dims,length(bineq))
     end
 
@@ -102,7 +102,7 @@ function data_clarabel_form(vars)
     m = length(b)
     n = length(c)
 
-    cone_types = [IPSolver.NonnegativeConeT]
+    cone_types = [Clarabel.NonnegativeConeT]
     cone_dims  = [length(b)]
 
     return P,c,A,b,cone_types,cone_dims
@@ -275,7 +275,7 @@ end
 function solve_clarabel_eq(vars)
 
     P,c,A,b,cone_types,cone_dims = data_clarabel_form_eq(vars)
-    settings = IPSolver.Settings(
+    settings = Clarabel.Settings(
             max_iter=100,
             direct_kkt_solver=true,
             #static_regularization_eps = 1e-7,
@@ -284,21 +284,21 @@ function solve_clarabel_eq(vars)
             verbose = true,
             equilibrate_enable = true,
     )
-    solver   = IPSolver.Solver(P,c,A,b,cone_types,cone_dims,settings)
-    IPSolver.solve!(solver)
+    solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims,settings)
+    Clarabel.solve!(solver)
 
     time = solver.info.solve_time
     cost = solver.info.cost_primal
 
     if(any(isnan.(solver.variables.x)))
         status = MOI.OTHER_ERROR
-    elseif(solver.info.status == IPSolver.SOLVED)
+    elseif(solver.info.status == Clarabel.SOLVED)
         status = MOI.OPTIMAL
-    elseif(solver.info.status == IPSolver.PRIMAL_INFEASIBLE)
+    elseif(solver.info.status == Clarabel.PRIMAL_INFEASIBLE)
         status = MOI.INFEASIBLE
-    elseif(solver.info.status == IPSolver.DUAL_INFEASIBLE)
+    elseif(solver.info.status == Clarabel.DUAL_INFEASIBLE)
         status = MOI.DUAL_INFEASIBLE
-    elseif(solver.info.status == IPSolver.MAX_ITERATIONS)
+    elseif(solver.info.status == Clarabel.MAX_ITERATIONS)
         status = MOI.ITERATION_LIMIT
     else
         status = MOI.OTHER_ERROR
@@ -312,7 +312,7 @@ end
 function solve_clarabel(vars)
 
     P,c,A,b,cone_types,cone_dims = data_clarabel_form(vars)
-    settings = IPSolver.Settings(
+    settings = Clarabel.Settings(
             max_iter=100,
             direct_kkt_solver=true,
             #static_regularization_eps = 1e-7,
@@ -321,21 +321,21 @@ function solve_clarabel(vars)
             verbose = false,
             equilibrate_enable = true,
     )
-    solver   = IPSolver.Solver(P,c,A,b,cone_types,cone_dims,settings)
-    IPSolver.solve!(solver)
+    solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims,settings)
+    Clarabel.solve!(solver)
 
     time = solver.info.solve_time
     cost = solver.info.cost_primal
 
     if(any(isnan.(solver.variables.x)))
         status = MOI.OTHER_ERROR
-    elseif(solver.info.status == IPSolver.SOLVED)
+    elseif(solver.info.status == Clarabel.SOLVED)
         status = MOI.OPTIMAL
-    elseif(solver.info.status == IPSolver.PRIMAL_INFEASIBLE)
+    elseif(solver.info.status == Clarabel.PRIMAL_INFEASIBLE)
         status = MOI.INFEASIBLE
-    elseif(solver.info.status == IPSolver.DUAL_INFEASIBLE)
+    elseif(solver.info.status == Clarabel.DUAL_INFEASIBLE)
         status = MOI.DUAL_INFEASIBLE
-    elseif(solver.info.status == IPSolver.MAX_ITERATIONS)
+    elseif(solver.info.status == Clarabel.MAX_ITERATIONS)
         status = MOI.ITERATION_LIMIT
     else
         status = MOI.OTHER_ERROR

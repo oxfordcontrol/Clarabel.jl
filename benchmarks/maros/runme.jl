@@ -1,6 +1,6 @@
 
 #using Revise
-include(joinpath(@__DIR__,"../../IPSolver.jl"))
+include(joinpath(@__DIR__,"../../Clarabel.jl"))
 include(joinpath(@__DIR__,"utils.jl"))
 using LinearAlgebra
 using Printf

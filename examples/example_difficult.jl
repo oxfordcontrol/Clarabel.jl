@@ -1,6 +1,6 @@
 using Revise
-include("../IPSolver.jl")
-using .IPSolver
+include("../Clarabel.jl")
+using .Clarabel
 using Random
 using LinearAlgebra
 using Printf
@@ -41,9 +41,9 @@ function lasso_data(Type::Type{T} = Float64) where {T <: AbstractFloat}
     A = [A1;A2;A3]
     b = [b1;b2;b3]
 
-    cone_types = [IPSolver.NonnegativeConeT,
-    IPSolver.NonnegativeConeT,
-    IPSolver.SecondOrderConeT]
+    cone_types = [Clarabel.NonnegativeConeT,
+    Clarabel.NonnegativeConeT,
+    Clarabel.SecondOrderConeT]
     cone_dims  = [length(b1),
     length(b2),
     length(b3)]
@@ -70,9 +70,9 @@ model = Model(ECOS.Optimizer)
 #Run the opimization
 optimize!(model)
 
-settings = IPSolver.Settings(max_iter=50,direct_kkt_solver=true)
-solver   = IPSolver.Solver(P,c,A,b,cone_types,cone_dims,settings)
-IPSolver.solve!(solver)
+settings = Clarabel.Settings(max_iter=50,direct_kkt_solver=true)
+solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims,settings)
+Clarabel.solve!(solver)
 
 s = solver
 

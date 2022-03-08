@@ -1,16 +1,16 @@
 # ============================ /test/MOI_wrapper.jl ============================
 # Test structure taken from https://jump.dev/JuMP.jl/stable/moi/submodules/Test/overview/
 
-module TestIPSolver
+module TestClarabel
 
-import IPSolver
+import Clarabel
 using MathOptInterface
 using Test
 
 const MOI = MathOptInterface
 
 T = Float64
-optimizer = IPSolver.Optimizer{T}()
+optimizer = Clarabel.Optimizer{T}()
 MOI.set(optimizer,MOI.Silent(),true)
 
 BRIDGED = MOI.Bridges.full_bridge_optimizer(
@@ -73,7 +73,7 @@ function test_MOI_standard()
         ],
         # This argument is useful to prevent tests from failing on future
         # releases of MOI that add new tests.
-        exclude_tests_after = VersionNumber(IPSolver.moi_version()),
+        exclude_tests_after = VersionNumber(Clarabel.moi_version()),
     )
     return
 end
@@ -85,11 +85,11 @@ You can also write new tests for solver-specific functionality. Write each new
 test as a function with a name beginning with `test_`.
 """
 function test_SolverName()
-    @test MOI.get(IPSolver.Optimizer(), MOI.SolverName()) == "Clarabel"
+    @test MOI.get(Clarabel.Optimizer(), MOI.SolverName()) == "Clarabel"
     return
 end
 
-end # module TestIPSolver
+end # module TestClarabel
 
 # This line at tne end of the file runs all the tests!
-TestIPSolver.runtests()
+TestClarabel.runtests()

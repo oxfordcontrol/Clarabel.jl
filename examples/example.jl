@@ -1,6 +1,6 @@
 using Revise
-include("../IPSolver.jl")
-using .IPSolver
+include("../Clarabel.jl")
+using .Clarabel
 using LinearAlgebra
 using Printf
 using StatProfilerHTML
@@ -14,14 +14,14 @@ A[1,1] = 100
 A[end,end] = 100
 c = [3.;-2.;1.]*10
 b = ones(Float64,6)
-cone_types = [IPSolver.NonnegativeConeT, IPSolver.NonnegativeConeT]
+cone_types = [Clarabel.NonnegativeConeT, Clarabel.NonnegativeConeT]
 cone_dims  = [3,3]
 
 # #add an equality constraint
 # a = [1 1 -2]
 # A = [a;A]
 # b = [pi/2;b]
-# cone_types = [IPSolver.ZeroConeT, IPSolver.NonnegativeConeT, IPSolver.NonnegativeConeT]
+# cone_types = [Clarabel.ZeroConeT, Clarabel.NonnegativeConeT, Clarabel.NonnegativeConeT]
 # cone_dims  = [1,3,3]
 #
 # #primal infeasible variation
@@ -36,7 +36,7 @@ cone_dims  = [3,3]
 # A[4,1] = 1      #swap lower bound on first variable to redundant upper
 # c = [1.;0;0]
 # b = ones(Float64,6)
-# cone_types = [IPSolver.NonnegativeConeT, IPSolver.NonnegativeConeT]
+# cone_types = [Clarabel.NonnegativeConeT, Clarabel.NonnegativeConeT]
 # cone_dims  = [3,3]
 
 #solve in JuMP
@@ -60,7 +60,7 @@ Jz = -JuMP.dual.(c1)
 @printf("\n\n-------------------------\n\n")
 @printf("\nClarabel (Direct)\n-------------------------\n\n")
 
-settings = IPSolver.Settings(max_iter=20,verbose=false,direct_kkt_solver=true,equilibrate_enable = true)
-solver   = IPSolver.Solver()
-IPSolver.setup!(solver,P,c,A,b,cone_types,cone_dims,settings)
-IPSolver.solve!(solver)
+settings = Clarabel.Settings(max_iter=20,verbose=false,direct_kkt_solver=true,equilibrate_enable = true)
+solver   = Clarabel.Solver()
+Clarabel.setup!(solver,P,c,A,b,cone_types,cone_dims,settings)
+Clarabel.solve!(solver)
