@@ -81,7 +81,7 @@ function print_settings(settings::Settings, T::DataType)
     @printf("settings:\n")
 
     if(set.direct_kkt_solver)
-        @printf("  linear algebra: direct / %s, precision: %s\n", set.direct_solve_method, T)
+        @printf("  linear algebra: direct / %s, precision: %s\n", set.direct_solve_method, get_precision_string(T))
     end
 
     @printf("  max iter = %i, time limit = %f,  max step = %.3f\n",
@@ -127,6 +127,8 @@ function print_settings(settings::Settings, T::DataType)
     return nothing
 end
 
+get_precision_string(T::Type{<:Real}) = string(T)
+get_precision_string(T::Type{<:BigFloat}) = string(T," (", precision(T), " bit)")
 
 
 function print_conedims_by_type(c::ConeInfo, type::SupportedCones)
