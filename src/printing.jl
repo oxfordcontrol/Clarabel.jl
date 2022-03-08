@@ -38,7 +38,7 @@ function print_header(
     println("                   (c) Paul Goulart                          ")
     println("                University of Oxford, 2022                   ")
     println("-------------------------------------------------------------")
-    println("problem:")
+    @printf("problem: \n")
     @printf("  variables     = %i\n", data.n)
     @printf("  constraints   = %i\n", data.m)
     @printf("  nnz(P)        = %i\n", nnz(data.P))
@@ -50,7 +50,7 @@ function print_header(
     print_conedims_by_type(data.cone_info, NonnegativeConeT)
     @printf("  : secondorder = %i", data.cone_info.type_counts[SecondOrderConeT])
     print_conedims_by_type(data.cone_info, SecondOrderConeT)
-    print_settings(settings)
+    print_settings(settings, T)
     @printf("\n")
 
     #print a subheader for the iterations info
@@ -75,13 +75,13 @@ end
 
 
 
-function print_settings(settings::Settings)
+function print_settings(settings::Settings, T::DataType)
 
     set = settings
     @printf("settings:\n")
 
     if(set.direct_kkt_solver)
-        @printf("  linear algebra: direct / %s\n", set.direct_solve_method)
+        @printf("  linear algebra: direct / %s, precision: %s\n", set.direct_solve_method, T)
     end
 
     @printf("  max iter = %i, time limit = %f,  max step = %.3f\n",
@@ -171,7 +171,7 @@ function print_footer(
 
     println("-----------------------------------------------------------------------------------")
     @printf("Terminated with status = %s\n",SolverStatusDict[info.status])
-    @printf("solve time = %s\n",(info.solve_time))
+    @printf("solve time = %s\n",TimerOutputs.prettytime(info.solve_time*1e9))
 
     return nothing
 end

@@ -87,7 +87,7 @@ function _assemble_kkt_matrix(
     n_soc_vecs +                  # Number of elements in sparse SOC off diagonal columns
     p)                            # Number of elements in diagonal of SOC extension
 
-    K    = _csc_spalloc(m+n+p, m+n+p, nnzKKT)
+    K    = _csc_spalloc(T, m+n+p, m+n+p, nnzKKT)
     maps = KKTDataMaps(P,A,cone_info)
 
     _kkt_assemble_inner(K,maps,P,A,cone_info,m,n,p,shape)
@@ -229,21 +229,19 @@ function _kkt_assemble_inner(
 end
 
 
-function _csc_spalloc(m, n, nnz)
+function _csc_spalloc(T::Type{<:AbstractFloat},m, n, nnz)
 
     colptr = zeros(Int,n+1)
     rowval = zeros(Int,nnz)
-    nzval  = zeros(Float64,nnz)
+    nzval  = zeros(T,nnz)
 
     #set the final colptr entry to 1+nnz
     #Julia 1.7 constructor check fails without
     #this condition
     colptr[end] = nnz +  1
 
-    return SparseMatrixCSC{Float64,Int64}(m,n,colptr,rowval,nzval)
+    return SparseMatrixCSC{T,Int64}(m,n,colptr,rowval,nzval)
 end
-
-
 
 #increment the K.colptr by the number of nonzeros
 #in a square diagonal matrix placed on the diagonal.

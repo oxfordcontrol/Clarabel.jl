@@ -4,7 +4,7 @@
 Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     max_iter::DefaultInt    = 50
-    time_limit::T           = zero(T)   #unbounded if = 0
+    time_limit::T           = 0.   #unbounded if = 0
     verbose::Bool           = true
     tol_gap_abs::T          = 1e-8
     tol_gap_rel::T          = 1e-8
@@ -41,7 +41,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
 end
 
-Settings(args...; kwargs...) = Settings{DefaultFloat}(args...; kwargs...)
+Settings(args...) = Settings{DefaultFloat}(args...)
 
 
 function Settings(d::Dict)

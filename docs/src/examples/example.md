@@ -1,22 +1,30 @@
-# # Simple QP Example
+The source files for all examples can be found in [/examples](https://github.com/oxfordcontrol/COSMO.jl/tree/master/examples/).
+```@meta
+EditURL = "<unknown>/.julia/dev/Clarabel/examples/example.jl"
+```
 
+# Simple QP Example
 
+````@example example
 #Required packages
 using LinearAlgebra, SparseArrays
 using Clarabel
+````
 
-#-------------
+````@example example
 #Problem data in sparse format
 A = SparseMatrixCSC(I(3)*1.)
 P = SparseMatrixCSC(I(3)*1.)
 A = [A;-A]
 c = [3.;-2.;1.]*10
 b = ones(Float64,2*3);
+nothing #hide
+````
 
+----------------------------
+### Solve in Clarabel native interface
 
-# ----------------------------
-# ### Solve in Clarabel native interface
-
+````@example example
 cone_types = [Clarabel.NonnegativeConeT]
 cone_dims  = [length(b)]
 
@@ -30,10 +38,12 @@ solver = Clarabel.Solver()
 Clarabel.setup!(solver,P,c,A,b,cone_types,cone_dims,settings)
 Clarabel.solve!(solver)
 x = solver.variables.x
+````
 
-# -------------
-# ### Solve in JuMP
+-------------
+### Solve in JuMP
 
+````@example example
 using JuMP
 model = Model(Clarabel.Optimizer)
 @variable(model, x[1:3])
@@ -43,3 +53,9 @@ model = Model(Clarabel.Optimizer)
 #Run the opimization
 optimize!(model)
 x = JuMP.value.(x)
+````
+
+---
+
+*This page was generated using [Literate.jl](https://github.com/fredrikekre/Literate.jl).*
+
