@@ -321,7 +321,8 @@ function solve_clarabel(vars)
             verbose = false,
             equilibrate_enable = true,
     )
-    solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims,settings)
+    solver  = Clarabel.Solver(settings)
+    Clarabel.setup!(P,c,A,b,cone_types,cone_dims)
     Clarabel.solve!(solver)
 
     time = solver.info.solve_time

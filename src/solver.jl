@@ -45,15 +45,15 @@ function setup!(
 ) where{T}
 
     #make this first to create the timers
-    s.info    = DefaultInfo()
+    s.info    = DefaultInfo{T}()
 
     @timeit s.info.timer "setup!" begin
 
         cone_info   = ConeInfo(cone_types,cone_dims)
-        s.data      = DefaultProblemData(P,q,A,b,cone_info)
-        s.scalings  = DefaultScalings(s.data.n,cone_info,s.settings)
-        s.variables = DefaultVariables(s.data.n,cone_info)
-        s.residuals = DefaultResiduals(s.data.n,s.data.m)
+        s.data      = DefaultProblemData{T}(P,q,A,b,cone_info)
+        s.scalings  = DefaultScalings{T}(s.data.n,cone_info,s.settings)
+        s.variables = DefaultVariables{T}(s.data.n,cone_info)
+        s.residuals = DefaultResiduals{T}(s.data.n,s.data.m)
 
         #equilibrate problem data immediately on setup.
         #this prevents multiple equlibrations if solve!
@@ -64,12 +64,12 @@ function setup!(
         end
 
         @timeit s.info.timer "kkt init" begin
-            s.kktsolver = DefaultKKTSolver(s.data,s.scalings,s.settings)
+            s.kktsolver = DefaultKKTSolver{T}(s.data,s.scalings,s.settings)
         end
 
         # work variables for assembling step direction LHS/RHS
-        s.step_rhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
-        s.step_lhs  = DefaultVariables(s.data.n,s.scalings.cone_info)
+        s.step_rhs  = DefaultVariables{T}(s.data.n,s.scalings.cone_info)
+        s.step_lhs  = DefaultVariables{T}(s.data.n,s.scalings.cone_info)
 
     end
 
@@ -162,10 +162,6 @@ function solve!(
             #--------------
             α = calc_step_length(s.variables,s.step_lhs,s.scalings)
             σ = calc_centering_parameter(α)
-
-            #DEBUG: PJG cap the centering parameter using a heuristic
-            #σ = debug_cap_centering_param(iter,σ,μ)
-            #@printf("μ = %e, σμ = %e\n", μ, σ*μ)
 
             #calculate the combined step and length
             #--------------

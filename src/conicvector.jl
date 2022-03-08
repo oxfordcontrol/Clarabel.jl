@@ -5,7 +5,7 @@ import LinearAlgebra: BlasReal
 # get this type with views into the subcomponents
 # ---------------------------------------
 
-struct ConicVector{T<:BlasReal} <: AbstractVector{T}
+struct ConicVector{T<:AbstractFloat} <: AbstractVector{T}
 
     #contiguous array of source data
     vec::Vector{T}
@@ -60,8 +60,8 @@ Base.length(s::ConicVector{T}) where{T} = length(s.vec)
 Base.IndexStyle(s::ConicVector{T}) where{T} = IndexStyle(s.vec)
 
 #For maximum speed, it seems we need to explicitly define
-#a bunch of functions that use the vec field directly,
-#which will force calls to the BLAS specialized methods.
+#a bunch of functions that use the vec field directly, which
+#will force calls to the BLAS specialized methods when possible
 #Alternatively, we could subtype DenseArray{T}, but that
 #seems less general and still fails to capture high
 #performance sparse matrix vector multiply

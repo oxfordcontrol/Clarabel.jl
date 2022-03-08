@@ -1,12 +1,12 @@
 using Revise
-include("./utils.jl")
+include(joinpath(@__DIR__,"utils.jl"))
 using Clarabel
 using Printf
 using JuMP
 using OSQP, ECOS
 
 
-file = "BOYD1.mat"
+file = "HS21.mat"
 
 srcpath = joinpath(@__DIR__,"mat",file)
 

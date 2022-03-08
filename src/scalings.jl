@@ -15,7 +15,7 @@ function DefaultScalings{T}(
     for i = eachindex(cone_info.types)
         dim   = cone_info.dims[i]
         type  = cone_info.types[i]
-        push!(cones, ConeDict[type](dim))
+        push!(cones, ConeDict[type]{T}(dim))
     end
 
     # total cone degree (not the same as dimension for SOC and zero cone)

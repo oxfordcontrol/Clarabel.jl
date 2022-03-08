@@ -147,10 +147,16 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     Psym::AbstractMatrix{T}
 
 
-    function DefaultProblemData{T}(P,q,A,b,cone_info) where {T}
+    function DefaultProblemData{T}(
+        P::AbstractMatrix{T},
+        q::AbstractVector{T},
+        A::AbstractMatrix{T},
+        b::AbstractVector{T},
+        cone_info
+    ) where {T}
 
-        n         = length(q)
-        m         = length(b)
+        n = length(q)
+        m = length(b)
 
         m == size(A)[1] || throw(ErrorException("A and b incompatible dimensions."))
         n == size(A)[2] || throw(ErrorException("A and c incompatible dimensions."))
@@ -249,7 +255,7 @@ end
 
 #initializes all fields except settings to nothing
 function Solver{T}(settings::Settings{T}) where {T}
-    Solver{DefaultFloat}(ntuple(x->nothing, fieldcount(Solver)-1)...,settings)
+    Solver{T}(ntuple(x->nothing, fieldcount(Solver)-1)...,settings)
 end
 
 function Solver{T}() where {T}
@@ -258,8 +264,8 @@ function Solver{T}() where {T}
 end
 
 #partial user defined settings
-function Solver(d::Dict)
-    Solver(Settings(d))
+function Solver(d::Dict) where {T}
+    Solver{T}(Settings(d))
 end
 
 Solver(args...; kwargs...) = Solver{DefaultFloat}(args...; kwargs...)

@@ -83,7 +83,7 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
         work_p = view(work,(n+m+1):(n+m+p))
 
         #a split vector compatible with s and z
-        work_sv = ConicVector(data.cone_info)
+        work_sv = ConicVector{T}(data.cone_info)
 
 
         return new(
@@ -193,7 +193,7 @@ function kkt_solve!(
         tmp1 = lhs.s; tmp2 = lhs.z
         @. tmp1 = rhs.z  #Don't want to modify our RHS
         cones_inv_circle_op!(cones, tmp2, scalings.λ, rhs.s)  #tmp2 = λ \ ds
-        cones_gemv_W!(cones, false, tmp2, tmp1, 1., -1.)      #tmp1 = - rhs.z + W(tmp2)
+        cones_gemv_W!(cones, false, tmp2, tmp1, one(T), -one(T))      #tmp1 = - rhs.z + W(tmp2)
         kktsolver.work_z .= tmp1
 
     end
@@ -229,8 +229,8 @@ function kkt_solve!(
     #solve for Δs = -Wᵀ(λ \ dₛ + WΔz)
     tmpsv = kktsolver.work_sv
     cones_inv_circle_op!(cones, tmpsv, scalings.λ, rhs.s) #Δs = λ \ dₛ
-    cones_gemv_W!(cones, false, lhs.z, tmpsv,  1., 1.)    #Δs = WΔz + Δs
-    cones_gemv_W!(cones,  true, tmpsv, lhs.s, -1., 0.0)   #Δs = -WᵀΔs
+    cones_gemv_W!(cones, false, lhs.z, tmpsv,  one(T), one(T))    #Δs = WΔz + Δs
+    cones_gemv_W!(cones,  true, tmpsv, lhs.s, -one(T), zero(T))   #Δs = -WᵀΔs
 
     #solve for Δκ
     lhs.κ = -(rhs.κ + variables.κ * lhs.τ) / variables.τ
