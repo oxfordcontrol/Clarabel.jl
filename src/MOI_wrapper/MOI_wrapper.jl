@@ -28,38 +28,38 @@ const OptimizerSupportedMOICones{T <: Real} = Union{
 
 #Optimizer will consolidate cones of these types if possible
 
-const OptimizerMergeableTypes = [IPSolver.ZeroConeT, IPSolver.NonnegativeConeT]
+const OptimizerMergeableTypes = [Clarabel.ZeroConeT, Clarabel.NonnegativeConeT]
 
 #mappings between MOI and internal definitions
 
-const MOItoIPSolverCones = Dict([
-    MOI.Zeros           => IPSolver.ZeroConeT,
-    MOI.Nonnegatives    => IPSolver.NonnegativeConeT,
-    MOI.SecondOrderCone => IPSolver.SecondOrderConeT,
+const MOItoClarabelCones = Dict([
+    MOI.Zeros           => Clarabel.ZeroConeT,
+    MOI.Nonnegatives    => Clarabel.NonnegativeConeT,
+    MOI.SecondOrderCone => Clarabel.SecondOrderConeT,
 ])
 
-const IPSolvertoMOITerminationStatus = Dict([
-    IPSolver.SOLVED             =>  MOI.OPTIMAL,
-    IPSolver.MAX_ITERATIONS     =>  MOI.ITERATION_LIMIT,
-    IPSolver.MAX_TIME           =>  MOI.TIME_LIMIT,
-    IPSolver.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBLE,
-    IPSolver.DUAL_INFEASIBLE    =>  MOI.DUAL_INFEASIBLE
+const ClarabeltoMOITerminationStatus = Dict([
+    Clarabel.SOLVED             =>  MOI.OPTIMAL,
+    Clarabel.MAX_ITERATIONS     =>  MOI.ITERATION_LIMIT,
+    Clarabel.MAX_TIME           =>  MOI.TIME_LIMIT,
+    Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBLE,
+    Clarabel.DUAL_INFEASIBLE    =>  MOI.DUAL_INFEASIBLE
 ])
 
-const IPSolvertoMOIPrimalStatus = Dict([
-    IPSolver.SOLVED             =>  MOI.FEASIBLE_POINT,
-    IPSolver.MAX_ITERATIONS     =>  MOI.NEARLY_FEASIBLE_POINT,
-    IPSolver.MAX_TIME           =>  MOI.NEARLY_FEASIBLE_POINT,
-    IPSolver.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBLE_POINT,
-    IPSolver.DUAL_INFEASIBLE    =>  MOI.INFEASIBILITY_CERTIFICATE
+const ClarabeltoMOIPrimalStatus = Dict([
+    Clarabel.SOLVED             =>  MOI.FEASIBLE_POINT,
+    Clarabel.MAX_ITERATIONS     =>  MOI.NEARLY_FEASIBLE_POINT,
+    Clarabel.MAX_TIME           =>  MOI.NEARLY_FEASIBLE_POINT,
+    Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBLE_POINT,
+    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBILITY_CERTIFICATE
 ])
 
-const IPSolvertoMOIDualStatus = Dict([
-    IPSolver.SOLVED             =>  MOI.FEASIBLE_POINT,
-    IPSolver.MAX_ITERATIONS     =>  MOI.NEARLY_FEASIBLE_POINT,
-    IPSolver.MAX_TIME           =>  MOI.NEARLY_FEASIBLE_POINT,
-    IPSolver.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBILITY_CERTIFICATE,
-    IPSolver.DUAL_INFEASIBLE    =>  MOI.INFEASIBLE_POINT
+const ClarabeltoMOIDualStatus = Dict([
+    Clarabel.SOLVED             =>  MOI.FEASIBLE_POINT,
+    Clarabel.MAX_ITERATIONS     =>  MOI.NEARLY_FEASIBLE_POINT,
+    Clarabel.MAX_TIME           =>  MOI.NEARLY_FEASIBLE_POINT,
+    Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBILITY_CERTIFICATE,
+    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBLE_POINT
 ])
 
 #-----------------------------
@@ -67,7 +67,7 @@ const IPSolvertoMOIDualStatus = Dict([
 #-----------------------------
 
 mutable struct Optimizer{T} <: MOI.AbstractOptimizer
-    inner::IPSolver.Solver{T}
+    inner::Clarabel.Solver{T}
     has_results::Bool
     is_empty::Bool
     sense::MOI.OptimizationSense
@@ -75,7 +75,7 @@ mutable struct Optimizer{T} <: MOI.AbstractOptimizer
     rowranges::Dict{Int, UnitRange{Int}}
 
     function Optimizer{T}(; user_settings...) where {T <: AbstractFloat}
-        inner = IPSolver.Solver{T}()
+        inner = Clarabel.Solver{T}()
         has_results = false
         is_empty = true
         sense = MOI.MIN_SENSE
@@ -99,7 +99,7 @@ Optimizer(args...; kwargs...) = Optimizer{DefaultFloat}(args...; kwargs...)
 # reset the optimizer
 function MOI.empty!(optimizer::Optimizer{T}) where {T <: AbstractFloat}
     #just make a new solveropt, keeping current settings
-    optimizer.inner = IPSolver.Solver(optimizer.inner.settings)
+    optimizer.inner = Clarabel.Solver(optimizer.inner.settings)
     optimizer.has_results = false
     optimizer.is_empty = true
     optimizer.sense = MOI.MIN_SENSE # model parameter, so needs to be reset
@@ -110,7 +110,7 @@ end
 MOI.is_empty(optimizer::Optimizer) = optimizer.is_empty
 
 function MOI.optimize!(optimizer::Optimizer)
-    IPSolver.solve!(optimizer.inner)
+    Clarabel.solve!(optimizer.inner)
     optimizer.has_results = true
     nothing
 end
@@ -144,8 +144,8 @@ end
 # Solver Attributes, get/set
 #-----------------------------
 
-MOI.get(opt::Optimizer, ::MOI.SolverName)        = IPSolver.solver_name()
-MOI.get(opt::Optimizer, ::MOI.SolverVersion)     = IPSolver.version()
+MOI.get(opt::Optimizer, ::MOI.SolverName)        = Clarabel.solver_name()
+MOI.get(opt::Optimizer, ::MOI.SolverVersion)     = Clarabel.version()
 MOI.get(opt::Optimizer, ::MOI.RawSolver)         = opt.inner
 MOI.get(opt::Optimizer, ::MOI.ResultCount)       = opt.has_results ? 1 : 0
 MOI.get(opt::Optimizer, ::MOI.NumberOfVariables) = opt.inner.data.n
@@ -168,19 +168,19 @@ end
 MOI.supports(::Optimizer, ::MOI.TerminationStatus) = true
 function MOI.get(opt::Optimizer, ::MOI.TerminationStatus)
     opt.has_results || return MOI.OPTIMIZE_NOT_CALLED
-    return IPSolvertoMOITerminationStatus[opt.inner.info.status]
+    return ClarabeltoMOITerminationStatus[opt.inner.info.status]
 end
 
 MOI.supports(::Optimizer, ::MOI.PrimalStatus) = true
 function MOI.get(opt::Optimizer, ::MOI.PrimalStatus)
     opt.has_results || return MOI.NO_SOLUTION
-    return IPSolvertoMOIPrimalStatus[opt.inner.info.status]
+    return ClarabeltoMOIPrimalStatus[opt.inner.info.status]
 end
 
 MOI.supports(::Optimizer, ::MOI.DualStatus) = true
 function MOI.get(opt::Optimizer, ::MOI.DualStatus)
     opt.has_results || return MOI.NO_SOLUTION
-    return IPSolvertoMOIDualStatus[opt.inner.info.status]
+    return ClarabeltoMOIDualStatus[opt.inner.info.status]
 end
 
 MOI.supports(::Optimizer, ::MOI.Silent) = true
@@ -284,7 +284,7 @@ function MOI.copy_to(dest::Optimizer{T}, src::MOI.ModelLike) where {T}
 
     #call setup! again on the solver.   This will flush all
     #internal data but will keep settings intact
-    IPSolver.setup!(dest.inner,P,q,A,b,cone_types,cone_dims)
+    Clarabel.setup!(dest.inner,P,q,A,b,cone_types,cone_dims)
 
     #model is no longer empty
     dest.is_empty = false
@@ -417,8 +417,8 @@ function process_constraints(
     J = Int[]
     V = T[]
 
-    #these will be used for the IPSolver cone types and dimensions
-    cone_types = IPSolver.SupportedCones[]
+    #these will be used for the Clarabel cone types and dimensions
+    cone_types = Clarabel.SupportedCones[]
     cone_dims  = Int[]
 
     for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
@@ -442,7 +442,7 @@ end
 function push_constraint!(
     triplet::SparseTriplet,
     b::Vector{T},
-    cone_types::Vector{IPSolver.SupportedCones},
+    cone_types::Vector{Clarabel.SupportedCones},
     cone_dims::Vector{Int},
     src::MOI.ModelLike,
     idxmap,
@@ -523,7 +523,7 @@ end
 
 
 function push_constraint_set!(
-    cone_types::Vector{IPSolver.SupportedCones},
+    cone_types::Vector{Clarabel.SupportedCones},
     cone_dims::Vector{Int},
     rows::Union{Int,UnitRange{Int}},
     s::OptimizerSupportedMOICones #will be {T} if parametric cones are added
@@ -534,7 +534,7 @@ function push_constraint_set!(
     # 2) those cones are 1-D.
     # This is just the zero and nonnegative cones
 
-    next_type = MOItoIPSolverCones[typeof(s)]
+    next_type = MOItoClarabelCones[typeof(s)]
     next_dim  = length(rows)
 
     if isempty(cone_types) || next_type ∉ OptimizerMergeableTypes || next_type != cone_types[end]
@@ -548,7 +548,7 @@ function push_constraint_set!(
 end
 
 function push_constraint_set!(
-    cone_types::Vector{IPSolver.SupportedCones},
+    cone_types::Vector{Clarabel.SupportedCones},
     cone_dims::Vector{Int},
     rows::Union{Int,UnitRange{Int}},
     s::MathOptInterface.AbstractSet

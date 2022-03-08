@@ -33,7 +33,7 @@ struct KKTDataMaps
         diagP  = zeros(Int,n)
 
         #now do the SOC expansion pieces
-        nsoc = cone_info.type_counts[IPSolver.SecondOrderConeT]
+        nsoc = cone_info.type_counts[Clarabel.SecondOrderConeT]
         p    = 2*nsoc
         SOC_D = zeros(Int,p)
 
@@ -42,7 +42,7 @@ struct KKTDataMaps
 
         count = 1
         for i = 1:length(cone_info.dims)
-            if(cone_info.types[i] == IPSolver.SecondOrderConeT)
+            if(cone_info.types[i] == Clarabel.SecondOrderConeT)
                 SOC_u[count] = Vector{Int}(undef,cone_info.dims[i])
                 SOC_v[count] = Vector{Int}(undef,cone_info.dims[i])
                 count = count+1
@@ -66,7 +66,7 @@ function _assemble_kkt_matrix(
 
     n = size(P,1)
     m = size(A,1)
-    p = 2*cone_info.type_counts[IPSolver.SecondOrderConeT]
+    p = 2*cone_info.type_counts[Clarabel.SecondOrderConeT]
 
     ndiagP  = _count_diagonal_entries(P)
 
@@ -74,7 +74,7 @@ function _assemble_kkt_matrix(
     #sparse SOC expansion terms
     n_soc_vecs = 0
     for i = 1:length(cone_info.dims)
-        if(cone_info.types[i] == IPSolver.SecondOrderConeT)
+        if(cone_info.types[i] == Clarabel.SecondOrderConeT)
             n_soc_vecs += 2*cone_info.dims[i]
         end
     end
@@ -132,7 +132,7 @@ function _kkt_assemble_inner(
     socidx = 1  #which SOC are we working on?
 
     for i = 1:length(cone_info.dims)
-        if(cone_info.types[i] == IPSolver.SecondOrderConeT)
+        if(cone_info.types[i] == Clarabel.SecondOrderConeT)
 
             #we will add the u and v columns for this cone
             conedim = cone_info.dims[i]
@@ -181,7 +181,7 @@ function _kkt_assemble_inner(
     socidx = 1  #which SOC are we working on?
 
     for i = 1:length(cone_info.dims)
-        if(cone_info.types[i] == IPSolver.SecondOrderConeT)
+        if(cone_info.types[i] == Clarabel.SecondOrderConeT)
 
             conedim = cone_info.dims[i]
             headidx = cone_info.headidx[i]

@@ -1,4 +1,4 @@
-module IPSolver
+module Clarabel
 
     using SparseArrays, LinearAlgebra, QDLDL, AMD, Printf
     const DefaultFloat = Float64
