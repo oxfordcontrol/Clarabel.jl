@@ -19,7 +19,11 @@ function DefaultScalings{T}(
     end
 
     # total cone degree (not the same as dimension for SOC and zero cone)
-    totaldegree = sum(cone -> degree(cone), cones)
+    if isempty(cones)
+        totaldegree = 0
+    else
+        totaldegree = sum(cone -> degree(cone), cones)
+    end
 
     #scaled version s and z
     λ = ConicVector{T}(cone_info)

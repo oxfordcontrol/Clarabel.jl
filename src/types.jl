@@ -182,14 +182,16 @@ DefaultProblemData(args...) = DefaultProblemData{DefaultFloat}(args...)
     PRIMAL_INFEASIBLE
     DUAL_INFEASIBLE
     MAX_ITERATIONS
+    MAX_TIME
 end
 
 const SolverStatusDict = Dict(
-    UNSOLVED    =>  "unsolved",
-    SOLVED      =>  "solved",
-    PRIMAL_INFEASIBLE =>  "primal infeasible",
-    DUAL_INFEASIBLE =>  "dual infeasible",
-    MAX_ITERATIONS  =>  "iteration limit"
+    UNSOLVED            =>  "unsolved",
+    SOLVED              =>  "solved",
+    PRIMAL_INFEASIBLE   =>  "primal infeasible",
+    DUAL_INFEASIBLE     =>  "dual infeasible",
+    MAX_ITERATIONS      =>  "iteration limit",
+    MAX_TIME            =>  "time limit"
 )
 
 mutable struct DefaultInfo{T} <: AbstractInfo{T}
@@ -239,13 +241,25 @@ mutable struct Solver{T <: AbstractFloat}
     residuals::Union{AbstractResiduals{T},Nothing}
     kktsolver::Union{AbstractKKTSolver{T},Nothing}
     info::Union{AbstractInfo{T},Nothing}
-    settings::Union{Settings{T},Nothing}
     step_lhs::Union{AbstractVariables{T},Nothing}
     step_rhs::Union{AbstractVariables{T},Nothing}
+    settings::Settings{T}
 
 end
 
-#initializes all fields to nothing
-Solver{DefaultFloat}() = Solver{DefaultFloat}(ntuple(x->nothing, fieldcount(Solver))...)
+#initializes all fields except settings to nothing
+function Solver{T}(settings::Settings{T}) where {T}
+    Solver{DefaultFloat}(ntuple(x->nothing, fieldcount(Solver)-1)...,settings)
+end
 
-Solver(args...) = Solver{DefaultFloat}(args...)
+function Solver{T}() where {T}
+    #default settings
+    Solver{T}(Settings{T}())
+end
+
+#partial user defined settings
+function Solver(d::Dict)
+    Solver(Settings(d))
+end
+
+Solver(args...; kwargs...) = Solver{DefaultFloat}(args...; kwargs...)

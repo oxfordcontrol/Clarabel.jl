@@ -7,7 +7,7 @@ using JuMP
 using OSQP, ECOS
 
 
-file = "QSHIP04S.mat"
+file = "BOYD1.mat"
 
 srcpath = joinpath(@__DIR__,"mat",file)
 

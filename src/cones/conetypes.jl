@@ -130,7 +130,7 @@ mutable struct ConeInfo
         end
 
         headidx = Vector{Int}(undef,length(dims))
-        if(length(dims) >= 0)
+        if(length(dims) > 0)
             #index of first element in each cone
             headidx[1] = 1
             for i = 2:length(dims)
