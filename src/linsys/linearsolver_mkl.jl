@@ -67,7 +67,6 @@ mutable struct MKLPardisoLinearSolver{T} <: AbstractLinearSolver{T}
 
         #make a pardiso object and perform logical factor
         ps = MKLPardisoSolver()
-        set_msglvl!(ps, Pardiso.MESSAGE_LEVEL_ON)
         set_matrixtype!(ps, Pardiso.REAL_SYM_INDEF)
         pardisoinit(ps)
         fix_iparm!(ps, :N)
