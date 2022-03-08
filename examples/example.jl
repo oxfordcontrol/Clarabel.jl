@@ -1,6 +1,5 @@
 using Revise
-include("../Clarabel.jl")
-using .Clarabel
+using Clarabel
 using LinearAlgebra
 using Printf
 using StatProfilerHTML

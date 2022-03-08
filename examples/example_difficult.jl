@@ -1,6 +1,5 @@
 using Revise
-include("../Clarabel.jl")
-using .Clarabel
+using Clarabel
 using Random
 using LinearAlgebra
 using Printf
