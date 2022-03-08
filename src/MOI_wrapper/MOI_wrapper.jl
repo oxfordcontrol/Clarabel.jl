@@ -99,7 +99,7 @@ Optimizer(args...; kwargs...) = Optimizer{DefaultFloat}(args...; kwargs...)
 # reset the optimizer
 function MOI.empty!(optimizer::Optimizer{T}) where {T <: AbstractFloat}
     #just make a new solveropt, keeping current settings
-    optimizer.inner = Clarabel.Solver(optimizer.inner.settings)
+    optimizer.inner = Clarabel.Solver{T}(optimizer.inner.settings)
     optimizer.has_results = false
     optimizer.is_empty = true
     optimizer.sense = MOI.MIN_SENSE # model parameter, so needs to be reset
