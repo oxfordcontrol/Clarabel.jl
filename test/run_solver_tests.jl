@@ -1,7 +1,7 @@
 using Random, Test, Pkg
 rng = Random.MersenneTwister(12345)
 
-@testset "Conic Optimizer Testset" begin
+@testset "IPSolver Native Optimizer Testset" begin
 
     @testset "Basic Tests" begin
 

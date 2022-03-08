@@ -42,6 +42,10 @@ function check_termination!(
     #κ/τ
     info.ktratio = variables.κ / variables.τ
 
+    #solve time so far (includes setup!)
+    info_get_solve_time!(info)
+    is_out_of_time = settings.time_limit == 0. ? false : info.solve_time > settings.time_limit
+
     #check for convergence
     #---------------------
     if( ((gap_abs < settings.tol_gap_abs) || (gap_rel < settings.tol_gap_rel))
@@ -72,6 +76,8 @@ function check_termination!(
     #----------------------
     elseif(last_iter)
         info.status = MAX_ITERATIONS
+    elseif(is_out_of_time)
+        info.status = MAX_TIME
     end
 
     #return TRUE if we settled on a final status
@@ -102,10 +108,16 @@ function info_reset!(info)
     return nothing
 end
 
-function info_finalize!(info)
+function info_get_solve_time!(info)
 
     #TimerOutputs reports in nanoseconds
     info.solve_time = TimerOutputs.tottime(info.timer)*1e-9
+    return nothing
+end
 
+
+function info_finalize!(info)
+
+    info_get_solve_time!(info)
     return nothing
 end

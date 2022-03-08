@@ -4,10 +4,13 @@ module IPSolver
     const DefaultFloat = Float64
     const DefaultInt   = LinearAlgebra.BlasInt
 
+    #version / release info
+    include("./version.jl")
+
+    #core solver components
     include("./consttypes.jl")
     include("./cones/conetypes.jl")
     include("./settings.jl")
-
     include("./conicvector.jl")
     include("./types.jl")
     include("./variables.jl")
@@ -18,25 +21,36 @@ module IPSolver
     #linear subsolver implementations
     #must precede the KKT solver typedef
     include("./linsys/linearsolver_defaults.jl")
+
+    #direct solve methods
     include("./linsys/linearsolver_utils.jl")
     include("./linsys/linearsolver_qdldl.jl")
-
+    include("./linsys/linearsolver_mkl.jl")
     include("./kkt.jl")
+
+    # display, print and top level solver
     include("./printing.jl")
+    include("./show.jl")
     include("./solver.jl")
 
+    #conic constraints.  Additional Additional
+    #cone constraint implementations here
     include("./cones/coneops.jl")
     include("./cones/coneops_defaults.jl")
     include("./cones/coneops_zerocone.jl")
     include("./cones/coneops_nncone.jl")
     include("./cones/coneops_socone.jl")
 
+    #equilibration and various algebraic
+    #utilities
     include("./equilibration.jl")
     include("./mathutils.jl")
 
     #PJG : temporary debugging utils
     include("./debug.jl")
     include("./debug_coneops.jl")
-    #include("./kkt_debug.jl")
+
+    #MathOptInterface for JuMP/Convex.jl
+    include("./MOI_wrapper/MOI_wrapper.jl")
 
 end

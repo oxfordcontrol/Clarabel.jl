@@ -4,6 +4,7 @@
 Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     max_iter::DefaultInt    = 50
+    time_limit::T           = zero(T)   #unbounded if = 0
     verbose::Bool           = true
     tol_gap_abs::T          = 1e-8
     tol_gap_rel::T          = 1e-8
@@ -21,7 +22,11 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     dynamic_regularization_eps::T       = 1e-13
     dynamic_regularization_delta::T     = 2e-7
 
-    #iterative refinement
+    #the direct linear solver to use
+    #can be :qdldl or :mkl
+    direct_solve_method::Symbol         = :qdldl
+
+    #iterative refinement (for QDLDL)
     iterative_refinement_enable::Bool   = true
     iterative_refinement_reltol::T      = 1e-10
     iterative_refinement_abstol::T      = 1e-10
@@ -36,5 +41,20 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
 end
 
-# Default to DefaultFloat type for reals
 Settings(args...; kwargs...) = Settings{DefaultFloat}(args...; kwargs...)
+
+
+function Settings(d::Dict)
+
+	settings = Settings()
+	settings_populate!(d)
+    return settings
+end
+
+
+function settings_populate!(settings::Settings, d::Dict)
+    for (key, val) in d
+        setfield!(settings, Symbol(key), val)
+    end
+    return nothing
+end

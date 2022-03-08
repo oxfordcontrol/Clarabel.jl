@@ -8,27 +8,40 @@ function Solver(
     A::AbstractMatrix{T},
     b::Vector{T},
     cone_types::Vector{SupportedCones},
-    cone_dims::Vector{Int},
-    settings::Settings{T} = Settings{T}()
+    cone_dims::Vector{Int};
+    kwargs...
 ) where{T}
 
     s = Solver{T}()
-    setup!(s,P,c,A,b,cone_types,cone_dims,settings)
+    setup!(s,P,c,A,b,cone_types,cone_dims,kwargs...)
     return s
 end
 
 # -------------------------------------
 # setup!
 # -------------------------------------
+
+function setup!(s,P,c,A,b,cone_types,cone_dims; kwargs...)
+    #this allows override of individual settings during setup
+    settings_populate!(s.settings, Dict(kwargs))
+    setup!(s,P,c,A,b,cone_types,cone_dims)
+end
+
+function setup!(s,P,c,A,b,cone_types,cone_dims,settings::Settings)
+    #this allows total override of settings during setup
+    s.settings = settings
+    setup!(s,P,c,A,b,cone_types,cone_dims)
+end
+
+# main setup function
 function setup!(
     s::Solver{T},
     P::AbstractMatrix{T},
-    c::Vector{T},
+    q::Vector{T},
     A::AbstractMatrix{T},
     b::Vector{T},
     cone_types::Vector{SupportedCones},
-    cone_dims::Vector{Int},
-    settings::Settings{T} = Settings{T}()
+    cone_dims::Vector{Int}
 ) where{T}
 
     #make this first to create the timers
@@ -37,10 +50,8 @@ function setup!(
     @timeit s.info.timer "setup!" begin
 
         cone_info   = ConeInfo(cone_types,cone_dims)
-
-        s.settings  = settings
-        s.data      = DefaultProblemData(P,c,A,b,cone_info)
-        s.scalings  = DefaultScalings(s.data.n,cone_info,settings)
+        s.data      = DefaultProblemData(P,q,A,b,cone_info)
+        s.scalings  = DefaultScalings(s.data.n,cone_info,s.settings)
         s.variables = DefaultVariables(s.data.n,cone_info)
         s.residuals = DefaultResiduals(s.data.n,s.data.m)
 
@@ -62,7 +73,7 @@ function setup!(
 
     end
 
-    return nothing
+    return s
 end
 
 

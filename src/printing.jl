@@ -34,7 +34,7 @@ function print_header(
     if(settings.verbose == false) return end
 
     println("-------------------------------------------------------------")
-    println("             Clarabel v0.0.0  -  Clever Acronym              ")
+    @printf("             Clarabel v%s  -  Clever Acronym              \n", version())
     println("                   (c) Paul Goulart                          ")
     println("                University of Oxford, 2022                   ")
     println("-------------------------------------------------------------")
@@ -79,13 +79,19 @@ function print_settings(settings::Settings)
 
     set = settings
     @printf("settings:\n")
-    @printf("  max iter = %i, max step = %.f, tol_feas = %0.1e\n",
+
+    if(set.direct_kkt_solver)
+        @printf("  linear algebra: direct / %s\n", set.direct_solve_method)
+    end
+
+    @printf("  max iter = %i, time limit = %f,  max step = %.3f\n",
         set.max_iter,
+        set.time_limit == 0 ? Inf : set.max_time,
         set.max_step_fraction,
-        set.tol_feas
     )
     #
-    @printf("  tol_abs = %0.1e, tol_rel = %0.1e,\n",
+    @printf("  tol_feas = %0.1e, tol_abs = %0.1e, tol_rel = %0.1e,\n",
+        set.tol_feas,
         set.tol_gap_abs,
         set.tol_gap_rel
     )
