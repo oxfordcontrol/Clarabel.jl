@@ -61,9 +61,6 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
             sign *= -1
         end
 
-        #PJG:DEBUG.  I don't really know how static
-        #regularization is meant to work.   Just add
-        #it to the diagonal of P here to start
         if(settings.static_regularization_enable)
             @. KKT.nzval[KKTmaps.diagP] += settings.static_regularization_eps
         end
@@ -120,7 +117,7 @@ function linsys_update!(
     #that we have constructed and also for the version
     #that is stored internally in our factorization.
     #PJG: Debug:
-    #The former is need for iterative refinement.  Maybe we
+    #The former is needed for iterative refinement.  Maybe we
     #could get away without using it and just writing a
     #multiplication operator for the QDLDL object.
     update_values!(F,maps.diagWtW,linsys.diagWtW)

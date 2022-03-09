@@ -55,9 +55,6 @@ mutable struct MKLPardisoLinearSolver{T} <: AbstractLinearSolver{T}
             sign *= -1
         end
 
-        #PJG:DEBUG.  I don't really know how static
-        #regularization is meant to work.   Just add
-        #it to the diagonal of P here to start
         if(settings.static_regularization_enable)
             @. KKT.nzval[KKTmaps.diagP] += settings.static_regularization_eps
         end
