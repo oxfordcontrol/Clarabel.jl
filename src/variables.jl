@@ -28,6 +28,21 @@ function calc_step_length(
     return min(ατ,ακ,αcone,one(T))
 end
 
+function variables_rescale!(variables)
+
+vars = variables
+τ     = vars.τ
+κ     = vars.κ
+scale = max(τ,κ)
+
+vars.x ./= scale
+vars.z.vec ./= scale
+vars.s.vec ./= scale
+vars.τ /= scale
+vars.κ /= scale
+
+end
+
 
 function variables_add_step!(
     variables::DefaultVariables{T},
