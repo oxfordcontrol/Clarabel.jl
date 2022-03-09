@@ -38,10 +38,12 @@ nothing  #hide
 #=
 ### Constraint data
 
-Finally we put the constraints into the standard Clarabel.jl form $Ax + s = b$, where $s \in \mathcal{K}$ for some  composite cone $\mathcal{K}$.   We have 1 equality constraint and 6 inequalities, so we require the first element of $s$ to be zero (i.e. the first constraint will correspond to the equality) and all other elements $s_i \ge 0$.   Our condition on $s$ is therefore $s \in K = \{0\}^1 \times \mathbb{R}^4_{\ge 0}.$
-Define the constraint data as
-$A = \footnotesize\begin{bmatrix*}[r] 1 & -2 \\ 1 & 0 \\ 0 & 1 \\ -1 & 0 \\ 0 & -1\end{bmatrix*}$ and
-$b= \footnotesize\begin{bmatrix} 0 \\ 1 \\ 1 \\ 1 \\ 1 \end{bmatrix}$.
+Finally we put the constraints into the standard Clarabel.jl form $Ax + s = b$, where $s \in \mathcal{K}$ for some
+composite cone $\mathcal{K}$.   We have 1 equality constraint and 6 inequalities, so we require the first element of $s$
+to be zero (i.e. the first constraint will correspond to the equality) and all other elements $s_i \ge 0$.   Our
+condition on $s$ is therefore $s \in K = \{0\}^1 \times \mathbb{R}^4_{\ge 0}.$ Define the constraint data as $A =
+\footnotesize\begin{bmatrix*}[r] 1 & -2 \\ 1 & 0 \\ 0 & 1 \\ -1 & 0 \\ 0 & -1\end{bmatrix*}$ and $b=
+\footnotesize\begin{bmatrix} 0 \\ 1 \\ 1 \\ 1 \\ 1 \end{bmatrix}$.
 
 =#
 
@@ -151,9 +153,15 @@ evaluate(x)
 
 problem.status
 
-#
-# !!! warning
-#     Note that in the Clarabel.jl output that follows the call to solve! using Convex.jl, the problem posed to the solver has been converted to a second-order cone program with a linear objective.   You can see this because now `nnz(P) == 0` (there is no quadratic term in the objective) and the solver reports two second order cone constraints.
-#
-#     Although the solution will be the same, the required number of iterations and solve time are slightly higher.   When solving problems with quadratic objectives in Clarabel.jl, it is generally preferable to use either the native Clarabel.jl interface or JuMP, both of which handle quadratic terms in the objective directly.
- #
+#=
+!!! warning
+    Note that in the Clarabel.jl output that follows the call to solve! using Convex.jl, the problem posed
+    to the solver has been converted to a second-order cone program with a linear objective.   You can see this
+    because now `nnz(P) == 0` (there is no quadratic term in the objective) and the solver reports two second order
+    cone constraints.
+
+     Although the solution will be the same, the required number of iterations and solve time are slightly higher.
+     When solving problems with quadratic objectives in Clarabel.jl, it is generally preferable to use either the
+     native Clarabel.jl interface or JuMP, both of which handle quadratic terms in the objective directly.
+
+=#

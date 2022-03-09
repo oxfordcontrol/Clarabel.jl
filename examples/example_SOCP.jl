@@ -5,7 +5,8 @@ Suppose that we want to solve the following 2-dimensional optimization problem:
 
 $$
 \begin{array}{ll} \text{minimize} & x_2^2\\[2ex]
-\text{subject to} &  \left\|\begin{pmatrix} 2x_1 \\ x_2 \end{pmatrix} - \begin{pmatrix} 2 \\ 2 \end{pmatrix}\right\|_2 \le 1
+\text{subject to} &  \left\|\begin{pmatrix} 2x_1 \\ x_2 \end{pmatrix}
+- \begin{pmatrix} 2 \\ 2 \end{pmatrix}\right\|_2 \le 1
 \end{array}
 $$
 
@@ -36,7 +37,8 @@ nothing  #hide
 #=
 ### Constraint data
 
-Finally we put the constraints into the standard Clarabel.jl form $Ax + s = b$, where $s \in \mathcal{K}$ for some  cone $\mathcal{K}$.  We have a single constraint on the 2-norm of a vector, so we rewrite
+Finally we put the constraints into the standard Clarabel.jl form $Ax + s = b$, where $s \in \mathcal{K}$ for some  cone
+$\mathcal{K}$.  We have a single constraint on the 2-norm of a vector, so we rewrite
 $$
 \left\|\begin{pmatrix} 2x_1 \\ x_2 \end{pmatrix} - \begin{pmatrix} 2 \\ 2 \end{pmatrix}\right\|_2 \le 1
 \quad \Longleftrightarrow \quad
