@@ -1,4 +1,4 @@
-__Clarabel.jl__ is a Julia implementation of an Interior Point numerical solver for convex optimization problems using a homogeneous embedding.  Clarabel.jl solves the following problem:
+__Clarabel.jl__ is a Julia implementation of an interior point numerical solver for convex optimization problems using a novel homogeneous embedding.  Clarabel.jl solves the following problem:
 
 ```math
 \begin{array}{ll} \text{minimize} & \textstyle{\frac{1}{2}}x^\top Px + q^\top x\\ \text{subject to} & Ax + s = b \\ & s \in \mathcal{K},
@@ -9,15 +9,15 @@ with decision variables ``x \in \mathbb{R}^n``, ``s \in \mathbb{R}^m`` and data 
 
 ## Features
 
-* __Versatile__: COSMO solves linear programs, quadratic programs, second-order cone programs.  Future versions will provide support for semidefinite programs and problems involving exponential and power cones
-* __Quadratic objectives__: Unlike most interior point solvers based on the standard homogeneous self-dual embedding (HSDE), Clarabel.jl handles quadratic objective without requiring reformulation of the objective.   It can therefore be significantly faster than other HSDE-based solvers for problems with quadratic objective functions.
-* __Infeasibility detection__: Infeasible problems are detected using using a homogeneous embedding method.
-* __JuMP / Convex.jl support__: We provide an interface to MathOptInterface (MOI), which allows you to describe your problem in [JuMP](https://github.com/JuliaOpt/JuMP.jl) and [Convex.jl](https://github.com/JuliaOpt/Convex.jl).
-* __Arbitrary precision types__: You can solve problems with any floating point precision (In a future release).
+* __Versatile__: Clarabel.jl solves linear programs (LPs), quadratic programs (QPs) and second-order cone programs (SOCPs).  Future versions will provide support for semidefinite programs and problems involving exponential and power cones.
+* __Quadratic objectives__: Unlike interior point solvers based on the standard homogeneous self-dual embedding (HSDE), Clarabel.jl handles quadratic objective without requiring any epigraphical reformulation of the objective.   It can therefore be significantly faster than other HSDE-based solvers for problems with quadratic objective functions.
+* __Infeasibility detection__: Infeasible problems are detected using using a homogeneous embedding technique.
+* __JuMP / Convex.jl support__: We provide an interface to [MathOptInterface](https://jump.dev/JuMP.jl/stable/moi/) (MOI), which allows you to describe your problem in [JuMP](https://github.com/JuliaOpt/JuMP.jl) and [Convex.jl](https://github.com/JuliaOpt/Convex.jl).
+* __Arbitrary precision types__: You can solve problems with any floating point precision, e.g. Float32 or Julia's BigFloat type, using either the native interface, or via MathOptInterface / Convex.jl.
 * __Open Source__: Our code is available on [GitHub](https://github.com/oxfordcontrol/Clarabel.jl) and distributed under the Apache 2.0 Licence
 
 ## Installation
-COSMO can be installed using the Julia package manager for Julia `v1.0` and higher. Inside the Julia REPL, type `]` to enter the Pkg REPL mode then run
+Clarabel.jl can be installed using the Julia package manager for Julia `v1.0` and higher. Inside the Julia REPL, type `]` to enter the Pkg REPL mode then run
 
 `pkg> add Clarabel`
 
@@ -29,8 +29,8 @@ If you want to install the latest version from the github repository run
 
 The following people are involved in the development of Clarabel.jl:
 * [Paul Goulart](http://users.ox.ac.uk/~engs1373/) (main development, maths and algorithms)
-* [Yuwen Chen](https://markcannon.github.io) (maths and algorithms)
-\*all contributors are affiliated with the [University of Oxford](http://www2.eng.ox.ac.uk/control).
+* Yuwen Chen (maths and algorithms)
+All contributors are affiliated with the Control Group of the [Department of Engineering Science](http://www.eng.ox.ac.uk/) at the [University of Oxford](http://ox.ac.uk/).
 
 If this project is useful for your work please consider
 * [Citing](citing.md) the relevant papers

@@ -410,7 +410,7 @@ function process_constraints(
 
     rowranges = dest.rowranges
     m = mapreduce(length, +, values(rowranges), init=0)
-    b = Vector{Float64}(undef, m)
+    b = Vector{T}(undef, m)
 
     #these will be used for a triplet representation of A
     I = Int[]
@@ -584,7 +584,7 @@ function process_objective(
 
         if function_type == MOI.ScalarAffineFunction{T}
             faffine = MOI.get(src, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}())
-            P = spzeros(n, n)
+            P = spzeros(T, n, n)
             process_objective_linearterm!(q, faffine.terms, idxmap)
             c = faffine.constant
 
