@@ -1,36 +1,15 @@
 
-#local files / testing
+# local files / testing
 _*.jl
+*.mem
+*.cov
+.DS_Store*
 
-# Prerequisites
-*.d
+# doc gen files
+/docs/build
+/docs/src/literate/build/
+/docs/src/examples/*.md
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
+# Pkg generated files
+Manifest.toml
+/docs/Manifest.toml
