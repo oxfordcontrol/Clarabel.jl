@@ -143,7 +143,7 @@ function solve!(
         #----------
         while true
 
-            debug_rescale(s.variables)
+            variables_rescale!(s.variables)
 
             #update the residuals
             #--------------
