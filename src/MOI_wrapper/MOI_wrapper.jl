@@ -235,13 +235,13 @@ MOI.supports(::Optimizer, ::MOI.NumberOfThreads) = false
 #------------------------------
 
 MOI.supports_constraint(
-    ::Optimizer,
+    ::Optimizer{T},
     ::Type{<:MOI.VectorAffineFunction{T}},
     ::Type{<:OptimizerSupportedMOICones{T}}
 ) where {T} = true
 
 MOI.supports_constraint(
-    ::Optimizer,
+    ::Optimizer{T},
     ::Type{<:MOI.VectorOfVariables},
     ::Type{<:OptimizerSupportedMOICones{T}}
 ) where {T} = true
@@ -252,12 +252,12 @@ MOI.supports_constraint(
 #------------------------------
 
 MOI.supports(
-    ::Optimizer,
+    ::Optimizer{T},
     ::MOI.ObjectiveFunction{<:Union{
-       MOI.ScalarAffineFunction,
-       MOI.ScalarQuadraticFunction,
+       MOI.ScalarAffineFunction{T},
+       MOI.ScalarQuadraticFunction{T},
     }}
-) = true
+) where {T} = true
 
 
 #------------------------------
