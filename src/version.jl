@@ -3,5 +3,5 @@ const SOLVER_VERSION = "0.1.0"
 const MOI_VERSION    = "0.10.5"
 
 solver_name() = SOLVER_NAME
-version() = SOLVER_VERSION
+version()     = SOLVER_VERSION
 moi_version() = MOI_VERSION

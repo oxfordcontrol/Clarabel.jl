@@ -21,15 +21,42 @@ end
 # setup!
 # -------------------------------------
 
-function setup!(s,P,c,A,b,cone_types,cone_dims; kwargs...)
-    #this allows override of individual settings during setup
-    settings_populate!(s.settings, Dict(kwargs))
-    setup!(s,P,c,A,b,cone_types,cone_dims)
-end
 
+"""
+	setup!(solver, P, q, A, b, cone_types, cone_dims, [settings])
+
+Populates a [`Solver`](@ref) with a cost function defined by `P` and `q`, and one or more conic constraints defined by `A`, `b` and a description of a conic constraint composed of cones whose types and dimensions are in `cone_types` and `cone_dims`, respectively.
+
+The solver will be configured to solve the following optimization problem:
+
+```
+min   1/2 x'Px + q'x
+s.t.  Ax + s = b, s ∈ K
+```
+
+All data matrices must be sparse.   The matrix `P` is assumed to be symmetric and positive semidefinite, and only the upper triangular part is used.
+
+The cone `K` is a composite cone whose consituent cones are described by
+* cone_types::Vector{Clarabel.SupportedCones}
+* cone_dims::Vector{Int}
+
+The optional argument `settings` can be used to pass custom solver settings:
+```julia
+settings = Clarabel.Settings(verbose = true)
+setup!(model, P, q, A, b, cone_types, cone_dims, settings)
+```
+
+To actually solve the problem, you must make a subsequent call to [`solve!`](@ref)
+"""
 function setup!(s,P,c,A,b,cone_types,cone_dims,settings::Settings)
     #this allows total override of settings during setup
     s.settings = settings
+    setup!(s,P,c,A,b,cone_types,cone_dims)
+end
+
+function setup!(s,P,c,A,b,cone_types,cone_dims; kwargs...)
+    #this allows override of individual settings during setup
+    settings_populate!(s.settings, Dict(kwargs))
     setup!(s,P,c,A,b,cone_types,cone_dims)
 end
 
@@ -80,6 +107,12 @@ end
 # -------------------------------------
 # solve!
 # -------------------------------------
+
+"""
+	solve!(solver)
+
+Computes the solution to the problem in a `Clarabel.Solver` previously defined in [`setup!`](@ref).
+"""
 function solve!(
     s::Solver{T}
 ) where{T}

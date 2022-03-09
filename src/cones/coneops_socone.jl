@@ -50,7 +50,7 @@ function update_scaling!(
     @views K.v[2:end] .= v1.*K.w[2:end]
 
     #λ = Wz
-    gemv_W!(K,false,z,λ,1.,0.0)
+    gemv_W!(K,false,z,λ,one(T),zero(T))
 
     return nothing
 end
@@ -60,12 +60,12 @@ function set_identity_scaling!(
     K::SecondOrderCone{T}
 ) where {T}
 
-    K.d  = 1.0
-    K.u .= 0.0
-    K.v .= 0.0
-    K.η  = 1.0
-    K.w[1]      = 0.0
-    K.w[2:end] .= 0.0
+    K.d  = one(T)
+    K.u .= zero(T)
+    K.v .= zero(T)
+    K.η  = one(T)
+    K.w[1]      = zero(T)
+    K.w[2:end] .= zero(T)
 
     return nothing
 end
@@ -137,7 +137,7 @@ function shift_to_cone!(
         #done in two stages since otherwise (1.-α) = -α for
         #large α, which makes z exactly 0.0 (or worse, -0.0 )
         z[1] += -α
-        z[1] +=  1.
+        z[1] +=  one(T)
     end
 
     return nothing
@@ -199,8 +199,8 @@ function mul_WtWinv!(
     #PJG: W is symmetric, so just multiply
     #by the inverse twice.  Could be made
     #faster if needed
-    gemv_Winv!(K,true,y,y,1.0,0.0)
-    gemv_Winv!(K,true,x,y,1.0,0.0)
+    gemv_Winv!(K,true,y,y,one(T),zero(T))
+    gemv_Winv!(K,true,x,y,one(T),zero(T))
 
     return nothing
 end
@@ -215,8 +215,8 @@ function mul_WtW!(
     #PJG: W is symmetric, so just multiply
     #by W twice.  Could be made
     #faster if needed
-    gemv_W!(K,true,y,y,1.0,0.0)
-    gemv_W!(K,true,x,y,1.0,0.0)
+    gemv_W!(K,true,y,y,one(T),zero(T))
+    gemv_W!(K,true,x,y,one(T),zero(T))
 
     return nothing
 end

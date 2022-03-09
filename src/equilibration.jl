@@ -1,8 +1,7 @@
 import LinearAlgebra
 import Statistics: mean
 
-#Ruiz Equilibration procedure, using same method
-#as in the Oxford COSMO solver
+#Ruiz Equilibration procedure, using same method as in COSMO.jl
 
 const IdentityMatrix = UniformScaling{Bool}
 

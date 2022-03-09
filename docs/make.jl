@@ -9,7 +9,7 @@ fix_math_md(content) = replace(content, r"\$\$(.*?)\$\$"s => s"```math\1```")
 fix_suffix(filename) = replace(filename, ".jl" => ".md")
 function postprocess(cont)
       """
-      The source files for all examples can be found in [/examples](https://github.com/oxfordcontrol/COSMO.jl/tree/master/examples/).
+      The source files for all examples can be found in [/examples](https://github.com/oxfordcontrol/Clarabel.jl/tree/master/examples/).
       """ * cont
 end
 
@@ -28,7 +28,7 @@ end
 
 examples_nav = fix_suffix.("./examples/" .* files)
 
-# find all other documentation source files that are build with Literate
+# find all other documentation source files that are built with Literate
 example_path = joinpath(@__DIR__, "src", "literate/")
 build_path =  joinpath(@__DIR__, "src", "literate", "build/")
 files = readdir(example_path)
@@ -53,10 +53,11 @@ makedocs(
         "User Guide" => Any[
         "Getting Started" =>  "getting_started.md",
         "JuMP Interface" => "jump.md",
-        "Convex.jl Interface" => "convex_jl.md",
-        #"Arbitrary Precision" => "./literate/build/arbitrary_precision.md",
+        "Convex.jl Interface" => "./literate/build/convex_jl.md",
+        "Arbitrary Precision Arithmetic" => "./literate/build/arbitrary_precision.md",
+        "Linear Solvers" => "linear_solvers.md",
         ],
-        "Method" => "method.md",
+        #"Method" => "method.md",
         "Examples" => examples_nav,
         "Citing Clarabel" => "citing.md",
         "Contributing" => "contributing.md",

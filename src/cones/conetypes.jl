@@ -92,7 +92,15 @@ const ConeSet{T} = Vector{AbstractCone{T}}
 # -------------------------------------
 # Enum and dict for user interface
 # -------------------------------------
+"""
+    SupportedCones
+An Enum of supported cone type for passing to [`setup!`](@ref). The currently
+supported types are:
 
+* `ZeroConeT`       : The zero cone.  Used to define equalities.
+* `NonnegativeConeT`: The nonnegative orthant.
+* `SecondOrderConeT`: The second order / Lorentz / ice-cream cone.
+"""
 @enum SupportedCones begin
     ZeroConeT
     NonnegativeConeT
@@ -102,7 +110,7 @@ end
 const ConeDict = Dict(
            ZeroConeT => ZeroCone,
     NonnegativeConeT => NonnegativeCone,
-        SecondOrderConeT => SecondOrderCone
+    SecondOrderConeT => SecondOrderCone
 )
 
 mutable struct ConeInfo

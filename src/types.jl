@@ -141,11 +141,9 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     m::DefaultInt
     cone_info::ConeInfo
 
-    # we will require products P*x, but will
-    # only store triu(P).   Use this convenience
-    # object for now
+    # we will require products P*x, but will only store triu(P).
+    # Use this convenience object for symmetric products etc
     Psym::AbstractMatrix{T}
-
 
     function DefaultProblemData{T}(
         P::AbstractMatrix{T},
@@ -159,7 +157,9 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
         m = length(b)
 
         m == size(A)[1] || throw(ErrorException("A and b incompatible dimensions."))
-        n == size(A)[2] || throw(ErrorException("A and c incompatible dimensions."))
+        n == size(A)[2] || throw(ErrorException("A and q incompatible dimensions."))
+        n == size(P)[1] || throw(ErrorException("P and q incompatible dimensions."))
+        size(P)[1] == size(P)[2] || throw(ErrorException("P not square."))
         m == sum(cone_info.dims) || throw(ErrorException("Incompatible cone dimensions."))
 
         #take an internal copy of all problem
@@ -181,7 +181,21 @@ DefaultProblemData(args...) = DefaultProblemData{DefaultFloat}(args...)
 # ---------------
 # solver status
 # ---------------
+"""
+    SolverStatus
+An Enum of of possible conditions set by [`solve!`](@ref).
 
+If no call has been made to [`solve!`](@ref), then the `SolverStatus`
+is:
+* `UNSOLVED`: The algorithm has not started.
+
+Otherwise:
+* `SOLVED`              : Solver as terminated with a solution.
+* `PRIMAL_INFEASIBLE`   : Problem is primal infeasible.  Solution returned is a certificate of primal infeasibility.
+* `DUAL_INFEASIBLE`     : Problem is dual infeasible.  Solution returned is a certificate of dual infeasibility.
+* `MAX_ITERATIONS`      : Iteration limit reached before solution or infeasibility certificate found.
+* `MAX_TIME`            : Time limit reached before solution or infeasibility certificate found.
+"""
 @enum SolverStatus begin
     UNSOLVED           = 0
     SOLVED
@@ -239,6 +253,13 @@ DefaultInfo(args...) = DefaultInfo{DefaultFloat}(args...)
 # top level solver type
 # -------------------------------------
 
+"""
+	Solver{T <: AbstractFloat}()
+Initializes an empty Clarabel solver that can be filled with problem data using:
+
+    setup!(solver, P, q, A, b, cone_types, cone_dims, [settings]).
+
+"""
 mutable struct Solver{T <: AbstractFloat}
 
     data::Union{AbstractProblemData{T},Nothing}
