@@ -46,10 +46,6 @@ module Clarabel
     include("./equilibration.jl")
     include("./mathutils.jl")
 
-    #PJG : temporary debugging utils
-    include("./debug.jl")
-    include("./debug_coneops.jl")
-
     #MathOptInterface for JuMP/Convex.jl
     include("./MOI_wrapper/MOI_wrapper.jl")
 
