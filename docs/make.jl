@@ -1,9 +1,10 @@
 using Documenter, DocumenterTools, Clarabel, Literate
 
 # Force use of dev QDLDL package
+@info "COnfiguring dev release QDLDL..."
 using Pkg
 Pkg.dev("QDLDL")
-Pkg.status("QDLDL")
+show(Pkg.status("QDLDL"));
 
 # This file borrows heavily from the one in COSMO.jl
 
