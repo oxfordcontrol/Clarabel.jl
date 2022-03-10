@@ -1,4 +1,6 @@
 
+# The Operator Splitting QP Solver
+
 <h1 align="center" margin=0px>
   <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/logo.png" width=25%>
     <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/ox_logo.png" width=25%>
@@ -15,7 +17,7 @@
   <a href="#features">Features</a> •
   <a href="#installation">Installation</a> •
   <a href="#license-">License</a> •
-  <a href="https://oxfordcontrol.github.io/Clarabel.jl/stable">Main Documentation</a> •
+  <a href="https://oxfordcontrol.github.io/Clarabel.jl/stable">Main Documentation</a>
 </p>
 
 __Clarabel.jl__ is a Julia implementation of an interior point numerical solver for convex optimization problems using a novel homogeneous embedding.  Clarabel.jl solves the following problem:
