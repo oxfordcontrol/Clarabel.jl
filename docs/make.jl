@@ -1,5 +1,9 @@
 using Documenter, DocumenterTools, Clarabel, Literate
 
+@info "Temporary import of dev support releases"
+using Pkg
+Pkg.add(url = "https://github.com/osqp/QDLDL.jl#pg/dynamic_regularization")
+
 # This file borrows heavily from the one in COSMO.jl
 
 @info "Building example problems..."
