@@ -1,10 +1,14 @@
 
+<h1 align="center">
+Clarabel.jl : Interior Point Conic Optimization for Julia
+</h1>
+
 <h1 align="center" margin=0px>
   <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/logo.png" width=25%>
     <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/ox_logo.png" width=25%>
 </h1>
 <p align="center">
-   <a href="https://github.com/oxfordcontrol/Clarabel.jl/actions"><img src="https://github.com/oxfordcontrol/Clarabel.jl/workflows/ci/badge.svg?branch=master"></a>
+   <a href="https://github.com/oxfordcontrol/Clarabel.jl/actions"><img src="https://github.com/oxfordcontrol/Clarabel.jl/workflows/ci/badge.svg?branch=main"></a>
   <a href="https://codecov.io/gh/oxfordcontrol/Clarabel.jl"><img src="https://codecov.io/gh/oxfordcontrol/Clarabel.jl/branch/master/graph/badge.svg"></a>
   <a href="https://oxfordcontrol.github.io/Clarabel.jl/stable"><img src="https://img.shields.io/badge/Documentation-stable-purple.svg"></a>
   <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg"></a>
@@ -14,14 +18,14 @@
 <p align="center">
   <a href="#features">Features</a> •
   <a href="#installation">Installation</a> •
-  <a href="NEWS.md">News</a> •
-  <a href="#license-">License</a>
+  <a href="#license-">License</a> •
+  <a href="https://oxfordcontrol.github.io/Clarabel.jl/stable">Main Documentation</a>
 </p>
 
 __Clarabel.jl__ is a Julia implementation of an interior point numerical solver for convex optimization problems using a novel homogeneous embedding.  Clarabel.jl solves the following problem:
 
 <p align="center">
-<img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/master/docs/src/assets/problem_format.png" width=220px>
+<img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/problem_format.png" width=220px>
 </p>
 
 with decision variables ``x \in \mathbb{R}^n``, ``s \in \mathbb{R}^m`` and data matrices ``P=P^\top \succeq 0``, ``q \in \mathbb{R}^n``, ``A \in \mathbb{R}^{m \times n}``, and ``b \in \mathbb{R}^m``. The convex set ``\mathcal{K}`` is a composition of convex cones.
@@ -39,7 +43,7 @@ __For more information see the Clarabel.jl Documentation ([stable](https://oxfor
 * __Open Source__: Our code is available on [GitHub](https://github.com/oxfordcontrol/Clarabel.jl) and distributed under the Apache 2.0 Licence
 
 ## Installation
-- `Clarabel.jl` can be added via the Julia package manager (type `]`): `pkg> add Clarabel`
+- __Clarabel.jl__ can be added via the Julia package manager (type `]`): `pkg> add Clarabel`
 
 
 ## Licence 🔍
