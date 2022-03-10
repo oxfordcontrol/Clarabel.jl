@@ -1,6 +1,6 @@
 
 <h1 align="center" margin=0px>
-  <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/logo.png" width=70%>
+  <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/logo.png" width=25%>
 </h1>
 <p align="center">
    <a href="https://github.com/oxfordcontrol/Clarabel.jl/actions"><img src="https://github.com/oxfordcontrol/Clarabel.jl/workflows/ci/badge.svg?branch=master"></a>
