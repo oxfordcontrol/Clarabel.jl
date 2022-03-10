@@ -39,10 +39,14 @@ end
 
 
 @info "Making documentation..."
+
+
+
 makedocs(
   sitename="Clarabel.jl",
   authors = "Paul Goulart",
   format = Documenter.HTML(
+        edit_branch = "main",
         prettyurls = get(ENV, "CI", nothing) == "true",
         canonical = "https://oxfordcontrol.github.io/Clarabel.jl/stable/",
         assets = ["assets/favicon.ico"; "assets/github_buttons.js"; "assets/custom.css"],
