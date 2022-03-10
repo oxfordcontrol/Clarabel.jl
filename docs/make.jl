@@ -66,6 +66,6 @@ makedocs(
 )
 
 deploydocs(
-    devbranch = "dev",
+    devbranch = "main",
     devurl    = "dev",
     repo      = "github.com/oxfordcontrol/Clarabel.jl.git")
