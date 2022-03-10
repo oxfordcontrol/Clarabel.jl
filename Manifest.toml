@@ -9,11 +9,6 @@ git-tree-sha1 = "fc66ffc5cff568936649445f58a55b81eaf9592c"
 uuid = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
 version = "0.4.0"
 
-[[deps.AbstractTrees]]
-git-tree-sha1 = "03e0550477d86222521d254b741d470ba17ea0b5"
-uuid = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
-version = "0.3.4"
-
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 
@@ -35,11 +30,6 @@ git-tree-sha1 = "19a35467a82e236ff51bc17a3a44b69ef35185a2"
 uuid = "6e34b625-4abd-537c-b88f-471c36dfa7a0"
 version = "1.0.8+0"
 
-[[deps.ClearStacktrace]]
-git-tree-sha1 = "5945bd06893f90741e379fa1195c215f7c5517ad"
-uuid = "710b7bb7-6527-48f4-8ff2-df22ae1c6308"
-version = "0.2.2"
-
 [[deps.CodecBzip2]]
 deps = ["Bzip2_jll", "Libdl", "TranscodingStreams"]
 git-tree-sha1 = "2e62a725210ce3c3c2e1a3080190e7ca491f18d7"
@@ -55,12 +45,6 @@ version = "0.7.0"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-
-[[deps.Convex]]
-deps = ["AbstractTrees", "BenchmarkTools", "LDLFactorizations", "LinearAlgebra", "MathOptInterface", "OrderedCollections", "SparseArrays", "Test"]
-git-tree-sha1 = "88746604d00ba4441d13d5eb2332977a0e428f3b"
-uuid = "f65535da-76fb-5f13-bab9-19810c17039a"
-version = "0.15.0"
 
 [[deps.Dates]]
 deps = ["Printf"]
@@ -96,12 +80,6 @@ deps = ["Dates", "Mmap", "Parsers", "Unicode"]
 git-tree-sha1 = "3c837543ddb02250ef42f4738347454f95079d4e"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 version = "0.21.3"
-
-[[deps.LDLFactorizations]]
-deps = ["AMD", "LinearAlgebra", "SparseArrays", "Test"]
-git-tree-sha1 = "399bbe845e06e1c2d44ebb241f554d45eaf66788"
-uuid = "40e66cde-538c-5869-a4ad-c39174c6795b"
-version = "0.8.1"
 
 [[deps.LazyArtifacts]]
 deps = ["Artifacts", "Pkg"]
@@ -210,7 +188,7 @@ uuid = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
 [[deps.QDLDL]]
 deps = ["AMD", "LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "4dd8d98a61617b67196fd796806bbf6e03a0b1be"
-repo-rev = "pg/sym_order_mapping"
+repo-rev = "6bb6bf40565fd69cacf21936fa1ca50b5e06c87a"
 repo-url = "https://github.com/osqp/QDLDL.jl.git"
 uuid = "bfc457fd-c171-5ab7-bd9e-d5dbfc242d63"
 version = "0.1.5"

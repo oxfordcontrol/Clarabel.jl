@@ -2,6 +2,7 @@ using Documenter, DocumenterTools, Clarabel, Literate
 
 @info "Temporary import of dev support releases"
 using Pkg
+Pkg.activate("Clarabel")
 Pkg.add(name="QDLDL",rev="6bb6bf40565fd69cacf21936fa1ca50b5e06c87a")
 
 # This file borrows heavily from the one in COSMO.jl
