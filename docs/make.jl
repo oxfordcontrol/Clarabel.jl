@@ -9,7 +9,7 @@ fix_math_md(content) = replace(content, r"\$\$(.*?)\$\$"s => s"```math\1```")
 fix_suffix(filename) = replace(filename, ".jl" => ".md")
 function postprocess(cont)
       """
-      The source files for all examples can be found in [/examples](https://github.com/oxfordcontrol/Clarabel.jl/tree/master/examples/).
+      The source files for all examples can be found in [/examples](https://github.com/oxfordcontrol/Clarabel.jl/tree/main/examples/).
       """ * cont
 end
 
@@ -66,4 +66,6 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/oxfordcontrol/Clarabel.jl.git")
+    devbranch = "dev",
+    devurl    = "dev",
+    repo      = "github.com/oxfordcontrol/Clarabel.jl.git")
