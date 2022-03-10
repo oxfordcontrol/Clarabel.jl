@@ -43,7 +43,7 @@ __For more information see the Clarabel.jl Documentation ([stable](https://oxfor
 * __Open Source__: Our code is available on [GitHub](https://github.com/oxfordcontrol/Clarabel.jl) and distributed under the Apache 2.0 Licence
 
 ## Installation
-- `Clarabel.jl` can be added via the Julia package manager (type `]`): `pkg> add Clarabel`
+- __Clarabel.jl__ can be added via the Julia package manager (type `]`): `pkg> add Clarabel`
 
 
 ## Licence 🔍
