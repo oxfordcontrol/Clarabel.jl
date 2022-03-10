@@ -21,7 +21,7 @@
 __Clarabel.jl__ is a Julia implementation of an interior point numerical solver for convex optimization problems using a novel homogeneous embedding.  Clarabel.jl solves the following problem:
 
 <p align="center">
-<img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/master/docs/src/assets/problem_format.png" width=220px>
+<img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/problem_format.png" width=220px>
 </p>
 
 with decision variables ``x \in \mathbb{R}^n``, ``s \in \mathbb{R}^m`` and data matrices ``P=P^\top \succeq 0``, ``q \in \mathbb{R}^n``, ``A \in \mathbb{R}^{m \times n}``, and ``b \in \mathbb{R}^m``. The convex set ``\mathcal{K}`` is a composition of convex cones.
