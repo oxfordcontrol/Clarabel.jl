@@ -20,4 +20,6 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [compat]
 TimerOutputs = "0.5"
+MathOptInterface = "1.1"
 Pardiso = "0.5"
+
