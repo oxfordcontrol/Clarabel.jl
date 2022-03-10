@@ -1,5 +1,5 @@
 
-# The Operator Splitting QP Solver
+# Clarabel.jl : Interior Point Conic Optimization for Julia
 
 <h1 align="center" margin=0px>
   <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/logo.png" width=25%>
