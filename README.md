@@ -1,6 +1,6 @@
 
 <h1 align="center">
-# Clarabel.jl : Interior Point Conic Optimization for Julia
+Clarabel.jl : Interior Point Conic Optimization for Julia
 </h1>
 
 <h1 align="center" margin=0px>
