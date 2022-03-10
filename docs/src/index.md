@@ -14,7 +14,7 @@ with decision variables ``x \in \mathbb{R}^n``, ``s \in \mathbb{R}^m`` and data 
 * __Infeasibility detection__: Infeasible problems are detected using using a homogeneous embedding technique.
 * __JuMP / Convex.jl support__: We provide an interface to [MathOptInterface](https://jump.dev/JuMP.jl/stable/moi/) (MOI), which allows you to describe your problem in [JuMP](https://github.com/JuliaOpt/JuMP.jl) and [Convex.jl](https://github.com/JuliaOpt/Convex.jl).
 * __Arbitrary precision types__: You can solve problems with any floating point precision, e.g. Float32 or Julia's BigFloat type, using either the native interface, or via MathOptInterface / Convex.jl.
-* __Open Source__: Our code is available on [GitHub](https://github.com/oxfordcontrol/Clarabel.jl) and distributed under the Apache 2.0 Licence
+* __Open Source__: Our code is available on [GitHub](https://github.com/oxfordcontrol/Clarabel.jl) and distributed under the Apache 2.0 Licence.
 
 ## Installation
 Clarabel.jl can be installed using the Julia package manager for Julia `v1.0` and higher. Inside the Julia REPL, type `]` to enter the Pkg REPL mode then run
