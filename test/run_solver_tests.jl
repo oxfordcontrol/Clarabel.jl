@@ -9,6 +9,7 @@ rng = Random.MersenneTwister(12345)
         include("./UnitTests/basic_lp.jl")
         include("./UnitTests/basic_qp.jl")
         include("./UnitTests/basic_socp.jl")
+        include("./UnitTests/infeasibility.jl")
 
     end
 

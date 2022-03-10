@@ -86,7 +86,7 @@ model = JuMP.Model(Clarabel.Optimizer)
 set_optimizer_attribute(model, "verbose", true)
 
 @variable(model, x[1:2])
-@constraint(model, c1, [1, 2x[1]-2, x[2] - 2] in SecondOrderCone())
+@constraint(model, [1, 2x[1]-2, x[2] - 2] in SecondOrderCone())
 @objective(model, Min, x[2]^2 )
 
 optimize!(model)
