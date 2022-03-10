@@ -46,7 +46,7 @@ makedocs(
         prettyurls = get(ENV, "CI", nothing) == "true",
         canonical = "https://oxfordcontrol.github.io/Clarabel.jl/stable/",
         assets = ["assets/favicon.ico"; "assets/github_buttons.js"; "assets/custom.css"],
-        analytics = "306560766",
+        analytics = "G-FP3WPEJMVX",
   ),
   pages = [
         "Home" => "index.md",
