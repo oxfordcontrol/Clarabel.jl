@@ -1,5 +1,5 @@
 
-<p align="center">
+<p align="justify">
 # Clarabel.jl : Interior Point Conic Optimization for Julia
 </p>
 
