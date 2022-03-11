@@ -18,6 +18,7 @@ end
 # not compilation time
 redirect_stdout(devnull)  #shh!!
 include(joinpath(@__DIR__, "../examples/", "example_QP.jl"))
+include(joinpath(@__DIR__, "../examples/", "example_QP.jl"))
 include(joinpath(@__DIR__, "../examples/", "example_SOCP.jl"))
 redirect_stdout(stdout)
 
