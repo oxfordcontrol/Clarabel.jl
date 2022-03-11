@@ -33,13 +33,14 @@ module Clarabel
     include("./show.jl")
     include("./solver.jl")
 
-    #conic constraints.  Additional Additional
-    #cone constraint implementations here
+    #conic constraints.  Additional
+    #cone implementations here
     include("./cones/coneops.jl")
     include("./cones/coneops_defaults.jl")
     include("./cones/coneops_zerocone.jl")
     include("./cones/coneops_nncone.jl")
     include("./cones/coneops_socone.jl")
+    include("./cones/coneops_psdcone.jl") 
 
     #equilibration and various algebraic
     #utilities
