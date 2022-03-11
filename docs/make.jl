@@ -13,6 +13,12 @@ function postprocess(cont)
       """ * cont
 end
 
+# force execution of the two basic examples so that
+# their timing in the docs represent execution time,
+# not compilation time
+include(joinpath(@__DIR__, "../examples/", "example_QP.jl"))
+include(joinpath(@__DIR__, "../examples/", "example_SOCP.jl"))
+
 
 # find all example source files
 exclude_files = String[];
@@ -46,7 +52,7 @@ makedocs(
   sitename="Clarabel.jl",
   authors = "Paul Goulart",
   format = Documenter.HTML(
-        edit_branch = "main",
+        edit_link = "main",
         prettyurls = get(ENV, "CI", nothing) == "true",
         canonical = "https://oxfordcontrol.github.io/Clarabel.jl/stable/",
         assets = ["assets/favicon.ico"; "assets/github_buttons.js"; "assets/custom.css"],
