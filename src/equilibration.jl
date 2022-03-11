@@ -69,7 +69,7 @@ function equilibrate!(
 		mean_col_norm_P = mean(dwork)
 		inf_norm_q      = norm(q, Inf)
 
-		if mean_col_norm_P  != 0. && inf_norm_q != 0.
+		if mean_col_norm_P  != zero(T) && inf_norm_q != zero(T)
 
 			scale_cost = max(inf_norm_q, mean_col_norm_P)
 			scale_cost = limit_scaling(scale_cost, scale_min, scale_max)

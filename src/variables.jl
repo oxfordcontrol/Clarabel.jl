@@ -94,10 +94,10 @@ function calc_combined_step_rhs!(
     #PJG: Still not clear whether second order corrections
     #on the dτ variable make sense here or not.   Not used for now
     #tmp2 = symdot(q,data.Psym,q) / variables.τ
-    tmp0 = 0.  #PJG no higher order correction
+    tmp0 = zero(T)  #PJG no higher order correction
 
-    @. d.x  = (1. - σ)*r.rx
-       d.τ  = (1. - σ)*r.rτ + tmp0    #PJG: second order correction?
+    @. d.x  = (one(T) - σ)*r.rx
+       d.τ  = (one(T) - σ)*r.rτ + tmp0    #PJG: second order correction?
        d.κ  = - σ*μ + step.τ * step.κ + variables.τ * variables.κ
 
     # d.s must be assembled carefully if we want to be economical with
@@ -138,10 +138,10 @@ function variables_shift_to_cone!(
 end
 
 function variables_finalize!(
-    variables::DefaultVariables,
-    scalings::DefaultScalings,
+    variables::DefaultVariables{T},
+    scalings::DefaultScalings{T},
     status::SolverStatus
-)
+) where {T}
 
     #undo the homogenization
     #
@@ -149,9 +149,9 @@ function variables_finalize!(
     #using κ to get an infeasibility certificate.
     #Otherwise use τ to get a solution.
     if(status == PRIMAL_INFEASIBLE || status == DUAL_INFEASIBLE)
-        scaleinv = 1. / variables.κ
+        scaleinv = one(T) / variables.κ
     else
-        scaleinv = 1. / variables.τ
+        scaleinv = one(T) / variables.τ
     end
 
     @. variables.x *= scaleinv

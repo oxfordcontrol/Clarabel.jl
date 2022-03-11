@@ -124,7 +124,7 @@ function _kkt_solve_constant_rhs!(
     #of the reduced solve
     kktsolver.work_x .= -data.q;
     kktsolver.work_z .=  data.b;
-    kktsolver.work_p .=  0.0;
+    kktsolver.work_p .=  zero(T);
 
     linsys_solve!(kktsolver.linsys,kktsolver.lhs_const,kktsolver.work)
 
@@ -140,9 +140,9 @@ function kkt_solve_initial_point!(
 
     # solve with [0;b] as a RHS to get (x,s) initializers
     # zero out any sparse cone variables at end
-    kktsolver.work_x .= 0.0
+    kktsolver.work_x .= zero(T)
     kktsolver.work_z .= data.b
-    kktsolver.work_p .= 0.0
+    kktsolver.work_p .= zero(T)
 
     linsys_solve!(kktsolver.linsys,kktsolver.lhs,kktsolver.work)
     variables.x .=  kktsolver.lhs_x
@@ -151,8 +151,8 @@ function kkt_solve_initial_point!(
     # solve with [-c;0] as a RHS to get z initializer
     # zero out any sparse cone variables at end
     kktsolver.work_x .= -data.q
-    kktsolver.work_z .=  0.0
-    kktsolver.work_p .=  0.0
+    kktsolver.work_z .=  zero(T)
+    kktsolver.work_p .=  zero(T)
 
     linsys_solve!(kktsolver.linsys,kktsolver.lhs,kktsolver.work)
     variables.z .= kktsolver.lhs_z

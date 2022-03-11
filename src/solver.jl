@@ -143,8 +143,6 @@ function solve!(
         #----------
         while true
 
-            variables_rescale!(s.variables)
-
             #update the residuals
             #--------------
             residuals_update!(s.residuals,s.variables,s.data)
@@ -156,16 +154,14 @@ function solve!(
             #convergence check and printing
             #--------------
             @timeit timer "check termination" begin
-                isdone = check_termination!(
+                info_update!(
                     s.info,s.data,s.variables,
-                    s.residuals,s.scalings,s.settings,
-                    iter == s.settings.max_iter
+                    s.residuals,s.scalings,s.settings
                 )
+                isdone = info_check_termination!(s.info,s.residuals,s.settings)
             end
             iter += 1
-            disable_timer!(timer)
             @notimeit print_status(s.info,s.settings)
-            enable_timer!(timer)
             isdone && break
 
             #update the scalings
