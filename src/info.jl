@@ -57,8 +57,6 @@ function check_termination!(
         info.status = SOLVED
 
     #check for primal infeasibility
-    #PJG: Still not sure how to properly normalize here
-    #maybe should be done via cost.   Using RHS is a disaster
     #---------------------
     #DEBUG: Possibly fatal problem here if norm_q is huge
     #YC: change of res_primal_inf and res_dual_inf in line 33,34 as in ECOS and CVXOPT
