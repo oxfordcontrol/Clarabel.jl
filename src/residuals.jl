@@ -13,16 +13,18 @@ function residuals_update!(
   #partial residual calc so we can check primal/dual
   #infeasibility conditions
 
-  #Same as: residuals.rx_inf .= -data.Psym * variables.x - data.A'* variables.z
-  mul!(residuals.rx_inf, data.Psym , variables.x)
-  mul!(residuals.rx_inf, data.A', variables.z, -1.,-1.)
+  #Same as:
+  #residuals.rPx_inf .= -data.Psym * variables.x
+  #residuals.rx_inf .= -data.A'* variables.z
+  mul!(residuals.rPx_inf, data.Psym , variables.x, -1., 0.)
+  mul!(residuals.rx_inf, data.A', variables.z, -1., 0.)
 
   #Same as:  residuals.rz_inf .=  data.A * variables.x + variables.s
   @. residuals.rz_inf = variables.s
   mul!(residuals.rz_inf, data.A, variables.x, 1., 1.)
 
   #complete the residuals
-  @. residuals.rx = residuals.rx_inf - data.q * variables.τ
+  @. residuals.rx = residuals.rPx_inf + residuals.rx_inf - data.q * variables.τ
   @. residuals.rz = residuals.rz_inf - data.b * variables.τ
   residuals.rτ    = qx + bz + variables.κ + xPx/variables.τ
 

@@ -99,6 +99,7 @@ mutable struct DefaultResiduals{T} <: AbstractResiduals{T}
     rτ::T
 
     #partial residuals for infeasibility checks
+	  rPx_inf::Vector{T}
     rx_inf::Vector{T}
     rz_inf::Vector{T}
 
@@ -116,10 +117,11 @@ mutable struct DefaultResiduals{T} <: AbstractResiduals{T}
         rz = Vector{T}(undef,m)
         rτ = T(1)
 
+		    rPx_inf = Vector{T}(undef,n)
         rx_inf = Vector{T}(undef,n)
         rz_inf = Vector{T}(undef,m)
 
-        new(rx,rz,rτ,rx_inf,rz_inf,0.,0.,0.,0.)
+        new(rx,rz,rτ,rPx_inf,rx_inf,rz_inf,0.,0.,0.,0.)
     end
 
 end

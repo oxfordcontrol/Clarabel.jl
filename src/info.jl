@@ -28,8 +28,10 @@ function check_termination!(
     info.res_dual    = scaled_norm(Dinv,residuals.rx) * τinv
 
     #primal and dual infeasibility residuals.   Need to invert the equilibration
-    info.res_primal_inf = scaled_norm(Einv,residuals.rz_inf)
-    info.res_dual_inf   = scaled_norm(Dinv,residuals.rx_inf)
+    #YC: res_primal_inf & res_dual_inf are similar to pinfres & dinfres in ECOS and CVXOPT, but without normalization
+    # res_primal_inf = ||rz||/(-b'z) < tol_feas,  res_dual_inf = max(||Px||, ||Ax+s||)/(-c'x) < tol_feas
+    info.res_primal_inf = scaled_norm(Einv,residuals.rz_inf)/( - residuals.dot_bz)
+    info.res_dual_inf   = max(scaled_norm(Dinv,residuals.rPx_inf),scaled_norm(Dinv,residuals.rx_inf))/( - residuals.dot_qx)
 
     #absolute and relative gaps
     gap_abs   = residuals.dot_sz * τinv * τinv
@@ -59,15 +61,14 @@ function check_termination!(
     #maybe should be done via cost.   Using RHS is a disaster
     #---------------------
     #DEBUG: Possibly fatal problem here if norm_q is huge
-    elseif(residuals.dot_bz < 0 &&
-           info.res_primal_inf < settings.tol_feas)
+    #YC: change of res_primal_inf and res_dual_inf in line 33,34 as in ECOS and CVXOPT
+    elseif(residuals.dot_bz < 0 && variables.τ < variables.κ && info.res_primal_inf < 1e-8)
         info.status = PRIMAL_INFEASIBLE
 
     #check for dual infeasibility
     #---------------------
     #DEBUG: Fatal problem here if norm_b is huge
-    elseif(residuals.dot_qx < 0 &&
-           info.res_dual_inf < settings.tol_feas)
+    elseif(residuals.dot_qx < 0 && variables.τ < variables.κ && info.res_dual_inf < 1e-8)
         info.status = DUAL_INFEASIBLE
 
 
