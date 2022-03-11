@@ -64,10 +64,10 @@ function info_check_termination!(
 
     elseif info.ktratio > one(T)
 
-        if (residuals.dot_bz < -settings.tol_rel) && (info.res_primal_inf < -settings.tol_feas*residuals.dot_bz)
+        if (residuals.dot_bz < -settings.tol_infeas_rel) && (info.res_primal_inf < -settings.tol_infeas_abs*residuals.dot_bz)
             info.status = PRIMAL_INFEASIBLE
 
-        elseif (residuals.dot_qx < -settings.tol_rel) && (info.res_dual_inf < -settings.tol_feas*residuals.dot_qx)
+        elseif (residuals.dot_qx < -settings.tol_infeas_rel) && (info.res_dual_inf < -settings.tol_infeas_abs*residuals.dot_qx)
             info.status = DUAL_INFEASIBLE
 
         end

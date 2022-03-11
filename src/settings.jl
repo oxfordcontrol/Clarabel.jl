@@ -18,7 +18,8 @@ verbose                                 | true      | verbose printing
 tol\\_gap\\_abs                         | 1e-8      | absolute residual tolerance
 tol\\_gap\\_rel                         | 1e-8      | relative residual tolerance
 tol\\_feas                              | 1e-5      | feasibility check tolerance
-tol\\_rel								| 1e-5		| relative check tolerance
+tol_\\infeas\\_abs						| 1e-8		| absolute infeasibility tolerance
+tol_\\infeas\\_rel						| 1e-8		| relative infeasibility tolerance
 max\\_step\\_fraction                   | 0.99      | maximum interior point step length
 ||
 __Data Equilibration Settings__||
@@ -52,7 +53,8 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     tol_gap_abs::T          = 1e-8
     tol_gap_rel::T          = 1e-8
     tol_feas::T             = 1e-5
-	tol_rel::T 				= 1e-5
+	tol_infeas_abs::T		= 1e-8
+	tol_infeas_rel::T		= 1e-8
     max_step_fraction::T    = 0.99
 
 	#data equilibration
