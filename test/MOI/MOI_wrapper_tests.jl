@@ -62,14 +62,16 @@ implemented or that your solver doesn't support.
 """
 function test_MOI_standard()
 
-    #PJG: reenable tests as development progresses
-    MOI.Test.Config(exclude = Any[MOI.VariableName])
+    MOI.Test.Config(
+        exclude = Any[
+            # MOI.VariableName
+    ])
 
     MOI.Test.runtests(
         BRIDGED,
         CONFIG,
         exclude = String[
-            # "test_basic_",
+            "test_model_UpperBoundAlreadySet",   #fixed in https://github.com/jump-dev/MathOptInterface.jl/pull/1775,  waiting for it to be merged to next MOI release.
         ],
         # This argument is useful to prevent tests from failing on future
         # releases of MOI that add new tests.

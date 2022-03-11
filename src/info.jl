@@ -1,11 +1,10 @@
-function check_termination!(
+function info_update!(
     info::DefaultInfo{T},
     data::DefaultProblemData{T},
     variables::DefaultVariables{T},
     residuals::DefaultResiduals{T},
     scalings::DefaultScalings{T},
-    settings::Settings{T},
-    last_iter::Bool
+    settings::Settings{T}
 ) where {T}
 
     #optimality termination check should be computed w.r.t
@@ -17,7 +16,7 @@ function check_termination!(
     E = scalings.E; Einv = scalings.Einv
     cscale = scalings.c[]
 
-    #primal and dual costs. do products are invariant w.r.t
+    #primal and dual costs. dot products are invariant w.r.t
     #equilibration, but we still need to back out the overall
     #objective scaling term c
     info.cost_primal =  (+residuals.dot_qx*τinv + residuals.dot_xPx * τinv * τinv / 2)/cscale
@@ -28,15 +27,15 @@ function check_termination!(
     info.res_dual    = scaled_norm(Dinv,residuals.rx) * τinv
 
     #primal and dual infeasibility residuals.   Need to invert the equilibration
-    info.res_primal_inf = scaled_norm(Einv,residuals.rz_inf)
-    info.res_dual_inf   = scaled_norm(Dinv,residuals.rx_inf)
+    info.res_primal_inf = scaled_norm(Dinv,residuals.rx_inf)
+    info.res_dual_inf   = max(scaled_norm(Dinv,residuals.Px),scaled_norm(Einv,residuals.rz_inf))
 
     #absolute and relative gaps
-    gap_abs   = residuals.dot_sz * τinv * τinv
+    info.gap_abs   = residuals.dot_sz * τinv * τinv
     if(info.cost_primal > 0 && info.cost_dual < 0)
-        gap_rel = 1/eps()
+        info.gap_rel = 1/eps()
     else
-        gap_rel = gap_abs / min(abs(info.cost_primal),abs(info.cost_dual))
+        info.gap_rel = info.gap_abs / min(abs(info.cost_primal),abs(info.cost_dual))
     end
 
     #κ/τ
@@ -44,50 +43,61 @@ function check_termination!(
 
     #solve time so far (includes setup!)
     info_get_solve_time!(info)
-    is_out_of_time = settings.time_limit == 0. ? false : info.solve_time > settings.time_limit
 
-    #check for convergence
+end
+
+function info_check_termination!(
+    info::DefaultInfo{T},
+    residuals::DefaultResiduals{T},
+    settings::Settings{T}
+) where {T}
+
+    #optimality
     #---------------------
-    if( ((gap_abs < settings.tol_gap_abs) || (gap_rel < settings.tol_gap_rel))
+    info.status = UNSOLVED  #ensure default state
+
+    if( ((info.gap_abs < settings.tol_gap_abs) || (info.gap_rel < settings.tol_gap_rel))
         && (info.res_primal < settings.tol_feas)
         && (info.res_dual   < settings.tol_feas)
     )
         info.status = SOLVED
 
-    #check for primal infeasibility
-    #PJG: Still not sure how to properly normalize here
-    #maybe should be done via cost.   Using RHS is a disaster
-    #---------------------
-    #DEBUG: Possibly fatal problem here if norm_q is huge
-    elseif(residuals.dot_bz < 0 &&
-           info.res_primal_inf < settings.tol_feas)
-        info.status = PRIMAL_INFEASIBLE
+    elseif info.ktratio > one(T)
 
-    #check for dual infeasibility
-    #---------------------
-    #DEBUG: Fatal problem here if norm_b is huge
-    elseif(residuals.dot_qx < 0 &&
-           info.res_dual_inf < settings.tol_feas)
-        info.status = DUAL_INFEASIBLE
+        if (residuals.dot_bz < -settings.tol_infeas_rel) &&
+           (info.res_primal_inf < -settings.tol_infeas_abs*residuals.dot_bz)
+           
+            info.status = PRIMAL_INFEASIBLE
 
+        elseif (residuals.dot_qx < -settings.tol_infeas_rel) &&
+               (info.res_dual_inf < -settings.tol_infeas_abs*residuals.dot_qx)
 
-    #check for last iteration in the absence
-    #of any other reason for stopping
+            info.status = DUAL_INFEASIBLE
+
+        end
+    end
+
+    #time or iteration limits
     #----------------------
-    elseif(last_iter)
-        info.status = MAX_ITERATIONS
-    elseif(is_out_of_time)
-        info.status = MAX_TIME
+    if info.status == UNSOLVED
+
+        if settings.max_iter  == info.iterations
+            info.status = MAX_ITERATIONS
+
+        elseif settings.time_limit > zero(T) && info.solve_time > settings.time_limit
+            info.status = MAX_TIME
+
+        end
     end
 
     #return TRUE if we settled on a final status
     return is_done = info.status != UNSOLVED
-
 end
+
 
 function info_save_scalars(info,μ,α,σ,iter)
 
-    info.gap = μ  #DEBUG PJG: this is not the gap, it's gap/(m+1)
+    info.μ = μ
     info.step_length = α
     info.sigma = σ
     info.iterations = iter
@@ -107,6 +117,7 @@ function info_reset!(info)
 
     return nothing
 end
+
 
 function info_get_solve_time!(info)
 
