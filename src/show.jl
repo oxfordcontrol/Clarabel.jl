@@ -5,17 +5,6 @@ function Base.show(io::IO, solver::Clarabel.Solver{T}) where {T}
 end
 
 
-# function Base.show(io::IO, settings::Clarabel.Settings{T}) where {T}
-#     println("Clarabel settings with Float precision: $(T)")
-#     println()
-#     for f in fieldnames(Clarabel.Settings)
-#         value = getfield(settings,f)
-#         vtype = typeof(value)
-#         println("$f:$vtype | $value")
-#     end
-# end
-
-
 # Inspired by method in https://discourse.julialang.org/t/how-to-align-output-in-columns/3938/2
 
 function Base.show(io::IO, settings::Clarabel.Settings{T}) where {T}
