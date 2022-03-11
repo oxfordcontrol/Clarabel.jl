@@ -15,7 +15,7 @@ function residuals_update!(
   #infeasibility conditions
 
   #Same as:
-  #residuals.rx_inf .= -data.A'* variables.z
+  #residuals.rx_inf .= - data.Psym,variables.x -data.A'* variables.z
   mul!(residuals.rx_inf, data.A', variables.z, -1., 0.)
   residuals.rx_inf .-= residuals.Px
 
