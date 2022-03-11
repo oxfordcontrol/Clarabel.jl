@@ -62,37 +62,18 @@ function info_check_termination!(
     )
         info.status = SOLVED
 
-<<<<<<< HEAD
-    #check for primal infeasibility
-    #---------------------
-    #DEBUG: Possibly fatal problem here if norm_q is huge
-    #YC: change of res_primal_inf and res_dual_inf in line 33,34 as in ECOS and CVXOPT
-elseif(residuals.dot_bz < -1e-6 && variables.τ < variables.κ && info.res_primal_inf < 1e-8)
-        info.status = PRIMAL_INFEASIBLE
+    elseif info.ktratio > one(T)
 
-    #check for dual infeasibility
-    #---------------------
-    #DEBUG: Fatal problem here if norm_b is huge
-    elseif(residuals.dot_qx < -1e-6 && variables.τ < variables.κ && info.res_dual_inf < 1e-8)
-        info.status = DUAL_INFEASIBLE
-
-
-    #check for last iteration in the absence
-    #of any other reason for stopping
-=======
-elseif info.ktratio > one(T)
-
-        if (residuals.dot_bz < -1e-6) && (info.res_primal_inf < -1e-8*residuals.dot_bz)
+        if (residuals.dot_bz < -settings.tol_rel) && (info.res_primal_inf < -settings.tol_feas*residuals.dot_bz)
             info.status = PRIMAL_INFEASIBLE
 
-        elseif (residuals.dot_qx < -1e-6) && (info.res_dual_inf < -1e-8*residuals.dot_qx)
+        elseif (residuals.dot_qx < -settings.tol_rel) && (info.res_dual_inf < -settings.tol_feas*residuals.dot_qx)
             info.status = DUAL_INFEASIBLE
 
         end
     end
 
     #time or iteration limits
->>>>>>> 11812b037ae885122a0eae8a9048a0a6f69bcadf
     #----------------------
     if info.status == UNSOLVED
 
