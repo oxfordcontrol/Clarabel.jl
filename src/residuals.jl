@@ -15,16 +15,15 @@ function residuals_update!(
   #infeasibility conditions
 
   #Same as:
-  #residuals.rx_inf .= -data.A'* variables.z - data.Psym*variables.x
+  #residuals.rx_inf .= -data.A'* variables.z
   mul!(residuals.rx_inf, data.A', variables.z, -one(T), zero(T))
-  residuals.rx_inf .-= residuals.Px
 
   #Same as:  residuals.rz_inf .=  data.A * variables.x + variables.s
   @. residuals.rz_inf = variables.s
   mul!(residuals.rz_inf, data.A, variables.x, one(T), one(T))
 
   #complete the residuals
-  @. residuals.rx = residuals.rx_inf - data.q * variables.τ
+  @. residuals.rx = residuals.rx_inf - residuals.Px - data.q * variables.τ
   @. residuals.rz = residuals.rz_inf - data.b * variables.τ
   residuals.rτ    = qx + bz + variables.κ + xPx/variables.τ
 
