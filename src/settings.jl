@@ -7,9 +7,11 @@
 
 Creates a Clarabel Settings object that is used to pass user settings to the solver.
 
-Argument | Description | Values (default)
+Argument | Default Value | Description
 :--- | :--- | :---
+||
 __Main Algorithm Settings__||
+||
 max_iter                                | 50        | maximum number of iterations
 time_limit                              | 0         | maximum run time (seconds)
 verbose                                 | true      | verbose printing
@@ -19,12 +21,14 @@ tol\\_feas                              | 1e-5      | feasibility check toleranc
 max\\_step\\_fraction                   | 0.99      | maximum interior point step length
 ||
 __Data Equilibration Settings__||
+||
 equilibrate\\_enable                    | true      | enable  data equilibration pre-scaling
 equilibrate\\_max\\_iter                | 10        | maximum equilibration scaling iterations
 equilibrate\\_min\\_scaling             | 1e-4      | minimum equilibration scaling allowed
 equilibrate\\_max\\_scaling             | 1e+4      | maximum equilibration scaling allowed
 ||
 	__Linear Solver Settings__||
+||
 direct\\_kkt\\_solver                   | true      | use a direct linear solver method (required true)
 direct\\_solve\\_method                 | :qdldl    | direct linear solver (:qdldl or :mkl)
 static\\_regularization\\_enable        | true      | enable KKT static regularization
@@ -36,7 +40,7 @@ iterative\\_refinement\\_enable         | true      | KKT solve with iterative r
 iterative\\_refinement\\_reltol         | 1e-10     | iterative refinement relative tolerance
 iterative\\_refinement\\_abstol         | 1e-10     | iterative refinement absolute tolerance
 iterative\\_refinement\\_max\\_iter     | 10        | iterative refinement maximum iterations
-iterative\\_refinement\\_stop\\_ratio   | 2.        | iterative refinement stalling tolerance
+iterative\\_refinement\\_stop\\_ratio   | 2.0       | iterative refinement stalling tolerance
 
 """
 Base.@kwdef mutable struct Settings{T <: AbstractFloat}
