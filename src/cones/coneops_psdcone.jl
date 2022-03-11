@@ -1,12 +1,13 @@
 # ----------------------------------------------------
 # Positive Semidefinite Cone
 # ----------------------------------------------------
+#PJG: Remove when complete
+macro __FUNCTION__()
+    return :($(esc(Expr(:isdefined, :var"#self#"))) ? $(esc(:var"#self#")) : nothing)
+end
 
-# degree of the cone is the same as dimension
-# by default.   Degree will be defined differently
-# for the zero cone and SOC (0 and 1, respectively)
-dim(K::PSDCone{T}) where {T} = K.dim
-degree(K::PSDCone{T}) where {T} = K.dim
+dim(K::PSDCone{T})    where {T} = K.dim     #number of elements
+degree(K::PSDCone{T}) where {T} = K.n       #side dimension, M \in \mathcal{S}^{n×n}
 
 
 function update_scaling!(
@@ -16,7 +17,7 @@ function update_scaling!(
     λ::VectorView{T}
 ) where {T}
 
-    @__LINE__
+    print("Placeholder at :", @__FUNCTION__, "\n")
     @. λ   = sqrt(s*z)
     @. K.w = sqrt(s/z)
 
@@ -29,7 +30,7 @@ function set_identity_scaling!(
     K::PSDCone{T}
 ) where {T}
 
-    K.w .= 1
+    K.W .= I(K.n)
 
     return nothing
 end
@@ -39,34 +40,49 @@ function get_diagonal_scaling!(
     diagW2::VectorView{T}
 ) where {T}
 
+    print("Placeholder at :", @__FUNCTION__, "\n")
     @. diagW2 = -K.w^2
 
     return nothing
 end
 
 
-# implements x = y ∘ z for the nn cone
+# implements x = y ∘ z for the SDP cone
+#PJG Bottom p5, CVXOPT
 function circle_op!(
     K::PSDCone{T},
-    x::VectorView{T},
-    y::VectorView{T},
-    z::VectorView{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
-    @. x = y*z
+    #make square views
+    (X,Y,Z) = map(m->reshape(m,K.n,:), (x,y,z))
+
+    X  .= Y*Z + Z*Y
+    X .*= 0.5
 
     return nothing
 end
 
-# implements x = y \ z for the nn cone
+# implements x = y \ z for the SDP cone
+# PJG, Top page 14, \S5, CVXOPT 
 function inv_circle_op!(
     K::PSDCone{T},
-    x::VectorView{T},
-    y::VectorView{T},
-    z::VectorView{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
-    @. x = z/y
+    #make square views
+    (X,Y,Z) = map(m->reshape(m,K.n,:), (x,y,z))
+    Γ = similar(X)
+    for i = 1:K.n
+        for j = 1:K.n
+            Γ[i,j] = (Y[i,j] + Y[j,i])/2
+        end
+    end
+    X .= Z./Γ
 
     return nothing
 end
@@ -77,6 +93,7 @@ function shift_to_cone!(
     z::VectorView{T}
 ) where{T}
 
+    print("Placeholder at :", @__FUNCTION__, "\n")
     α = minimum(z)
     if(α < eps(T))
         #done in two stages since otherwise (1-α) = -α for
@@ -99,6 +116,7 @@ function gemv_W!(
     β::T
 ) where {T}
 
+print("Placeholder at :", @__FUNCTION__, "\n")
   #W is diagonal so ignore transposition
   #@. y = α*(x*K.w) + β*y
   @inbounds for i = eachindex(y)
@@ -118,6 +136,7 @@ function gemv_Winv!(
     β::T
 ) where {T}
 
+    print("Placeholder at :", @__FUNCTION__, "\n")
   #W is diagonal, so ignore transposition
   #@. y = α*(x/K.w) + β.*y
   @inbounds for i = eachindex(y)
@@ -134,6 +153,7 @@ function mul_WtWinv!(
     y::VectorView{T}
 ) where {T}
 
+    print("Placeholder at :", @__FUNCTION__, "\n")
   @. y = x/(K.w^2)
 
   return nothing
@@ -146,6 +166,7 @@ function mul_WtW!(
     y::VectorView{T}
 ) where {T}
 
+    print("Placeholder at :", @__FUNCTION__, "\n")
   @. y = x*(K.w^2)
 
   return nothing
@@ -157,6 +178,7 @@ function add_scaled_e!(
     x::VectorView{T},α::T
 ) where {T}
 
+    print("Placeholder at :", @__FUNCTION__, "\n")
     #e is a vector of ones, so just shift
     @. x += α
 
@@ -174,6 +196,7 @@ function step_length(
      λ::VectorView{T}
 ) where {T}
 
+    print("Placeholder at :", @__FUNCTION__, "\n")
     αz = 1/eps(T)
     αs = 1/eps(T)
 

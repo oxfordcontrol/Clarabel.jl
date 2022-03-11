@@ -87,16 +87,21 @@ SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
 
 struct PSDCone{T} <: AbstractCone{T}
 
-    dim::DefaultInt
+    dim::DefaultInt  #this is the total number of elements in the matrix
+    n  :: DefaultInt #this is the matrix dimension, i.e. n^2 = dim
 
     #internal working variables for W
-    w::Vector{T}
+    W::Matrix{T}
 
     function PSDCone{T}(dim) where {T}
 
         dim >= 1 || throw(DomainError(dim, "dimension must be positive"))
-        w = Vector{T}(undef,dim)
-        return new(dim,w)
+        n = isqrt(dim)
+        n*n == dim || throw(DomainError(dim, "dimension must be a square"))
+
+        w = zeros(T,n,n)
+
+        return new(dim,n,w)
 
     end
 
