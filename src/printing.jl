@@ -12,7 +12,7 @@ function print_status(
     @printf("%.2e  ", info.res_primal)
     @printf("%.2e  ", info.res_dual)
     @printf("%.2e  ", info.ktratio)
-    @printf("%.2e  ", info.gap)
+    @printf("%.2e  ", info.μ)
     if(info.iterations > 0)
         @printf("%.2e  ", info.step_length)
     else
@@ -60,7 +60,7 @@ function print_header(
     @printf("%s", "pres      ")
     @printf("%s", "dres      ")
     @printf("%s", "k/t       ")
-    @printf("%s", "gap       ")
+    @printf("%s", " μ       ")
     @printf("%s", "step      ")
     @printf("\n")
     println("-----------------------------------------------------------------------------------")

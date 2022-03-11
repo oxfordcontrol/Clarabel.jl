@@ -25,7 +25,7 @@ end
 
 #2-norm of the product a.*b
 function scaled_norm(m::AbstractVector{T},v::AbstractVector{T}) where{T}
-    t = 0.
+    t = zero(T)
     for i in eachindex(v)
         p  = m[i]*v[i]
         t += p*p
@@ -106,7 +106,7 @@ function row_norms!(
 ) where{Tf <: AbstractFloat, Ti <: Integer}
 
 	if reset
-		fill!(v,0.)
+		fill!(v,zero(Tf))
 	end
 
 	@inbounds for i = 1:(A.colptr[end] - 1)

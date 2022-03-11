@@ -172,14 +172,19 @@ function MOI.get(opt::Optimizer, ::MOI.TerminationStatus)
 end
 
 MOI.supports(::Optimizer, ::MOI.PrimalStatus) = true
-function MOI.get(opt::Optimizer, ::MOI.PrimalStatus)
-    opt.has_results || return MOI.NO_SOLUTION
-    return ClarabeltoMOIPrimalStatus[opt.inner.info.status]
+function MOI.get(opt::Optimizer, attr::MOI.PrimalStatus)
+    if !opt.has_results || attr.result_index != 1
+        return MOI.NO_SOLUTION
+    else
+        return ClarabeltoMOIPrimalStatus[opt.inner.info.status]
+    end
 end
 
-MOI.supports(::Optimizer, ::MOI.DualStatus) = true
-function MOI.get(opt::Optimizer, ::MOI.DualStatus)
-    opt.has_results || return MOI.NO_SOLUTION
+MOI.supports(::Optimizer, a::MOI.DualStatus) = true
+function MOI.get(opt::Optimizer, attr::MOI.DualStatus)
+    if !opt.has_results || attr.result_index != 1
+        return MOI.NO_SOLUTION
+    end
     return ClarabeltoMOIDualStatus[opt.inner.info.status]
 end
 
