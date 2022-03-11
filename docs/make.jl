@@ -16,8 +16,10 @@ end
 # force execution of the two basic examples so that
 # their timing in the docs represent execution time,
 # not compilation time
+redirect_stdout(devnull)  #shh!!
 include(joinpath(@__DIR__, "../examples/", "example_QP.jl"))
 include(joinpath(@__DIR__, "../examples/", "example_SOCP.jl"))
+redirect_stdout(stdout)
 
 
 # find all example source files
