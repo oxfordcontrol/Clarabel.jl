@@ -16,7 +16,7 @@ function info_update!(
     E = scalings.E; Einv = scalings.Einv
     cscale = scalings.c[]
 
-    #primal and dual costs. do products are invariant w.r.t
+    #primal and dual costs. dot products are invariant w.r.t
     #equilibration, but we still need to back out the overall
     #objective scaling term c
     info.cost_primal =  (+residuals.dot_qx*τinv + residuals.dot_xPx * τinv * τinv / 2)/cscale
@@ -64,10 +64,14 @@ function info_check_termination!(
 
     elseif info.ktratio > one(T)
 
-        if (residuals.dot_bz < -settings.tol_infeas_rel) && (info.res_primal_inf < -settings.tol_infeas_abs*residuals.dot_bz)
+        if (residuals.dot_bz < -settings.tol_infeas_rel) &&
+           (info.res_primal_inf < -settings.tol_infeas_abs*residuals.dot_bz)
+           
             info.status = PRIMAL_INFEASIBLE
 
-        elseif (residuals.dot_qx < -settings.tol_infeas_rel) && (info.res_dual_inf < -settings.tol_infeas_abs*residuals.dot_qx)
+        elseif (residuals.dot_qx < -settings.tol_infeas_rel) &&
+               (info.res_dual_inf < -settings.tol_infeas_abs*residuals.dot_qx)
+
             info.status = DUAL_INFEASIBLE
 
         end
