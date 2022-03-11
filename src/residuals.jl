@@ -4,7 +4,7 @@ function residuals_update!(
     data::DefaultProblemData{T}
 ) where {T}
 
-  # various inner products used multiple times
+  # various products used multiple times
   qx  = dot(data.q,variables.x)
   bz  = dot(data.b,variables.z)
   sz  = dot(variables.s,variables.z)
@@ -15,13 +15,18 @@ function residuals_update!(
   #infeasibility conditions
 
   #Same as:
+<<<<<<< HEAD
   #residuals.rx_inf .= - data.Psym,variables.x -data.A'* variables.z
   mul!(residuals.rx_inf, data.A', variables.z, -1., 0.)
+=======
+  #residuals.rx_inf .= -data.A'* variables.z - data.Psym*variables.x
+  mul!(residuals.rx_inf, data.A', variables.z, -one(T), zero(T))
+>>>>>>> 11812b037ae885122a0eae8a9048a0a6f69bcadf
   residuals.rx_inf .-= residuals.Px
 
   #Same as:  residuals.rz_inf .=  data.A * variables.x + variables.s
   @. residuals.rz_inf = variables.s
-  mul!(residuals.rz_inf, data.A, variables.x, 1., 1.)
+  mul!(residuals.rz_inf, data.A, variables.x, one(T), one(T))
 
   #complete the residuals
   @. residuals.rx = residuals.rx_inf - data.q * variables.τ

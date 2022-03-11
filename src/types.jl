@@ -107,8 +107,10 @@ mutable struct DefaultResiduals{T} <: AbstractResiduals{T}
     dot_qx::T
     dot_bz::T
     dot_sz::T
-    Px::Vector{T}
     dot_xPx::T
+
+    #the product Px by itself required infeasibilty checks
+    Px::Vector{T}
 
     function DefaultResiduals{T}(n::Integer,
                                  m::Integer) where {T}
@@ -121,8 +123,8 @@ mutable struct DefaultResiduals{T} <: AbstractResiduals{T}
         rz_inf = Vector{T}(undef,m)
 
         Px = Vector{T}(undef,n)
-        
-        new(rx,rz,rτ,rx_inf,rz_inf,0.,0.,0.,Px,0.)
+
+        new(rx,rz,rτ,rx_inf,rz_inf,zero(T),zero(T),zero(T),zero(T),Px)
     end
 
 end
@@ -219,17 +221,19 @@ const SolverStatusDict = Dict(
 
 mutable struct DefaultInfo{T} <: AbstractInfo{T}
 
+    μ::T
+    sigma::T
+    step_length::T
+    iterations::DefaultInt
     cost_primal::T
     cost_dual::T
     res_primal::T
     res_dual::T
     res_primal_inf::T
     res_dual_inf::T
-    gap::T
-    step_length::T
-    sigma::T
+    gap_abs::T
+    gap_rel::T
     ktratio::T
-    iterations::DefaultInt
     solve_time::T
     timer::TimerOutput
     status::SolverStatus
