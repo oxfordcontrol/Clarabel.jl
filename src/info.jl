@@ -62,8 +62,6 @@ function info_check_termination!(
     )
         info.status = SOLVED
 
-    #cprimal or dual infeasiblity
-    #----------------------
 elseif info.ktratio > one(T)
 
         if (residuals.dot_bz < -1e-6) && (info.res_primal_inf < -1e-8*residuals.dot_bz)
