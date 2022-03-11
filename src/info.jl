@@ -55,17 +55,13 @@ function check_termination!(
         info.status = SOLVED
 
     #check for primal infeasibility
-    #PJG: Still not sure how to properly normalize here
-    #maybe should be done via cost.   Using RHS is a disaster
     #---------------------
-    #DEBUG: Possibly fatal problem here if norm_q is huge
     elseif(residuals.dot_bz < 0 &&
            info.res_primal_inf < settings.tol_feas)
         info.status = PRIMAL_INFEASIBLE
 
     #check for dual infeasibility
     #---------------------
-    #DEBUG: Fatal problem here if norm_b is huge
     elseif(residuals.dot_qx < 0 &&
            info.res_dual_inf < settings.tol_feas)
         info.status = DUAL_INFEASIBLE

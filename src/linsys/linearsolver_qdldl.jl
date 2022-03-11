@@ -116,10 +116,11 @@ function linsys_update!(
     #Note that we need to do this both for the KKT matrix
     #that we have constructed and also for the version
     #that is stored internally in our factorization.
-    #PJG: Debug:
+    #PJG:
     #The former is needed for iterative refinement.  Maybe we
     #could get away without using it and just writing a
-    #multiplication operator for the QDLDL object.
+    #multiplication operator for the QDLDL object., or implement
+    #iterative refinement directly with QDLDL
     update_values!(F,maps.diagWtW,linsys.diagWtW)
     KKT.nzval[maps.diagWtW] .= linsys.diagWtW
 
@@ -194,7 +195,7 @@ function linsys_solve!(
 
     if(!IR_enable); return nothing; end  #done
 
-    #PJG: Note that K is only triu data, so need to
+    #Note that K is only triu data, so need to
     #be careful when computing the residual here
     K      = linsys.KKT
     KKTsym = linsys.KKTsym
