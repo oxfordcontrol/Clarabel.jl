@@ -69,7 +69,7 @@ function test_MOI_standard()
         BRIDGED,
         CONFIG,
         exclude = String[
-            # "test_basic_",
+            "test_model_UpperBoundAlreadySet",   #fixed in https://github.com/jump-dev/MathOptInterface.jl/pull/1775,  waiting for it to be merged to next MOI release.
         ],
         # This argument is useful to prevent tests from failing on future
         # releases of MOI that add new tests.

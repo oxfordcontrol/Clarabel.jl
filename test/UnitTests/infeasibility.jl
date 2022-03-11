@@ -51,7 +51,7 @@ tol = FloatT(1e-3)
             @objective(model, Min, x)
             optimize!(model)
             @test JuMP.termination_status(model) == MOI.OPTIMAL
-            @test JuMP.objective_value(model) ≈ 0
+            @test JuMP.objective_value(model) ≈ 1
 
         end
 
