@@ -11,11 +11,11 @@ const SparseTriplet{T} = Tuple{Vector{<:Integer}, Vector{<:Integer}, Vector{T}}
 
 # parametric union needs a parametric member.  Remove this
 # when something like MOI.PowerCone{T} support is added
-struct DummyConeType{T<:Real} end
+struct DummyConeType{T} end
 
 # Cones supported by the solver
 
-const OptimizerSupportedMOICones{T <: Real} = Union{
+const OptimizerSupportedMOICones{T} = Union{
     MOI.Zeros,
     MOI.Nonnegatives,
     MOI.SecondOrderCone,
@@ -24,7 +24,7 @@ const OptimizerSupportedMOICones{T <: Real} = Union{
     # MOI.DualPowerCone{T},
     # MOI.PositiveSemidefiniteConeTriangle,
     # MOI.ExponentialCone,
-    }
+} where {T}
 
 #Optimizer will consolidate cones of these types if possible
 
@@ -74,7 +74,7 @@ mutable struct Optimizer{T} <: MOI.AbstractOptimizer
     objconstant::T
     rowranges::Dict{Int, UnitRange{Int}}
 
-    function Optimizer{T}(; user_settings...) where {T <: AbstractFloat}
+    function Optimizer{T}(; user_settings...) where {T}
         inner = Clarabel.Solver{T}()
         has_results = false
         is_empty = true
@@ -97,7 +97,7 @@ Optimizer(args...; kwargs...) = Optimizer{DefaultFloat}(args...; kwargs...)
 #-----------------------------
 
 # reset the optimizer
-function MOI.empty!(optimizer::Optimizer{T}) where {T <: AbstractFloat}
+function MOI.empty!(optimizer::Optimizer{T}) where {T}
     #just make a new solveropt, keeping current settings
     optimizer.inner = Clarabel.Solver{T}(optimizer.inner.settings)
     optimizer.has_results = false
