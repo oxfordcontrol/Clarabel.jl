@@ -13,9 +13,9 @@ degree(K::PSDCone{T}) where {T} = K.n       #side dimension, M \in \mathcal{S}^{
 
 function update_scaling!(
     K::PSDCone{T},
-    s::VectorView{T},
-    z::VectorView{T},
-    λ::VectorView{T}
+    s::AbstractVector{T},
+    z::AbstractVector{T},
+    λ::AbstractVector{T}
 ) where {T}
 
     print("Placeholder at :", @__FUNCTION__, "\n")
@@ -38,7 +38,7 @@ end
 
 function get_diagonal_scaling!(
     K::PSDCone{T},
-    diagW2::VectorView{T}
+    diagW2::AbstractVector{T}
 ) where {T}
 
     print("Placeholder at :", @__FUNCTION__, "\n")
@@ -113,8 +113,8 @@ end
 function gemv_W!(
     K::PSDCone{T},
     is_transpose::Bool,
-    x::VectorView{T},
-    y::VectorView{T},
+    x::AbstractVector{T},
+    y::AbstractVector{T},
     α::T,
     β::T
 ) where {T}
@@ -133,8 +133,8 @@ end
 function gemv_Winv!(
     K::PSDCone{T},
     is_transpose::Bool,
-    x::VectorView{T},
-    y::VectorView{T},
+    x::AbstractVector{T},
+    y::AbstractVector{T},
     α::T,
     β::T
 ) where {T}
@@ -152,8 +152,8 @@ end
 # implements y = W^TW^{-1}x
 function mul_WtWinv!(
     K::PSDCone{T},
-    x::VectorView{T},
-    y::VectorView{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
     print("Placeholder at :", @__FUNCTION__, "\n")
@@ -165,8 +165,8 @@ end
 # implements y = W^TW^x
 function mul_WtW!(
     K::PSDCone{T},
-    x::VectorView{T},
-    y::VectorView{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
     print("Placeholder at :", @__FUNCTION__, "\n")
@@ -192,11 +192,11 @@ end
 #return maximum allowable step length while remaining in the nn cone
 function step_length(
     K::PSDCone{T},
-    dz::VectorView{T},
-    ds::VectorView{T},
-     z::VectorView{T},
-     s::VectorView{T},
-     λ::VectorView{T}
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+     z::AbstractVector{T},
+     s::AbstractVector{T},
+     λ::AbstractVector{T}
 ) where {T}
 
     print("Placeholder at :", @__FUNCTION__, "\n")
