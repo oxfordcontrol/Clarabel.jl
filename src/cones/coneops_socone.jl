@@ -8,8 +8,7 @@ degree(K::SecondOrderCone{T}) where {T} = 1
 function update_scaling!(
     K::SecondOrderCone{T},
     s::AbstractVector{T},
-    z::AbstractVector{T},
-    λ::AbstractVector{T}
+    z::AbstractVector{T}
 ) where {T}
 
     #first calculate the scaled vector w
@@ -50,7 +49,7 @@ function update_scaling!(
     @views K.v[2:end] .= v1.*K.w[2:end]
 
     #λ = Wz
-    gemv_W!(K,false,z,λ,one(T),zero(T))
+    gemv_W!(K,false,z,K.λ,one(T),zero(T))
 
     return nothing
 end
@@ -88,8 +87,23 @@ function get_diagonal_scaling!(
 end
 
 
+# returns x = λ∘λ for the nn cone
+
+function λ_circ_λ!(
+    K::SecondOrderCone{T},
+    x::AbstractVector{T}
+) where {T}
+
+    #PJG: this could maybe be specialized
+    #or stored, since it may be called
+    #twice per IP iteration
+    circ_op!(K,x,K.λ,K.λ)
+
+end
+
+
 # implements x = y ∘ z for the socone
-function circle_op!(
+function circ_op!(
     K::SecondOrderCone{T},
     x::AbstractVector{T},
     y::AbstractVector{T},
@@ -106,8 +120,20 @@ function circle_op!(
     return nothing
 end
 
+# implements x = λ \ z for the socone, where λ
+# is the internally maintained scaling variable.
+function λ_inv_circ_op!(
+    K::SecondOrderCone{T},
+    x::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+
+    inv_circ_op!(K, x, K.λ, z)
+
+end
+
 # implements x = y \ z for the socone
-function inv_circle_op!(
+function inv_circ_op!(
     K::SecondOrderCone{T},
     x::AbstractVector{T},
     y::AbstractVector{T},
@@ -240,8 +266,7 @@ function step_length(
     dz::AbstractVector{T},
     ds::AbstractVector{T},
      z::AbstractVector{T},
-     s::AbstractVector{T},
-     λ::AbstractVector{T}
+     s::AbstractVector{T}
 ) where {T}
 
     αz   = _step_length_soc_component(K,dz,z)

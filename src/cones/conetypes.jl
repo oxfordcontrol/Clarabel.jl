@@ -33,14 +33,16 @@ struct NonnegativeCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
 
-    #internal working variables for W
+    #internal working variables for W and λ
     w::Vector{T}
+    λ::Vector{T}
 
     function NonnegativeCone{T}(dim) where {T}
 
         dim >= 1 || throw(DomainError(dim, "dimension must be positive"))
         w = Vector{T}(undef,dim)
-        return new(dim,w)
+        λ = Vector{T}(undef,dim)
+        return new(dim,w,λ)
 
     end
 
@@ -59,6 +61,9 @@ mutable struct SecondOrderCone{T} <: AbstractCone{T}
     #internal working variables for W and its products
     w::Vector{T}
 
+    #scaled version of (s,z)
+    λ::Vector{T}
+
     #vectors for rank 2 update representation of W^2
     u::Vector{T}
     v::Vector{T}
@@ -70,11 +75,12 @@ mutable struct SecondOrderCone{T} <: AbstractCone{T}
     function SecondOrderCone{T}(dim::Integer) where {T}
         dim >= 2 ? new(dim) : throw(DomainError(dim, "dimension must be >= 2"))
         w = Vector{T}(undef,dim)
+        λ = Vector{T}(undef,dim)
         u = Vector{T}(undef,dim)
         v = Vector{T}(undef,dim)
-        d = 1.
-        η = 0.
-        return new(dim,w,u,v,d,η)
+        d = one(T)
+        η = zero(T)
+        return new(dim,w,λ,u,v,d,η)
     end
 
 end

@@ -59,9 +59,6 @@ struct DefaultScalings{T} <: AbstractConeScalings{T}
     # vector of objects implementing the scalings
     cones::ConeSet{T}
 
-    # scaled variable λ = Wz = W^{-1}s
-    λ::ConicVector{T}
-
     #composite cone degree.  NB: Not the
     #same as dimension for zero or SO cones
     total_degree::DefaultInt

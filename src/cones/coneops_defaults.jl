@@ -35,8 +35,7 @@ end
 function update_scaling!(
     K::AbstractCone{T},
     s::AbstractVector{T},
-    z::AbstractVector{T},
-    λ::AbstractVector{T}
+    z::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -61,10 +60,20 @@ function get_diagonal_scaling!(
 
 end
 
+# returns x = λ∘λ.  The cone must have an internal mechanism
+# for storing the scaled variable λ internally.  This variable
+# should be updated at the call to update_scaling!
+function λ_circ_λ!(
+    K::AbstractCone{T},
+    x::AbstractVector{T}
+) where {T}
 
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
 
 # implements x = y ∘ z
-function circle_op!(
+function circ_op!(
     K::AbstractCone{T},
     x::AbstractVector{T},
     y::AbstractVector{T},
@@ -75,8 +84,26 @@ function circle_op!(
 
 end
 
-# implements x = y \ z
-function inv_circle_op!(
+
+# implements x = λ \ z, where λ is the internally
+# maintained scaling variable.
+function λ_inv_circ_op!(
+    K::AbstractCone{T},
+    x::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
+# implements x = y \ z.  Note that this function is
+# a more general version of λ_inv_circ_op! and is
+# not required directly anywhere by the solver. SOC and
+# NN cones (for example) implement this function and then
+# call it from λ_inv_circ_op! using their internal scaling
+# variable, but it is not compulsory to do it that way.
+function inv_circ_op!(
     K::AbstractCone{T},
     x::AbstractVector{T},
     y::AbstractVector{T},
