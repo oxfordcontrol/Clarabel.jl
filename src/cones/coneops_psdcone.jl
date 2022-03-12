@@ -1,106 +1,103 @@
-## ------------------------------------
-# Nonnegative Cone
-# -------------------------------------
-
-function rectify_equilibration!(
-    K::NonnegativeCone{T},
-    δ::AbstractVector{T},
-    e::AbstractVector{T}
-) where{T}
-
-    #allow elementwise equilibration scaling
-    δ .= e
-    return false
+#PJG: DEBUG Remove when complete
+macro __FUNCTION__()
+    return :($(esc(Expr(:isdefined, :var"#self#"))) ? $(esc(:var"#self#")) : nothing)
 end
 
+# ----------------------------------------------------
+# Positive Semidefinite Cone
+# ----------------------------------------------------
+
+dim(K::PSDCone{T})    where {T} = K.dim     #number of elements
+degree(K::PSDCone{T}) where {T} = K.n       #side dimension, M \in \mathcal{S}^{n×n}
+
+
 function update_scaling!(
-    K::NonnegativeCone{T},
+    K::PSDCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
+    λ::AbstractVector{T}
 ) where {T}
 
-    @. K.λ = sqrt(s*z)
+    print("Placeholder at :", @__FUNCTION__, "\n")
+    @. λ   = sqrt(s*z)
     @. K.w = sqrt(s/z)
 
     return nothing
 end
 
+
 #configure cone internals to provide W = I scaling
 function set_identity_scaling!(
-    K::NonnegativeCone{T}
+    K::PSDCone{T}
 ) where {T}
 
-    K.w .= 1
+    K.W .= I(K.n)
 
     return nothing
 end
 
 function get_diagonal_scaling!(
-    K::NonnegativeCone{T},
+    K::PSDCone{T},
     diagW2::AbstractVector{T}
 ) where {T}
 
+    print("Placeholder at :", @__FUNCTION__, "\n")
     @. diagW2 = -K.w^2
 
     return nothing
 end
 
-# returns x = λ∘λ for the nn cone
-function λ_circ_λ!(
-    K::NonnegativeCone{T},
-    x::AbstractVector{T}
-) where {T}
 
-    @. x = K.λ^2
-
-    return nothing
-end
-
-# implements x = y ∘ z for the nn cone
-function circ_op!(
-    K::NonnegativeCone{T},
+# implements x = y ∘ z for the SDP cone
+#PJG Bottom p5, CVXOPT
+function circle_op!(
+    K::PSDCone{T},
     x::AbstractVector{T},
     y::AbstractVector{T},
     z::AbstractVector{T}
 ) where {T}
 
-    @. x = y*z
+    #make square views
+    (X,Y,Z) = map(m->_mat(m,K), (x,y,z))
+
+    X  .= Y*Z + Z*Y
+    X .*= 0.5
 
     return nothing
 end
 
-# implements x = λ \ z for the nn cone, where λ
-# is the internally maintained scaling variable.
-function λ_inv_circ_op!(
-    K::NonnegativeCone{T},
-    x::AbstractVector{T},
-    z::AbstractVector{T}
-) where {T}
-
-    inv_circ_op!(K, x, K.λ, z)
-
-end
-
-# implements x = y \ z for the nn cone
-function inv_circ_op!(
-    K::NonnegativeCone{T},
+# implements x = y \ z for the SDP cone
+# PJG, Top page 14, \S5, CVXOPT
+function inv_circle_op!(
+    K::PSDCone{T},
     x::AbstractVector{T},
     y::AbstractVector{T},
     z::AbstractVector{T}
 ) where {T}
 
-    @. x = z/y
+    #make square views
+    (X,Y,Z) = map(m->_mat(m,K), (x,y,z))
+    Γ = similar(X)
+    for i = 1:K.n
+        for j = 1:K.n
+            Γ[i,j] = (Y[i,j] + Y[j,i])/2
+        end
+    end
+    X .= Z./Γ
 
     return nothing
 end
 
-# place vector into nn cone
+# place vector into SDP cone
+
 function shift_to_cone!(
-    K::NonnegativeCone{T},
-    z::AbstractVector{T}
+    K::PSDCone{T},
+    z::AbstractArray{T}
 ) where{T}
 
-    α = minimum(z)
+    Z = _mat(z,K)
+    α = eigvals(Symmetric(Z),1:1)[1]  #min eigenvalue
+
     if(α < eps(T))
         #done in two stages since otherwise (1-α) = -α for
         #large α, which makes z exactly 0. (or worse, -0.0 )
@@ -114,7 +111,7 @@ end
 
 # implements y = αWx + βy for the nn cone
 function gemv_W!(
-    K::NonnegativeCone{T},
+    K::PSDCone{T},
     is_transpose::Bool,
     x::AbstractVector{T},
     y::AbstractVector{T},
@@ -122,6 +119,7 @@ function gemv_W!(
     β::T
 ) where {T}
 
+print("Placeholder at :", @__FUNCTION__, "\n")
   #W is diagonal so ignore transposition
   #@. y = α*(x*K.w) + β*y
   @inbounds for i = eachindex(y)
@@ -133,7 +131,7 @@ end
 
 # implements y = αW^{-1}x + βy for the nn cone
 function gemv_Winv!(
-    K::NonnegativeCone{T},
+    K::PSDCone{T},
     is_transpose::Bool,
     x::AbstractVector{T},
     y::AbstractVector{T},
@@ -141,6 +139,7 @@ function gemv_Winv!(
     β::T
 ) where {T}
 
+    print("Placeholder at :", @__FUNCTION__, "\n")
   #W is diagonal, so ignore transposition
   #@. y = α*(x/K.w) + β.*y
   @inbounds for i = eachindex(y)
@@ -152,11 +151,12 @@ end
 
 # implements y = W^TW^{-1}x
 function mul_WtWinv!(
-    K::NonnegativeCone{T},
+    K::PSDCone{T},
     x::AbstractVector{T},
     y::AbstractVector{T}
 ) where {T}
 
+    print("Placeholder at :", @__FUNCTION__, "\n")
   @. y = x/(K.w^2)
 
   return nothing
@@ -164,24 +164,26 @@ end
 
 # implements y = W^TW^x
 function mul_WtW!(
-    K::NonnegativeCone{T},
+    K::PSDCone{T},
     x::AbstractVector{T},
     y::AbstractVector{T}
 ) where {T}
 
+    print("Placeholder at :", @__FUNCTION__, "\n")
   @. y = x*(K.w^2)
 
   return nothing
 end
 
-# implements y = y + αe for the nn cone
+# implements y = y + αe for the SDP cone
 function add_scaled_e!(
-    K::NonnegativeCone,
-    x::AbstractVector{T},α::T
+    K::PSDCone{T},
+    x::AbstractVector{T},
+    α::T
 ) where {T}
 
-    #e is a vector of ones, so just shift
-    @. x += α
+    #same as X .+= eye(K.n)
+    x[1:(K.n+1):end] .+= α
 
     return nothing
 end
@@ -189,13 +191,15 @@ end
 
 #return maximum allowable step length while remaining in the nn cone
 function step_length(
-    K::NonnegativeCone{T},
+    K::PSDCone{T},
     dz::AbstractVector{T},
     ds::AbstractVector{T},
      z::AbstractVector{T},
      s::AbstractVector{T},
+     λ::AbstractVector{T}
 ) where {T}
 
+    print("Placeholder at :", @__FUNCTION__, "\n")
     αz = 1/eps(T)
     αs = 1/eps(T)
 
@@ -208,3 +212,10 @@ function step_length(
 
     return α
 end
+
+# -------------------
+# internal utilities for this cone
+#--------------------
+
+#make a matrix view from a vectorized input
+_mat(x::AbstractVector{T},K::PSDCone{T}) where {T} = reshape(x,K.n,K.n)

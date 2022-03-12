@@ -43,13 +43,15 @@ function print_header(
     @printf("  constraints   = %i\n", data.m)
     @printf("  nnz(P)        = %i\n", nnz(data.P))
     @printf("  nnz(A)        = %i\n", nnz(data.A))
-    @printf("  cones         = %i\n", length(data.cone_info.types))
-    @printf("  : zero        = %i", data.cone_info.type_counts[ZeroConeT])
+    @printf("  cones (total) = %i\n", length(data.cone_info.types))
+    #@printf("  : zero        = %i", data.cone_info.type_counts[ZeroConeT])
     print_conedims_by_type(data.cone_info, ZeroConeT)
-    @printf("  : nonnegative = %i", data.cone_info.type_counts[NonnegativeConeT])
+    #@printf("  : nonnegative = %i", data.cone_info.type_counts[NonnegativeConeT])
     print_conedims_by_type(data.cone_info, NonnegativeConeT)
-    @printf("  : secondorder = %i", data.cone_info.type_counts[SecondOrderConeT])
+    #@printf("  : secondorder = %i", data.cone_info.type_counts[SecondOrderConeT])
     print_conedims_by_type(data.cone_info, SecondOrderConeT)
+    #@printf("  : PSD         = %i", data.cone_info.type_counts[PSDConeT])
+    print_conedims_by_type(data.cone_info, PSDConeT)
     print_settings(settings, T)
     @printf("\n")
 
@@ -137,24 +139,28 @@ function print_conedims_by_type(c::ConeInfo, type::SupportedCones)
 
     #how many of this type of cone?
     count = c.type_counts[type]
-    dims  = c.dims[c.types .== type]
 
-    #none?
+    #skip if there are none of this type
     if count == 0
-        #print nothing
+        return #don't report if none
+    end
 
-    elseif count == 1
-        @printf("  dim = %i",dims[1])
+    dims  = c.dims[c.types .== type]
+    name  = rpad(string(type)[1:end-5],11)  #drops "ConeT part"
+    @printf("    : %s = %i, ", name, count)
+
+    if count == 1
+        @printf(" dim = %i",dims[1])
 
     elseif count <= maxlistlen
         #print them all
-        @printf("  dim = (")
+        @printf(" dim = (")
         foreach(x->@printf("%i,",x),dims[1:end-1])
         @printf("%i)",dims[end])
 
     else
         #print first (maxlistlen-1) and the final one
-        @printf("  dim = (")
+        @printf(" dim = (")
         foreach(x->@printf("%i,",x),dims[1:(maxlistlen-1)])
         @printf("...,%i)",dims[end])
     end

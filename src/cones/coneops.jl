@@ -10,7 +10,7 @@ function cones_rectify_equilibration!(
 
     any_changed = false
 
-    #we will update e <- \delta .*e using return values
+    #we will update e <- δ .* e using return values
     #from this function.  default is to do nothing at all
     δ .= 1
 

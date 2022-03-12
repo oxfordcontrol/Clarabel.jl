@@ -25,7 +25,7 @@ end
 ZeroCone(args...) = ZeroCone{DefaultFloat}(args...)
 
 
-## ------------------------------------
+# ------------------------------------
 # Nonnegative Cone
 # -------------------------------------
 
@@ -87,6 +87,34 @@ end
 
 SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
 
+# ------------------------------------
+# Positive Semidefinite Cone
+# -------------------------------------
+
+struct PSDCone{T} <: AbstractCone{T}
+
+    dim::DefaultInt  #this is the total number of elements in the matrix
+    n  :: DefaultInt #this is the matrix dimension, i.e. n^2 = dim
+
+    #internal working variables for W
+    W::Matrix{T}
+
+    function PSDCone{T}(dim) where {T}
+
+        dim >= 1 || throw(DomainError(dim, "dimension must be positive"))
+        n = isqrt(dim)
+        n*n == dim || throw(DomainError(dim, "dimension must be a square"))
+
+        w = zeros(T,n,n)
+
+        return new(dim,n,w)
+
+    end
+
+end
+
+PSDCone(args...) = PSDCone{DefaultFloat}(args...)
+
 # -------------------------------------
 # collection of cones for composite
 # operations on a compound set
@@ -106,17 +134,25 @@ supported types are:
 * `ZeroConeT`       : The zero cone.  Used to define equalities.
 * `NonnegativeConeT`: The nonnegative orthant.
 * `SecondOrderConeT`: The second order / Lorentz / ice-cream cone.
+# `PSDConeT`        : The positive semidefinite cone.
 """
 @enum SupportedCones begin
     ZeroConeT
     NonnegativeConeT
     SecondOrderConeT
+    PSDConeT
 end
 
+"""
+    ConeDict
+A Dict that maps the user-facing SupportedCones enum values to
+the types used internally in the solver.   See [SupportedCones](@ref)
+"""
 const ConeDict = Dict(
            ZeroConeT => ZeroCone,
     NonnegativeConeT => NonnegativeCone,
-    SecondOrderConeT => SecondOrderCone
+    SecondOrderConeT => SecondOrderCone,
+            PSDConeT => PSDCone,
 )
 
 mutable struct ConeInfo
