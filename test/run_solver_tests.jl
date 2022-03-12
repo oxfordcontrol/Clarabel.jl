@@ -1,4 +1,6 @@
 using Random, Test, Pkg
+using Clarabel
+
 rng = Random.MersenneTwister(12345)
 
 @testset "Clarabel Native Optimizer Testset" begin

@@ -25,9 +25,6 @@ function DefaultScalings{T}(
         totaldegree = sum(cone -> degree(cone), cones)
     end
 
-    #scaled version s and z
-    λ = ConicVector{T}(cone_info)
-
     #Left/Right diagonal scaling for problem data
     d    = Vector{T}(undef,nvars)
     dinv = Vector{T}(undef,nvars)
@@ -42,7 +39,7 @@ function DefaultScalings{T}(
     c    = Ref(T(1.))
 
     return DefaultScalings(
-            cone_info,cones,λ,totaldegree,
+            cone_info,cones,totaldegree,
             d,dinv,D,Dinv,e,einv,E,Einv,c
            )
 end
@@ -57,7 +54,7 @@ function scaling_update!(
     # the operation on the Vector{AbstractCones{T}} directly
     # so that we can isolate the top level solver from
     # our default implementation of the scaling update
-    cones_update_scaling!(scalings.cones,variables.s,variables.z,scalings.λ)
+    cones_update_scaling!(scalings.cones,variables.s,variables.z)
     return nothing
 end
 

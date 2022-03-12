@@ -22,7 +22,7 @@ function calc_step_length(
 
     αcone = cones_step_length(
         scalings.cones, step.z, step.s,
-        variables.z, variables.s, scalings.λ
+        variables.z, variables.s,
     )
 
     return min(ατ,ακ,αcone,one(T))
@@ -71,7 +71,7 @@ function calc_affine_step_rhs!(
 
     @. d.x    .=  r.rx
     @. d.z     =  r.rz
-    cones_circle_op!(cones, d.s, scalings.λ, scalings.λ)
+    cones_λ_circ_λ!(cones, d.s)
     d.τ        =  r.rτ
     d.κ        =  variables.τ * variables.κ
 
@@ -113,11 +113,11 @@ function calc_combined_step_rhs!(
     cones_gemv_W!(cones, false, tmp, step.z, one(T), zero(T))       #Δz <- WΔz
     tmp .= step.s  #copy for safe call to gemv_Winv
     cones_gemv_Winv!(cones, false, tmp, step.s, one(T), zero(T))    #Δs <- W⁻¹Δs
-    cones_circle_op!(cones, tmp, step.s, step.z)                    #tmp = W⁻¹Δs ∘ WΔz
+    cones_circ_op!(cones, tmp, step.s, step.z)                      #tmp = W⁻¹Δs ∘ WΔz
     cones_add_scaled_e!(cones,tmp,-σ*μ)                             #tmp = W⁻¹Δs ∘ WΔz - σμe
 
     #PJG: We are relying on d.s = λ ◦ λ from the affine step here
-    @. d.s += d.z                                           #d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
+    @. d.s += d.z                                                   #d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
 
     # now we copy the scaled res for rz and d.z is no longer work
     @. d.z .= (1 - σ)*r.rz
