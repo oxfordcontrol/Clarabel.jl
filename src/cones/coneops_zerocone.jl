@@ -6,8 +6,8 @@ degree(K::ZeroCone{T}) where {T} = 0
 
 function rectify_equilibration!(
     K::ZeroCone{T},
-    δ::VectorView{T},
-    e::VectorView{T}
+    δ::AbstractVector{T},
+    e::AbstractVector{T}
 ) where{T}
 
     #allow elementwise equilibration scaling
@@ -18,9 +18,9 @@ end
 
 function update_scaling!(
     K::ZeroCone{T},
-    s::VectorView{T},
-    z::VectorView{T},
-    λ::VectorView{T}
+    s::AbstractVector{T},
+    z::AbstractVector{T},
+    λ::AbstractVector{T}
 ) where {T}
 
     λ   .= 0
@@ -39,7 +39,7 @@ end
 
 function get_diagonal_scaling!(
     K::ZeroCone{T},
-    diagW2::VectorView{T}
+    diagW2::AbstractVector{T}
 ) where {T}
 
     diagW2 .= 0.
@@ -50,9 +50,9 @@ end
 # implements x = y ∘ z for the zero cone
 function circle_op!(
     K::ZeroCone{T},
-    x::VectorView{T},
-    y::VectorView{T},
-    z::VectorView{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     x .= 0
@@ -63,9 +63,9 @@ end
 # implements x = y \ z for the zero cone
 function inv_circle_op!(
     K::ZeroCone{T},
-    x::VectorView{T},
-    y::VectorView{T},
-    z::VectorView{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     x .= 0
@@ -75,7 +75,7 @@ end
 
 # place vector into zero cone
 function shift_to_cone!(
-    K::ZeroCone{T},z::VectorView{T}
+    K::ZeroCone{T},z::AbstractVector{T}
 ) where{T}
 
     z .= 0
@@ -87,8 +87,8 @@ end
 function gemv_W!(
     K::ZeroCone{T},
     is_transpose::Bool,
-    x::VectorView{T},
-    y::VectorView{T},
+    x::AbstractVector{T},
+    y::AbstractVector{T},
     α::T,
     β::T
 ) where {T}
@@ -103,8 +103,8 @@ end
 function gemv_Winv!(
     K::ZeroCone{T},
     is_transpose::Bool,
-    x::VectorView{T},
-    y::VectorView{T},
+    x::AbstractVector{T},
+    y::AbstractVector{T},
     α::T,
     β::T
 ) where {T}
@@ -118,8 +118,8 @@ end
 # implements y = W^TW^{-1}x
 function mul_WtWinv!(
     K::ZeroCone{T},
-    x::VectorView{T},
-    y::VectorView{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
   #treat inv(W^TW) like zero
@@ -131,8 +131,8 @@ end
 # implements y = W^TWx
 function mul_WtW!(
     K::ZeroCone{T},
-    x::VectorView{T},
-    y::VectorView{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
   #treat (W^TW) like zero
@@ -144,7 +144,7 @@ end
 # implements y = y + αe for the zero cone
 function add_scaled_e!(
     K::ZeroCone{T},
-    x::VectorView{T},α::T
+    x::AbstractVector{T},α::T
 ) where {T}
 
     #e = 0, do nothing
@@ -155,11 +155,11 @@ end
 
 function step_length(
      K::ZeroCone{T},
-    dz::VectorView{T},
-    ds::VectorView{T},
-     z::VectorView{T},
-     s::VectorView{T},
-     λ::VectorView{T}
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+     z::AbstractVector{T},
+     s::AbstractVector{T},
+     λ::AbstractVector{T}
 ) where {T}
 
     #equality constraints allow arbitrary step length

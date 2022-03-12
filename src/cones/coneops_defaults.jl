@@ -15,8 +15,8 @@ degree(K::AbstractCone{T}) where {T} = K.dim
 #true unless δ == e on return
 function rectify_equilibration!(
     K::AbstractCone{T},
-    δ::VectorView{T},
-    e::VectorView{T}
+    δ::AbstractVector{T},
+    e::AbstractVector{T}
 ) where{T}
 
     #all cones default to scalar equilibration
@@ -34,9 +34,9 @@ end
 
 function update_scaling!(
     K::AbstractCone{T},
-    s::VectorView{T},
-    z::VectorView{T},
-    λ::VectorView{T}
+    s::AbstractVector{T},
+    z::AbstractVector{T},
+    λ::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -54,7 +54,7 @@ end
 
 function get_diagonal_scaling!(
     K::AbstractCone{T},
-    diagW2::VectorView{T}
+    diagW2::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -66,9 +66,9 @@ end
 # implements x = y ∘ z
 function circle_op!(
     K::AbstractCone{T},
-    x::VectorView{T},
-    y::VectorView{T},
-    z::VectorView{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -78,9 +78,9 @@ end
 # implements x = y \ z
 function inv_circle_op!(
     K::AbstractCone{T},
-    x::VectorView{T},
-    y::VectorView{T},
-    z::VectorView{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -90,7 +90,7 @@ end
 # place vector into the cone
 function shift_to_cone!(
     K::AbstractCone{T},
-    z::VectorView{T}
+    z::AbstractVector{T}
 ) where{T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -101,8 +101,8 @@ end
 function gemv_W!(
     K::AbstractCone{T},
     is_transpose::Bool,
-    x::VectorView{T},
-    y::VectorView{T},
+    x::AbstractVector{T},
+    y::AbstractVector{T},
     α::T,
     β::T
 ) where {T}
@@ -115,8 +115,8 @@ end
 function gemv_Winv!(
     K::AbstractCone{T},
     is_transpose::Bool,
-    x::VectorView{T},
-    y::VectorView{T},
+    x::AbstractVector{T},
+    y::AbstractVector{T},
     α::T,
     β::T
 ) where {T}
@@ -128,8 +128,8 @@ end
 # implements y = W^TW^{-1}x
 function mul_WtWinv!(
     K::AbstractCone{T},
-    x::VectorView{T},
-    y::VectorView{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -139,8 +139,8 @@ end
 # implements y = W^TWx
 function mul_WtW!(
     K::AbstractCone{T},
-    x::VectorView{T},
-    y::VectorView{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -150,7 +150,7 @@ end
 # implements y = y + αe
 function add_scaled_e!(
     K::AbstractCone{T},
-    x::VectorView{T},α::T
+    x::AbstractVector{T},α::T
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -161,11 +161,11 @@ end
 #return maximum allowable step length while remaining in cone
 function step_length(
      K::AbstractCone{T},
-    dz::VectorView{T},
-    ds::VectorView{T},
-     z::VectorView{T},
-     s::VectorView{T},
-     λ::VectorView{T}
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+     z::AbstractVector{T},
+     s::AbstractVector{T},
+     λ::AbstractVector{T}
 ) where {T}
 
      error("Incomplete cone operation specification: ",typeof(K))

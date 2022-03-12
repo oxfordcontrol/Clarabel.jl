@@ -7,9 +7,9 @@ degree(K::SecondOrderCone{T}) where {T} = 1
 
 function update_scaling!(
     K::SecondOrderCone{T},
-    s::VectorView{T},
-    z::VectorView{T},
-    λ::VectorView{T}
+    s::AbstractVector{T},
+    z::AbstractVector{T},
+    λ::AbstractVector{T}
 ) where {T}
 
     #first calculate the scaled vector w
@@ -72,7 +72,7 @@ end
 
 function get_diagonal_scaling!(
     K::SecondOrderCone{T},
-    diagW2::VectorView{T}
+    diagW2::AbstractVector{T}
 ) where {T}
 
     #NB: we are returning here the D block from the
@@ -91,9 +91,9 @@ end
 # implements x = y ∘ z for the socone
 function circle_op!(
     K::SecondOrderCone{T},
-    x::VectorView{T},
-    y::VectorView{T},
-    z::VectorView{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     x[1] = dot(y,z)
@@ -109,9 +109,9 @@ end
 # implements x = y \ z for the socone
 function inv_circle_op!(
     K::SecondOrderCone{T},
-    x::VectorView{T},
-    y::VectorView{T},
-    z::VectorView{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     @views p = (y[1]^2 - dot(y[2:end],y[2:end]))
@@ -127,7 +127,7 @@ end
 # place vector into socone
 function shift_to_cone!(
     K::SecondOrderCone{T},
-    z::VectorView{T}
+    z::AbstractVector{T}
 ) where{T}
 
     z[1] = max(z[1],0)
@@ -147,8 +147,8 @@ end
 function gemv_W!(
     K::SecondOrderCone{T},
     is_transpose::Bool,
-    x::VectorView{T},
-    y::VectorView{T},
+    x::AbstractVector{T},
+    y::AbstractVector{T},
     α::T,
     β::T
 ) where {T}
@@ -170,8 +170,8 @@ end
 function gemv_Winv!(
     K::SecondOrderCone{T},
     is_transpose::Bool,
-    x::VectorView{T},
-    y::VectorView{T},
+    x::AbstractVector{T},
+    y::AbstractVector{T},
     α::T,
     β::T
 ) where {T}
@@ -192,8 +192,8 @@ end
 # implements y = W^TW^{-1}x
 function mul_WtWinv!(
     K::SecondOrderCone{T},
-    x::VectorView{T},
-    y::VectorView{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
     #PJG: W is symmetric, so just multiply
@@ -208,8 +208,8 @@ end
 # implements y = W^TWx
 function mul_WtW!(
     K::SecondOrderCone{T},
-    x::VectorView{T},
-    y::VectorView{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
     #PJG: W is symmetric, so just multiply
@@ -224,7 +224,7 @@ end
 # implements y = y + αe for the socone
 function add_scaled_e!(
     K::SecondOrderCone,
-    x::VectorView{T},α::T
+    x::AbstractVector{T},α::T
 ) where {T}
 
     #e is (1,0.0..0)
@@ -237,11 +237,11 @@ end
 #return maximum allowable step length while remaining in the socone
 function step_length(
     K::SecondOrderCone{T},
-    dz::VectorView{T},
-    ds::VectorView{T},
-     z::VectorView{T},
-     s::VectorView{T},
-     λ::VectorView{T}
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+     z::AbstractVector{T},
+     s::AbstractVector{T},
+     λ::AbstractVector{T}
 ) where {T}
 
     αz   = _step_length_soc_component(K,dz,z)
@@ -255,8 +255,8 @@ end
 # x + αy stays in the SOC
 function _step_length_soc_component(
     K::SecondOrderCone{T},
-    y::VectorView{T},
-    x::VectorView{T}
+    y::AbstractVector{T},
+    x::AbstractVector{T}
 ) where {T}
 
     # assume that x is in the SOC, and
