@@ -1,10 +1,11 @@
-# ----------------------------------------------------
-# Positive Semidefinite Cone
-# ----------------------------------------------------
-#PJG: Remove when complete
+#PJG: DEBUG Remove when complete
 macro __FUNCTION__()
     return :($(esc(Expr(:isdefined, :var"#self#"))) ? $(esc(:var"#self#")) : nothing)
 end
+
+# ----------------------------------------------------
+# Positive Semidefinite Cone
+# ----------------------------------------------------
 
 dim(K::PSDCone{T})    where {T} = K.dim     #number of elements
 degree(K::PSDCone{T}) where {T} = K.n       #side dimension, M \in \mathcal{S}^{n×n}
@@ -57,7 +58,7 @@ function circle_op!(
 ) where {T}
 
     #make square views
-    (X,Y,Z) = map(m->reshape(m,K.n,:), (x,y,z))
+    (X,Y,Z) = map(m->_mat(m,K), (x,y,z))
 
     X  .= Y*Z + Z*Y
     X .*= 0.5
@@ -66,7 +67,7 @@ function circle_op!(
 end
 
 # implements x = y \ z for the SDP cone
-# PJG, Top page 14, \S5, CVXOPT 
+# PJG, Top page 14, \S5, CVXOPT
 function inv_circle_op!(
     K::PSDCone{T},
     x::AbstractVector{T},
@@ -75,7 +76,7 @@ function inv_circle_op!(
 ) where {T}
 
     #make square views
-    (X,Y,Z) = map(m->reshape(m,K.n,:), (x,y,z))
+    (X,Y,Z) = map(m->_mat(m,K), (x,y,z))
     Γ = similar(X)
     for i = 1:K.n
         for j = 1:K.n
@@ -87,19 +88,21 @@ function inv_circle_op!(
     return nothing
 end
 
-# place vector into nn cone
+# place vector into SDP cone
+
 function shift_to_cone!(
     K::PSDCone{T},
-    z::VectorView{T}
+    z::AbstractArray{T}
 ) where{T}
 
-    print("Placeholder at :", @__FUNCTION__, "\n")
-    α = minimum(z)
+    Z = _mat(z,K)
+    α = eigvals(Symmetric(Z),1:1)[1]  #min eigenvalue
+
     if(α < eps(T))
         #done in two stages since otherwise (1-α) = -α for
         #large α, which makes z exactly 0. (or worse, -0.0 )
-        @. z += -α
-        @. z +=  1.
+        add_scaled_e!(K,z,-α)
+        add_scaled_e!(K,z,one(T))
     end
 
     return nothing
@@ -172,15 +175,15 @@ function mul_WtW!(
   return nothing
 end
 
-# implements y = y + αe for the nn cone
+# implements y = y + αe for the SDP cone
 function add_scaled_e!(
-    K::PSDCone,
-    x::VectorView{T},α::T
+    K::PSDCone{T},
+    x::AbstractVector{T},
+    α::T
 ) where {T}
 
-    print("Placeholder at :", @__FUNCTION__, "\n")
-    #e is a vector of ones, so just shift
-    @. x += α
+    #same as X .+= eye(K.n)
+    x[1:(K.n+1):end] .+= α
 
     return nothing
 end
@@ -209,3 +212,10 @@ function step_length(
 
     return α
 end
+
+# -------------------
+# internal utilities for this cone
+#--------------------
+
+#make a matrix view from a vectorized input
+_mat(x::AbstractVector{T},K::PSDCone{T}) where {T} = reshape(x,K.n,K.n)

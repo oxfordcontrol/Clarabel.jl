@@ -4,8 +4,13 @@ using Test, LinearAlgebra, SparseArrays, Clarabel
 
 
     function randsym(n)
-        A = randn(n,n   )
+        A = randn(n,n)
         A = A+A'
+    end
+
+    function randpsd(n)
+        A = randn(n,n)
+        A = A*A'
     end
 
     @testset "test_coneops_psdcone_constructor" begin
@@ -82,25 +87,39 @@ using Test, LinearAlgebra, SparseArrays, Clarabel
 
     end
 
-    # @testset "test_coneops_psdcone_inv_circle_op" begin
-    #
-    #     n = 5
-    #     X = zeros(n,n)
-    #     Y = randn(n,n)
-    #     Z = randn(n,n)
-    #     x = X[:]; y = Y[:]; z = Z[:]
-    #     K = Clarabel.PSDCone(n^2)
-    #
-    #     Clarabel.inv_circle_op!(K,x,y,z)
-    #
-    #     #we should have x = y\z.   Then y ∘ (y\z) = y ∘ x should be z again
-    #     Ztest = zeros(n,n)
-    #     ztest = reshape(Ztest,:,1)
-    #     Clarabel.circle_op!(K,Ztest[:],y,x)
-    #
-    #     @test norm(Z[:] - Ztest[:]) ≈ 0
-    #
-    # end
+    @testset "test_coneops_add_scale_e!" begin
+
+        n = 5
+        a = randn()
+        X = randn(n,n)
+        x = X[:];
+        K = Clarabel.PSDCone(n^2)
+        Clarabel.add_scaled_e!(K,x,a)
+
+        @test norm(reshape(x,n,n) - (X + a*I)) ≈ 0
+
+    end
+
+    @testset "test_coneops_shift_to_cone!" begin
+
+        n = 5
+
+        #X is negative definite.   Shift eigenvalues to 1
+        X = -randpsd(n)
+        x = X[:];
+        K = Clarabel.PSDCone(n^2)
+        Clarabel.shift_to_cone!(K,x)
+        @test minimum(eigvals(reshape(x,n,n))) ≈ 1
+
+        #X is positive definite.   eigenvalues should not change
+        X = randpsd(n)
+        e = minimum(eigvals(X))
+        x = X[:];
+        K = Clarabel.PSDCone(n^2)
+        Clarabel.shift_to_cone!(K,x)
+        @test minimum(eigvals(reshape(x,n,n))) ≈ e
+
+    end
 
 end
 nothing
