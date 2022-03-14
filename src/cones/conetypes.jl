@@ -40,8 +40,8 @@ struct NonnegativeCone{T} <: AbstractCone{T}
     function NonnegativeCone{T}(dim) where {T}
 
         dim >= 1 || throw(DomainError(dim, "dimension must be positive"))
-        w = Vector{T}(undef,dim)
-        λ = Vector{T}(undef,dim)
+        w = zeros(T,dim)
+        λ = zeros(T,dim)
         return new(dim,w,λ)
 
     end
@@ -74,10 +74,10 @@ mutable struct SecondOrderCone{T} <: AbstractCone{T}
 
     function SecondOrderCone{T}(dim::Integer) where {T}
         dim >= 2 ? new(dim) : throw(DomainError(dim, "dimension must be >= 2"))
-        w = Vector{T}(undef,dim)
-        λ = Vector{T}(undef,dim)
-        u = Vector{T}(undef,dim)
-        v = Vector{T}(undef,dim)
+        w = zeros(T,dim)
+        λ = zeros(T,dim)
+        u = zeros(T,dim)
+        v = zeros(T,dim)
         d = one(T)
         η = zero(T)
         return new(dim,w,λ,u,v,d,η)
@@ -130,8 +130,8 @@ struct PSDCone{T} <: AbstractCone{T}
 
         #PJG: R should really be tril part only.  Square
         #for initial debugging purposes
-        λ = Vector{T}(undef,n)
-        R = Matrix{T}(undef,n,n)
+        λ = zeros(T,n)
+        R = zeros(T,n,n)
         work = PSDConeWork()
 
         return new(dim,n,λ,R,work)
