@@ -17,8 +17,8 @@ function calc_step_length(
     scalings::DefaultScalings{T}
 ) where {T}
 
-    ατ    = step.τ < 0 ? -variables.τ / step.τ : 1/eps(T)
-    ακ    = step.κ < 0 ? -variables.κ / step.κ : 1/eps(T)
+    ατ    = step.τ < 0 ? -variables.τ / step.τ : inv(eps(T))
+    ακ    = step.κ < 0 ? -variables.κ / step.κ : inv(eps(T))
 
     αcone = cones_step_length(
         scalings.cones, step.z, step.s,

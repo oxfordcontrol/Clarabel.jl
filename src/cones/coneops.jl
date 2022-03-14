@@ -225,7 +225,7 @@ function cones_step_length(
     z     = z.views
     s     = s.views
 
-    α = 1/eps(T)
+    α = inv(eps(T))
     for i = eachindex(cones)
         nextα = step_length(cones[i],dz[i],ds[i],z[i],s[i])
         α = min(α, nextα)

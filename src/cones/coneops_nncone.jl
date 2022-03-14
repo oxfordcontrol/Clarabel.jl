@@ -150,7 +150,7 @@ function gemv_Winv!(
   return nothing
 end
 
-# implements y = W^TW^{-1}x
+# implements y = (W^TW)^{-1}x
 function mul_WtWinv!(
     K::NonnegativeCone{T},
     x::AbstractVector{T},
@@ -162,7 +162,7 @@ function mul_WtWinv!(
   return nothing
 end
 
-# implements y = W^TW^x
+# implements y = (W^TW)x
 function mul_WtW!(
     K::NonnegativeCone{T},
     x::AbstractVector{T},
@@ -196,8 +196,8 @@ function step_length(
      s::AbstractVector{T},
 ) where {T}
 
-    αz = 1/eps(T)
-    αs = 1/eps(T)
+    αz = inv(eps(T))
+    αs = inv(eps(T))
 
     for i in eachindex(ds)
         αz = dz[i] < 0 ? min(αz,-z[i]/dz[i]) : αz

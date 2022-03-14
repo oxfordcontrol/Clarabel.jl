@@ -8,12 +8,12 @@ function clip(
     min_new::Real = min_thresh,
     max_new::Real = max_thresh)
 	s = ifelse(s < min_thresh, min_new, ifelse(s > max_thresh, max_new, s))
+    return s
 end
 
 
 function inv_sqrt!(v::AbstractVector{T}) where{T <: Real}
-	@fastmath v .= one(T) ./ sqrt.(v)
-
+	v .= inv.(sqrt.(v))
     return nothing
 end
 

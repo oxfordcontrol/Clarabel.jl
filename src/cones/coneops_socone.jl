@@ -45,7 +45,7 @@ function update_scaling!(
     v1 = sqrt(u1*u1 - β)
     K.u[1] = u0
     @views K.u[2:end] .= u1.*K.w[2:end]
-    K.v[1] = 0.0
+    K.v[1] = zero(T)
     @views K.v[2:end] .= v1.*K.w[2:end]
 
     #λ = Wz
@@ -87,8 +87,7 @@ function get_diagonal_scaling!(
 end
 
 
-# returns x = λ∘λ for the nn cone
-
+# returns x = λ ∘ λ for the socone
 function λ_circ_λ!(
     K::SecondOrderCone{T},
     x::AbstractVector{T}
@@ -102,7 +101,7 @@ function λ_circ_λ!(
 end
 
 
-# implements x = y ∘ z for the socone
+# implements x = y ∘ z for socone
 function circ_op!(
     K::SecondOrderCone{T},
     x::AbstractVector{T},
@@ -215,7 +214,7 @@ function gemv_Winv!(
     return nothing
 end
 
-# implements y = W^TW^{-1}x
+# implements y = (W^TW)^{-1}x
 function mul_WtWinv!(
     K::SecondOrderCone{T},
     x::AbstractVector{T},
@@ -269,8 +268,8 @@ function step_length(
      s::AbstractVector{T}
 ) where {T}
 
-    αz   = _step_length_soc_component(K,dz,z)
-    αs   = _step_length_soc_component(K,ds,s)
+    αz   = _step_length_soc_component(dz,z)
+    αs   = _step_length_soc_component(ds,s)
     α    = min(αz,αs)
 
     return α
@@ -279,7 +278,6 @@ end
 # find the maximum step length α≥0 so that
 # x + αy stays in the SOC
 function _step_length_soc_component(
-    K::SecondOrderCone{T},
     y::AbstractVector{T},
     x::AbstractVector{T}
 ) where {T}
@@ -301,15 +299,15 @@ function _step_length_soc_component(
     if( (a > 0 && b > 0) || d < 0)
         #all negative roots / complex root pair
         #-> infinite step length
-        return 1/eps(T)
+        return inv(eps(T))
 
     else
         sqrtd = sqrt(d)
         r1 = (-b + sqrtd)/(2*a)
         r2 = (-b - sqrtd)/(2*a)
         #return the minimum positive root
-        r1 = r1 < 0 ? 1/eps(T) : r1
-        r2 = r2 < 0 ? 1/eps(T) : r2
+        r1 = r1 < 0 ? inv(eps(T)) : r1
+        r2 = r2 < 0 ? inv(eps(T)) : r2
         return min(r1,r2)
     end
 

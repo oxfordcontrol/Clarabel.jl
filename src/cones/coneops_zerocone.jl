@@ -136,7 +136,7 @@ function gemv_Winv!(
   return nothing
 end
 
-# implements y = W^TW^{-1}x
+# implements y = (W^TW)^{-1}x
 function mul_WtWinv!(
     K::ZeroCone{T},
     x::AbstractVector{T},
@@ -183,6 +183,6 @@ function step_length(
 ) where {T}
 
     #equality constraints allow arbitrary step length
-    return 1/eps(T)
+    return inv(eps(T))
 
 end

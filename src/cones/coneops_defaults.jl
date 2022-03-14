@@ -152,7 +152,7 @@ function gemv_Winv!(
 
 end
 
-# implements y = W^TW^{-1}x
+# implements y = (W^TW)^{-1}x
 function mul_WtWinv!(
     K::AbstractCone{T},
     x::AbstractVector{T},
