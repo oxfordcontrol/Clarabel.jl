@@ -1,4 +1,5 @@
 using Test, LinearAlgebra, SparseArrays, Clarabel
+rng = Random.MersenneTwister(242713)
 T = Float64
 
 @testset "coneops_psdcone" begin
@@ -6,12 +7,12 @@ T = Float64
     #PJG: These need to go to a common testing utils file
 
     function randsym(n)
-        A = randn(n,n)
+        A = randn(rng,n,n)
         A = A+A'
     end
 
     function randpsd(n)
-        A = randn(n,n)
+        A = randn(rng, n,n)
         A = A*A'
     end
 
@@ -49,7 +50,7 @@ T = Float64
 
         n = 5
         X = randsym(n)
-        λdiag = randn(n)
+        λdiag = randn(rng,n)
         Λ = Matrix(Diagonal(λdiag))
         Z = zeros(n,n)
         W = zeros(n,n)
@@ -73,8 +74,8 @@ T = Float64
     @testset "test_coneops_psdcone_add_scale_e!" begin
 
         n = 5
-        a = randn()
-        X = randn(n,n)
+        a = pi
+        X = randsym(n,n)
         x = X[:];
         K = Clarabel.PSDCone(n^2)
         Clarabel.add_scaled_e!(K,x,a)

@@ -1,5 +1,4 @@
 using Random, Test, Pkg
-rng = Random.MersenneTwister(12345)
 
 @testset "Clarabel Unit Tests" begin
 
