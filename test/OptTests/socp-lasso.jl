@@ -1,13 +1,13 @@
 using Test, LinearAlgebra, Random, SparseArrays
 FloatT = Float64
 tol = FloatT(1e-3)
-        rng = Random.MersenneTwister(242713)
 
 @testset "SOCP - Lasso" begin
 
     function SOCP_lasso_data(Type::Type{T}) where {T <: AbstractFloat}
 
         # generate problem data
+        rng = Random.MersenneTwister(12345)
         n = 8
         m = 50 * n
         F = rand(rng, T, m, n)
