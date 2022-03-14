@@ -186,14 +186,14 @@ function kkt_solve!(
         #use -rz + s here as a shortcut in the affine step
         @. kktsolver.work_z = -rhs.z + variables.s
 
-    else  #:combined expected, but general RHS should do this
+    else  #:combined expected, but any general RHS should do this
 
-        #we can use the RHS outputs for work space
+        #we can use the LHS outputs for work space
         #here since we haven't solved yet
         tmp1 = lhs.s; tmp2 = lhs.z
         @. tmp1 = rhs.z  #Don't want to modify our RHS
-        cones_inv_circle_op!(cones, tmp2, scalings.λ, rhs.s)  #tmp2 = λ \ ds
-        cones_gemv_W!(cones, false, tmp2, tmp1, one(T), -one(T))      #tmp1 = - rhs.z + W(tmp2)
+        cones_λ_inv_circ_op!(cones, tmp2, rhs.s)                  #tmp2 = λ \ ds
+        cones_gemv_W!(cones, false, tmp2, tmp1, one(T), -one(T))  #tmp1 = - rhs.z + W(tmp2)
         kktsolver.work_z .= tmp1
 
     end
@@ -227,8 +227,10 @@ function kkt_solve!(
     lhs.z .+= lhs.τ .* constz
 
     #solve for Δs = -Wᵀ(λ \ dₛ + WΔz)
+    #PJG: We are unncessarily calculating λ \ dₛ twice.   Once here, and
+    #once at ~line 195.   Do I even need it at all in the :affine case?
     tmpsv = kktsolver.work_sv
-    cones_inv_circle_op!(cones, tmpsv, scalings.λ, rhs.s) #Δs = λ \ dₛ
+    cones_λ_inv_circ_op!(cones, tmpsv, rhs.s)                     #Δs = λ \ dₛ
     cones_gemv_W!(cones, false, lhs.z, tmpsv,  one(T), one(T))    #Δs = WΔz + Δs
     cones_gemv_W!(cones,  true, tmpsv, lhs.s, -one(T), zero(T))   #Δs = -WᵀΔs
 

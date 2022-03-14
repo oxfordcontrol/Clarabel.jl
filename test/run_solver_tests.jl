@@ -1,4 +1,6 @@
 using Random, Test, Pkg
+using Clarabel
+
 rng = Random.MersenneTwister(12345)
 
 @testset "Clarabel Native Optimizer Testset" begin
@@ -6,10 +8,10 @@ rng = Random.MersenneTwister(12345)
     @testset "Basic Tests" begin
 
         #tests on small scale problems
-        include("./UnitTests/basic_lp.jl")
-        include("./UnitTests/basic_qp.jl")
-        include("./UnitTests/basic_socp.jl")
-        include("./UnitTests/infeasibility.jl")
+        include("./OptTests/basic_lp.jl")
+        include("./OptTests/basic_qp.jl")
+        include("./OptTests/basic_socp.jl")
+        include("./OptTests/infeasibility.jl")
 
     end
 

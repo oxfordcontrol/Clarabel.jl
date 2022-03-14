@@ -25,7 +25,7 @@ end
 ZeroCone(args...) = ZeroCone{DefaultFloat}(args...)
 
 
-## ------------------------------------
+# ------------------------------------
 # Nonnegative Cone
 # -------------------------------------
 
@@ -33,14 +33,16 @@ struct NonnegativeCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
 
-    #internal working variables for W
+    #internal working variables for W and λ
     w::Vector{T}
+    λ::Vector{T}
 
     function NonnegativeCone{T}(dim) where {T}
 
         dim >= 1 || throw(DomainError(dim, "dimension must be positive"))
-        w = Vector{T}(undef,dim)
-        return new(dim,w)
+        w = zeros(T,dim)
+        λ = zeros(T,dim)
+        return new(dim,w,λ)
 
     end
 
@@ -59,6 +61,9 @@ mutable struct SecondOrderCone{T} <: AbstractCone{T}
     #internal working variables for W and its products
     w::Vector{T}
 
+    #scaled version of (s,z)
+    λ::Vector{T}
+
     #vectors for rank 2 update representation of W^2
     u::Vector{T}
     v::Vector{T}
@@ -69,17 +74,73 @@ mutable struct SecondOrderCone{T} <: AbstractCone{T}
 
     function SecondOrderCone{T}(dim::Integer) where {T}
         dim >= 2 ? new(dim) : throw(DomainError(dim, "dimension must be >= 2"))
-        w = Vector{T}(undef,dim)
-        u = Vector{T}(undef,dim)
-        v = Vector{T}(undef,dim)
-        d = 1.
-        η = 0.
-        return new(dim,w,u,v,d,η)
+        w = zeros(T,dim)
+        λ = zeros(T,dim)
+        u = zeros(T,dim)
+        v = zeros(T,dim)
+        d = one(T)
+        η = zero(T)
+        return new(dim,w,λ,u,v,d,η)
     end
 
 end
 
 SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
+
+# ------------------------------------
+# Positive Semidefinite Cone
+# ------------------------------------
+
+mutable struct PSDConeWork #PJG: where {T}...
+
+    cholS
+    cholZ
+    SVD
+    U
+    V
+    λ
+    R
+    Rinv
+    L1
+
+    L2
+    PSDConeWork() = new(ntuple(x->nothing, fieldcount(PSDConeWork)))
+end
+
+#PJG: PSDConeWork(args...) = PSDConeWork{DefaultFloat}(args...)
+
+struct PSDCone{T} <: AbstractCone{T}
+
+    dim::DefaultInt  #this is the total number of elements in the matrix
+      n::DefaultInt  #this is the matrix dimension, i.e. n^2 = dim
+
+    #internal working variables for W and λ
+    λ::Vector{T}     #NB: not a matrix b/c scaled (S,Z) should be diagonal
+    R::Matrix{T}     #PJG: R is tril factor of W = R*R'
+    work::PSDConeWork   #PJG: kludgey AF for now
+
+    #PJG: need some further structure here to maintain
+    #working memory for all of the steps in computing R
+
+    function PSDCone{T}(dim) where {T}
+
+        dim >= 1   || throw(DomainError(dim, "dimension must be positive"))
+        n = isqrt(dim)
+        n*n == dim || throw(DomainError(dim, "dimension must be a square"))
+
+        #PJG: R should really be tril part only.  Square
+        #for initial debugging purposes
+        λ = zeros(T,n)
+        R = zeros(T,n,n)
+        work = PSDConeWork()
+
+        return new(dim,n,λ,R,work)
+
+    end
+
+end
+
+PSDCone(args...) = PSDCone{DefaultFloat}(args...)
 
 # -------------------------------------
 # collection of cones for composite
@@ -100,17 +161,25 @@ supported types are:
 * `ZeroConeT`       : The zero cone.  Used to define equalities.
 * `NonnegativeConeT`: The nonnegative orthant.
 * `SecondOrderConeT`: The second order / Lorentz / ice-cream cone.
+# `PSDConeT`        : The positive semidefinite cone.
 """
 @enum SupportedCones begin
     ZeroConeT
     NonnegativeConeT
     SecondOrderConeT
+    PSDConeT
 end
 
+"""
+    ConeDict
+A Dict that maps the user-facing SupportedCones enum values to
+the types used internally in the solver.   See [SupportedCones](@ref)
+"""
 const ConeDict = Dict(
            ZeroConeT => ZeroCone,
     NonnegativeConeT => NonnegativeCone,
-    SecondOrderConeT => SecondOrderCone
+    SecondOrderConeT => SecondOrderCone,
+            PSDConeT => PSDCone,
 )
 
 mutable struct ConeInfo

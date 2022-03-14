@@ -11,7 +11,7 @@ const SparseTriplet{T} = Tuple{Vector{<:Integer}, Vector{<:Integer}, Vector{T}}
 
 # parametric union needs a parametric member.  Remove this
 # when something like MOI.PowerCone{T} support is added
-struct DummyConeType{T} end
+abstract type _DummyConeType{T<:AbstractFloat} end
 
 # Cones supported by the solver
 
@@ -19,7 +19,7 @@ const OptimizerSupportedMOICones{T} = Union{
     MOI.Zeros,
     MOI.Nonnegatives,
     MOI.SecondOrderCone,
-    DummyConeType{T},    #<-placeholder until PowerCone{T} is added
+    _DummyConeType{T},    #<-placeholder until PowerCone{T} is added
     # MOI.PowerCone{T},
     # MOI.DualPowerCone{T},
     # MOI.PositiveSemidefiniteConeTriangle,

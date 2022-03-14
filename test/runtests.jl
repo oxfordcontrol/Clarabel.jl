@@ -1,5 +1,4 @@
 using Random, Test, Clarabel
-include("./UnitTests/test_utils.jl")
 
 # Define the types to run the unit tests with
 UnitTestFloats = [Float32; Float64; BigFloat]

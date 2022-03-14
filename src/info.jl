@@ -9,7 +9,7 @@ function info_update!(
 
     #optimality termination check should be computed w.r.t
     #the pre-homogenization x and z variables.
-    τinv = 1 / variables.τ
+    τinv = inv(variables.τ)
 
     #shortcuts for the equilibration matrices
     D = scalings.D; Dinv = scalings.Dinv
@@ -66,7 +66,7 @@ function info_check_termination!(
 
         if (residuals.dot_bz < -settings.tol_infeas_rel) &&
            (info.res_primal_inf < -settings.tol_infeas_abs*residuals.dot_bz)
-           
+
             info.status = PRIMAL_INFEASIBLE
 
         elseif (residuals.dot_qx < -settings.tol_infeas_rel) &&

@@ -19,12 +19,11 @@ end
 function update_scaling!(
     K::ZeroCone{T},
     s::AbstractVector{T},
-    z::AbstractVector{T},
-    λ::AbstractVector{T}
+    z::AbstractVector{T}
 ) where {T}
 
-    λ   .= 0
-
+    #nothing to do.
+    #This cone acts like λ = 0 everywhere.
     return nothing
 end
 
@@ -42,33 +41,55 @@ function get_diagonal_scaling!(
     diagW2::AbstractVector{T}
 ) where {T}
 
-    diagW2 .= 0.
+    diagW2 .= zero(T)
 
     return nothing
 end
 
+function λ_circ_λ!(
+    K::ZeroCone{T},
+    x::AbstractVector{T}
+) where {T}
+
+    x .= zero(T)
+
+end
+
 # implements x = y ∘ z for the zero cone
-function circle_op!(
+function circ_op!(
     K::ZeroCone{T},
     x::AbstractVector{T},
     y::AbstractVector{T},
     z::AbstractVector{T}
 ) where {T}
 
-    x .= 0
+    x .= zero(T)
+
+    return nothing
+end
+
+# implements x = λ \ z for the zerocone.
+# We treat λ as zero always for this cone
+function λ_inv_circ_op!(
+    K::ZeroCone{T},
+    x::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+
+    x .= zero(T)
 
     return nothing
 end
 
 # implements x = y \ z for the zero cone
-function inv_circle_op!(
+function inv_circ_op!(
     K::ZeroCone{T},
     x::AbstractVector{T},
     y::AbstractVector{T},
     z::AbstractVector{T}
 ) where {T}
 
-    x .= 0
+    x .= zero(T)
 
     return nothing
 end
@@ -78,7 +99,7 @@ function shift_to_cone!(
     K::ZeroCone{T},z::AbstractVector{T}
 ) where{T}
 
-    z .= 0
+    z .= zero(T)
 
     return nothing
 end
@@ -115,7 +136,7 @@ function gemv_Winv!(
   return nothing
 end
 
-# implements y = W^TW^{-1}x
+# implements y = (W^TW)^{-1}x
 function mul_WtWinv!(
     K::ZeroCone{T},
     x::AbstractVector{T},
@@ -123,7 +144,7 @@ function mul_WtWinv!(
 ) where {T}
 
   #treat inv(W^TW) like zero
-  y .= 0
+  y .= zero(T)
 
   return nothing
 end
@@ -136,7 +157,7 @@ function mul_WtW!(
 ) where {T}
 
   #treat (W^TW) like zero
-  y .= 0
+  y .= zero(T)
 
   return nothing
 end
@@ -158,11 +179,10 @@ function step_length(
     dz::AbstractVector{T},
     ds::AbstractVector{T},
      z::AbstractVector{T},
-     s::AbstractVector{T},
-     λ::AbstractVector{T}
+     s::AbstractVector{T}
 ) where {T}
 
     #equality constraints allow arbitrary step length
-    return 1/eps(T)
+    return inv(eps(T))
 
 end

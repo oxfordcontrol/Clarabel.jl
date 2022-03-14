@@ -17,10 +17,9 @@ function update_scaling!(
     K::NonnegativeCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
-    λ::AbstractVector{T}
 ) where {T}
 
-    @. λ   = sqrt(s*z)
+    @. K.λ = sqrt(s*z)
     @. K.w = sqrt(s/z)
 
     return nothing
@@ -46,9 +45,19 @@ function get_diagonal_scaling!(
     return nothing
 end
 
+# returns x = λ∘λ for the nn cone
+function λ_circ_λ!(
+    K::NonnegativeCone{T},
+    x::AbstractVector{T}
+) where {T}
+
+    @. x = K.λ^2
+
+    return nothing
+end
 
 # implements x = y ∘ z for the nn cone
-function circle_op!(
+function circ_op!(
     K::NonnegativeCone{T},
     x::AbstractVector{T},
     y::AbstractVector{T},
@@ -60,8 +69,20 @@ function circle_op!(
     return nothing
 end
 
+# implements x = λ \ z for the nn cone, where λ
+# is the internally maintained scaling variable.
+function λ_inv_circ_op!(
+    K::NonnegativeCone{T},
+    x::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+
+    inv_circ_op!(K, x, K.λ, z)
+
+end
+
 # implements x = y \ z for the nn cone
-function inv_circle_op!(
+function inv_circ_op!(
     K::NonnegativeCone{T},
     x::AbstractVector{T},
     y::AbstractVector{T},
@@ -83,8 +104,8 @@ function shift_to_cone!(
     if(α < eps(T))
         #done in two stages since otherwise (1-α) = -α for
         #large α, which makes z exactly 0. (or worse, -0.0 )
-        @. z += -α
-        @. z +=  1.
+        add_scaled_e!(K,z,-α)
+        add_scaled_e!(K,z,one(T))
     end
 
     return nothing
@@ -129,7 +150,7 @@ function gemv_Winv!(
   return nothing
 end
 
-# implements y = W^TW^{-1}x
+# implements y = (W^TW)^{-1}x
 function mul_WtWinv!(
     K::NonnegativeCone{T},
     x::AbstractVector{T},
@@ -141,7 +162,7 @@ function mul_WtWinv!(
   return nothing
 end
 
-# implements y = W^TW^x
+# implements y = (W^TW)x
 function mul_WtW!(
     K::NonnegativeCone{T},
     x::AbstractVector{T},
@@ -173,11 +194,10 @@ function step_length(
     ds::AbstractVector{T},
      z::AbstractVector{T},
      s::AbstractVector{T},
-     λ::AbstractVector{T}
 ) where {T}
 
-    αz = 1/eps(T)
-    αs = 1/eps(T)
+    αz = inv(eps(T))
+    αs = inv(eps(T))
 
     for i in eachindex(ds)
         αz = dz[i] < 0 ? min(αz,-z[i]/dz[i]) : αz
