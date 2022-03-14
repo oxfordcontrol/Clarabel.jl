@@ -115,7 +115,7 @@ end
 # implements y = αWx + βy for the nn cone
 function gemv_W!(
     K::NonnegativeCone{T},
-    is_transpose::Symbol,  
+    is_transpose::Symbol,
     x::AbstractVector{T},
     y::AbstractVector{T},
     α::T,
@@ -204,7 +204,5 @@ function step_length(
         αs = ds[i] < 0 ? min(αs,-s[i]/ds[i]) : αs
     end
 
-    α = min(αz,αs)
-
-    return α
+    return (αz,αs)
 end
