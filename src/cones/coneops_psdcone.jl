@@ -297,9 +297,7 @@ function step_length(
     gemv_Winv!(K, :T, ds, d, one(T), zero(T))
     αs = _step_length_psd_component(K,Δ,Λisqrt)
 
-    α = min(αz,αs)
-
-    return α
+    return (αz,αs)
 end
 
 

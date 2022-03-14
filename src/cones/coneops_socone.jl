@@ -274,9 +274,8 @@ function step_length(
 
     αz   = _step_length_soc_component(dz,z)
     αs   = _step_length_soc_component(ds,s)
-    α    = min(αz,αs)
 
-    return α
+    return (αz,αs)
 end
 
 # find the maximum step length α≥0 so that
