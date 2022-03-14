@@ -18,7 +18,7 @@ rng = Random.MersenneTwister(12345)
     @testset "Conic Optimization Tests" begin
 
         #tests on various cone problem types
-        include("./UnitTests/socp-lasso.jl")
+        include("./OptTests/socp-lasso.jl")
 
     end
 

@@ -127,7 +127,7 @@ end
 # implements y = αWx + βy
 function gemv_W!(
     K::AbstractCone{T},
-    is_transpose::Bool,
+    is_transpose::Symbol,  #:T for transpose, :N otherwise
     x::AbstractVector{T},
     y::AbstractVector{T},
     α::T,
@@ -141,7 +141,7 @@ end
 # implements y = αW^{-1}x + βy
 function gemv_Winv!(
     K::AbstractCone{T},
-    is_transpose::Bool,
+    is_transpose::Symbol,  #:T for transpose, :N otherwise
     x::AbstractVector{T},
     y::AbstractVector{T},
     α::T,

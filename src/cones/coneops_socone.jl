@@ -49,7 +49,7 @@ function update_scaling!(
     @views K.v[2:end] .= v1.*K.w[2:end]
 
     #λ = Wz
-    gemv_W!(K,false,z,K.λ,one(T),zero(T))
+    gemv_W!(K,:N,z,K.λ,one(T),zero(T))
 
     return nothing
 end
@@ -171,12 +171,14 @@ end
 # implements y = αWx + βy for the socone
 function gemv_W!(
     K::SecondOrderCone{T},
-    is_transpose::Bool,
+    is_transpose::Symbol,
     x::AbstractVector{T},
     y::AbstractVector{T},
     α::T,
     β::T
 ) where {T}
+
+  #NB: symmetric, so ignore transpose
 
   # use the fast product method from ECOS ECC paper
   @views ζ = dot(K.w[2:end],x[2:end])
@@ -194,12 +196,14 @@ end
 # implements y = αW^{-1}x + βy for the socone
 function gemv_Winv!(
     K::SecondOrderCone{T},
-    is_transpose::Bool,
+    is_transpose::Symbol,
     x::AbstractVector{T},
     y::AbstractVector{T},
     α::T,
     β::T
 ) where {T}
+
+    #NB: symmetric, so ignore transpose
 
     # use the fast inverse product method from ECOS ECC paper
     @views ζ = dot(K.w[2:end],x[2:end])
@@ -224,8 +228,8 @@ function mul_WtWinv!(
     #PJG: W is symmetric, so just multiply
     #by the inverse twice.  Could be made
     #faster if needed
-    gemv_Winv!(K,true,y,y,one(T),zero(T))
-    gemv_Winv!(K,true,x,y,one(T),zero(T))
+    gemv_Winv!(K,:T,y,y,one(T),zero(T))
+    gemv_Winv!(K,:N,x,y,one(T),zero(T))
 
     return nothing
 end
@@ -240,8 +244,8 @@ function mul_WtW!(
     #PJG: W is symmetric, so just multiply
     #by W twice.  Could be made
     #faster if needed
-    gemv_W!(K,true,y,y,one(T),zero(T))
-    gemv_W!(K,true,x,y,one(T),zero(T))
+    gemv_W!(K,:T,y,y,one(T),zero(T))
+    gemv_W!(K,:N,x,y,one(T),zero(T))
 
     return nothing
 end

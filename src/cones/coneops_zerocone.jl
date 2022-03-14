@@ -107,7 +107,7 @@ end
 # implements y = αWx + βy for the zero cone
 function gemv_W!(
     K::ZeroCone{T},
-    is_transpose::Bool,
+    is_transpose::Symbol,
     x::AbstractVector{T},
     y::AbstractVector{T},
     α::T,
@@ -123,7 +123,7 @@ end
 # implements y = αWx + βy for the nn cone
 function gemv_Winv!(
     K::ZeroCone{T},
-    is_transpose::Bool,
+    is_transpose::Symbol,
     x::AbstractVector{T},
     y::AbstractVector{T},
     α::T,
