@@ -20,12 +20,12 @@ function calc_step_length(
     ατ    = step.τ < 0 ? -variables.τ / step.τ : inv(eps(T))
     ακ    = step.κ < 0 ? -variables.κ / step.κ : inv(eps(T))
 
-    αcone = cones_step_length(
+    (αz,αs) = cones_step_length(
         scalings.cones, step.z, step.s,
         variables.z, variables.s,
     )
 
-    return min(ατ,ακ,αcone,one(T))
+    return min(ατ,ακ,αz,αs,one(T))
 end
 
 function variables_rescale!(variables)

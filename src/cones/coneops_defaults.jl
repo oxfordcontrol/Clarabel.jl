@@ -186,13 +186,14 @@ end
 
 
 #return maximum allowable step length while remaining in cone
+#should return a Tuple of allowable step lengths for each direction
+#, i.e. (step_z, step_s)
 function step_length(
      K::AbstractCone{T},
     dz::AbstractVector{T},
     ds::AbstractVector{T},
      z::AbstractVector{T},
-     s::AbstractVector{T},
-     λ::AbstractVector{T}
+     s::AbstractVector{T}
 ) where {T}
 
      error("Incomplete cone operation specification: ",typeof(K))

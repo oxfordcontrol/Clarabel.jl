@@ -183,6 +183,6 @@ function step_length(
 ) where {T}
 
     #equality constraints allow arbitrary step length
-    return inv(eps(T))
-
+    huge = inv(eps(T))
+    return (huge,huge)
 end

@@ -46,7 +46,7 @@ settings = Clarabel.Settings(verbose = true)
 setup!(model, P, q, A, b, cone_types, cone_dims, settings)
 ```
 
-To actually solve the problem, you must make a subsequent call to [`solve!`](@ref)
+To solve the problem, you must make a subsequent call to [`solve!`](@ref)
 """
 function setup!(s,P,c,A,b,cone_types,cone_dims,settings::Settings)
     #this allows total override of settings during setup
@@ -129,7 +129,7 @@ function solve!(
 
     #solver release info, solver config
     #problem dimensions, cone type etc
-    print_header(s.info,s.settings,s.data)
+    @notimeit print_header(s.info,s.settings,s.data)
 
     @timeit timer "solve!" begin
 
@@ -225,10 +225,10 @@ function solve!(
 
         variables_finalize!(s.variables, s.scalings, s.info.status)
 
-    end #end solve! timer
-
     info_finalize!(s.info)
-    print_footer(s.info,s.settings)
+    @notimeit print_footer(s.info,s.settings)
+
+    end #end solve! timer
 
     return nothing
 end
