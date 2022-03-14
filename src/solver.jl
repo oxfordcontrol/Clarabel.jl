@@ -10,7 +10,7 @@ function Solver(
     cone_types::Vector{SupportedCones},
     cone_dims::Vector{Int};
     kwargs...
-) where{T}
+) where{T <: AbstractFloat}
 
     s = Solver{T}()
     setup!(s,P,c,A,b,cone_types,cone_dims,kwargs...)

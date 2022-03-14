@@ -1,50 +1,75 @@
 using Test, LinearAlgebra, SparseArrays, Random
-FloatT = Float64
-tol = FloatT(1e-3)
+
+#if not run in full test setup, just do it for one float type
+@isdefined(UnitTestFloats) || (UnitTestFloats = [Float64])
+
+function basic_SOCP_data(Type::Type{T}) where {T <: AbstractFloat}
+
+    rng = Random.MersenneTwister(242713)
+    n = 3
+    P = randn(rng,n,n)*1
+    P = SparseMatrixCSC{T}(convert(Matrix{T},(P'*P)))
+    A = SparseMatrixCSC{T}(I(n)*one(T))
+    A1 = [A;-A]*2
+    c = T[0.1;-2.;1.]
+    b1 = ones(T,6)
+    cone_types = [Clarabel.NonnegativeConeT, Clarabel.NonnegativeConeT]
+    cone_dims  = [3,3]
+
+    #add a SOC constraint
+    A2 = SparseMatrixCSC{T}(I(n)*one(T))
+    b2 = [0;0;0]
+    A = [A1; A2]
+    b = [b1; b2]
+    push!(cone_dims,3)
+    push!(cone_types,Clarabel.SecondOrderConeT)
+
+    return (P,c,A,b,cone_types,cone_dims)
+end
+
 
 @testset "Basic SOCP Tests" begin
 
-    function basic_SOCP_data(Type::Type{T}) where {T <: AbstractFloat}
+    for FloatT in UnitTestFloats
 
-        rng = Random.MersenneTwister(242713)
-        n = 3
-        P = randn(rng,T,n,n)*1
-        P = SparseMatrixCSC{T}(P'*P)
-        A = SparseMatrixCSC{T}(I(n)*1.)
-        A1 = [A;-A]*2
-        c = T[0.1;-2.;1.]
-        b1 = ones(T,6)
-        cone_types = [Clarabel.NonnegativeConeT, Clarabel.NonnegativeConeT]
-        cone_dims  = [3,3]
+        tol = FloatT(1e-3)
 
-        #add a SOC constraint
-        A2 = SparseMatrixCSC{T}(I(n)*1.)
-        b2 = [0;0;0]
-        A = [A1; A2]
-        b = [b1; b2]
-        push!(cone_dims,3)
-        push!(cone_types,Clarabel.SecondOrderConeT)
+        @testset "Basic SOCP Tests (T = $(FloatT))" begin
 
-        return (P,c,A,b,cone_types,cone_dims)
-    end
+            @testset "feasible" begin
 
-    @testset "Basic SOCP Tests (T = $(FloatT))" begin
+                P,c,A,b,cone_types,cone_dims = basic_SOCP_data(FloatT)
+                solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims)
+                Clarabel.solve!(solver)
 
-        @testset "feasible" begin
-
-            P,c,A,b,cone_types,cone_dims = basic_SOCP_data(FloatT)
-            solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims)
-            Clarabel.solve!(solver)
-
-            @test solver.info.status == Clarabel.SOLVED
-            @test isapprox(
+                @test solver.info.status == Clarabel.SOLVED
+                @test isapprox(
                 norm(solver.variables.x -
                 FloatT[ -0.5 ; 0.435603 ;  -0.245459]),
                 zero(FloatT), atol=tol)
-            @test isapprox(solver.info.cost_primal, FloatT(-8.4590e-01), atol=tol)
+                @test isapprox(solver.info.cost_primal, FloatT(-8.4590e-01), atol=tol)
 
-        end
+            end
+
+            @testset "feasible" begin
+
+                P,c,A,b,cone_types,cone_dims = basic_SOCP_data(FloatT)
+                solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims)
+                Clarabel.solve!(solver)
+
+                @test solver.info.status == Clarabel.SOLVED
+                @test isapprox(
+                norm(solver.variables.x -
+                FloatT[ -0.5 ; 0.435603 ;  -0.245459]),
+                zero(FloatT), atol=tol)
+                @test isapprox(solver.info.cost_primal, FloatT(-8.4590e-01), atol=tol)
+
+            end
+
+        end      #end "Basic SOCP Tests (FloatT)"
 
     end # UnitTestFloats
-end
+
+end #"Basic SOCP Tests"
+
 nothing

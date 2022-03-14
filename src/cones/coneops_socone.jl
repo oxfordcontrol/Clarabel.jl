@@ -225,9 +225,8 @@ function mul_WtWinv!(
     y::AbstractVector{T}
 ) where {T}
 
-    #PJG: W is symmetric, so just multiply
-    #by the inverse twice.  Could be made
-    #faster if needed
+    #PJG: multiply by the inverse twice.
+    #Could be made faster if needed
     gemv_Winv!(K,:T,y,y,one(T),zero(T))
     gemv_Winv!(K,:N,x,y,one(T),zero(T))
 

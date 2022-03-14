@@ -1,20 +1,11 @@
 using Test, LinearAlgebra, SparseArrays, Clarabel
+include("../testing_utils.jl")
+
 rng = Random.MersenneTwister(242713)
-T = Float64
+
+FloatT = Float64
 
 @testset "coneops_psdcone" begin
-
-    #PJG: These need to go to a common testing utils file
-
-    function randsym(n)
-        A = randn(rng,n,n)
-        A = A+A'
-    end
-
-    function randpsd(n)
-        A = randn(rng, n,n)
-        A = A*A'
-    end
 
     @testset "test_coneops_psdcone_constructor" begin
 
@@ -33,8 +24,8 @@ T = Float64
         E = Matrix(I(5)*1.)
         e = E[:]
         X = zeros(n,n)
-        Y = randsym(n)
-        Z = randsym(n)
+        Y = randsym(rng, n)
+        Z = randsym(rng, n)
         x = X[:]; y = Y[:]; z = Z[:]
         K = Clarabel.PSDCone(n^2)
 
@@ -49,7 +40,7 @@ T = Float64
     @testset "test_coneops_psdcone_λ_inv_circle_op" begin
 
         n = 5
-        X = randsym(n)
+        X = randsym(rng,n)
         λdiag = randn(rng,n)
         Λ = Matrix(Diagonal(λdiag))
         Z = zeros(n,n)
@@ -65,7 +56,7 @@ T = Float64
         Clarabel.λ_inv_circ_op!(K,w,z)
 
         #now we should have x = w
-        @test norm(x[:]  - w[:]) ≈ 0 atol = 100*eps(T)
+        @test norm(x[:]  - w[:]) ≈ 0 atol = 100*eps(FloatT)
 
     end
 
@@ -74,8 +65,8 @@ T = Float64
     @testset "test_coneops_psdcone_add_scale_e!" begin
 
         n = 5
-        a = pi
-        X = randsym(n,n)
+        a = 0.12345
+        X = randsym(rng,n)
         x = X[:];
         K = Clarabel.PSDCone(n^2)
         Clarabel.add_scaled_e!(K,x,a)
@@ -89,14 +80,14 @@ T = Float64
         n = 5
 
         #X is negative definite.   Shift eigenvalues to 1
-        X = -randpsd(n)
+        X = -randpsd(rng,n)
         x = X[:];
         K = Clarabel.PSDCone(n^2)
         Clarabel.shift_to_cone!(K,x)
         @test minimum(eigvals(reshape(x,n,n))) ≈ 1
 
         #X is positive definite.   eigenvalues should not change
-        X = randpsd(n)
+        X = randpsd(rng,n)
         e = minimum(eigvals(X))
         x = X[:];
         K = Clarabel.PSDCone(n^2)
@@ -111,8 +102,8 @@ T = Float64
         n = 5
 
         #X is negative definite.   Shift eigenvalues to 1
-        S = randpsd(n)
-        Z = randpsd(n)
+        S = randpsd(rng,n)
+        Z = randpsd(rng,n)
 
         (s,z) = map(m->reshape(m,:), (S,Z))
 
@@ -126,9 +117,9 @@ T = Float64
 
         W = R*R'
 
-        @test norm(W*Z*W' - S) ≈ 0  atol = 1000*eps(T)
-        @test norm(R'*Z*R - Λ) ≈ 0  atol = 1000*eps(T)
-        @test norm(Rinv*S*Rinv' - Λ) ≈ 0  atol = 1000*eps(T)
+        @test norm(W*Z*W' - S) ≈ 0  atol = 1000*eps(FloatT)
+        @test norm(R'*Z*R - Λ) ≈ 0  atol = 1000*eps(FloatT)
+        @test norm(Rinv*S*Rinv' - Λ) ≈ 0  atol = 1000*eps(FloatT)
 
     end
 
@@ -136,8 +127,8 @@ T = Float64
 
         n = 10
 
-        Z = randpsd(n); dZ = randsym(n)
-        S = randpsd(n); dS = randsym(n)
+        Z = randpsd(rng,n); dZ = randsym(rng,n)
+        S = randpsd(rng,n); dS = randsym(rng,n)
 
         (s,z)   = map(m->reshape(m,:), (S,Z))
         (ds,dz) = map(m->reshape(m,:), (dS,dZ))
@@ -147,23 +138,24 @@ T = Float64
         Clarabel.update_scaling!(K,s,z)
 
         #Z direction only
-        α = Clarabel.step_length(K,dz,ds.*0.,z,s)
-        @test minimum(eigvals(Z + α.*dZ)) ≈ 0.  atol = 1000*eps(T)
+        α = Clarabel.step_length(K,dz,ds.*0.,z,s)[1]
+        @test minimum(eigvals(Z + α.*dZ)) ≈ 0.  atol = 1000*eps(FloatT)
 
         #S direction only
-        α = Clarabel.step_length(K,dz.*0,ds,z,s)
-        @test minimum(eigvals(S + α.*dS)) ≈ 0.  atol = 1000*eps(T)
+        α = Clarabel.step_length(K,dz.*0,ds,z,s)[2]
+        @test minimum(eigvals(S + α.*dS)) ≈ 0.  atol = 1000*eps(FloatT)
 
         #joint
-        α = Clarabel.step_length(K,dz,ds,z,s)
-        eS = eigvals(S + α.*dS)
-        eZ = eigvals(Z + α.*dZ)
-        @test minimum([eS;eZ]) ≈ 0.  atol = 1000*eps(T)
+        (αz,αs) = Clarabel.step_length(K,dz,ds,z,s)
+        eZ = eigvals(Z + αz.*dZ)
+        eS = eigvals(S + αs.*dS)
+        @test minimum(eZ) ≈ 0.  atol = 1000*eps(FloatT)
+        @test minimum(eS) ≈ 0.  atol = 1000*eps(FloatT)
 
         #unbounded
-        dS .= randpsd(n); dZ .= randpsd(n)
-        α = Clarabel.step_length(K,dz.*0,ds,z,s)
-        @test α ≈ inv(eps(T))  rtol = 10*eps(T)
+        dS .= randpsd(rng,n); dZ .= randpsd(rng,n)
+        (αz,αs) = Clarabel.step_length(K,dz.*0,ds,z,s)
+        @test min(αz,αs) ≈ inv(eps(FloatT))  rtol = 10*eps(FloatT)
 
 
 

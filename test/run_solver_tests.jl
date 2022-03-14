@@ -9,7 +9,6 @@ using Clarabel
         include("./OptTests/basic_lp.jl")
         include("./OptTests/basic_qp.jl")
         include("./OptTests/basic_socp.jl")
-        include("./OptTests/infeasibility.jl")
 
     end
 

@@ -1,20 +1,20 @@
 using Random, Test, Clarabel
+include("./testing_utils.jl")
 
-# Define the types to run the unit tests with
-UnitTestFloats = [Float32; Float64; BigFloat]
-UnitTestFloats = [Float64]
+UnitTestFloats = [Float64,BigFloat]
 
 @testset "Clarabel Tests" begin
 
-    # Tests running calls to the optimizer
-    # for various conic problem types
-    # include("./run_solver_tests.jl")
-    #
-    # # Tests running component level tests
-    # include("./run_component_tests.jl")
+        # Tests running calls to the optimizer
+        # for various conic problem types
+        include("./run_solver_tests.jl")
 
-    # MathOptInterface testing
-    include("./MOI/MOI_wrapper_tests.jl")
+        # Tests running component level tests
+        include("./run_component_tests.jl")
+
+        #MathOptInterface / JuMP etc
+        include("./run_interface_tests.jl")
+
+    end
 
 end
-nothing

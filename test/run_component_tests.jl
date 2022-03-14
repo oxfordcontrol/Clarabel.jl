@@ -5,6 +5,5 @@ using Random, Test, Pkg
     #tests on small scale problems
     include("./UnitTests/test_coneops_psdcone.jl")
 
-
 end
 nothing
