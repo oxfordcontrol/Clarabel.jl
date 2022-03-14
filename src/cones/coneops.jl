@@ -134,7 +134,7 @@ end
 #Warning: x must not alias y.
 function cones_gemv_W!(
     cones::ConeSet{T},
-    is_transpose::Bool,
+    is_transpose::Symbol,
     x::ConicVector{T},
     y::ConicVector{T},
     α::T,
@@ -153,7 +153,7 @@ end
 #Warning: x must not alias y.
 function cones_gemv_Winv!(
     cones::ConeSet{T},
-    is_transpose::Bool,
+    is_transpose::Symbol,
     x::ConicVector{T},
     y::ConicVector{T},
     α::T,

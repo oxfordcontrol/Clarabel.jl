@@ -7,9 +7,9 @@ using Pardiso
 mutable struct MKLPardisoLinearSolver{T} <: AbstractLinearSolver{T}
 
     # problem dimensions
-    m
-    n
-    p
+    m::Int
+    n::Int
+    p::Int
 
     #KKT matrix and its permutation
     KKT::SparseMatrixCSC{T}

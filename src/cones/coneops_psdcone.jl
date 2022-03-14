@@ -175,7 +175,7 @@ end
 # implements y = αWx + βy for the PSD cone
 function gemv_W!(
     K::PSDCone{T},
-    is_transpose::Bool,
+    is_transpose::Symbol,
     x::AbstractVector{T},
     y::AbstractVector{T},
     α::T,
@@ -190,9 +190,9 @@ function gemv_W!(
 
   #PJG: needs unit test since only one of these
   #cases is explicitly described in the CVXOPT paper
-  if is_transpose
+  if is_transpose === :T
       Y .+= α*(R*X*R')  #W^T*x
-  else
+  else  # :N
       Y .+= α*(R'*X*R)  #W*x
   end
 
@@ -202,7 +202,7 @@ end
 # implements y = αW^{-1}x + βy for the psd cone
 function gemv_Winv!(
     K::PSDCone{T},
-    is_transpose::Bool,
+    is_transpose::Symbol,
     x::AbstractVector{T},
     y::AbstractVector{T},
     α::T,
@@ -217,9 +217,9 @@ function gemv_Winv!(
 
     #PJG: needs unit test since only one of these
     #cases is explicitly described in the CVXOPT paper
-    if is_transpose
+    if is_transpose === :T
         Y .+= α*(Rinv*X*Rinv')  #W^{-T}*x
-    else
+    else # :N
         Y .+= α*(Rinv'*X*Rinv)  #W^{-1}*x
     end
 
@@ -236,8 +236,8 @@ function mul_WtWinv!(
 
     #PJG: needs unit test?   Aliasing not allowed
     #Also check aliasing in other cones, esp. SOC
-    gemv_Winv!(K,true,y,y,one(T),zero(T))
-    gemv_Winv!(K,false,x,y,one(T),zero(T))
+    gemv_Winv!(K,:T,y,y,one(T),zero(T))
+    gemv_Winv!(K,:N,x,y,one(T),zero(T))
 
     return nothing
 end
@@ -250,8 +250,8 @@ function mul_WtW!(
 ) where {T}
 
     #PJG: needs unit test?
-    gemv_W!(K,false,y,y,one(T),zero(T))
-    gemv_W!(K,true,x,y,one(T),zero(T))
+    gemv_W!(K,:N,y,y,one(T),zero(T))
+    gemv_W!(K,:T,x,y,one(T),zero(T))
 
     return nothing
 end
@@ -290,11 +290,11 @@ function step_length(
     Δ   = Symmetric(_mat(d,K))
 
     #d = Δz̃ = WΔz
-    gemv_W!(K, false, dz, d, one(T), zero(T))
+    gemv_W!(K, :N, dz, d, one(T), zero(T))
     αz = _step_length_psd_component(K,Δ,Λisqrt)
 
     #d = Δs̃ = W^{-T}Δs
-    gemv_Winv!(K, true, ds, d, one(T), zero(T))
+    gemv_Winv!(K, :T, ds, d, one(T), zero(T))
     αs = _step_length_psd_component(K,Δ,Λisqrt)
 
     α = min(αz,αs)

@@ -5,9 +5,9 @@
 mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
 
     # problem dimensions
-    m
-    n
-    p
+    m::Int
+    n::Int
+    p::Int
 
     # internal workspace for IR scheme
     work::Vector{T}
