@@ -1,4 +1,4 @@
-using Test, LinearAlgebra, SparseArrays, Clarabel
+using Test, LinearAlgebra, SparseArrays, Clarabel, Random
 include("../testing_utils.jl")
 
 rng = Random.MersenneTwister(242713)
@@ -52,7 +52,7 @@ FloatT = Float64
         Clarabel.circ_op!(K,z,λ,x)
 
         #W should now be the solution to 1/2(ΛW + WΛ) = Z
-        K.λ .= λdiag        #diagonal internal scaling
+        K.work.λ .= λdiag        #diagonal internal scaling
         Clarabel.λ_inv_circ_op!(K,w,z)
 
         #now we should have x = w
@@ -157,7 +157,43 @@ FloatT = Float64
         (αz,αs) = Clarabel.step_length(K,dz.*0,ds,z,s)
         @test min(αz,αs) ≈ inv(eps(FloatT))  rtol = 10*eps(FloatT)
 
+    end
 
+    @testset "test_coneops_psdcone_WtW_operations!" begin
+
+        n = 5
+
+        (Z,S) = map(m->randpsd(rng,n), 1:2)
+        (V1,V2,V3) = map(m->randpsd(rng,n), 1:3)
+        (s,z,v1,v2,v3) = map(m->reshape(m,:), (S,Z,V1,V2,V3))
+
+        #compute internal scaling required for step calc
+        K = Clarabel.PSDCone(n^2)
+        Clarabel.update_scaling!(K,s,z)
+
+        R    = K.work.R
+        Rinv = K.work.Rinv
+
+        #compare different ways of multiplying v by W and W^T
+        # v2 = W*v1
+        Clarabel.gemv_W!(K,:N,v1,v2,one(FloatT),zero(FloatT))
+        # v3 = W^T*v2
+        Clarabel.gemv_W!(K,:T,v2,v3,one(FloatT),zero(FloatT))
+
+        WtW = triu(ones(n^2,n^2))       #s is n^2 long
+        idxWtW = findall(WtW .!= 0)
+        vecWtW = zeros(FloatT,length(idxWtW))
+        Clarabel.get_WtW_block!(K,vecWtW)
+        WtW[idxWtW] = vecWtW
+        #make Symmetric for products
+        WtWsym = Symmetric(WtW)
+
+        @test norm(WtWsym*v1 - v3) ≈ 0   atol = 1e-10
+        #now the inverse
+        Clarabel.gemv_Winv!(K,:T,v1,v2,one(FloatT),zero(FloatT))
+        # v3 = W^T*v2
+        Clarabel.gemv_Winv!(K,:N,v2,v3,one(FloatT),zero(FloatT))
+        @test norm(WtWsym\v1 - v3) ≈ 0   atol = 1e-10
 
     end
 

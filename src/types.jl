@@ -12,7 +12,6 @@ abstract type AbstractInfo{T <: AbstractFloat} end
 abstract type AbstractCone{T} end
 
 
-
 # -------------------------------------
 # default solver subcomponent implementations
 # -------------------------------------
@@ -54,6 +53,7 @@ DefaultVariables(args...) = DefaultVariables{DefaultFloat}(args...)
 struct DefaultScalings{T} <: AbstractConeScalings{T}
 
     # specification from the problem statement
+    # reference to same object in the problem data
     cone_info::ConeInfo
 
     # vector of objects implementing the scalings

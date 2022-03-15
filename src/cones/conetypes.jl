@@ -91,7 +91,7 @@ SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
 # Positive Semidefinite Cone
 # ------------------------------------
 
-mutable struct PSDConeWork #PJG: where {T}...
+mutable struct PSDConeWork{T}
 
     cholS
     cholZ
@@ -102,9 +102,17 @@ mutable struct PSDConeWork #PJG: where {T}...
     R
     Rinv
     L1
-
     L2
-    PSDConeWork() = new(ntuple(x->nothing, fieldcount(PSDConeWork)))
+
+    function PSDConeWork{T}(n::Int) where {T}
+
+        (cholS,cholZ,SVD,U,V,L1,L2) = ntuple(x->nothing, 7)
+        λ    = zeros(T,n)
+        R    = zeros(T,n,n)
+        Rinv = zeros(T,n,n)
+
+        return new(cholS,cholZ,SVD,U,V,λ,R,Rinv,L1,L2)
+    end
 end
 
 #PJG: PSDConeWork(args...) = PSDConeWork{DefaultFloat}(args...)
@@ -114,13 +122,9 @@ struct PSDCone{T} <: AbstractCone{T}
     dim::DefaultInt  #this is the total number of elements in the matrix
       n::DefaultInt  #this is the matrix dimension, i.e. n^2 = dim
 
-    #internal working variables for W and λ
-    λ::Vector{T}     #NB: not a matrix b/c scaled (S,Z) should be diagonal
-    R::Matrix{T}     #PJG: R is tril factor of W = R*R'
-    work::PSDConeWork   #PJG: kludgey AF for now
-
     #PJG: need some further structure here to maintain
     #working memory for all of the steps in computing R
+    work::PSDConeWork{T}   #PJG: kludgey AF for now
 
     function PSDCone{T}(dim) where {T}
 
@@ -128,13 +132,9 @@ struct PSDCone{T} <: AbstractCone{T}
         n = isqrt(dim)
         n*n == dim || throw(DomainError(dim, "dimension must be a square"))
 
-        #PJG: R should really be tril part only.  Square
-        #for initial debugging purposes
-        λ = zeros(T,n)
-        R = zeros(T,n,n)
-        work = PSDConeWork()
+        work = PSDConeWork{T}(n)
 
-        return new(dim,n,λ,R,work)
+        return new(dim,n,work)
 
     end
 

@@ -27,6 +27,14 @@ function rectify_equilibration!(
     return true
 end
 
+#All cones have diagonal WtW blocks
+#unless specifically overridden
+function WtW_is_diagonal(
+    K::AbstractCone{T}
+) where{T}
+    return true
+end
+
 # All other operations will throw an error
 # if a type specific implementation has been
 # defined.   To define a new cone, you must
@@ -51,9 +59,15 @@ function set_identity_scaling!(
 
 end
 
-function get_diagonal_scaling!(
+#populates WtWblock with :
+# - the diagonal entries of W^TW, if WtW_is_diagonal(K) == true for this cone
+# - the upper triangular entries of W^TW, reported columnwise
+#
+# Note this function should return W^TW, not -W^TW.  Any change of sign
+# required by a linear solver is implemented within the solver object.
+function get_WtW_block!(
     K::AbstractCone{T},
-    diagW2::AbstractVector{T}
+    WtWblock::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))

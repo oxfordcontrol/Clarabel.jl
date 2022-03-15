@@ -50,15 +50,14 @@ function cones_set_identity_scaling!(
 end
 
 
-# The diagonal part of the KKT scaling
-# matrix for each cone
-function cones_get_diagonal_scaling!(
+# The WtW block for each cone.
+function cones_get_WtW_blocks!(
     cones::ConeSet{T},
-    diagW2::ConicVector{T}
+    WtWblocks::Vector{Vector{T}}
 ) where {T}
 
     for i = eachindex(cones)
-        get_diagonal_scaling!(cones[i],diagW2.views[i])
+        get_WtW_block!(cones[i],WtWblocks[i])
     end
     return nothing
 end

@@ -77,3 +77,13 @@ function scaling_get_diagonal!(
     cones_get_diagonal_scaling!(scalings.cones,diagW2)
 
 end
+
+
+function scaling_get_WtW_blocks!(
+    scalings::DefaultScalings{T},
+    WtWblocks::Vector{Vector{T}}
+) where {T}
+
+    cones_get_WtW_blocks!(scalings.cones,WtWblocks)
+
+end

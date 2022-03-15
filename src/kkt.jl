@@ -32,7 +32,6 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
     #a work ConicVector to simplify solving for Δs
     work_sv::ConicVector{T}
 
-
         function DefaultKKTSolver{T}(
             data::DefaultProblemData{T},
             scalings::DefaultScalings{T},
@@ -46,9 +45,9 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
         #create the linear solver
         solverengine = settings.direct_solve_method
         if solverengine == :qdldl
-            linsys = QDLDLLinearSolver{T}(data.P,data.A,data.cone_info,m,n,settings)
+            linsys = QDLDLLinearSolver{T}(data.P,data.A,scalings,m,n,settings)
         elseif solverengine == :mkl
-            linsys = MKLPardisoLinearSolver{T}(data.P,data.A,data.cone_info,m,n,settings)
+            linsys = MKLPardisoLinearSolver{T}(data.P,data.A,scalings,m,n,settings)
         else
             error("Unknown solver engine type: ", solverengine)
         end
@@ -193,7 +192,7 @@ function kkt_solve!(
         tmp1 = lhs.s; tmp2 = lhs.z
         @. tmp1 = rhs.z  #Don't want to modify our RHS
         cones_λ_inv_circ_op!(cones, tmp2, rhs.s)               #tmp2 = λ \ ds
-        cones_gemv_W!(cones, :N, tmp2, tmp1, one(T), -one(T))  #tmp1 = - rhs.z + W(tmp2)
+        cones_gemv_W!(cones, :T, tmp2, tmp1, one(T), -one(T))  #tmp1 = - rhs.z + W(tmp2)
         kktsolver.work_z .= tmp1
 
     end
