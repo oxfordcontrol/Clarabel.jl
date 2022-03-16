@@ -92,7 +92,11 @@ function _assemble_kkt_matrix(
     nnz_diagP  = _count_diagonal_entries(P)
 
     # total entries in the WtW blocks
-    nnz_WtW_blocks = mapreduce(length, +, maps.WtWblocks)
+    if !isempty(maps.WtWblocks)
+        nnz_WtW_blocks = mapreduce(length, +, maps.WtWblocks)
+    else
+        nnz_WtW_blocks = 0
+    end
 
     #entries in the dense columns u/v of the
     #sparse SOC expansion terms.  2 is for

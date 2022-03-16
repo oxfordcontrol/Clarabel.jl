@@ -174,6 +174,10 @@ function shift_to_cone!(
 ) where{T}
 
     Z = _mat(z,K)
+
+    #force symmetry
+    Z .= 0.5*(Z+Z')
+
     α = eigvals(Symmetric(Z),1:1)[1]  #min eigenvalue
 
     if(α < eps(T))

@@ -159,6 +159,43 @@ FloatT = Float64
 
     end
 
+    @testset "test NT scaling identities" begin
+
+        n = 5
+
+        (Z,S) = map(m->randpsd(rng,n), 1:2)
+        (V1,V2) = map(m->randpsd(rng,n), 1:3)
+        (s,z,v1,v2) = map(m->reshape(m,:), (S,Z,V1,V2))
+
+        #compute internal scaling required for step calc
+        K = Clarabel.PSDCone(n^2)
+        Clarabel.update_scaling!(K,s,z)
+
+        #check W^{-T}s = Wz = λ (λ is Diagonal)
+        Clarabel.gemv_W!(K,:N,z,v1,one(FloatT),zero(FloatT)) #v1 = Wz
+        Clarabel.gemv_Winv!(K,:T,s,v2,one(FloatT),zero(FloatT)) #v2 = W^{-T}s
+        @test norm(v1-v2) ≈ 0   atol = 1e-10
+
+        #check W^TW Z = S
+        Clarabel.gemv_W!(K,:N,z,v1,one(FloatT),zero(FloatT)) #v1 = Wz
+        Clarabel.gemv_W!(K,:T,v1,v2,one(FloatT),zero(FloatT)) #v2 = W^Tv1 = W^TWz
+        @test norm(v2-s) ≈ 0   atol = 1e-10
+
+        #check W^Tλ = s
+        Λ = Diagonal(K.work.λ); λ = Λ[:]
+        Clarabel.gemv_W!(K,:T,λ,v1,one(FloatT),zero(FloatT)) #v1 = W^Tλ
+        @test norm(v1-s) ≈ 0   atol = 1e-10
+
+        #check W operations directly
+        Λ = Diagonal(K.work.λ); λ = Λ[:]
+        R = K.work.R
+        W = kron(R',R')
+        @test norm(W'*λ-s) ≈ 0   atol = 1e-10
+        @test norm(W*z-inv(W)'*s) ≈ 0   atol = 1e-10
+
+
+    end
+
     @testset "test_coneops_psdcone_WtW_operations!" begin
 
         n = 5

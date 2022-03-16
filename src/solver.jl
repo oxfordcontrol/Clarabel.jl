@@ -221,9 +221,9 @@ function solve!(
         #----------
         #----------
 
-        end #end IP iteration timer
+    end #end IP iteration timer
 
-        variables_finalize!(s.variables, s.scalings, s.info.status)
+    variables_finalize!(s.variables, s.scalings, s.info.status)
 
     info_finalize!(s.info)
     @notimeit print_footer(s.info,s.settings)

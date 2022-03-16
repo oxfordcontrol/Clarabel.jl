@@ -212,10 +212,10 @@ function kkt_solve!(
     tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,lhs.x) + dot(data.b,lhs.z) + 2*symdot(ξ,P,lhs.x)
 
     #now offset ξ for the quadratic form in the denominator
-    ξ_minus_x    = ξ   #alias to ξ, same as work_x
-    ξ_minus_x  .-= lhs.x
+    ξ_minus_x2    = ξ   #alias to ξ, same as work_x
+    ξ_minus_x2  .-= constx
 
-    tau_den = (variables.κ/variables.τ - dot(data.q,constx) - dot(data.b,constz) + symdot(ξ_minus_x,P,ξ_minus_x) - symdot(lhs.x,P,lhs.x))
+    tau_den = (variables.κ/variables.τ - dot(data.q,constx) - dot(data.b,constz) + symdot(ξ_minus_x2,P,ξ_minus_x2) - symdot(constx,P,constx))
 
     # Δτ = tau_num/tau_den
     lhs.τ  = tau_num/tau_den

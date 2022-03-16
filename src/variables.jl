@@ -93,11 +93,11 @@ function calc_combined_step_rhs!(
 
     #PJG: Still not clear whether second order corrections
     #on the dτ variable make sense here or not.   Not used for now
-    #tmp2 = symdot(q,data.Psym,q) / variables.τ
-    tmp0 = zero(T)  #PJG no higher order correction
+    tmp = zero(T)  #PJG no higher order correction
+    #tmp = symdot(data.q,data.Psym,data.q) / variables.τ
 
     @. d.x  = (one(T) - σ)*r.rx
-       d.τ  = (one(T) - σ)*r.rτ + tmp0    #PJG: second order correction?
+       d.τ  = (one(T) - σ)*r.rτ + tmp    #PJG: second order correction instead?
        d.κ  = - σ*μ + step.τ * step.κ + variables.τ * variables.κ
 
     # d.s must be assembled carefully if we want to be economical with
