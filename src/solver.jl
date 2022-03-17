@@ -222,14 +222,14 @@ function solve!(
         #----------
         #----------
 
-    end #end IP iteration timer
+        end #end IP iteration timer
 
     variables_finalize!(s.variables, s.equilibration, s.info.status)
 
+    end #end solve! timer
+
     info_finalize!(s.info)
     @notimeit print_footer(s.info,s.settings)
-
-    end #end solve! timer
 
     return nothing
 end
