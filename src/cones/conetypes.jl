@@ -119,28 +119,50 @@ end
 
 struct PSDCone{T} <: AbstractCone{T}
 
-    dim::DefaultInt  #this is the total number of elements in the matrix
-      n::DefaultInt  #this is the matrix dimension, i.e. n^2 = dim
+      n::DefaultInt  #this is the matrix dimension, i.e. representing n /times n
+  numel::DefaultInt  #this is the total number of elements in the matrix
 
     #PJG: need some further structure here to maintain
     #working memory for all of the steps in computing R
     work::PSDConeWork{T}   #PJG: kludgey AF for now
 
-    function PSDCone{T}(dim) where {T}
+    function PSDCone{T}(n) where {T}
 
-        dim >= 1   || throw(DomainError(dim, "dimension must be positive"))
-        n = isqrt(dim)
-        n*n == dim || throw(DomainError(dim, "dimension must be a square"))
+        n >= 1   || throw(DomainError(dim, "dimension must be positive"))
+        numel = n*n
 
         work = PSDConeWork{T}(n)
 
-        return new(dim,n,work)
+        return new(n,numel,work)
 
     end
 
 end
 
 PSDCone(args...) = PSDCone{DefaultFloat}(args...)
+
+struct PSDTriangleCone{T} <: AbstractCone{T}
+
+        n::DefaultInt  #this is the matrix dimension, i.e. representing n /times n
+    numel::DefaultInt  #this is the total number of elements in the matrix
+
+    #PJG: need some further structure here to maintain
+    #working memory for all of the steps in computing R
+    work::PSDConeWork{T}   #PJG: kludgey AF for now
+
+    function PSDTriangleCone{T}(n) where {T}
+
+        n >= 1 || throw(DomainError(dim, "dimension must be positive"))
+        numel = (n*(n+1))>>1
+        work = PSDConeWork{T}(n)
+
+        return new(n,numel,work)
+
+    end
+
+end
+
+PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 
 # -------------------------------------
 # collection of cones for composite
@@ -184,7 +206,8 @@ const ConeDict = Dict(
 
 mutable struct ConeInfo
 
-    # container for the type and size of each cone
+    # container summarizing the type and size of each cone,
+    # plus the placement of conic components within (s,z) 
     types::Vector{SupportedCones}
     dims::Vector{Int}
 

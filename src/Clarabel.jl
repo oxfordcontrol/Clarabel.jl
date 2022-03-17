@@ -41,6 +41,7 @@ module Clarabel
     include("./cones/coneops_nncone.jl")
     include("./cones/coneops_socone.jl")
     include("./cones/coneops_psdcone.jl")
+    include("./cones/coneops_psdtrianglecone.jl")
 
     #equilibration and various algebraic
     #utilities

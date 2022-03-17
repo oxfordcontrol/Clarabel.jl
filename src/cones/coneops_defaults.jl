@@ -7,9 +7,12 @@ import Statistics: mean
 # degree of the cone is the same as dimension
 # by default.   Degree will be defined differently
 # for the zero cone and SOC (0 and 1, respectively)
+# For SDP cone, the matrix is in R^{dim \times dim},
+# so numel will be different.   The length of (s,z)
+# vectors will be \sum_i numel(K_i)
+numel(K::AbstractCone{T})  where {T} = K.dim
 dim(K::AbstractCone{T}) where {T} = K.dim
 degree(K::AbstractCone{T}) where {T} = K.dim
-
 
 #NB: custom rectify functions should return
 #true unless δ == e on return

@@ -62,7 +62,7 @@ function _allocate_kkt_WtW_blocks(type::Type{T}, scalings) where{T <: Real}
     WtWblocks = Vector{Vector{T}}(undef,ncones)
 
     for (i, cone) in enumerate(scalings.cones)
-        nvars = dim(cone)
+        nvars = numel(cone) #PJG:will force implementation of numel everywhere
         if WtW_is_diagonal(cone)
             numelblock = nvars
         else #dense triangle
@@ -155,7 +155,7 @@ function _kkt_assemble_colcounts(
     #add the the WtW blocks in the lower right
     for (i,cone) = enumerate(scalings.cones)
         firstcol = cone_info.headidx[i] + n
-        blockdim = dim(cone)
+        blockdim = numel(cone)
         if WtW_is_diagonal(cone)
             _kkt_colcount_diag(K,firstcol,blockdim)
         else
