@@ -77,7 +77,7 @@ function _coneset_make_headidx!(headidx,cones)
         #index of first element in each cone
         headidx[1] = 1
         for i = 2:length(cones)
-            headidx[i] = headidx[i-1] + numel(cones[i])
+            headidx[i] = headidx[i-1] + numel(cones[i-1])
         end
     end
     return nothing
