@@ -34,6 +34,11 @@ FloatT = Float64
         Clarabel._tomat!(Z,x,K)
         @test norm(X-Z) ≈ 0     atol = 1e-12
 
+        Q = Clarabel._tomat_operator(Float64, n)
+        @test norm(Q'*Q - I) ≈ 0     atol = 1e-12
+        @test norm(Q*x - X[:]) ≈ 0     atol = 1e-12
+        @test norm(Q'*Z[:] - x) ≈ 0     atol = 1e-12
+
 
 
     end

@@ -245,10 +245,10 @@ function symdot(
 end
 
 
-function triu_as_vector(A::Matrix{T}) where T
+function pack_triu(v::Vector{T},A::Matrix{T}) where T
     n     = LinearAlgebra.checksquare(A)
     numel = (n*(n+1))>>1
-    v = Vector{T}(undef,numel)
+    length(v) == numel || throw(DimensionMismatch())
     k = 1
     for col = 1:n, row = 1:col
         @inbounds v[k] = A[row,col]

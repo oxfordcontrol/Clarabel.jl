@@ -49,6 +49,7 @@ function print_header(
     print_conedims_by_type(cones, NonnegativeConeT)
     print_conedims_by_type(cones, SecondOrderConeT)
     print_conedims_by_type(cones, PSDConeT)
+    print_conedims_by_type(cones, PSDTriangleConeT)
     print_settings(settings, T)
     @printf("\n")
 

@@ -76,18 +76,20 @@ function get_WtW_block!(
     # a vectorized full matrix.  Q does the opposite.
     # This is crazily inefficient and needs a rewrite
 
-    R = K.work.R
-    RRt = R*R'
+    R   = K.work.R
+    kRR = K.work.kronRR
+    Q   = K.work.Q
+    B   = K.work.B
+    WtW = K.work.WtW
+    @inbounds kron!(kRR,R,R)
 
-    #we we need to right multiply by mapping tht takes
-    #up from the PSDtriangle to the vectorized full matrix,
-    #and left multiply by the mapping that takes us back
-    P   = _tovec_operator(K)
-    Q   = _tomat_operator(K)
-    WtW = P*kron(RRt, RRt)*Q
+    #this could be substantially faster
+    B   .= Q'*kRR
 
-    vec = triu_as_vector(WtW)
-    WtWblock .= vec
+    #compute WtW = triu(B*B')
+    LinearAlgebra.BLAS.syrk!('U', 'N', one(T), B, zero(T), WtW)
+
+    pack_triu(WtWblock,WtW)
 
     return nothing
 end
@@ -103,7 +105,9 @@ function λ_circ_λ!(
     x .= zero(T)
 
     #same as X = Λ*Λ
-    x[1:(K.n+1):end] .= K.work.λ.^2
+    for k = 1:K.n
+        x[(k*(k+1)) >> 1] = K.work.λ[k]^2
+    end
 
 end
 
@@ -140,7 +144,7 @@ function λ_inv_circ_op!(
     (X,Z) = map(m->zeros(K.n,K.n), (x,z))
     map((M,v)->_tomat!(M,v,K),(X,Z),(x,z))
 
-    # PJG : should only really need to compute
+    # PJG : mayble should only really need to compute
     # a triangular part of this matrix.  Keeping
     # like this for now until something works
     λ = K.work.λ
@@ -221,7 +225,7 @@ function gemv_W!(
   (X,Y) = map(m->zeros(K.n,K.n), (x,y))
   map((M,v)->_tomat!(M,v,K),(X,Y),(x,y))
 
-  R   = K.work.R
+  R = K.work.R
 
   #PJG: needs unit test since only one of these
   #cases is explicitly described in the CVXOPT paper
@@ -370,6 +374,8 @@ end
 # internal utilities for this cone
 #--------------------
 
+#PJG: This should move to math utils
+
 #make a matrix view from a vectorized input
 function _tomat!(M::AbstractMatrix{T}, x::AbstractVector{T}, K::PSDTriangleCone{T}) where {T}
 
@@ -394,7 +400,7 @@ function _tomat!(M::AbstractMatrix{T}, x::AbstractVector{T}, K::PSDTriangleCone{
     end
 end
 
-#make a matrix view from a vectorized input
+#make an svec input from a matrix
 function _tovec!(x::AbstractVector{T},M::AbstractMatrix{T},K::PSDTriangleCone{T}) where {T}
 
     #PJG: sanity checking sizes
@@ -408,48 +414,41 @@ function _tovec!(x::AbstractVector{T},M::AbstractMatrix{T},K::PSDTriangleCone{T}
 
     idx = 1
     for col = 1:K.n, row = 1:col
-        x[idx] = row == col ? M[row,col] : M[row,col]*SQRT2
+    @inbounds x[idx] = row == col ? M[row,col] : M[row,col]*SQRT2
         idx += 1
     end
-
-end
-
-#This function needs a rewrite, or to be done
-#in a different way
-function _tovec_operator(K::PSDTriangleCone{T}) where {T}
-
-    #sqrt 2 a problem here since I don't know the type
-
-    n = K.n
-    D = triu(ones(n,n))*sqrt(2)
-    D = D - Diagonal(D) + I(n)
-    dD = Diagonal(D[:])
-    Q = dD[findall(D[:] .!= 0),:]
-    return Q
-
 end
 
 
-#This function needs a rewrite, or to be done
-#in a different way
-function _tomat_operator(K::PSDTriangleCone{T}) where {T}
+_tomat_operator(K::PSDTriangleCone{T}) where {T} = _tomat_operator(T,K.n)
 
-    #sqrt 2 a problem here since I don't know the type
+function _tomat_operator(T,n::Int)
 
-    n = K.n
-    S = ones(n,n)*(1/sqrt(2))
-    S= S - Diagonal(S) + I(n)
+    ISQRT2 = 1. / sqrt(T(2.))
 
-    A = triu(ones(n,n))
-    A[:] = cumsum(A[:]) .* A[:]
-    A = copy(Symmetric(A,:U))
+    nrows = n^2
+    ncols = (n*(n+1))>>1
+    numel = nrows
 
-    rows = collect(1:n^2)
-    cols = A[:]
-    vals = S[:]
+    IX = zeros(Int,numel)
+    JX = zeros(Int,numel)
+    VX = zeros(Float64,numel)
 
-    P = sparse(rows,cols,vals)
+    i = 1
+    for c = 1:n, r = 1:n
+        IX[i] = i
+        if r == c
+            JX[i] = (r*(r+1)) >> 1
+            VX[i] = 1
+        elseif r > c  #lower triangle
+            JX[i] = ((r*(r-1)) >> 1) + c
+            VX[i] = ISQRT2
+        else          #upper triangle
+            JX[i] = ((c*(c-1)) >> 1) + r
+            VX[i] = ISQRT2
+        end
+        i = i+1
+    end
 
-    return P
-
+    Q = sparse(IX,JX,VX)
 end

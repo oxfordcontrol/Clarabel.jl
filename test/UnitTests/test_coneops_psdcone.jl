@@ -9,10 +9,9 @@ FloatT = Float64
 
     @testset "test_coneops_psdcone_constructor" begin
 
-        K = Clarabel.PSDCone(25)
-        @test Clarabel.dim(K)== 25
+        K = Clarabel.PSDCone(5)
+        @test Clarabel.numel(K)== 25
         @test Clarabel.degree(K) == 5
-        @test_throws DomainError Clarabel.PSDCone(24)
         @test_throws DomainError Clarabel.PSDCone(-1)
         @test_throws DomainError Clarabel.PSDCone(0)
 
@@ -25,7 +24,7 @@ FloatT = Float64
         Y = randsym(rng, n)
         Z = randsym(rng, n)
         x = X[:]; y = Y[:]; z = Z[:]
-        K = Clarabel.PSDCone(n^2)
+        K = Clarabel.PSDCone(n)
 
         Clarabel.circ_op!(K,x,y,z)
         X .= 0.5*(Y*Z + Z*Y)
@@ -44,7 +43,7 @@ FloatT = Float64
         Z = zeros(n,n)
         W = zeros(n,n)
         (x,λ,z,w) = map(m->reshape(m,:), (X,Λ,Z,W))
-        K = Clarabel.PSDCone(n^2)
+        K = Clarabel.PSDCone(n)
 
         #Z = 1/2(ΛX + XΛ)
         Clarabel.circ_op!(K,z,λ,x)
@@ -66,7 +65,7 @@ FloatT = Float64
         a = 0.12345
         X = randsym(rng,n)
         x = X[:];
-        K = Clarabel.PSDCone(n^2)
+        K = Clarabel.PSDCone(n)
         Clarabel.add_scaled_e!(K,x,a)
 
         @test norm(reshape(x,n,n) - (X + a*I)) ≈ 0
@@ -80,7 +79,7 @@ FloatT = Float64
         #X is negative definite.   Shift eigenvalues to 1
         X = -randpsd(rng,n)
         x = X[:];
-        K = Clarabel.PSDCone(n^2)
+        K = Clarabel.PSDCone(n)
         Clarabel.shift_to_cone!(K,x)
         @test minimum(eigvals(reshape(x,n,n))) ≈ 1
 
@@ -88,7 +87,7 @@ FloatT = Float64
         X = randpsd(rng,n)
         e = minimum(eigvals(X))
         x = X[:];
-        K = Clarabel.PSDCone(n^2)
+        K = Clarabel.PSDCone(n)
         Clarabel.shift_to_cone!(K,x)
         @test minimum(eigvals(reshape(x,n,n))) ≈ e
 
@@ -105,7 +104,7 @@ FloatT = Float64
 
         (s,z) = map(m->reshape(m,:), (S,Z))
 
-        K = Clarabel.PSDCone(n^2)
+        K = Clarabel.PSDCone(n)
         Clarabel.update_scaling!(K,s,z)
 
         f = K.work
@@ -132,7 +131,7 @@ FloatT = Float64
         (ds,dz) = map(m->reshape(m,:), (dS,dZ))
 
         #compute internal scaling required for step calc
-        K = Clarabel.PSDCone(n^2)
+        K = Clarabel.PSDCone(n)
         Clarabel.update_scaling!(K,s,z)
 
         #Z direction only
@@ -165,7 +164,7 @@ FloatT = Float64
         (s,z,v1,v2) = map(m->reshape(m,:), (S,Z,V1,V2))
 
         #compute internal scaling required for step calc
-        K = Clarabel.PSDCone(n^2)
+        K = Clarabel.PSDCone(n)
         Clarabel.update_scaling!(K,s,z)
 
         #check W^{-T}s = Wz = λ (λ is Diagonal)
@@ -202,7 +201,7 @@ FloatT = Float64
         (s,z,v1,v2,v3) = map(m->reshape(m,:), (S,Z,V1,V2,V3))
 
         #compute internal scaling required for step calc
-        K = Clarabel.PSDCone(n^2)
+        K = Clarabel.PSDCone(n)
         Clarabel.update_scaling!(K,s,z)
 
         R    = K.work.R

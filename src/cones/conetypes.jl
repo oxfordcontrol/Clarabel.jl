@@ -98,9 +98,13 @@ mutable struct PSDConeWork{T}
     SVD
     U
     V
-    λ
-    R
-    Rinv
+    λ::Vector{T}
+    R::Matrix{T}
+    Rinv::Matrix{T}
+    kronRR::Matrix{T}
+    Q::SparseMatrixCSC{T}
+    B::Matrix{T}
+    WtW::Matrix{T}
     L1
     L2
 
@@ -110,8 +114,15 @@ mutable struct PSDConeWork{T}
         λ    = zeros(T,n)
         R    = zeros(T,n,n)
         Rinv = zeros(T,n,n)
+        kronRR = zeros(T,n^2,n^2)
+        #The mapping from svec to full (vectorized) matrix
+        Q    = _tomat_operator(T,n)
+        B    = zeros(T,((n+1)*n)>>1,n^2)
+        WtW  = zeros(T,size(B,1),size(B,1))
 
-        return new(cholS,cholZ,SVD,U,V,λ,R,Rinv,L1,L2)
+        return new(
+        cholS,cholZ,SVD,U,V,λ,
+        R,Rinv,kronRR,Q,B,WtW,L1,L2)
     end
 end
 
@@ -183,6 +194,7 @@ supported types are:
     NonnegativeConeT
     SecondOrderConeT
     PSDConeT
+    PSDTriangleConeT
 end
 
 """
@@ -195,4 +207,5 @@ const ConeDict = Dict(
     NonnegativeConeT => NonnegativeCone,
     SecondOrderConeT => SecondOrderCone,
             PSDConeT => PSDCone,
+    PSDTriangleConeT => PSDTriangleCone,
 )
