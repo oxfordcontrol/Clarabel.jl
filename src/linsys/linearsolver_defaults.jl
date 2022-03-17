@@ -13,7 +13,7 @@ function linsys_soc_sparse_variables(linsys::AbstractLinearSolver{T}) where{T}
 end
 
 #solves in place
-function linsys_update!(linsys::AbstractLinearSolver{T},scalings::AbstractConeScalings{T}) where{T}
+function linsys_update!(linsys::AbstractLinearSolver{T},cones::ConeSet{T}) where{T}
     error("function not implemented")
 end
 

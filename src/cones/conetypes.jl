@@ -164,13 +164,6 @@ end
 
 PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 
-# -------------------------------------
-# collection of cones for composite
-# operations on a compound set
-# -------------------------------------
-
-const ConeSet{T} = Vector{AbstractCone{T}}
-
 
 # -------------------------------------
 # Enum and dict for user interface
@@ -203,46 +196,3 @@ const ConeDict = Dict(
     SecondOrderConeT => SecondOrderCone,
             PSDConeT => PSDCone,
 )
-
-mutable struct ConeInfo
-
-    # container summarizing the type and size of each cone,
-    # plus the placement of conic components within (s,z) 
-    types::Vector{SupportedCones}
-    dims::Vector{Int}
-
-    #Count of each cone type.
-    type_counts::Dict{SupportedCones,Int}
-
-    #total dimension
-    totaldim::DefaultInt
-
-    #a vector showing the overall index of the
-    #first element in each cone.  For convenience
-    headidx::Vector{Int}
-
-    function ConeInfo(types,dims)
-
-        #count the number of each cone type
-        type_counts = Dict{SupportedCones,Int}()
-        for coneT in instances(SupportedCones)
-            type_counts[coneT] = count(==(coneT), types)
-        end
-
-        headidx = Vector{Int}(undef,length(dims))
-        if(length(dims) > 0)
-            #index of first element in each cone
-            headidx[1] = 1
-            for i = 2:length(dims)
-                headidx[i] = headidx[i-1] + dims[i-1]
-            end
-
-            #total dimension of all cones together
-            totaldim = headidx[end] + dims[end] - 1
-        else
-            totaldim = 0
-        end
-
-        return new(types,dims,type_counts,totaldim,headidx)
-    end
-end

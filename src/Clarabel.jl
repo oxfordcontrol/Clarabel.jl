@@ -10,12 +10,12 @@ module Clarabel
     #core solver components
     include("./consttypes.jl")
     include("./cones/conetypes.jl")
+    include("./cones/coneset.jl")
     include("./settings.jl")
     include("./conicvector.jl")
     include("./types.jl")
     include("./variables.jl")
     include("./residuals.jl")
-    include("./scalings.jl")
     include("./info.jl")
 
     #linear subsolver implementations

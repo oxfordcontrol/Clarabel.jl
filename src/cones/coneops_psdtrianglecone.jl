@@ -375,7 +375,7 @@ function _tomat!(M::AbstractMatrix{T}, x::AbstractVector{T}, K::PSDTriangleCone{
 
     #PJG: sanity checking sizes
     @assert(K.numel == length(x))
-    @assert(K.n     == LinearAlgebra.checksquare(M))
+    @assert(K.n == LinearAlgebra.checksquare(M))
 
     ISQRT2 = inv(sqrt(T(2)))
 
@@ -399,7 +399,7 @@ function _tovec!(x::AbstractVector{T},M::AbstractMatrix{T},K::PSDTriangleCone{T}
 
     #PJG: sanity checking sizes
     @assert(K.numel == length(x))
-    @assert(K.n     == LinearAlgebra.checksquare(M))
+    @assert(K.n == LinearAlgebra.checksquare(M))
 
     SQRT2 = sqrt(T(2))
 

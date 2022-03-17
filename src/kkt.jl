@@ -34,7 +34,7 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
 
         function DefaultKKTSolver{T}(
             data::DefaultProblemData{T},
-            scalings::DefaultScalings{T},
+            cones::ConeSet{T},
             settings::Settings{T}
         ) where {T}
 
@@ -45,9 +45,9 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
         #create the linear solver
         solverengine = settings.direct_solve_method
         if solverengine == :qdldl
-            linsys = QDLDLLinearSolver{T}(data.P,data.A,scalings,m,n,settings)
+            linsys = QDLDLLinearSolver{T}(data.P,data.A,cones,m,n,settings)
         elseif solverengine == :mkl
-            linsys = MKLPardisoLinearSolver{T}(data.P,data.A,scalings,m,n,settings)
+            linsys = MKLPardisoLinearSolver{T}(data.P,data.A,cones,m,n,settings)
         else
             error("Unknown solver engine type: ", solverengine)
         end
@@ -82,7 +82,7 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
         work_p = view(work,(n+m+1):(n+m+p))
 
         #a split vector compatible with s and z
-        work_sv = ConicVector{T}(data.cone_info)
+        work_sv = ConicVector{T}(cones)
 
 
         return new(
@@ -101,11 +101,11 @@ DefaultKKTSolver(args...) = DefaultKKTSolver{DefaultFloat}(args...)
 function kkt_update!(
     kktsolver::DefaultKKTSolver{T},
     data::DefaultProblemData{T},
-    scalings::DefaultScalings{T}
+    cones::ConeSet{T}
 ) where {T}
 
     #update the linear solver with new scalings
-    linsys_update!(kktsolver.linsys,scalings)
+    linsys_update!(kktsolver.linsys,cones)
 
     #calculate KKT solution for constant terms
     _kkt_solve_constant_rhs!(kktsolver,data)
@@ -164,13 +164,12 @@ function kkt_solve!(
     kktsolver::DefaultKKTSolver{T},
     lhs::DefaultVariables{T},
     rhs::DefaultVariables{T},
-    variables::DefaultVariables{T},
-    scalings::DefaultScalings{T},
     data::DefaultProblemData{T},
+    variables::DefaultVariables{T},
+    cones::ConeSet{T},
     steptype::Symbol   #:affine or :combined
 ) where{T}
 
-    cones = scalings.cones
     constx = kktsolver.lhs_const_x
     constz = kktsolver.lhs_const_z
 

@@ -32,14 +32,14 @@ mutable struct MKLPardisoLinearSolver{T} <: AbstractLinearSolver{T}
     #is not taking an internal copy
     settings::Settings{T}
 
-    function MKLPardisoLinearSolver{T}(P,A,scalings,m,n,settings) where {T}
+    function MKLPardisoLinearSolver{T}(P,A,cones,m,n,settings) where {T}
 
         #solving in sparse format.  Need this many
         #extra variables for SOCs
-        p = 2*scalings.cone_info.type_counts[SecondOrderConeT]
+        p = 2*cones.type_counts[SecondOrderConeT]
 
         #MKL wants TRIU in CSR format, so we make TRIL in CSC format
-        KKT, KKTmaps = _assemble_kkt_matrix(P,A,scalings,:tril)
+        KKT, KKTmaps = _assemble_kkt_matrix(P,A,cones,:tril)
 
         #PJG: The Dsigns logic is repeated from the QDLDL
         #wrapper.   Should be consolidated
@@ -74,7 +74,7 @@ mutable struct MKLPardisoLinearSolver{T} <: AbstractLinearSolver{T}
 
         #updates to the diagonal of KKT will be
         #assigned here before updating matrix entries
-        WtWblocks = _allocate_kkt_WtW_blocks(T, scalings)
+        WtWblocks = _allocate_kkt_WtW_blocks(T, cones)
 
         #we might (?) need to register a finalizer for the pardiso
         #object to free internal structures
@@ -100,7 +100,7 @@ end
 
 function linsys_update!(
     linsys::MKLPardisoLinearSolver{T},
-    scalings::DefaultScalings{T}
+    cones::ConeSet{T}
 ) where {T}
 
     n = linsys.n
@@ -112,7 +112,7 @@ function linsys_update!(
     maps    = linsys.KKTmaps
 
     #Set the diagonal of the W^tW block in the KKT matrix.
-    scaling_get_WtW_blocks!(scalings,linsys.WtWblocks)
+    scaling_get_WtW_blocks!(cones,linsys.WtWblocks)
     for (index, values) in zip(maps.WtWblocks,linsys.WtWblocks)
         KKT.nzval[index] .= -values #change signs to get -W^TW
     end
@@ -125,10 +125,9 @@ function linsys_update!(
     #update the scaled u and v columns.
     cidx = 1        #which of the SOCs are we working on?
 
-    for i = 1:length(scalings.cone_info.types)
-        if(scalings.cone_info.types[i] == SecondOrderConeT)
+    for (i,K) = enumerate(cones)
+        if(cones.types[i] == SecondOrderConeT)
 
-                K  = scalings.cones[i]
                 η2 = K.η^2
 
                 KKT.nzval[maps.SOC_u[cidx]] .= (-η2).*K.u

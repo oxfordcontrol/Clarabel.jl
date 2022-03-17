@@ -34,16 +34,16 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
     #is not taking an internal copy
     settings::Settings{T}
 
-    function QDLDLLinearSolver{T}(P,A,scalings,m,n,settings) where {T}
+    function QDLDLLinearSolver{T}(P,A,cones,m,n,settings) where {T}
 
         #solving in sparse format.  Need this many
         #extra variables for SOCs
-        p = 2*scalings.cone_info.type_counts[SecondOrderConeT]
+        p = 2*cones.type_counts[SecondOrderConeT]
 
         #iterative refinement work vector
         work = Vector{T}(undef,n+m+p)
 
-        KKT, KKTmaps = _assemble_kkt_matrix(P,A,scalings,:triu)
+        KKT, KKTmaps = _assemble_kkt_matrix(P,A,cones,:triu)
 
         #KKT will be triu data only, but we will want
         #the following to allow products like KKT*x
@@ -77,7 +77,7 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
 
         #updates to the diagonal of KKT will be
         #assigned here before updating matrix entries
-        WtWblocks = _allocate_kkt_WtW_blocks(T, scalings)
+        WtWblocks = _allocate_kkt_WtW_blocks(T, cones)
 
         return new(m,n,p,work,KKT,factors,KKTmaps,KKTsym,Dsigns,WtWblocks,settings)
     end
@@ -99,7 +99,7 @@ end
 
 function linsys_update!(
     linsys::QDLDLLinearSolver{T},
-    scalings::DefaultScalings{T}
+    cones::ConeSet{T}
 ) where {T}
 
     n = linsys.n
@@ -119,7 +119,7 @@ function linsys_update!(
     #could get away without using it and just writing a
     #multiplication operator for the QDLDL object., or implement
     #iterative refinement directly with QDLDL
-    scaling_get_WtW_blocks!(scalings,linsys.WtWblocks)
+    scaling_get_WtW_blocks!(cones,linsys.WtWblocks)
     for (index, values) in zip(maps.WtWblocks,linsys.WtWblocks)
         #change signs to get -W^TW
         values .= -values
@@ -130,10 +130,9 @@ function linsys_update!(
     #update the scaled u and v columns.
     cidx = 1        #which of the SOCs are we working on?
 
-    for i = 1:length(scalings.cone_info.types)
-        if(scalings.cone_info.types[i] == SecondOrderConeT)
+    for (i,K) = enumerate(cones)
+        if(cones.types[i] == SecondOrderConeT)
 
-                K  = scalings.cones[i]
                 η2 = K.η^2
 
                 update_values!(F,maps.SOC_u[cidx],(-η2).*K.u)

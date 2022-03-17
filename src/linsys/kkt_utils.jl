@@ -17,7 +17,7 @@ struct KKTDataMaps
     diagP::Vector{Int}
     diag_full::Vector{Int}
 
-    function KKTDataMaps(P,A,scalings)
+    function KKTDataMaps(P,A,cones)
 
         (m,n) = (size(A,1), size(P,1))
         P = zeros(Int,nnz(P))
@@ -30,10 +30,10 @@ struct KKTDataMaps
         diagP  = zeros(Int,n)
 
         #make an index for each of the WtW blocks for each cone
-        WtWblocks = _allocate_kkt_WtW_blocks(Int, scalings)
+        WtWblocks = _allocate_kkt_WtW_blocks(Int, cones)
 
         #now do the SOC expansion pieces
-        nsoc = scalings.cone_info.type_counts[Clarabel.SecondOrderConeT]
+        nsoc = cones.type_counts[Clarabel.SecondOrderConeT]
         p    = 2*nsoc
         SOC_D = zeros(Int,p)
 
@@ -41,10 +41,10 @@ struct KKTDataMaps
         SOC_v = Vector{Vector{Int}}(undef,nsoc)
 
         count = 1
-        for i = 1:length(scalings.cone_info.dims)
-            if(scalings.cone_info.types[i] == Clarabel.SecondOrderConeT)
-                SOC_u[count] = Vector{Int}(undef,scalings.cone_info.dims[i])
-                SOC_v[count] = Vector{Int}(undef,scalings.cone_info.dims[i])
+        for (i,cone) in enumerate(cones)
+            if(cones.types[i] == Clarabel.SecondOrderConeT)
+                SOC_u[count] = Vector{Int}(undef,numel(cone))
+                SOC_v[count] = Vector{Int}(undef,numel(cone))
                 count = count+1
             end
         end
@@ -56,13 +56,13 @@ struct KKTDataMaps
 
 end
 
-function _allocate_kkt_WtW_blocks(type::Type{T}, scalings) where{T <: Real}
+function _allocate_kkt_WtW_blocks(type::Type{T}, cones) where{T <: Real}
 
-    ncones    = length(scalings.cones)
+    ncones    = length(cones)
     WtWblocks = Vector{Vector{T}}(undef,ncones)
 
-    for (i, cone) in enumerate(scalings.cones)
-        nvars = numel(cone) #PJG:will force implementation of numel everywhere
+    for (i, cone) in enumerate(cones)
+        nvars = numel(cone)
         if WtW_is_diagonal(cone)
             numelblock = nvars
         else #dense triangle
@@ -78,30 +78,26 @@ end
 function _assemble_kkt_matrix(
     P::SparseMatrixCSC{T},
     A::SparseMatrixCSC{T},
-    scalings,
+    cones::ConeSet{T},
     shape::Symbol = :triu  #or tril
 ) where{T}
 
     (m,n)  = (size(A,1), size(P,1))
-    n_socs = scalings.cone_info.type_counts[Clarabel.SecondOrderConeT]
+    n_socs = cones.type_counts[Clarabel.SecondOrderConeT]
     p = 2*n_socs
 
-    maps = KKTDataMaps(P,A,scalings)
+    maps = KKTDataMaps(P,A,cones)
 
     #entries actually on the diagonal of P
     nnz_diagP  = _count_diagonal_entries(P)
 
     # total entries in the WtW blocks
-    if !isempty(maps.WtWblocks)
-        nnz_WtW_blocks = mapreduce(length, +, maps.WtWblocks)
-    else
-        nnz_WtW_blocks = 0
-    end
+    nnz_WtW_blocks = mapreduce(length, +, maps.WtWblocks; init = 0)
 
     #entries in the dense columns u/v of the
     #sparse SOC expansion terms.  2 is for
     #counting elements in both columns
-    nnz_SOC_vecs = n_socs == 0 ? 0 : 2*mapreduce(length, +, maps.SOC_u)
+    nnz_SOC_vecs = 2*mapreduce(length, +, maps.SOC_u; init = 0)
 
     #entries in the sparse SOC diagonal extension block
     nnz_SOC_ext = length(maps.SOC_D)
@@ -116,8 +112,8 @@ function _assemble_kkt_matrix(
 
     K = _csc_spalloc(T, m+n+p, m+n+p, nnzKKT)
 
-    _kkt_assemble_colcounts(K,maps,P,A,scalings,m,n,p,shape)
-    _kkt_assemble_fill(K,maps,P,A,scalings,m,n,p,shape)
+    _kkt_assemble_colcounts(K,maps,P,A,cones,m,n,p,shape)
+    _kkt_assemble_fill(K,maps,P,A,cones,m,n,p,shape)
 
     return K,maps
 
@@ -128,7 +124,7 @@ function _kkt_assemble_colcounts(
     maps,
     P,
     A,
-    scalings,
+    cones,
     m,
     n,
     p,
@@ -136,7 +132,6 @@ function _kkt_assemble_colcounts(
 )
 
     (m,n) = (A.m, P.n)
-    cone_info = scalings.cone_info
 
     #use K.p to hold nnz entries in each
     #column of the KKT matrix
@@ -153,8 +148,8 @@ function _kkt_assemble_colcounts(
     end
 
     #add the the WtW blocks in the lower right
-    for (i,cone) = enumerate(scalings.cones)
-        firstcol = cone_info.headidx[i] + n
+    for (i,cone) = enumerate(cones)
+        firstcol = cones.headidx[i] + n
         blockdim = numel(cone)
         if WtW_is_diagonal(cone)
             _kkt_colcount_diag(K,firstcol,blockdim)
@@ -166,22 +161,22 @@ function _kkt_assemble_colcounts(
     #count dense columns for each SOC
     socidx = 1  #which SOC are we working on?
 
-    for i = 1:length(cone_info.dims)
-        if(cone_info.types[i] == Clarabel.SecondOrderConeT)
+    for i = 1:length(cones)
+        if(cones.types[i] == Clarabel.SecondOrderConeT)
 
             #we will add the u and v columns for this cone
-            conedim = cone_info.dims[i]
-            headidx = cone_info.headidx[i]
+            nvars   = numel(cones[i])
+            headidx = cones.headidx[i]
 
             #which column does u go into?
             col = m + n + 2*socidx - 1
 
             if shape == :triu
-                _kkt_colcount_colvec(K,conedim,headidx + n, col) #u column
-                _kkt_colcount_colvec(K,conedim,headidx + n, col+1) #v column
+                _kkt_colcount_colvec(K,nvars,headidx + n, col)   #u column
+                _kkt_colcount_colvec(K,nvars,headidx + n, col+1) #v column
             else #:tril
-                _kkt_colcount_rowvec(K,conedim,col,   headidx + n) #u row
-                _kkt_colcount_rowvec(K,conedim,col+1, headidx + n) #v row
+                _kkt_colcount_rowvec(K,nvars,col,   headidx + n) #u row
+                _kkt_colcount_rowvec(K,nvars,col+1, headidx + n) #v row
             end
 
             socidx = socidx + 1
@@ -201,7 +196,7 @@ function _kkt_assemble_fill(
     maps,
     P,
     A,
-    scalings,
+    cones,
     m,
     n,
     p,
@@ -209,8 +204,6 @@ function _kkt_assemble_fill(
 )
 
     (m,n) = (A.m, P.n)
-    cone_info = scalings.cone_info
-
 
     #cumsum total entries to convert to K.p
     _kkt_colcount_to_colptr(K)
@@ -229,9 +222,9 @@ function _kkt_assemble_fill(
 
 
     #add the the WtW blocks in the lower right
-    for (i,cone) = enumerate(scalings.cones)
-        firstcol = cone_info.headidx[i] + n
-        blockdim = dim(cone)
+    for (i,cone) = enumerate(cones)
+        firstcol = cones.headidx[i] + n
+        blockdim = numel(cone)
         if WtW_is_diagonal(cone)
             _kkt_fill_diag(K,maps.WtWblocks[i],firstcol,blockdim)
         else
@@ -242,11 +235,11 @@ function _kkt_assemble_fill(
     #fill in dense columns for each SOC
     socidx = 1  #which SOC are we working on?
 
-    for i = 1:length(cone_info.dims)
-        if(cone_info.types[i] == Clarabel.SecondOrderConeT)
+    for i = 1:length(cones)
+        if(cones.types[i] == Clarabel.SecondOrderConeT)
 
-            conedim = cone_info.dims[i]
-            headidx = cone_info.headidx[i]
+            nvars = numel(cones[i])
+            headidx = cones.headidx[i]
 
             #which column does u go into (if triu)?
             col = m + n + 2*socidx - 1
@@ -254,11 +247,11 @@ function _kkt_assemble_fill(
             #fill structural zeros for u and v columns for this cone
             #note v is the first extra row/column, u is second
             if shape == :triu
-                _kkt_fill_colvec(K, maps.SOC_v[socidx], headidx + n, col,     conedim) #u
-                _kkt_fill_colvec(K, maps.SOC_u[socidx], headidx + n, col + 1, conedim) #v
+                _kkt_fill_colvec(K, maps.SOC_v[socidx], headidx + n, col,     nvars) #u
+                _kkt_fill_colvec(K, maps.SOC_u[socidx], headidx + n, col + 1, nvars) #v
             else #:tril
-                _kkt_fill_rowvec(K, maps.SOC_v[socidx], col    , headidx + n,conedim) #u
-                _kkt_fill_rowvec(K, maps.SOC_u[socidx], col + 1, headidx + n,conedim) #v
+                _kkt_fill_rowvec(K, maps.SOC_v[socidx], col    , headidx + n,nvars) #u
+                _kkt_fill_rowvec(K, maps.SOC_u[socidx], col + 1, headidx + n,nvars) #v
             end
 
             socidx += 1
