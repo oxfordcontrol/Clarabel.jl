@@ -19,35 +19,30 @@ function update_scaling!(
     z::AbstractVector{T},
 ) where {T}
 
-    #PJG: allocation here.   Remove
-    (S,Z) = map(m->zeros(K.n,K.n), (s,z))
-    map((M,v)->_tomat!(M,v,K),(S,Z),(s,z))
-
     f = K.work
 
+    # Make into matrix form for Cholesky
+    # PJG: probably only necessary to fill
+    # in the upper triangle (unscaled) of
+    # (S,V) and wrap it in Symmetric ()
+    map((M,v)->_tomat!(M,v,K),(f.S,f.Z),(s,z))
+
     #compute Cholesky factors
-    f.cholS = cholesky(S, check = true)
-    f.cholZ = cholesky(Z, check = true)
+    f.cholS = cholesky(f.S, check = true)
+    f.cholZ = cholesky(f.Z, check = true)
+    (L1,L2) = (f.cholS.L,f.cholZ.L)
 
-    #explicit factors
-    f.L1    = f.cholS.L
-    f.L2    = f.cholZ.L
+    #R is the same size as L2'*L1,
+    #so use it as temporary workspace
+    f.R  .= L2'*L1
+    f.SVD = svd(f.R)
 
-    #product L2'L1, hugely wasteful of memory here
-    M = f.L2'*f.L1
+    #assemble  λ (diagonal), R and Rinv.
+    f.λ           .= f.SVD.S
+    f.Λisqrt.diag .= inv.(sqrt.(f.λ))
 
-    #SVD of M.   Requires further workspace
-    f.SVD = svd(M)
-
-    #explicit extraction of factors.  Maybe not needed
-    f.U = f.SVD.U
-    f.λ = f.SVD.S
-    f.V = f.SVD.V
-
-    #assemble R and Rinv.   Maybe not needed
-    isqrtλ = Diagonal(inv.(sqrt.(f.λ)))
-    f.R    = f.L1*f.V*isqrtλ
-    f.Rinv = isqrtλ*f.U'*f.L2'
+    f.R    .= L1*(f.SVD.V)*f.Λisqrt
+    f.Rinv .= f.Λisqrt*(f.SVD.U)'*L2'
 
     return nothing
 end
@@ -78,13 +73,17 @@ function get_WtW_block!(
 
     R   = K.work.R
     kRR = K.work.kronRR
-    Q   = K.work.Q
     B   = K.work.B
     WtW = K.work.WtW
     @inbounds kron!(kRR,R,R)
 
+    #B .= Q'*kRR, where Q' is the svec operator
     #this could be substantially faster
-    B   .= Q'*kRR
+    for i = 1:size(B,2)
+        @views M = reshape(kRR[:,i],size(R,1),size(R,1))
+        b = view(B,:,i)
+        _tovec!(b,M,K)
+    end
 
     #compute WtW = triu(B*B')
     LinearAlgebra.BLAS.syrk!('U', 'N', one(T), B, zero(T), WtW)
@@ -166,10 +165,6 @@ function inv_circ_op!(
     y::AbstractVector{T},
     z::AbstractVector{T}
 ) where {T}
-
-    #PJG: allocation here.   Remove
-    (X,S,Z) = map(m->zeros(K.n,K.n), (x,s,z))
-    map((M,v)->_tomat!(M,v,K),(X,S,Z),(x,s,z))
 
     # X should be the solution to (YX + XY)/2 = Z
 
@@ -332,7 +327,7 @@ function step_length(
 ) where {T}
 
     #PJG: this inv sqrt is repeating
-    Λisqrt = Diagonal(inv.(sqrt.(K.work.λ)))
+    Λisqrt = K.work.Λisqrt
 
     #PJG: DEBUG: allocs here requires removal
     d   = similar(dz)
@@ -374,7 +369,10 @@ end
 # internal utilities for this cone
 #--------------------
 
-#PJG: This should move to math utils
+# PJG: This should move to math utils, and should probably
+# apply Vector -> Vector, or have a separate method to do so.
+# Would also be nice to have an option that only fills in the
+# upper triangle of a Symmetric matrix
 
 #make a matrix view from a vectorized input
 function _tomat!(M::AbstractMatrix{T}, x::AbstractVector{T}, K::PSDTriangleCone{T}) where {T}
@@ -400,23 +398,25 @@ function _tomat!(M::AbstractMatrix{T}, x::AbstractVector{T}, K::PSDTriangleCone{
     end
 end
 
-#make an svec input from a matrix
+# make an svec input from a matrixl and should probably
+# apply Vector -> Vector, or have a separate method to do so.
+# Not clear if a another method for reading from the upper
+# triangle only is useful, e.g. for a Symmetric input
 function _tovec!(x::AbstractVector{T},M::AbstractMatrix{T},K::PSDTriangleCone{T}) where {T}
 
     #PJG: sanity checking sizes
     @assert(K.numel == length(x))
     @assert(K.n == LinearAlgebra.checksquare(M))
 
-    SQRT2 = sqrt(T(2))
-
-    #PJG: I am reading out only the upper triangle, even though (??)
-    #the matrix being passed could be filled in (and, I hope, symmetric)
+    ISQRT2 = 1/sqrt(T(2))
 
     idx = 1
-    for col = 1:K.n, row = 1:col
-    @inbounds x[idx] = row == col ? M[row,col] : M[row,col]*SQRT2
+    for row = 1:K.n, col = 1:row
+        @inbounds x[idx] = row == col ? M[row,col] : (M[row,col]+M[col,row])*ISQRT2
         idx += 1
     end
+
+    return nothing
 end
 
 

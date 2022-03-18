@@ -93,36 +93,34 @@ SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
 
 mutable struct PSDConeWork{T}
 
-    cholS
-    cholZ
-    SVD
-    U
-    V
+    S::Matrix{T}
+    Z::Matrix{T}
+    cholS::Union{Nothing,Cholesky{T,Matrix{T}}}
+    cholZ::Union{Nothing,Cholesky{T,Matrix{T}}}
+    SVD::Union{Nothing,SVD{T,T,Matrix{T}}}
     λ::Vector{T}
+    Λisqrt::Diagonal{T,Vector{T}}
     R::Matrix{T}
     Rinv::Matrix{T}
     kronRR::Matrix{T}
-    Q::SparseMatrixCSC{T}
     B::Matrix{T}
     WtW::Matrix{T}
-    L1
-    L2
 
     function PSDConeWork{T}(n::Int) where {T}
 
-        (cholS,cholZ,SVD,U,V,L1,L2) = ntuple(x->nothing, 7)
-        λ    = zeros(T,n)
-        R    = zeros(T,n,n)
-        Rinv = zeros(T,n,n)
+        S      = zeros(T,n,n)
+        Z      = zeros(T,n,n)
+        (cholS,cholZ,SVD) = (nothing,nothing,nothing)
+        λ      = zeros(T,n)
+        Λisqrt = Diagonal(zeros(T,n))
+        R      = zeros(T,n,n)
+        Rinv   = zeros(T,n,n)
         kronRR = zeros(T,n^2,n^2)
-        #The mapping from svec to full (vectorized) matrix
-        Q    = _tomat_operator(T,n)
-        B    = zeros(T,((n+1)*n)>>1,n^2)
-        WtW  = zeros(T,size(B,1),size(B,1))
+        B      = zeros(T,((n+1)*n)>>1,n^2)
+        WtW    = zeros(T,size(B,1),size(B,1))
 
-        return new(
-        cholS,cholZ,SVD,U,V,λ,
-        R,Rinv,kronRR,Q,B,WtW,L1,L2)
+        return new(S,Z,cholS,cholZ,SVD,λ,Λisqrt,
+                   R,Rinv,kronRR,B,WtW)
     end
 end
 
@@ -187,13 +185,12 @@ supported types are:
 * `ZeroConeT`       : The zero cone.  Used to define equalities.
 * `NonnegativeConeT`: The nonnegative orthant.
 * `SecondOrderConeT`: The second order / Lorentz / ice-cream cone.
-# `PSDConeT`        : The positive semidefinite cone.
+# `PSDTriangleConeT`: The positive semidefinite cone (triangular format).
 """
 @enum SupportedCones begin
     ZeroConeT
     NonnegativeConeT
     SecondOrderConeT
-    PSDConeT
     PSDTriangleConeT
 end
 
@@ -206,6 +203,5 @@ const ConeDict = Dict(
            ZeroConeT => ZeroCone,
     NonnegativeConeT => NonnegativeCone,
     SecondOrderConeT => SecondOrderCone,
-            PSDConeT => PSDCone,
     PSDTriangleConeT => PSDTriangleCone,
 )
