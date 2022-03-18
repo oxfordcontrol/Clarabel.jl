@@ -43,7 +43,7 @@ function get_WtW_block!(
 
     #expecting only a diagonal here, and
     #setting it to zero since this is an
-    #equality condition 
+    #equality condition
     WtWblock .= zero(T)
 
     return nothing
@@ -135,32 +135,6 @@ function gemv_Winv!(
 
   #treat Winv like zero
   y .= β.*y
-
-  return nothing
-end
-
-# implements y = (W^TW)^{-1}x
-function mul_WtWinv!(
-    K::ZeroCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T}
-) where {T}
-
-  #treat inv(W^TW) like zero
-  y .= zero(T)
-
-  return nothing
-end
-
-# implements y = W^TWx
-function mul_WtW!(
-    K::ZeroCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T}
-) where {T}
-
-  #treat (W^TW) like zero
-  y .= zero(T)
 
   return nothing
 end

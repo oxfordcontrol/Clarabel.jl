@@ -218,43 +218,6 @@ function gemv_Winv!(
     return nothing
 end
 
-# implements y = (W^TW)^{-1}x
-function mul_WtWinv!(
-    K::SecondOrderCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T}
-) where {T}
-
-    #PJG: this needs a different implementation.
-    #The first gemv_Winv! will fail because
-    #the output and input arguments are the same
-    @assert false
-
-    #PJG: multiply by the inverse twice.
-    gemv_Winv!(K,:T,y,y,one(T),zero(T))
-    gemv_Winv!(K,:N,x,y,one(T),zero(T))
-
-    return nothing
-end
-
-# implements y = W^TWx
-function mul_WtW!(
-    K::SecondOrderCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T}
-) where {T}
-
-    #PJG: this needs a different implementation.
-    #The first gemv_Winv! will fail bec ause
-    #the output and input arguments are the same
-    @assert false
-
-    #PJG: multiply twice
-    gemv_W!(K,:T,y,y,one(T),zero(T))
-    gemv_W!(K,:N,x,y,one(T),zero(T))
-
-    return nothing
-end
 
 # implements y = y + αe for the socone
 function add_scaled_e!(

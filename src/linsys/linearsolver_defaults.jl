@@ -1,5 +1,3 @@
-import QDLDL
-
 abstract type AbstractLinearSolver{T <: AbstractFloat} end
 
 #update matrix data and factor
@@ -11,10 +9,11 @@ end
 function linsys_setrhs!(
     linsys::AbstractLinearSolver{T},
     x::AbstractVector{T},
-    z::AbstractVector
+    z::AbstractVector{T}
 ) where{T}
     error("function not implemented")
 end
+
 
 #solve and assign LHS
 function linsys_solve!(

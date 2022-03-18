@@ -5,9 +5,7 @@
 mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
 
     # problem dimensions
-    m::Int
-    n::Int
-    p::Int
+    m::Int; n::Int; p::Int
 
     # Left and right hand sides for solves
     x::Vector{T}
@@ -186,6 +184,7 @@ function linsys_setrhs!(
     return nothing
 end
 
+
 function linsys_getlhs!(
     linsys::QDLDLLinearSolver{T},
     lhsx::Union{Nothing,AbstractVector{T}},
@@ -201,6 +200,7 @@ function linsys_getlhs!(
     return nothing
 end
 
+
 function linsys_solve!(
     linsys::QDLDLLinearSolver{T},
     lhsx::Union{Nothing,AbstractVector{T}},
@@ -213,12 +213,18 @@ function linsys_solve!(
     x .= b
     QDLDL.solve!(linsys.factors,x)
 
-    if(!linsys.settings.iterative_refinement_enable)
-        linsys_getlhs!(linsys,lhsx,lhsz)
-        return nothing
-    end  #done
+    if(linsys.settings.iterative_refinement_enable)
+        iterative_refinement(linsys)
+    end
 
-    #PJG: put IR into a separate function
+    linsys_getlhs!(linsys,lhsx,lhsz)
+    return nothing
+end
+
+
+function iterative_refinement(linsys::QDLDLLinearSolver{T}) where{T}
+
+    (x,b,work) = (linsys.x,linsys.b,linsys.work)
 
     #iterative refinement params
     IR_reltol    = linsys.settings.iterative_refinement_reltol
@@ -258,6 +264,5 @@ function linsys_solve!(
         x .+= work
     end
 
-    linsys_getlhs!(linsys,lhsx,lhsz)
     return nothing
 end

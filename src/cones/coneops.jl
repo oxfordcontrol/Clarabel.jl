@@ -166,37 +166,6 @@ function cones_gemv_Winv!(
     return nothing
 end
 
-# computes y = (W^TW){-1}x.
-# Warning: x must not alias y.
-function cones_mul_WtWinv!(
-    cones::ConeSet{T},
-    x::ConicVector{T},
-    y::ConicVector{T}
-) where {T}
-
-    #@assert x !== y
-    for i = eachindex(cones)
-        mul_WtWinv!(cones[i],x.views[i],y.views[i])
-    end
-
-    return nothing
-end
-
-# computes y = (W^TW)x
-# Warning: x must not alias y.
-function cones_mul_WtW!(
-    cones::ConeSet{T},
-    x::ConicVector{T},
-    y::ConicVector{T}
-) where {T}
-
-    #@assert x !== y
-    for i = eachindex(cones)
-        mul_WtW!(cones[i],x.views[i],y.views[i])
-    end
-    return nothing
-end
-
 #computes y = y + αe
 function cones_add_scaled_e!(
     cones::ConeSet{T},
