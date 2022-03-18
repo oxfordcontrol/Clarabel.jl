@@ -366,7 +366,7 @@ function _tomat!(M::AbstractMatrix{T}, x::AbstractVector{T}, K::PSDTriangleCone{
     end
 end
 
-# make an svec input from a matrixl and should probably
+# make an svec input from a matrix and should probably
 # apply Vector -> Vector, or have a separate method to do so.
 # Not clear if a another method for reading from the upper
 # triangle only is useful, e.g. for a Symmetric input

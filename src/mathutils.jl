@@ -256,3 +256,23 @@ function pack_triu(v::Vector{T},A::Matrix{T}) where T
     end
     return v
 end
+
+
+
+# ---------------------------------
+# functions for manipulating scaled vectors
+# representing packed matrices in the upper
+# triangle, read columnwise
+# ---------------------------------
+_triangle_svec_to_unscaled(v::T,idx::Int) where {T} = _triangle_svec_scale(v, idx, 1/sqrt(T(2)))
+_triangle_unscaled_to_svec(v::T,idx::Int) where {T} = _triangle_svec_scale(v, idx,   sqrt(T(2)))
+_triangle_svec_scale(v, index, scale) = _is_triangular_value(index) ? v : scale*v
+
+#vectorized versions on full triangles
+_triangle_svec_to_unscaled(v::AbstractVector) = _triangle_svec_to_unscaled.(v,eachindex(v))
+_triangle_unscaled_to_svec(v::AbstractVector) = _triangle_unscaled_to_svec.(v,eachindex(v))
+
+function _is_triangular_value(k::Int)
+    #true if the int is a triangular number
+    return isqrt(8*k + 1)^2 == 8*k + 1
+end

@@ -19,10 +19,10 @@ const OptimizerSupportedMOICones{T} = Union{
     MOI.Zeros,
     MOI.Nonnegatives,
     MOI.SecondOrderCone,
+    MOI.PositiveSemidefiniteConeTriangle,
     _DummyConeType{T},    #<-placeholder until PowerCone{T} is added
     # MOI.PowerCone{T},
     # MOI.DualPowerCone{T},
-    # MOI.PositiveSemidefiniteConeTriangle,
     # MOI.ExponentialCone,
 } where {T}
 
@@ -36,6 +36,7 @@ const MOItoClarabelCones = Dict([
     MOI.Zeros           => Clarabel.ZeroConeT,
     MOI.Nonnegatives    => Clarabel.NonnegativeConeT,
     MOI.SecondOrderCone => Clarabel.SecondOrderConeT,
+    MOI.PositiveSemidefiniteConeTriangle => Clarabel.PSDTriangleConeT
 ])
 
 const ClarabeltoMOITerminationStatus = Dict([
@@ -206,17 +207,29 @@ function MOI.get(opt::Optimizer, a::MOI.VariablePrimal, vi::MOI.VariableIndex)
 end
 
 MOI.supports(::Optimizer, ::MOI.ConstraintPrimal) = true
-function MOI.get(opt::Optimizer, a::MOI.ConstraintPrimal, ci::MOI.ConstraintIndex)
+function MOI.get(
+    opt::Optimizer,
+      a::MOI.ConstraintPrimal,
+    ci::MOI.ConstraintIndex{F, S}
+) where {F, S <: MOI.AbstractSet}
+
     MOI.check_result_index_bounds(opt, a)
-    rows = constraint_rows(opt.rowranges, ci)
-    return opt.inner.variables.s[rows]
+    rows = constraint_rows(opt.rowranges, ci)   
+    sout = unscalecoef(opt.inner.variables.s[rows],S)
+    return sout
 end
 
 MOI.supports(::Optimizer, ::MOI.ConstraintDual) = true
-function MOI.get(opt::Optimizer, a::MOI.ConstraintDual, ci::MOI.ConstraintIndex)
+function MOI.get(
+    opt::Optimizer,
+      a::MOI.ConstraintDual,
+     ci::MOI.ConstraintIndex{F, S}
+) where {F, S <: MOI.AbstractSet}
+
     MOI.check_result_index_bounds(opt, a)
     rows = constraint_rows(opt.rowranges, ci)
-    return opt.inner.variables.z[rows]
+    zout = unscalecoef(opt.inner.variables.z[rows],S)
+    return zout
 end
 
 MOI.supports(::Optimizer, ::MOI.TimeLimitSec) = true
@@ -461,31 +474,45 @@ function push_constraint!(
         s = MOI.get(src, MOI.ConstraintSet(), ci)
         f = MOI.get(src, MOI.ConstraintFunction(), ci)
         rows = constraint_rows(rowranges, idxmap[ci])
-        push_constraint_constant!(b, rows, f)
-        push_constraint_linear!(triplet, f, rows, idxmap)
+        push_constraint_constant!(b, rows, f, s)
+        push_constraint_linear!(triplet, f, rows, idxmap, s)
         push_constraint_set!(cone_types, cone_dims, rows, s)
     end
 
     return nothing
 end
 
+# function for scaling problem data for constraints
+# in packed triangle format, since our optimizer
+# is implemented using the 'svec' style
+
+scalecoef(v,::Type{<:MOI.AbstractVectorSet})     = v #default don't scale
+scalecoef(v,idx,::Type{<:MOI.AbstractVectorSet}) = v #default don't scale
+scalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = _triangle_unscaled_to_svec(v)
+scalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = _triangle_unscaled_to_svec(v,idx)
+
+unscalecoef(v,::Type{<:MOI.AbstractVectorSet})     = v #default don't scale
+unscalecoef(v,idx,::Type{<:MOI.AbstractVectorSet}) = v #default don't scale
+unscalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = _triangle_svec_to_unscaled(v)
+unscalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = _triangle_svec_to_unscaled(v,idx)
+
 
 function push_constraint_constant!(
     b::AbstractVector{T},
     rows::UnitRange{Int},
-    f::MOI.VectorAffineFunction{T}
+    f::MOI.VectorAffineFunction{T},
+    s::OptimizerSupportedMOICones{T},
 ) where {T}
 
-    for (i, row) in enumerate(rows)
-        b[row] = f.constants[i]
-    end
+    b[rows] .= scalecoef(f.constants,typeof(s))
     return nothing
 end
 
 function push_constraint_constant!(
     b::AbstractVector{T},
     rows::UnitRange{Int},
-    f::MOI.VectorOfVariables
+    f::MOI.VectorOfVariables,
+    s::OptimizerSupportedMOICones{T},
 ) where {T}
     b[rows] .= zero(T)
     return nothing
@@ -495,13 +522,15 @@ function push_constraint_linear!(
     triplet::SparseTriplet,
     f::MOI.VectorAffineFunction{T},
     rows::UnitRange{Int},
-    idxmap
+    idxmap,
+    s::OptimizerSupportedMOICones{T},
 ) where {T}
     (I, J, V) = triplet
     for term in f.terms
         row = rows[term.output_index]
         var = term.scalar_term.variable
         coeff = term.scalar_term.coefficient
+        coeff = scalecoef(coeff, term.output_index,typeof(s))
         col = idxmap[var].value
         push!(I, row)
         push!(J, col)
@@ -514,14 +543,16 @@ function push_constraint_linear!(
     triplet::SparseTriplet{T},
     f::MOI.VectorOfVariables,
     rows::UnitRange{Int},
-    idxmap
+    idxmap,
+    s::OptimizerSupportedMOICones{T},
 ) where {T}
 
     (I, J, V) = triplet
     cols = [idxmap[var].value for var in f.variables]
     append!(I, rows)
     append!(J, cols)
-    append!(V, ones(T,length(cols)))
+    vals = scalecoef(ones(T,length(cols)),typeof(s))
+    append!(V, vals)
 
     return nothing
 end
@@ -531,7 +562,7 @@ function push_constraint_set!(
     cone_types::Vector{Clarabel.SupportedCones},
     cone_dims::Vector{Int},
     rows::Union{Int,UnitRange{Int}},
-    s::OptimizerSupportedMOICones #will be {T} if parametric cones are added
+    s::OptimizerSupportedMOICones{T},
 ) where {T}
 
     # merge cones together where :
@@ -540,7 +571,7 @@ function push_constraint_set!(
     # This is just the zero and nonnegative cones
 
     next_type = MOItoClarabelCones[typeof(s)]
-    next_dim  = length(rows)
+    next_dim  = _to_optimizer_conedim(length(rows),typeof(s))
 
     if isempty(cone_types) || next_type ∉ OptimizerMergeableTypes || next_type != cone_types[end]
         push!(cone_types, next_type)
@@ -551,6 +582,13 @@ function push_constraint_set!(
 
     return nothing
 end
+
+# converts number of elements to optimizer's internal dimension parameter.
+# For matrices, this is just the matrix side dimension.  Conversion differs
+# for square vs triangular form
+_to_optimizer_conedim(k::Int, ::Type{<:MOI.AbstractVectorSet}) = k
+_to_optimizer_conedim(k::Int, ::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = (isqrt(8*k + 1)-1) >> 1
+_to_optimizer_conedim(k::Int, ::Type{<:MOI.AbstractSymmetricMatrixSetSquare})   = isqrt(k)
 
 function push_constraint_set!(
     cone_types::Vector{Clarabel.SupportedCones},
