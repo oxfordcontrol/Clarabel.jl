@@ -152,30 +152,6 @@ function gemv_Winv!(
   return nothing
 end
 
-# implements y = (W^TW)^{-1}x
-function mul_WtWinv!(
-    K::NonnegativeCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T}
-) where {T}
-
-  @. y = x/(K.w^2)
-
-  return nothing
-end
-
-# implements y = (W^TW)x
-function mul_WtW!(
-    K::NonnegativeCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T}
-) where {T}
-
-  @. y = x*(K.w^2)
-
-  return nothing
-end
-
 # implements y = y + αe for the nn cone
 function add_scaled_e!(
     K::NonnegativeCone,

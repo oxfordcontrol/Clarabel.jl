@@ -4,33 +4,21 @@
 
 mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
 
-    n  #cols in A
-    m  #rows in A
-    p  #extra KKT columns for sparse SOCs
-
     #the linear solver engine
     linsys::AbstractLinearSolver{T}
 
     #solution vector for constant part of KKT solves
-    lhs_const::Vector{T}
-    lhs_const_x::VectorView{T}
-    lhs_const_z::VectorView{T}
-    lhs_const_p::VectorView{T}
+    x1::Vector{T}
+    z1::Vector{T}
 
     #solution vector for general KKT solves
-    lhs::Vector{T}
-    lhs_x::VectorView{T}
-    lhs_z::VectorView{T}
-    lhs_p::VectorView{T}
+    x2::Vector{T}
+    z2::Vector{T}
 
-    #work vector for solves, e.g. right hand sides
-    work::Vector{T}
-    work_x::VectorView{T}
-    work_z::VectorView{T}
-    work_p::VectorView{T}
-
-    #a work ConicVector to simplify solving for Δs
-    work_sv::ConicVector{T}
+    #work vectors for assembling/dissambling vectors
+    workx::Vector{T}
+    workz::ConicVector{T}
+    work_conic::ConicVector{T}
 
         function DefaultKKTSolver{T}(
             data::DefaultProblemData{T},
@@ -39,8 +27,7 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
         ) where {T}
 
         #basic problem dimensions
-        n = data.n
-        m = data.m
+        (m, n) = (data.m, data.n)
 
         #create the linear solver
         solverengine = settings.direct_solve_method
@@ -52,44 +39,22 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
             error("Unknown solver engine type: ", solverengine)
         end
 
-
-        #does our solver use sparse SOC format?
-        if linsys_is_soc_sparse_format(linsys)
-            p = linsys_soc_sparse_variables(linsys)
-        else
-            p = 0
-        end
-
         #the LHS constant part of the reduced solve
-        lhs_const   = Vector{T}(undef,n + m + p)
-        #views into the LHS for x/z partition
-        lhs_const_x = view(lhs_const,1:n)
-        lhs_const_z = view(lhs_const,(n+1):(n+m))
-        lhs_const_p = view(lhs_const,(n+m+1):(n+m+p))
+        x1   = Vector{T}(undef,n)
+        z1   = Vector{T}(undef,m)
 
         #the LHS for other solves
-        lhs      = Vector{T}(undef,n + m + p)
-        #views into the LHS for x/z partition
-        lhs_x    = view(lhs,1:n)
-        lhs_z    = view(lhs,(n+1):(n+m))
-        lhs_p    = view(lhs,(n+m+1):(n+m+p))
+        x2   = Vector{T}(undef,n)
+        z2   = Vector{T}(undef,m)
 
-        #work vector for other solves
-        work  = Vector{T}(undef, n + m + p)
-        #views into the work vector
-        work_x = view(work,1:n)
-        work_z = view(work,(n+1):(n+m))
-        work_p = view(work,(n+m+1):(n+m+p))
+        #workspace compatible with (x,z)
+        workx   = Vector{T}(undef,n)
+        workz   = ConicVector{T}(cones)
 
-        #a split vector compatible with s and z
-        work_sv = ConicVector{T}(cones)
+        #additional conic workspace vector compatible with s and z
+        work_conic = ConicVector{T}(cones)
 
-
-        return new(
-            n,m,p,linsys,
-            lhs_const,lhs_const_x,lhs_const_z,lhs_const_p,
-            lhs,lhs_x,lhs_z,lhs_p,
-            work, work_x, work_z, work_p,work_sv)
+        return new(linsys,x1,z1,x2,z2,workx,workz,work_conic)
 
     end
 
@@ -119,13 +84,8 @@ function _kkt_solve_constant_rhs!(
     data::DefaultProblemData{T}
 ) where {T}
 
-    #make the RHS for the constant part
-    #of the reduced solve
-    kktsolver.work_x .= -data.q;
-    kktsolver.work_z .=  data.b;
-    kktsolver.work_p .=  zero(T);
-
-    linsys_solve!(kktsolver.linsys,kktsolver.lhs_const,kktsolver.work)
+    linsys_setrhs!(kktsolver.linsys, -data.q, data.b)
+    linsys_solve!(kktsolver.linsys,kktsolver.x2, kktsolver.z2)
 
     return nothing
 end
@@ -139,22 +99,18 @@ function kkt_solve_initial_point!(
 
     # solve with [0;b] as a RHS to get (x,s) initializers
     # zero out any sparse cone variables at end
-    kktsolver.work_x .= zero(T)
-    kktsolver.work_z .= data.b
-    kktsolver.work_p .= zero(T)
-
-    linsys_solve!(kktsolver.linsys,kktsolver.lhs,kktsolver.work)
-    variables.x .=  kktsolver.lhs_x
-    variables.s .= -kktsolver.lhs_z
+    kktsolver.workx .= zero(T)
+    kktsolver.workz .= data.b
+    linsys_setrhs!(kktsolver.linsys, kktsolver.workx, kktsolver.workz)
+    linsys_solve!(kktsolver.linsys, variables.x, variables.s)
 
     # solve with [-c;0] as a RHS to get z initializer
     # zero out any sparse cone variables at end
-    kktsolver.work_x .= -data.q
-    kktsolver.work_z .=  zero(T)
-    kktsolver.work_p .=  zero(T)
+    kktsolver.workx .= -data.q
+    kktsolver.workz .=  zero(T)
 
-    linsys_solve!(kktsolver.linsys,kktsolver.lhs,kktsolver.work)
-    variables.z .= kktsolver.lhs_z
+    linsys_setrhs!(kktsolver.linsys, kktsolver.workx, kktsolver.workz)
+    linsys_solve!(kktsolver.linsys, nothing, variables.z)
 
     return nothing
 end
@@ -170,69 +126,65 @@ function kkt_solve!(
     steptype::Symbol   #:affine or :combined
 ) where{T}
 
-    constx = kktsolver.lhs_const_x
-    constz = kktsolver.lhs_const_z
+    (x1,z1) = (kktsolver.x1, kktsolver.z1)
+    (x2,z2) = (kktsolver.x2, kktsolver.z2)
+    (workx,workz) = (kktsolver.workx, kktsolver.workz)
 
-    # assemble the right hand side and solve.  We need to
-    # modify terms for the z part here since this solve
-    # function is based on the condensed KKT solve approach
-    # of CVXOPT
-    kktsolver.work_x .= rhs.x
-    kktsolver.work_p .= 0
+    #solve for (x1,z1)
+    #-----------
+    @. workx = rhs.x
+
+    #compute Wᵀ(λ \ ds), with shortcut in affine case
+    Wtlinvds = kktsolver.work_conic
 
     if steptype == :affine
-        #use -rz + s here as a shortcut in the affine step
-        @. kktsolver.work_z = -rhs.z + variables.s
+        @. Wtlinvds = variables.s
 
     else  #:combined expected, but any general RHS should do this
-
-        #we can use the LHS outputs for work space
-        #here since we haven't solved yet
-        tmp1 = lhs.s; tmp2 = lhs.z
-        @. tmp1 = rhs.z  #Don't want to modify our RHS
-        cones_λ_inv_circ_op!(cones, tmp2, rhs.s)               #tmp2 = λ \ ds
-        cones_gemv_W!(cones, :T, tmp2, tmp1, one(T), -one(T))  #tmp1 = - rhs.z + W(tmp2)
-        kktsolver.work_z .= tmp1
-
+        #we can use the overall LHS output as
+        #additional workspace for the moment
+        tmp = lhs.z;
+        @. tmp = rhs.z  #Don't want to modify our RHS
+        cones_λ_inv_circ_op!(cones, tmp, rhs.s)                  #tmp = λ \ ds
+        cones_gemv_W!(cones, :T, tmp, Wtlinvds, one(T), zero(T)) #Wᵀ(λ \ ds) = Wᵀ(tmp)
     end
+    @. workz = Wtlinvds - rhs.z
 
-    linsys_solve!(kktsolver.linsys,kktsolver.lhs,kktsolver.work)
+    #this solves the variable part of reduced KKT system
+    linsys_setrhs!(kktsolver.linsys, workx, workz)
+    linsys_solve!(kktsolver.linsys,x1,z1)
 
-    #copy back into the solution to get (Δx₂,Δz₂)
-    lhs.x .= kktsolver.lhs_x
-    lhs.z .= kktsolver.lhs_z
-
-    #use workx as scratch space now that lhs is copied
-    ξ   = kktsolver.work_x
+    #solve for Δτ.
+    #-----------
+    # Numerator first
+    ξ   = workx
     ξ  .= variables.x / variables.τ
     P   = data.Psym
 
-    #solve for Δτ.
-    tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,lhs.x) + dot(data.b,lhs.z) + 2*symdot(ξ,P,lhs.x)
+    tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,x1) + dot(data.b,z1) + 2*symdot(ξ,P,x1)
 
-    #now offset ξ for the quadratic form in the denominator
-    ξ_minus_x2    = ξ   #alias to ξ, same as work_x
-    ξ_minus_x2  .-= constx
+    #offset ξ for the quadratic form in the denominator
+    ξ_minus_x2    = ξ   #alias to ξ, same as workx
+    ξ_minus_x2  .-= x2
 
-    tau_den = (variables.κ/variables.τ - dot(data.q,constx) - dot(data.b,constz) + symdot(ξ_minus_x2,P,ξ_minus_x2) - symdot(constx,P,constx))
+    tau_den  = variables.κ/variables.τ - dot(data.q,x2) - dot(data.b,z2)
+    tau_den += symdot(ξ_minus_x2,P,ξ_minus_x2) - symdot(x2,P,x2)
 
-    # Δτ = tau_num/tau_den
+    #solve for (Δx,Δz)
+    #-----------
     lhs.τ  = tau_num/tau_den
+    @. lhs.x = x1 + lhs.τ * x2
+    @. lhs.z = z1 + lhs.τ * z2
 
-    #shift solution by pre-computed constant terms
-    #to get (Δx, Δz) = (Δx₂,Δz₂) + Δτ(Δx₁,Δz₁)
-    lhs.x .+= lhs.τ .* constx
-    lhs.z .+= lhs.τ .* constz
-
-    #solve for Δs = -Wᵀ(λ \ dₛ + WΔz)
-    #PJG: We are unncessarily calculating λ \ dₛ twice.   Once here, and
-    #once at ~line 195.   Do I even need it at all in the :affine case?
-    tmpsv = kktsolver.work_sv
-    cones_λ_inv_circ_op!(cones, tmpsv, rhs.s)                  #Δs = λ \ dₛ
-    cones_gemv_W!(cones, :N, lhs.z, tmpsv,  one(T), one(T))    #Δs = WΔz + Δs
-    cones_gemv_W!(cones, :T, tmpsv, lhs.s, -one(T), zero(T))   #Δs = -WᵀΔs
+    #solve for Δs = -Wᵀ(λ \ dₛ + WΔz) = -Wᵀ(λ \ dₛ) - WᵀWΔz
+    #where the first part is already in work_conic
+    #-------------
+    cones_gemv_W!(cones, :N, lhs.z, workz,  one(T), zero(T))    #work = WΔz
+    cones_gemv_W!(cones, :T, workz, lhs.s, -one(T), zero(T))    #Δs = -WᵀWΔz
+    @. lhs.s -= Wtlinvds
 
     #solve for Δκ
+    #--------------
     lhs.κ = -(rhs.κ + variables.κ * lhs.τ) / variables.τ
 
     return nothing

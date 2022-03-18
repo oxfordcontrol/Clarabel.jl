@@ -7,9 +7,11 @@ using Pardiso
 mutable struct MKLPardisoLinearSolver{T} <: AbstractLinearSolver{T}
 
     # problem dimensions
-    m::Int
-    n::Int
-    p::Int
+    m::Int; n::Int; p::Int
+
+    # Left and right hand sides for solves
+    x::Vector{T}
+    b::Vector{T}
 
     #KKT matrix and its permutation
     KKT::SparseMatrixCSC{T}
@@ -37,6 +39,10 @@ mutable struct MKLPardisoLinearSolver{T} <: AbstractLinearSolver{T}
         #solving in sparse format.  Need this many
         #extra variables for SOCs
         p = 2*cones.type_counts[SecondOrderConeT]
+
+        #LHS/RHS/work for iterative refinement
+        x    = Vector{T}(undef,n+m+p)
+        b    = Vector{T}(undef,n+m+p)
 
         #MKL wants TRIU in CSR format, so we make TRIL in CSC format
         KKT, KKTmaps = _assemble_kkt_matrix(P,A,cones,:tril)
@@ -69,8 +75,7 @@ mutable struct MKLPardisoLinearSolver{T} <: AbstractLinearSolver{T}
         fix_iparm!(ps, :N)
         set_phase!(ps, Pardiso.ANALYSIS)
         set_perm!(ps, perm)
-        b = [1.]    #we can give a fake RHS during analysis
-        pardiso(ps, KKT, b)
+        pardiso(ps, KKT, b)  #RHS is irrelevant
 
         #updates to the diagonal of KKT will be
         #assigned here before updating matrix entries
@@ -80,22 +85,12 @@ mutable struct MKLPardisoLinearSolver{T} <: AbstractLinearSolver{T}
         #object to free internal structures
         finalizer(ps -> set_phase!(ps, Pardiso.RELEASE_ALL), ps )
 
-        return new(m,n,p,KKT,KKTmaps,ps,Dsigns,WtWblocks,settings)
+        return new(m,n,p,x,b,KKT,KKTmaps,ps,Dsigns,WtWblocks,settings)
     end
 
 end
 
 MKLPardisoLinearSolver(args...) = MKLPardisoLinearSolver{DefaultFloat}(args...)
-
-
-function linsys_is_soc_sparse_format(linsys::MKLPardisoLinearSolver{T}) where{T}
-    return true
-end
-
-function linsys_soc_sparse_variables(linsys::MKLPardisoLinearSolver{T}) where{T}
-    return linsys.p
-end
-
 
 
 function linsys_update!(
@@ -163,15 +158,52 @@ end
 
 function linsys_solve!(
     linsys::MKLPardisoLinearSolver{T},
-    x::Vector{T},
-    b::Vector{T}
+    lhsx::Union{Nothing,AbstractVector{T}},
+    lhsz::Union{Nothing,AbstractVector{T}}
 ) where {T}
+
+    (x,b) = (linsys.x,linsys.b)
 
     ps  = linsys.ps
     KKT = linsys.KKT
 
     set_phase!(ps, Pardiso.SOLVE_ITERATIVE_REFINE)
     pardiso(ps, x, KKT, b)
+
+    linsys_getlhs!(linsys,lhsx,lhsz)
+    return nothing
+end
+
+
+
+function linsys_setrhs!(
+    linsys::MKLPardisoLinearSolver{T},
+    rhsx::AbstractVector{T},
+    rhsz::AbstractVector{T}
+) where {T}
+
+    b = linsys.b
+    (m,n,p) = (linsys.m,linsys.n,linsys.p)
+
+    b[1:n]             .= rhsx
+    b[(n+1):(n+m)]     .= rhsz
+    b[(n+m+1):(n+m+p)] .= 0
+
+    return nothing
+end
+
+
+function linsys_getlhs!(
+    linsys::MKLPardisoLinearSolver{T},
+    lhsx::Union{Nothing,AbstractVector{T}},
+    lhsz::Union{Nothing,AbstractVector{T}}
+) where {T}
+
+    x = linsys.x
+    (m,n,p) = (linsys.m,linsys.n,linsys.p)
+
+    isnothing(lhsx) || (lhsx .= x[1:n])
+    isnothing(lhsz) || (lhsz .= x[(n+1):(n+m)])
 
     return nothing
 end

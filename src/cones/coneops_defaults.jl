@@ -169,28 +169,6 @@ function gemv_Winv!(
 
 end
 
-# implements y = (W^TW)^{-1}x
-function mul_WtWinv!(
-    K::AbstractCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T}
-) where {T}
-
-    error("Incomplete cone operation specification: ",typeof(K))
-
-end
-
-# implements y = W^TWx
-function mul_WtW!(
-    K::AbstractCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T}
-) where {T}
-
-    error("Incomplete cone operation specification: ",typeof(K))
-
-end
-
 # implements y = y + αe
 function add_scaled_e!(
     K::AbstractCone{T},

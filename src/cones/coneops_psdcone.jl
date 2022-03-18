@@ -242,35 +242,6 @@ function gemv_Winv!(
 end
 
 
-# implements y = (W^TW)^{-1}x
-function mul_WtWinv!(
-    K::PSDCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T}
-) where {T}
-
-    #PJG: needs unit test?   Aliasing not allowed
-    #Also check aliasing in other cones, esp. SOC
-    gemv_Winv!(K,:T,y,y,one(T),zero(T))
-    gemv_Winv!(K,:N,x,y,one(T),zero(T))
-
-    return nothing
-end
-
-# implements y = W^TW^x
-function mul_WtW!(
-    K::PSDCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T}
-) where {T}
-
-    #PJG: needs unit test?
-    gemv_W!(K,:N,y,y,one(T),zero(T))
-    gemv_W!(K,:T,x,y,one(T),zero(T))
-
-    return nothing
-end
-
 # implements y = y + αe for the SDP cone
 function add_scaled_e!(
     K::PSDCone{T},
