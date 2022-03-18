@@ -28,7 +28,7 @@ function cones_update_scaling!(
     z::ConicVector{T}
 ) where {T}
 
-    # update scalings by passing subview to each of
+    # update cone scalings by passing subview to each of
     # the appropriate cone types.
     for i = eachindex(cones)
         update_scaling!(cones[i],s.views[i],z.views[i])
@@ -50,15 +50,14 @@ function cones_set_identity_scaling!(
 end
 
 
-# The diagonal part of the KKT scaling
-# matrix for each cone
-function cones_get_diagonal_scaling!(
+# The WtW block for each cone.
+function cones_get_WtW_blocks!(
     cones::ConeSet{T},
-    diagW2::ConicVector{T}
+    WtWblocks::Vector{Vector{T}}
 ) where {T}
 
     for i = eachindex(cones)
-        get_diagonal_scaling!(cones[i],diagW2.views[i])
+        get_WtW_block!(cones[i],WtWblocks[i])
     end
     return nothing
 end
@@ -234,4 +233,53 @@ function cones_step_length(
     end
 
     return (αz,αs)
+end
+
+
+
+#---------------------
+#PJG:: Not sure I understand the purpose of these wrappers now
+#---------------------
+
+function scaling_update!(
+    cones::ConeSet{T},
+    variables::AbstractVariables{T}
+) where {T}
+
+    # we call via this function instead of calling
+    # the operation on the Vector{AbstractCones{T}} directly
+    # so that we can isolate the top level solver from
+    # our default implementation of the scaling update
+    cones_update_scaling!(cones,variables.s,variables.z)
+    return nothing
+end
+
+
+#set all scalings to identity (or zero for the zero cone)
+function scaling_identity!(
+    cones::ConeSet{T},
+) where {T}
+
+    cones_set_identity_scaling!(cones)
+    return nothing
+end
+
+
+function scaling_get_diagonal!(
+    cones::ConeSet{T},
+    diagW2::ConicVector{T}
+) where {T}
+
+    cones_get_diagonal_scaling!(cones,diagW2)
+
+end
+
+
+function scaling_get_WtW_blocks!(
+    cones::ConeSet{T},
+    WtWblocks::Vector{Vector{T}}
+) where {T}
+
+    cones_get_WtW_blocks!(cones,WtWblocks)
+
 end

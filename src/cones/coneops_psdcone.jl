@@ -1,15 +1,18 @@
-#PJG: DEBUG Remove when complete
-macro __FUNCTION__()
-    return :($(esc(Expr(:isdefined, :var"#self#"))) ? $(esc(:var"#self#")) : nothing)
-end
-
 # ----------------------------------------------------
 # Positive Semidefinite Cone
 # ----------------------------------------------------
 
-dim(K::PSDCone{T})    where {T} = K.dim     #number of elements
-degree(K::PSDCone{T}) where {T} = K.n       #side dimension, M \in \mathcal{S}^{n×n}
+numel(K::PSDCone{T})  where {T} = K.numel
+dim(K::PSDCone{T})    where {T} = K.n     #side dimension, M \in \mathcal{S}^{n×n}
+degree(K::PSDCone{T}) where {T} = K.n     #same as dim for PSD cone
 
+
+#PSD cone returns a dense WtW block
+function WtW_is_diagonal(
+    K::PSDCone{T}
+) where{T}
+    return false
+end
 
 function update_scaling!(
     K::PSDCone{T},
@@ -55,18 +58,25 @@ function set_identity_scaling!(
     K::PSDCone{T}
 ) where {T}
 
-    K.W .= I(K.n)
+    K.work.R    .= I(K.n)
+    K.work.Rinv .= K.work.R
 
     return nothing
 end
 
-function get_diagonal_scaling!(
+function get_WtW_block!(
     K::PSDCone{T},
-    diagW2::AbstractVector{T}
+    WtWblock::AbstractVector{T}
 ) where {T}
 
-    print("Placeholder at :", @__FUNCTION__, "\n")
-    @. diagW2 = -K.w^2
+    # we should return here the upper triangular part
+    # of the matrix (RR^T) ⨂ (RR^T).  Super inefficient
+    # for now
+    R = K.work.R
+    RRt = R*R'
+    W   = kron(RRt, RRt)
+    vec = triu_as_vector(W)
+    WtWblock .= vec
 
     return nothing
 end
@@ -82,7 +92,7 @@ function λ_circ_λ!(
     x .= zero(T)
 
     #same as X = Λ*Λ
-    x[1:(K.n+1):end] .= K.λ^2
+    x[1:(K.n+1):end] .= K.work.λ.^2
 
 end
 
@@ -118,9 +128,10 @@ function λ_inv_circ_op!(
     # PJG : should only really need to compute
     # a triangular part of this matrix.  Keeping
     # like this for now until something works
+    λ = K.work.λ
     for i = 1:K.n
         for j = 1:K.n
-            X[i,j] = 2*Z[i,j]/(K.λ[i] + K.λ[j])
+            X[i,j] = 2*Z[i,j]/(λ[i] + λ[j])
         end
     end
 
@@ -159,6 +170,10 @@ function shift_to_cone!(
 ) where{T}
 
     Z = _mat(z,K)
+
+    #force symmetry
+    Z .= 0.5*(Z+Z')
+
     α = eigvals(Symmetric(Z),1:1)[1]  #min eigenvalue
 
     if(α < eps(T))
@@ -302,7 +317,7 @@ end
 
 
 function _step_length_psd_component(
-    K,
+    K::PSDCone,
     Δ::Symmetric{T},
     Λisqrt::Diagonal{T}
 ) where {T}

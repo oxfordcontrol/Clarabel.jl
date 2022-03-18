@@ -36,12 +36,15 @@ function set_identity_scaling!(
 end
 
 
-function get_diagonal_scaling!(
+function get_WtW_block!(
     K::ZeroCone{T},
-    diagW2::AbstractVector{T}
+    WtWblock::AbstractVector{T}
 ) where {T}
 
-    diagW2 .= zero(T)
+    #expecting only a diagonal here, and
+    #setting it to zero since this is an
+    #equality condition 
+    WtWblock .= zero(T)
 
     return nothing
 end

@@ -35,12 +35,14 @@ function set_identity_scaling!(
     return nothing
 end
 
-function get_diagonal_scaling!(
+function get_WtW_block!(
     K::NonnegativeCone{T},
-    diagW2::AbstractVector{T}
+    WtWblock::AbstractVector{T}
 ) where {T}
 
-    @. diagW2 = -K.w^2
+    #this block is diagonal, and we expect here
+    #to receive only the diagonal elements to fill
+    @. WtWblock = K.w^2
 
     return nothing
 end

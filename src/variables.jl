@@ -2,10 +2,10 @@
 function calc_mu(
     variables::DefaultVariables{T},
     residuals::DefaultResiduals{T},
-    scalings::DefaultScalings{T}
+    cones::ConeSet{T}
 ) where {T}
 
-  μ = (residuals.dot_sz + variables.τ * variables.κ)/(scalings.total_degree + 1)
+  μ = (residuals.dot_sz + variables.τ * variables.κ)/(cones.degree + 1)
 
   return μ
 end
@@ -14,14 +14,14 @@ end
 function calc_step_length(
     variables::DefaultVariables{T},
     step::DefaultVariables{T},
-    scalings::DefaultScalings{T}
+    cones::ConeSet{T}
 ) where {T}
 
     ατ    = step.τ < 0 ? -variables.τ / step.τ : inv(eps(T))
     ακ    = step.κ < 0 ? -variables.κ / step.κ : inv(eps(T))
 
     (αz,αs) = cones_step_length(
-        scalings.cones, step.z, step.s,
+        cones, step.z, step.s,
         variables.z, variables.s,
     )
 
@@ -64,10 +64,8 @@ function calc_affine_step_rhs!(
     r::DefaultResiduals{T},
     data::DefaultProblemData{T},
     variables::DefaultVariables{T},
-    scalings::DefaultScalings{T}
+    cones::ConeSet{T}
 ) where{T}
-
-    cones = scalings.cones
 
     @. d.x    .=  r.rx
     @. d.z     =  r.rz
@@ -84,20 +82,18 @@ function calc_combined_step_rhs!(
     r::DefaultResiduals{T},
     data::DefaultProblemData{T},
     variables::DefaultVariables{T},
-    scalings::DefaultScalings{T},
+    cones::ConeSet{T},
     step::DefaultVariables{T},
     σ::T, μ::T
 ) where {T}
 
-    cones = scalings.cones
-
     #PJG: Still not clear whether second order corrections
     #on the dτ variable make sense here or not.   Not used for now
-    #tmp2 = symdot(q,data.Psym,q) / variables.τ
-    tmp0 = zero(T)  #PJG no higher order correction
+    tmp = zero(T)  #PJG no higher order correction
+    #tmp = symdot(data.q,data.Psym,data.q) / variables.τ
 
     @. d.x  = (one(T) - σ)*r.rx
-       d.τ  = (one(T) - σ)*r.rτ + tmp0    #PJG: second order correction?
+       d.τ  = (one(T) - σ)*r.rτ + tmp    #PJG: second order correction instead?
        d.κ  = - σ*μ + step.τ * step.κ + variables.τ * variables.κ
 
     # d.s must be assembled carefully if we want to be economical with
@@ -126,12 +122,12 @@ function calc_combined_step_rhs!(
 end
 
 function variables_shift_to_cone!(
-    variables::DefaultVariables,
-    scalings::DefaultScalings
-)
+    variables::DefaultVariables{T},
+    cones::ConeSet{T}
+) where {T}
 
-    cones_shift_to_cone!(scalings.cones,variables.s)
-    cones_shift_to_cone!(scalings.cones,variables.z)
+    cones_shift_to_cone!(cones,variables.s)
+    cones_shift_to_cone!(cones,variables.z)
 
     variables.τ = 1
     variables.κ = 1
@@ -139,7 +135,7 @@ end
 
 function variables_finalize!(
     variables::DefaultVariables{T},
-    scalings::DefaultScalings{T},
+    equil::DefaultEquilibration{T},
     status::SolverStatus
 ) where {T}
 
@@ -161,12 +157,12 @@ function variables_finalize!(
        variables.κ *= scaleinv
 
     #undo the equilibration
-    d = scalings.d; dinv = scalings.dinv
-    e = scalings.e; einv = scalings.einv
-    cscale = scalings.c[]
+    d = equil.d; dinv = equil.dinv
+    e = equil.e; einv = equil.einv
+    cscale = equil.c[]
 
-    @. variables.x *=     d
-    @. variables.z *=     e ./ cscale
+    @. variables.x *=  d
+    @. variables.z *=  e ./ cscale
     @. variables.s *=  einv
 
 end

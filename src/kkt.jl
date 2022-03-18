@@ -32,10 +32,9 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
     #a work ConicVector to simplify solving for Δs
     work_sv::ConicVector{T}
 
-
         function DefaultKKTSolver{T}(
             data::DefaultProblemData{T},
-            scalings::DefaultScalings{T},
+            cones::ConeSet{T},
             settings::Settings{T}
         ) where {T}
 
@@ -46,9 +45,9 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
         #create the linear solver
         solverengine = settings.direct_solve_method
         if solverengine == :qdldl
-            linsys = QDLDLLinearSolver{T}(data.P,data.A,data.cone_info,m,n,settings)
+            linsys = QDLDLLinearSolver{T}(data.P,data.A,cones,m,n,settings)
         elseif solverengine == :mkl
-            linsys = MKLPardisoLinearSolver{T}(data.P,data.A,data.cone_info,m,n,settings)
+            linsys = MKLPardisoLinearSolver{T}(data.P,data.A,cones,m,n,settings)
         else
             error("Unknown solver engine type: ", solverengine)
         end
@@ -83,7 +82,7 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
         work_p = view(work,(n+m+1):(n+m+p))
 
         #a split vector compatible with s and z
-        work_sv = ConicVector{T}(data.cone_info)
+        work_sv = ConicVector{T}(cones)
 
 
         return new(
@@ -102,11 +101,11 @@ DefaultKKTSolver(args...) = DefaultKKTSolver{DefaultFloat}(args...)
 function kkt_update!(
     kktsolver::DefaultKKTSolver{T},
     data::DefaultProblemData{T},
-    scalings::DefaultScalings{T}
+    cones::ConeSet{T}
 ) where {T}
 
     #update the linear solver with new scalings
-    linsys_update!(kktsolver.linsys,scalings)
+    linsys_update!(kktsolver.linsys,cones)
 
     #calculate KKT solution for constant terms
     _kkt_solve_constant_rhs!(kktsolver,data)
@@ -165,13 +164,12 @@ function kkt_solve!(
     kktsolver::DefaultKKTSolver{T},
     lhs::DefaultVariables{T},
     rhs::DefaultVariables{T},
-    variables::DefaultVariables{T},
-    scalings::DefaultScalings{T},
     data::DefaultProblemData{T},
+    variables::DefaultVariables{T},
+    cones::ConeSet{T},
     steptype::Symbol   #:affine or :combined
 ) where{T}
 
-    cones = scalings.cones
     constx = kktsolver.lhs_const_x
     constz = kktsolver.lhs_const_z
 
@@ -193,7 +191,7 @@ function kkt_solve!(
         tmp1 = lhs.s; tmp2 = lhs.z
         @. tmp1 = rhs.z  #Don't want to modify our RHS
         cones_λ_inv_circ_op!(cones, tmp2, rhs.s)               #tmp2 = λ \ ds
-        cones_gemv_W!(cones, :N, tmp2, tmp1, one(T), -one(T))  #tmp1 = - rhs.z + W(tmp2)
+        cones_gemv_W!(cones, :T, tmp2, tmp1, one(T), -one(T))  #tmp1 = - rhs.z + W(tmp2)
         kktsolver.work_z .= tmp1
 
     end
@@ -213,10 +211,10 @@ function kkt_solve!(
     tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,lhs.x) + dot(data.b,lhs.z) + 2*symdot(ξ,P,lhs.x)
 
     #now offset ξ for the quadratic form in the denominator
-    ξ_minus_x    = ξ   #alias to ξ, same as work_x
-    ξ_minus_x  .-= lhs.x
+    ξ_minus_x2    = ξ   #alias to ξ, same as work_x
+    ξ_minus_x2  .-= constx
 
-    tau_den = (variables.κ/variables.τ - dot(data.q,constx) - dot(data.b,constz) + symdot(ξ_minus_x,P,ξ_minus_x) - symdot(lhs.x,P,lhs.x))
+    tau_den = (variables.κ/variables.τ - dot(data.q,constx) - dot(data.b,constz) + symdot(ξ_minus_x2,P,ξ_minus_x2) - symdot(constx,P,constx))
 
     # Δτ = tau_num/tau_den
     lhs.τ  = tau_num/tau_den

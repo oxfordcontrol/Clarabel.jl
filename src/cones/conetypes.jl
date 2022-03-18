@@ -91,50 +91,58 @@ SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
 # Positive Semidefinite Cone
 # ------------------------------------
 
-mutable struct PSDConeWork #PJG: where {T}...
+mutable struct PSDConeWork{T}
 
-    cholS
-    cholZ
-    SVD
-    U
-    V
-    λ
-    R
-    Rinv
-    L1
+    S::Matrix{T}
+    Z::Matrix{T}
+    cholS::Union{Nothing,Cholesky{T,Matrix{T}}}
+    cholZ::Union{Nothing,Cholesky{T,Matrix{T}}}
+    SVD::Union{Nothing,SVD{T,T,Matrix{T}}}
+    λ::Vector{T}
+    Λisqrt::Diagonal{T,Vector{T}}
+    R::Matrix{T}
+    Rinv::Matrix{T}
+    kronRR::Matrix{T}
+    B::Matrix{T}
+    WtW::Matrix{T}
 
-    L2
-    PSDConeWork() = new(ntuple(x->nothing, fieldcount(PSDConeWork)))
+    function PSDConeWork{T}(n::Int) where {T}
+
+        S      = zeros(T,n,n)
+        Z      = zeros(T,n,n)
+        (cholS,cholZ,SVD) = (nothing,nothing,nothing)
+        λ      = zeros(T,n)
+        Λisqrt = Diagonal(zeros(T,n))
+        R      = zeros(T,n,n)
+        Rinv   = zeros(T,n,n)
+        kronRR = zeros(T,n^2,n^2)
+        B      = zeros(T,((n+1)*n)>>1,n^2)
+        WtW    = zeros(T,size(B,1),size(B,1))
+
+        return new(S,Z,cholS,cholZ,SVD,λ,Λisqrt,
+                   R,Rinv,kronRR,B,WtW)
+    end
 end
 
 #PJG: PSDConeWork(args...) = PSDConeWork{DefaultFloat}(args...)
 
 struct PSDCone{T} <: AbstractCone{T}
 
-    dim::DefaultInt  #this is the total number of elements in the matrix
-      n::DefaultInt  #this is the matrix dimension, i.e. n^2 = dim
-
-    #internal working variables for W and λ
-    λ::Vector{T}     #NB: not a matrix b/c scaled (S,Z) should be diagonal
-    R::Matrix{T}     #PJG: R is tril factor of W = R*R'
-    work::PSDConeWork   #PJG: kludgey AF for now
+      n::DefaultInt  #this is the matrix dimension, i.e. representing n /times n
+  numel::DefaultInt  #this is the total number of elements in the matrix
 
     #PJG: need some further structure here to maintain
     #working memory for all of the steps in computing R
+    work::PSDConeWork{T}   #PJG: kludgey AF for now
 
-    function PSDCone{T}(dim) where {T}
+    function PSDCone{T}(n) where {T}
 
-        dim >= 1   || throw(DomainError(dim, "dimension must be positive"))
-        n = isqrt(dim)
-        n*n == dim || throw(DomainError(dim, "dimension must be a square"))
+        n >= 1   || throw(DomainError(dim, "dimension must be positive"))
+        numel = n*n
 
-        #PJG: R should really be tril part only.  Square
-        #for initial debugging purposes
-        λ = zeros(T,n)
-        R = zeros(T,n,n)
-        work = PSDConeWork()
+        work = PSDConeWork{T}(n)
 
-        return new(dim,n,λ,R,work)
+        return new(n,numel,work)
 
     end
 
@@ -142,12 +150,28 @@ end
 
 PSDCone(args...) = PSDCone{DefaultFloat}(args...)
 
-# -------------------------------------
-# collection of cones for composite
-# operations on a compound set
-# -------------------------------------
+struct PSDTriangleCone{T} <: AbstractCone{T}
 
-const ConeSet{T} = Vector{AbstractCone{T}}
+        n::DefaultInt  #this is the matrix dimension, i.e. representing n /times n
+    numel::DefaultInt  #this is the total number of elements in the matrix
+
+    #PJG: need some further structure here to maintain
+    #working memory for all of the steps in computing R
+    work::PSDConeWork{T}   #PJG: kludgey AF for now
+
+    function PSDTriangleCone{T}(n) where {T}
+
+        n >= 1 || throw(DomainError(dim, "dimension must be positive"))
+        numel = (n*(n+1))>>1
+        work = PSDConeWork{T}(n)
+
+        return new(n,numel,work)
+
+    end
+
+end
+
+PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 
 
 # -------------------------------------
@@ -161,13 +185,13 @@ supported types are:
 * `ZeroConeT`       : The zero cone.  Used to define equalities.
 * `NonnegativeConeT`: The nonnegative orthant.
 * `SecondOrderConeT`: The second order / Lorentz / ice-cream cone.
-# `PSDConeT`        : The positive semidefinite cone.
+# `PSDTriangleConeT`: The positive semidefinite cone (triangular format).
 """
 @enum SupportedCones begin
     ZeroConeT
     NonnegativeConeT
     SecondOrderConeT
-    PSDConeT
+    PSDTriangleConeT
 end
 
 """
@@ -179,47 +203,5 @@ const ConeDict = Dict(
            ZeroConeT => ZeroCone,
     NonnegativeConeT => NonnegativeCone,
     SecondOrderConeT => SecondOrderCone,
-            PSDConeT => PSDCone,
+    PSDTriangleConeT => PSDTriangleCone,
 )
-
-mutable struct ConeInfo
-
-    # container for the type and size of each cone
-    types::Vector{SupportedCones}
-    dims::Vector{Int}
-
-    #Count of each cone type.
-    type_counts::Dict{SupportedCones,Int}
-
-    #total dimension
-    totaldim::DefaultInt
-
-    #a vector showing the overall index of the
-    #first element in each cone.  For convenience
-    headidx::Vector{Int}
-
-    function ConeInfo(types,dims)
-
-        #count the number of each cone type
-        type_counts = Dict{SupportedCones,Int}()
-        for coneT in instances(SupportedCones)
-            type_counts[coneT] = count(==(coneT), types)
-        end
-
-        headidx = Vector{Int}(undef,length(dims))
-        if(length(dims) > 0)
-            #index of first element in each cone
-            headidx[1] = 1
-            for i = 2:length(dims)
-                headidx[i] = headidx[i-1] + dims[i-1]
-            end
-
-            #total dimension of all cones together
-            totaldim = headidx[end] + dims[end] - 1
-        else
-            totaldim = 0
-        end
-
-        return new(types,dims,type_counts,totaldim,headidx)
-    end
-end

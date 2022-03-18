@@ -23,23 +23,23 @@ mutable struct MKLPardisoLinearSolver{T} <: AbstractLinearSolver{T}
     #the expected signs of D in LDL
     Dsigns::Vector{Int}
 
-    # a vector for storing the diagonal entries
-    # of the WtW block in the KKT matrix
-    diagWtW::ConicVector{T}
+    # a vector for storing the block diagonal
+    # WtW blocks in the KKT matrix
+    WtWblocks::Vector{Vector{T}}
 
     #settings.   This just points back
     #to the main solver settings.  It
     #is not taking an internal copy
     settings::Settings{T}
 
-    function MKLPardisoLinearSolver{T}(P,A,cone_info,m,n,settings) where {T}
+    function MKLPardisoLinearSolver{T}(P,A,cones,m,n,settings) where {T}
 
         #solving in sparse format.  Need this many
         #extra variables for SOCs
-        p = 2*cone_info.type_counts[SecondOrderConeT]
+        p = 2*cones.type_counts[SecondOrderConeT]
 
         #MKL wants TRIU in CSR format, so we make TRIL in CSC format
-        KKT, KKTmaps = _assemble_kkt_matrix(P,A,cone_info,:tril)
+        KKT, KKTmaps = _assemble_kkt_matrix(P,A,cones,:tril)
 
         #PJG: The Dsigns logic is repeated from the QDLDL
         #wrapper.   Should be consolidated
@@ -74,13 +74,13 @@ mutable struct MKLPardisoLinearSolver{T} <: AbstractLinearSolver{T}
 
         #updates to the diagonal of KKT will be
         #assigned here before updating matrix entries
-        diagWtW = ConicVector{T}(cone_info)
+        WtWblocks = _allocate_kkt_WtW_blocks(T, cones)
 
         #we might (?) need to register a finalizer for the pardiso
         #object to free internal structures
         finalizer(ps -> set_phase!(ps, Pardiso.RELEASE_ALL), ps )
 
-        return new(m,n,p,KKT,KKTmaps,ps,Dsigns,diagWtW,settings)
+        return new(m,n,p,KKT,KKTmaps,ps,Dsigns,WtWblocks,settings)
     end
 
 end
@@ -100,7 +100,7 @@ end
 
 function linsys_update!(
     linsys::MKLPardisoLinearSolver{T},
-    scalings::DefaultScalings{T}
+    cones::ConeSet{T}
 ) where {T}
 
     n = linsys.n
@@ -111,10 +111,11 @@ function linsys_update!(
     ps      = linsys.ps
     maps    = linsys.KKTmaps
 
-    scaling_get_diagonal!(scalings,linsys.diagWtW)
-
     #Set the diagonal of the W^tW block in the KKT matrix.
-    KKT.nzval[maps.diagWtW] .= linsys.diagWtW
+    scaling_get_WtW_blocks!(cones,linsys.WtWblocks)
+    for (index, values) in zip(maps.WtWblocks,linsys.WtWblocks)
+        KKT.nzval[index] .= -values #change signs to get -W^TW
+    end
 
 
     #PJG: Code is copied from QDLDL.   TODO: Consolidate.
@@ -124,10 +125,9 @@ function linsys_update!(
     #update the scaled u and v columns.
     cidx = 1        #which of the SOCs are we working on?
 
-    for i = 1:length(scalings.cone_info.types)
-        if(scalings.cone_info.types[i] == SecondOrderConeT)
+    for (i,K) = enumerate(cones)
+        if(cones.types[i] == SecondOrderConeT)
 
-                K  = scalings.cones[i]
                 η2 = K.η^2
 
                 KKT.nzval[maps.SOC_u[cidx]] .= (-η2).*K.u

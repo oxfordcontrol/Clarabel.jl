@@ -69,19 +69,19 @@ function set_identity_scaling!(
     return nothing
 end
 
-function get_diagonal_scaling!(
+function get_WtW_block!(
     K::SecondOrderCone{T},
-    diagW2::AbstractVector{T}
+    WtWblock::AbstractVector{T}
 ) where {T}
 
-    #NB: we are returning here the D block from the
-    #sparse representation of -W^TW, but not the
+    #NB: we are returning here the diagonal D block from the
+    #sparse representation of W^TW, but not the
     #extra two entries at the bottom right of the block.
     #The ConicVector for s and z (and its views) don't
     #know anything about the 2 extra sparsifying entries
 
-    diagW2    .= -(K.η^2)
-    diagW2[1] *= K.d
+    WtWblock    .= (K.η^2)
+    WtWblock[1] *= K.d
 
     return nothing
 end
@@ -225,8 +225,12 @@ function mul_WtWinv!(
     y::AbstractVector{T}
 ) where {T}
 
+    #PJG: this needs a different implementation.
+    #The first gemv_Winv! will fail because
+    #the output and input arguments are the same
+    @assert false
+
     #PJG: multiply by the inverse twice.
-    #Could be made faster if needed
     gemv_Winv!(K,:T,y,y,one(T),zero(T))
     gemv_Winv!(K,:N,x,y,one(T),zero(T))
 
@@ -240,9 +244,12 @@ function mul_WtW!(
     y::AbstractVector{T}
 ) where {T}
 
-    #PJG: W is symmetric, so just multiply
-    #by W twice.  Could be made
-    #faster if needed
+    #PJG: this needs a different implementation.
+    #The first gemv_Winv! will fail bec ause
+    #the output and input arguments are the same
+    @assert false
+
+    #PJG: multiply twice
     gemv_W!(K,:T,y,y,one(T),zero(T))
     gemv_W!(K,:N,x,y,one(T),zero(T))
 

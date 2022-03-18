@@ -10,12 +10,12 @@ module Clarabel
     #core solver components
     include("./consttypes.jl")
     include("./cones/conetypes.jl")
+    include("./cones/coneset.jl")
     include("./settings.jl")
     include("./conicvector.jl")
     include("./types.jl")
     include("./variables.jl")
     include("./residuals.jl")
-    include("./scalings.jl")
     include("./info.jl")
 
     #linear subsolver implementations
@@ -23,7 +23,7 @@ module Clarabel
     include("./linsys/linearsolver_defaults.jl")
 
     #direct solve methods
-    include("./linsys/linearsolver_utils.jl")
+    include("./linsys/kkt_utils.jl")
     include("./linsys/linearsolver_qdldl.jl")
     include("./linsys/linearsolver_mkl.jl")
     include("./kkt.jl")
@@ -40,7 +40,7 @@ module Clarabel
     include("./cones/coneops_zerocone.jl")
     include("./cones/coneops_nncone.jl")
     include("./cones/coneops_socone.jl")
-    include("./cones/coneops_psdcone.jl")
+    include("./cones/coneops_psdtrianglecone.jl")
 
     #equilibration and various algebraic
     #utilities

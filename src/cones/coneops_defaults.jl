@@ -5,11 +5,14 @@ import Statistics: mean
 # --------------------------------------------
 
 # degree of the cone is the same as dimension
-# by default.   Degree will be defined differently
+# and numel by default.   Degree is different
 # for the zero cone and SOC (0 and 1, respectively)
+# For SDP cone, the matrix is in R^{dim \times dim},
+# so numel will be different.   The length of (s,z)
+# vectors will be \sum_i numel(K_i)
 dim(K::AbstractCone{T}) where {T} = K.dim
-degree(K::AbstractCone{T}) where {T} = K.dim
-
+degree(K::AbstractCone{T}) where {T} = dim(K)
+numel(K::AbstractCone{T}) where {T} = dim(K)
 
 #NB: custom rectify functions should return
 #true unless δ == e on return
@@ -24,6 +27,14 @@ function rectify_equilibration!(
     tmp    = mean(e)
     @.δ    = tmp / e
 
+    return true
+end
+
+#All cones have diagonal WtW blocks
+#unless specifically overridden
+function WtW_is_diagonal(
+    K::AbstractCone{T}
+) where{T}
     return true
 end
 
@@ -51,9 +62,15 @@ function set_identity_scaling!(
 
 end
 
-function get_diagonal_scaling!(
+#populates WtWblock with :
+# - the diagonal entries of W^TW, if WtW_is_diagonal(K) == true for this cone
+# - the upper triangular entries of W^TW, reported columnwise
+#
+# Note this function should return W^TW, not -W^TW.  Any change of sign
+# required by a linear solver is implemented within the solver object.
+function get_WtW_block!(
     K::AbstractCone{T},
-    diagW2::AbstractVector{T}
+    WtWblock::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
