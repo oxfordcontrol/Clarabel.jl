@@ -9,12 +9,16 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
     n::Int
     p::Int
 
+    # Left and right hand sides for solves
+    x::Vector{T}
+    b::Vector{T}
+
     # internal workspace for IR scheme
     work::Vector{T}
 
     #KKT matrix and its LDL factors
     KKT::SparseMatrixCSC{T}
-    factors
+    factors::QDLDL.QDLDLFactorisation{T, Int64}
 
     #KKT mappings from problem data to KKT
     KKTmaps::KKTDataMaps
@@ -40,7 +44,9 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
         #extra variables for SOCs
         p = 2*cones.type_counts[SecondOrderConeT]
 
-        #iterative refinement work vector
+        #LHS/RHS/work for iterative refinement
+        x    = Vector{T}(undef,n+m+p)
+        b    = Vector{T}(undef,n+m+p)
         work = Vector{T}(undef,n+m+p)
 
         KKT, KKTmaps = _assemble_kkt_matrix(P,A,cones,:triu)
@@ -79,7 +85,7 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
         #assigned here before updating matrix entries
         WtWblocks = _allocate_kkt_WtW_blocks(T, cones)
 
-        return new(m,n,p,work,KKT,factors,KKTmaps,KKTsym,Dsigns,WtWblocks,settings)
+        return new(m,n,p,x,b,work,KKT,factors,KKTmaps,KKTsym,Dsigns,WtWblocks,settings)
     end
 
 end
@@ -87,24 +93,13 @@ end
 QDLDLLinearSolver(args...) = QDLDLLinearSolver{DefaultFloat}(args...)
 
 
-function linsys_is_soc_sparse_format(linsys::QDLDLLinearSolver{T}) where{T}
-    return true
-end
-
-function linsys_soc_sparse_variables(linsys::QDLDLLinearSolver{T}) where{T}
-    return linsys.p
-end
-
-
-
 function linsys_update!(
     linsys::QDLDLLinearSolver{T},
     cones::ConeSet{T}
 ) where {T}
 
-    n = linsys.n
-    m = linsys.m
-    p = linsys.p
+    (m,n,p) = (linsys.m,linsys.n,linsys.p)
+
     settings = linsys.settings
     KKT  = linsys.KKT
     F    = linsys.factors
@@ -175,33 +170,69 @@ function linsys_update!(
 end
 
 
-function linsys_solve!(
+function linsys_setrhs!(
     linsys::QDLDLLinearSolver{T},
-    x::Vector{T},
-    b::Vector{T}
+    rhsx::AbstractVector{T},
+    rhsz::AbstractVector{T}
 ) where {T}
 
-    normb = norm(b,Inf)
-    work  = linsys.work
+    b = linsys.b
+    (m,n,p) = (linsys.m,linsys.n,linsys.p)
 
-    #iterative refinement params
-    IR_enable    = linsys.settings.iterative_refinement_enable
-    IR_reltol    = linsys.settings.iterative_refinement_reltol
-    IR_abstol    = linsys.settings.iterative_refinement_abstol
-    IR_maxiter   = linsys.settings.iterative_refinement_max_iter
-    IR_stopratio = linsys.settings.iterative_refinement_stop_ratio
+    b[1:n]             .= rhsx
+    b[(n+1):(n+m)]     .= rhsz
+    b[(n+m+1):(n+m+p)] .= 0
+
+    return nothing
+end
+
+function linsys_getlhs!(
+    linsys::QDLDLLinearSolver{T},
+    lhsx::Union{Nothing,AbstractVector{T}},
+    lhsz::Union{Nothing,AbstractVector{T}}
+) where {T}
+
+    x = linsys.x
+    (m,n,p) = (linsys.m,linsys.n,linsys.p)
+
+    isnothing(lhsx) || (lhsx .= x[1:n])
+    isnothing(lhsz) || (lhsz .= x[(n+1):(n+m)])
+
+    return nothing
+end
+
+function linsys_solve!(
+    linsys::QDLDLLinearSolver{T},
+    lhsx::Union{Nothing,AbstractVector{T}},
+    lhsz::Union{Nothing,AbstractVector{T}}
+) where {T}
+
+    (x,b,work) = (linsys.x,linsys.b,linsys.work)
 
     #make an initial solve
     x .= b
     QDLDL.solve!(linsys.factors,x)
 
-    if(!IR_enable); return nothing; end  #done
+    if(!linsys.settings.iterative_refinement_enable)
+        linsys_getlhs!(linsys,lhsx,lhsz)
+        return nothing
+    end  #done
+
+    #PJG: put IR into a separate function
+
+    #iterative refinement params
+    IR_reltol    = linsys.settings.iterative_refinement_reltol
+    IR_abstol    = linsys.settings.iterative_refinement_abstol
+    IR_maxiter   = linsys.settings.iterative_refinement_max_iter
+    IR_stopratio = linsys.settings.iterative_refinement_stop_ratio
 
     #Note that K is only triu data, so need to
     #be careful when computing the residual here
     K      = linsys.KKT
     KKTsym = linsys.KKTsym
     lastnorme = Inf
+
+    normb = norm(b,Inf)
 
     for i = 1:IR_maxiter
 
@@ -213,13 +244,13 @@ function linsys_solve!(
         # test for convergence before committing
         # to a refinement step
         if(norme <= IR_abstol + IR_reltol*normb)
-            return nothing
+            break
         end
 
         #if we haven't improved by at least the halting
         #ratio since the last pass through, then abort
         if(lastnorme/norme < IR_stopratio)
-            return nothing
+            break
         end
 
         #make a refinement and continue
@@ -227,5 +258,6 @@ function linsys_solve!(
         x .+= work
     end
 
+    linsys_getlhs!(linsys,lhsx,lhsz)
     return nothing
 end
