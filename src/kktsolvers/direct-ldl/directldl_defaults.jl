@@ -13,7 +13,7 @@ end
 #given index into its CSC representation
 function update_values!(
     ldlsolver::AbstractDirectLDLSolver{T},
-    index::AbstractVector{Integer},
+    index::AbstractVector,
     values::AbstractVector{T}
 ) where{T}
     error("function not implemented")
@@ -25,7 +25,7 @@ end
 #an optional vector of signs
 function offset_values!(
     ldlsolver::AbstractDirectLDLSolver{T},
-    index::AbstractVector{Integer},
+    index::AbstractVector,
     offset::Union{T,AbstractVector{T}},
     signs::Union{Integer,AbstractArray{Integer}} = 1
 ) where{T}

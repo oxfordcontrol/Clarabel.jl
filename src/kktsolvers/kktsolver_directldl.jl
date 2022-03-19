@@ -21,9 +21,8 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     # on the in the KKT matrix block diagonal
     WtWblocks::Vector{Vector{T}}
 
-    #settings.   This just points back
-    #to the main solver settings.  It
-    #is not taking an internal copy
+    #settings just points back to the main solver settings.
+    #Required since there is no separate LDL settings container
     settings::Settings{T}
 
     #the direct linear LDL solver
@@ -56,14 +55,14 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         KKT, map = _assemble_kkt_matrix(P,A,cones,kktshape)
 
         #the LDL linear solver engine
-        ldlsolver = ldlsolverT(KKT,Dsigns,settings)
+        ldlsolver = ldlsolverT{T}(KKT,Dsigns,settings)
 
         if(settings.static_regularization_enable)
             ϵ = settings.static_regularization_eps
             offset_values!(ldlsolver,map.diagP,ϵ)
         end
 
-        return new(m,n,p,x,b,map,Dsigns,WtWblocks,ldlsolver,settings)
+        return new(m,n,p,x,b,map,Dsigns,WtWblocks,settings,ldlsolver)
     end
 
 end
@@ -74,7 +73,7 @@ function _get_ldlsolver_type(s::Symbol)
     try
         return DirectLDLSolversDict[s]
     catch
-        throw(error("Unsupported direct LDL linear solver :",:qdldl))
+        throw(error("Unsupported direct LDL linear solver :", s))
     end
 end
 
@@ -145,7 +144,7 @@ function kktsolver_update!(
     end
 
     #refactor with new data
-    refactor!(linsys)
+    refactor!(ldlsolver)
 
     return nothing
 end
@@ -191,12 +190,8 @@ function kktsolver_solve!(
 ) where {T}
 
     (x,b) = (kktsolver.x,kktsolver.b)
-
-    #make an initial solve
-    #PJG: lin solver should not be getting this full set
-    #of solver settings.
     solve!(kktsolver.ldlsolver,x,b,kktsolver.settings)
-
     kktsolver_getlhs!(kktsolver,lhsx,lhsz)
+
     return nothing
 end

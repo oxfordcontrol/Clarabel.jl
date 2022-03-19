@@ -86,7 +86,7 @@ function _assemble_kkt_matrix(
     n_socs = cones.type_counts[Clarabel.SecondOrderConeT]
     p = 2*n_socs
 
-    maps = KKTDataMaps(P,A,cones)
+    maps = LDLDataMap(P,A,cones)
 
     #entries actually on the diagonal of P
     nnz_diagP  = _count_diagonal_entries(P)

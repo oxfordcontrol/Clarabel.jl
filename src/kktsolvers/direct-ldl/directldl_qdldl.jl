@@ -1,13 +1,13 @@
-using QDLDL
+import QDLDL
 
 struct QDLDLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
 
     #KKT matrix and its LDL factors
     KKT::SparseMatrixCSC{T}
-    factors::QDLDL.QDLDLFactorisation{T, Int64}
+    factors::QDLDL.QDLDLFactorisation{T, Int}
 
     #symmetric view for residual calcs
-    KKTsym::Symmetric{T, SparseMatrixCSC{T,Int64}}
+    KKTsym::Symmetric{T, SparseMatrixCSC{T,Int}}
 
     # internal workspace for IR scheme
     work::Vector{T}
@@ -17,7 +17,7 @@ struct QDLDLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
         dim = LinearAlgebra.checksquare(KKT)
 
         #make a logical factorization to fix memory allocations
-        factors = qdldl(
+        factors = QDLDL.qdldl(
             KKT;
             Dsigns = Dsigns,
             regularize_eps   = settings.dynamic_regularization_eps,
@@ -41,15 +41,15 @@ required_matrix_shape(::Type{QDLDLDirectLDLSolver}) = :triu
 #given index into its CSC representation
 function update_values!(
     ldlsolver::QDLDLDirectLDLSolver{T},
-    index::Vector{Integer},
+    index::Vector{Ti},
     values::Vector{T}
-) where{T}
+) where{T,Ti}
 
     #Updating values in both the KKT matrix and
     #in the reordered copy held internally by QDLDL.
     #The former is needed for iterative refinement since
     #QDLDL does not have internal iterative refinement
-    update_values!(ldlsolver.factors,index,values)
+    QDLDL.update_values!(ldlsolver.factors,index,values)
     ldlsolver.KKT.nzval[index] .= values
 
 end
@@ -59,19 +59,19 @@ end
 #an optional vector of signs
 function offset_values!(
     ldlsolver::QDLDLDirectLDLSolver{T},
-    index::Vector{Integer},
+    index::Vector{Int},
     offset::Union{T,Vector{T}},
-    signs::Union{Integer,Vector{Integer}} = 1
+    signs::Union{Int,Vector{Int}} = 1
 ) where{T}
 
-    offset_values!(ldlsolver.factors, index, offset, signs)
-    @. ldlsolver.KKT.nzval[index] = offset*signs
+    QDLDL.offset_values!(ldlsolver.factors, index, offset, signs)
+    @. ldlsolver.KKT.nzval[index] += offset*signs
 
 end
 
 #refactor the linear system
 function refactor!(ldlsolver::QDLDLDirectLDLSolver{T}) where{T}
-    refactor!(ldlsolver.factors)
+    QDLDL.refactor!(ldlsolver.factors)
 end
 
 
@@ -84,20 +84,20 @@ function solve!(
 ) where{T}
 
     #make an initial solve (solves in place)
-    ldlsolver.x .= ldlsolver.b
-    QDLDL.solve!(kktsolver.factors,ldlsolver.x)
+    x .= b
+    QDLDL.solve!(ldlsolver.factors,x)
 
     if(settings.iterative_refinement_enable)
-        iterative_refinement(ldlsolver)
+        iterative_refinement(ldlsolver,x,b,settings)
     end
 
     return nothing
 end
 
 
-function iterative_refinement(ldlsolver::QDLDLDirectLDLSolver{T}) where{T}
+function iterative_refinement(ldlsolver::QDLDLDirectLDLSolver{T},x,b,settings) where{T}
 
-    (x,b,work) = (ldlsolver.x,ldlsolver.b,ldlsolver.work)
+    work = ldlsolver.work
 
     #iterative refinement params
     IR_reltol    = settings.iterative_refinement_reltol
@@ -133,7 +133,7 @@ function iterative_refinement(ldlsolver::QDLDLDirectLDLSolver{T}) where{T}
         end
 
         #make a refinement and continue
-        QDLDL.solve!(kktsolver.factors,work)     #this is Δξ
+        QDLDL.solve!(ldlsolver.factors,work)     #this is Δξ
         x .+= work
     end
 

@@ -1,9 +1,10 @@
-using Pardiso, AMD
+import Pardiso
+using AMD
 
 struct PardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
 
     KKT::SparseMatrixCSC{T}
-    ps::MKLPardisoSolver
+    ps::Pardiso.MKLPardisoSolver
 
     function PardisoDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
 
@@ -14,17 +15,13 @@ struct PardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
         perm = amd(KKT)
 
         #make a pardiso object and perform logical factor
-        ps = MKLPardisoSolver()
-        set_matrixtype!(ps, Pardiso.REAL_SYM_INDEF)
-        pardisoinit(ps)
-        fix_iparm!(ps, :N)
-        set_phase!(ps, Pardiso.ANALYSIS)
-        set_perm!(ps, perm)
-        pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSISs
-
-        #we might (?) need to register a finalizer for the pardiso
-        #object to free internal structures
-        finalizer(ps -> set_phase!(ps, Pardiso.RELEASE_ALL), ps )
+        ps = Pardiso.MKLPardisoSolver()
+        Pardiso.set_matrixtype!(ps, Pardiso.REAL_SYM_INDEF)
+        Pardiso.pardisoinit(ps)
+        Pardiso.fix_iparm!(ps, :N)
+        Pardiso.set_phase!(ps, Pardiso.ANALYSIS)
+        Pardiso.set_perm!(ps, perm)
+        Pardiso.pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSISs
 
         return new(KKT,ps)
     end
@@ -36,7 +33,7 @@ required_matrix_shape(::Type{PardisoDirectLDLSolver}) = :tril
 #given index into its CSC representation
 function update_values!(
     ldlsolver::PardisoDirectLDLSolver{T},
-    index::Vector{Integer},
+    index::Vector{Int},
     values::Vector{T}
 ) where{T}
 
@@ -48,12 +45,12 @@ end
 #an optional vector of signs
 function offset_values!(
     ldlsolver::PardisoDirectLDLSolver{T},
-    index::Vector{Integer},
+    index::Vector{Int},
     offset::Union{T,Vector{T}},
-    signs::Union{Integer,Vector{Integer}} = 1
+    signs::Union{Int,Vector{Int}} = 1
 ) where{T}
 
-    @. ldlsolver.KKT.nzval[index] = offset*signs
+    @. ldlsolver.KKT.nzval[index] += offset*signs
 end
 
 
@@ -61,8 +58,8 @@ end
 function refactor!(ldlsolver::PardisoDirectLDLSolver{T}) where{T}
 
     # Recompute the numeric factorization susing fake RHS
-    set_phase!(ps, Pardiso.NUM_FACT)
-    pardiso(ps, KKT, [1.])
+    Pardiso.set_phase!(ldlsolver.ps, Pardiso.NUM_FACT)
+    Pardiso.pardiso(ldlsolver.ps, ldlsolver.KKT, [1.])
 end
 
 
@@ -77,6 +74,6 @@ function solve!(
     ps  = ldlsolver.ps
     KKT = ldlsolver.KKT
 
-    set_phase!(ps, Pardiso.SOLVE_ITERATIVE_REFINE)
-    pardiso(ps, x, KKT, b)
+    Pardiso.set_phase!(ps, Pardiso.SOLVE_ITERATIVE_REFINE)
+    Pardiso.pardiso(ps, x, KKT, b)
 end

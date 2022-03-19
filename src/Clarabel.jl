@@ -19,13 +19,14 @@ module Clarabel
     include("./equilibration.jl")
     include("./info.jl")
 
-    #KKT system and solvers
+    #direct LDL linear solve methods
+    include("./kktsolvers/direct-ldl/includes.jl")
+
+    #KKT solvers and solver level system
     include("./kktsolvers/kktsolver_defaults.jl")
+    include("./kktsolvers/kktsolver_directldl.jl")
     include("./kktsystem.jl")
 
-    #direct LDL linear solve methods
-    include("./kktsolvers/kktsolver_directldl.jl")
-    include("./kktsolvers/direct-ldl/includes.jl")
 
     # display, print and top level solver
     include("./printing.jl")
