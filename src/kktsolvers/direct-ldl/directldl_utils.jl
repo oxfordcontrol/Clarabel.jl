@@ -1,6 +1,6 @@
 using SparseArrays
 
-struct KKTDataMaps
+struct LDLDataMap
 
     P::Vector{Int}
     A::Vector{Int}
@@ -17,7 +17,7 @@ struct KKTDataMaps
     diagP::Vector{Int}
     diag_full::Vector{Int}
 
-    function KKTDataMaps(P,A,cones)
+    function LDLDataMap(P,A,cones)
 
         (m,n) = (size(A,1), size(P,1))
         P = zeros(Int,nnz(P))

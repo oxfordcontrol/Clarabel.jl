@@ -54,8 +54,8 @@ function equilibrate!(
 		limit_scaling!(dwork, scale_min, scale_max)
 		limit_scaling!(ework, scale_min, scale_max)
 
-		inv_sqrt!(dwork)
-		inv_sqrt!(ework)
+		dwork .= inv.(sqrt.(dwork))
+		ework .= inv.(sqrt.(ework))
 
 		# Scale the problem data and update the
 		# equilibration matrices

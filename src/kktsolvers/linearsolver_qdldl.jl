@@ -2,7 +2,7 @@
 # QDLDL linear solver
 # -------------------------------------
 
-mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
+mutable struct QDLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
     # problem dimensions
     m::Int; n::Int; p::Int
@@ -36,7 +36,7 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
     #is not taking an internal copy
     settings::Settings{T}
 
-    function QDLDLLinearSolver{T}(P,A,cones,m,n,settings) where {T}
+    function QDLDLKKTSolver{T}(P,A,cones,m,n,settings) where {T}
 
         #solving in sparse format.  Need this many
         #extra variables for SOCs
@@ -88,20 +88,20 @@ mutable struct QDLDLLinearSolver{T} <: AbstractLinearSolver{T}
 
 end
 
-QDLDLLinearSolver(args...) = QDLDLLinearSolver{DefaultFloat}(args...)
+QDLDLKKTSolver(args...) = QDLDLKKTSolver{DefaultFloat}(args...)
 
 
-function linsys_update!(
-    linsys::QDLDLLinearSolver{T},
+function kktsolver_update!(
+    kktsolver::QDLDLKKTSolver{T},
     cones::ConeSet{T}
 ) where {T}
 
-    (m,n,p) = (linsys.m,linsys.n,linsys.p)
+    (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
 
-    settings = linsys.settings
-    KKT  = linsys.KKT
-    F    = linsys.factors
-    maps = linsys.KKTmaps
+    settings = kktsolver.settings
+    KKT  = kktsolver.KKT
+    F    = kktsolver.factors
+    maps = kktsolver.KKTmaps
 
     #Set the elements the W^tW blocks in the KKT matrix.
     #Note that we need to do this both for the KKT matrix
@@ -112,8 +112,8 @@ function linsys_update!(
     #could get away without using it and just writing a
     #multiplication operator for the QDLDL object., or implement
     #iterative refinement directly with QDLDL
-    scaling_get_WtW_blocks!(cones,linsys.WtWblocks)
-    for (index, values) in zip(maps.WtWblocks,linsys.WtWblocks)
+    scaling_get_WtW_blocks!(cones,kktsolver.WtWblocks)
+    for (index, values) in zip(maps.WtWblocks,kktsolver.WtWblocks)
         #change signs to get -W^TW
         values .= -values
         update_values!(F,index,values)
@@ -152,12 +152,12 @@ function linsys_update!(
     #shifted them at initialization and haven't overwritten it
     if(settings.static_regularization_enable)
         eps = settings.static_regularization_eps
-        offset_values!(F,maps.diag_full,eps,linsys.Dsigns)
+        offset_values!(F,maps.diag_full,eps,kktsolver.Dsigns)
         offset_values!(F,maps.diagP,-eps)  #undo to the P shift
 
         #and the same for the KKT matrix we are still
         #relying on for the iterative refinement calc
-        @. KKT.nzval[maps.diag_full] += eps*linsys.Dsigns
+        @. KKT.nzval[maps.diag_full] += eps*kktsolver.Dsigns
         @. KKT.nzval[maps.diagP]     -= eps
     end
 
@@ -168,14 +168,14 @@ function linsys_update!(
 end
 
 
-function linsys_setrhs!(
-    linsys::QDLDLLinearSolver{T},
+function kktsolver_setrhs!(
+    kktsolver::QDLDLKKTSolver{T},
     rhsx::AbstractVector{T},
     rhsz::AbstractVector{T}
 ) where {T}
 
-    b = linsys.b
-    (m,n,p) = (linsys.m,linsys.n,linsys.p)
+    b = kktsolver.b
+    (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
 
     b[1:n]             .= rhsx
     b[(n+1):(n+m)]     .= rhsz
@@ -185,14 +185,14 @@ function linsys_setrhs!(
 end
 
 
-function linsys_getlhs!(
-    linsys::QDLDLLinearSolver{T},
+function kktsolver_getlhs!(
+    kktsolver::QDLDLKKTSolver{T},
     lhsx::Union{Nothing,AbstractVector{T}},
     lhsz::Union{Nothing,AbstractVector{T}}
 ) where {T}
 
-    x = linsys.x
-    (m,n,p) = (linsys.m,linsys.n,linsys.p)
+    x = kktsolver.x
+    (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
 
     isnothing(lhsx) || (lhsx .= x[1:n])
     isnothing(lhsz) || (lhsz .= x[(n+1):(n+m)])
@@ -201,41 +201,41 @@ function linsys_getlhs!(
 end
 
 
-function linsys_solve!(
-    linsys::QDLDLLinearSolver{T},
+function kktsolver_solve!(
+    kktsolver::QDLDLKKTSolver{T},
     lhsx::Union{Nothing,AbstractVector{T}},
     lhsz::Union{Nothing,AbstractVector{T}}
 ) where {T}
 
-    (x,b,work) = (linsys.x,linsys.b,linsys.work)
+    (x,b,work) = (kktsolver.x,kktsolver.b,kktsolver.work)
 
     #make an initial solve
     x .= b
-    QDLDL.solve!(linsys.factors,x)
+    QDLDL.solve!(kktsolver.factors,x)
 
-    if(linsys.settings.iterative_refinement_enable)
-        iterative_refinement(linsys)
+    if(kktsolver.settings.iterative_refinement_enable)
+        iterative_refinement(kktsolver)
     end
 
-    linsys_getlhs!(linsys,lhsx,lhsz)
+    kktsolver_getlhs!(kktsolver,lhsx,lhsz)
     return nothing
 end
 
 
-function iterative_refinement(linsys::QDLDLLinearSolver{T}) where{T}
+function iterative_refinement(kktsolver::QDLDLKKTSolver{T}) where{T}
 
-    (x,b,work) = (linsys.x,linsys.b,linsys.work)
+    (x,b,work) = (kktsolver.x,kktsolver.b,kktsolver.work)
 
     #iterative refinement params
-    IR_reltol    = linsys.settings.iterative_refinement_reltol
-    IR_abstol    = linsys.settings.iterative_refinement_abstol
-    IR_maxiter   = linsys.settings.iterative_refinement_max_iter
-    IR_stopratio = linsys.settings.iterative_refinement_stop_ratio
+    IR_reltol    = kktsolver.settings.iterative_refinement_reltol
+    IR_abstol    = kktsolver.settings.iterative_refinement_abstol
+    IR_maxiter   = kktsolver.settings.iterative_refinement_max_iter
+    IR_stopratio = kktsolver.settings.iterative_refinement_stop_ratio
 
     #Note that K is only triu data, so need to
     #be careful when computing the residual here
-    K      = linsys.KKT
-    KKTsym = linsys.KKTsym
+    K      = kktsolver.KKT
+    KKTsym = kktsolver.KKTsym
     lastnorme = Inf
 
     normb = norm(b,Inf)
@@ -260,7 +260,7 @@ function iterative_refinement(linsys::QDLDLLinearSolver{T}) where{T}
         end
 
         #make a refinement and continue
-        QDLDL.solve!(linsys.factors,work)     #this is Δξ
+        QDLDL.solve!(kktsolver.factors,work)     #this is Δξ
         x .+= work
     end
 

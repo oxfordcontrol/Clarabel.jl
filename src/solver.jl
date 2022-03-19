@@ -87,12 +87,12 @@ function setup!(
         #this prevents multiple equlibrations if solve!
         #is called more than once.
         s.equilibration  = DefaultEquilibration{T}(s.data.n,s.cones,s.settings)
-        @timeit s.info.timer "equilibrate" begin
+        @timeit_debug s.info.timer "equilibrate" begin
             equilibrate!(s.equilibration,s.data,s.cones,s.settings)
         end
 
-        @timeit s.info.timer "kkt init" begin
-            s.kktsolver = DefaultKKTSolver{T}(s.data,s.cones,s.settings)
+        @timeit_debug s.info.timer "kkt init" begin
+            s.kktsystem = DefaultKKTSystem{T}(s.data,s.cones,s.settings)
         end
 
         # work variables for assembling step direction LHS/RHS
@@ -135,9 +135,9 @@ function solve!(
     @timeit timer "solve!" begin
 
         #initialize variables to some reasonable starting point
-        @timeit timer "default start" solver_default_start!(s)
+        @timeit_debug timer "default start" solver_default_start!(s)
 
-        @timeit timer "IP iteration" begin
+        @timeit_debug timer "IP iteration" begin
 
         #----------
         # main loop
@@ -154,7 +154,7 @@ function solve!(
 
             #convergence check and printing
             #--------------
-            @timeit timer "check termination" begin
+            @timeit_debug timer "check termination" begin
                 info_update!(
                     s.info,s.data,s.variables,
                     s.residuals,s.equilibration,s.settings
@@ -167,12 +167,12 @@ function solve!(
 
             #update the scalings
             #--------------
-            @timeit timer "NT scaling" scaling_update!(s.cones,s.variables)
+            @timeit_debug timer "NT scaling" scaling_update!(s.cones,s.variables)
 
             #update the KKT system and the constant
             #parts of its solution
             #--------------
-            @timeit timer "kkt update" kkt_update!(s.kktsolver,s.data,s.cones)
+            @timeit_debug timer "kkt update" kkt_update!(s.kktsystem,s.data,s.cones)
 
             #calculate the affine step
             #--------------
@@ -181,9 +181,9 @@ function solve!(
                 s.data, s.variables, s.cones
             )
 
-            @timeit timer "kkt solve" begin
+            @timeit_debug timer "kkt solve" begin
                 kkt_solve!(
-                    s.kktsolver, s.step_lhs, s.step_rhs,
+                    s.kktsystem, s.step_lhs, s.step_rhs,
                     s.data, s.variables, s.cones, :affine
                 )
             end
@@ -201,16 +201,16 @@ function solve!(
                 s.step_lhs, σ, μ
             )
 
-            @timeit timer "kkt solve" begin
+            @timeit_debug timer "kkt solve" begin
                 kkt_solve!(
-                    s.kktsolver, s.step_lhs, s.step_rhs,
+                    s.kktsystem, s.step_lhs, s.step_rhs,
                     s.data, s.variables, s.cones, :combined
                 )
             end
 
             #compute final step length and update the current iterate
             #--------------
-            @timeit timer "step length" α  = calc_step_length(s.variables,s.step_lhs,s.cones)
+            @timeit_debug timer "step length" α  = calc_step_length(s.variables,s.step_lhs,s.cones)
             α *= s.settings.max_step_fraction
 
             variables_add_step!(s.variables,s.step_lhs,α)
@@ -247,9 +247,9 @@ function solver_default_start!(s::Solver{T}) where {T}
     #set all scalings to identity (or zero for the zero cone)
     scaling_identity!(s.cones)
     #Refactor
-    kkt_update!(s.kktsolver,s.data,s.cones)
+    kkt_update!(s.kktsystem,s.data,s.cones)
     #solve for primal/dual initial points via KKT
-    kkt_solve_initial_point!(s.kktsolver,s.variables,s.data)
+    kkt_solve_initial_point!(s.kktsystem,s.variables,s.data)
     #fix up (z,s) so that they are in the cone
     variables_shift_to_cone!(s.variables, s.cones)
 

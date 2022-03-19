@@ -4,7 +4,7 @@ using Pardiso
 # MKL Pardiso linear solver
 # -------------------------------------
 
-mutable struct MKLPardisoLinearSolver{T} <: AbstractLinearSolver{T}
+mutable struct MKLPardisoKKTSolver{T} <: AbstractKKTSolver{T}
 
     # problem dimensions
     m::Int; n::Int; p::Int
@@ -34,7 +34,7 @@ mutable struct MKLPardisoLinearSolver{T} <: AbstractLinearSolver{T}
     #is not taking an internal copy
     settings::Settings{T}
 
-    function MKLPardisoLinearSolver{T}(P,A,cones,m,n,settings) where {T}
+    function MKLPardisoKKTSolver{T}(P,A,cones,m,n,settings) where {T}
 
         #solving in sparse format.  Need this many
         #extra variables for SOCs
@@ -90,25 +90,25 @@ mutable struct MKLPardisoLinearSolver{T} <: AbstractLinearSolver{T}
 
 end
 
-MKLPardisoLinearSolver(args...) = MKLPardisoLinearSolver{DefaultFloat}(args...)
+MKLPardisoKKTSolver(args...) = MKLPardisoKKTSolver{DefaultFloat}(args...)
 
 
-function linsys_update!(
-    linsys::MKLPardisoLinearSolver{T},
+function kktsolver_update!(
+    kktsolver::MKLPardisoKKTSolver{T},
     cones::ConeSet{T}
 ) where {T}
 
-    n = linsys.n
-    m = linsys.m
-    p = linsys.p
-    settings = linsys.settings
-    KKT     = linsys.KKT
-    ps      = linsys.ps
-    maps    = linsys.KKTmaps
+    n = kktsolver.n
+    m = kktsolver.m
+    p = kktsolver.p
+    settings = kktsolver.settings
+    KKT     = kktsolver.KKT
+    ps      = kktsolver.ps
+    maps    = kktsolver.KKTmaps
 
     #Set the diagonal of the W^tW block in the KKT matrix.
-    scaling_get_WtW_blocks!(cones,linsys.WtWblocks)
-    for (index, values) in zip(maps.WtWblocks,linsys.WtWblocks)
+    scaling_get_WtW_blocks!(cones,kktsolver.WtWblocks)
+    for (index, values) in zip(maps.WtWblocks,kktsolver.WtWblocks)
         KKT.nzval[index] .= -values #change signs to get -W^TW
     end
 
@@ -143,7 +143,7 @@ function linsys_update!(
     #shifted them at initialization and haven't overwritten it
     if(settings.static_regularization_enable)
         eps = settings.static_regularization_eps
-        @. KKT.nzval[maps.diag_full] += eps*linsys.Dsigns
+        @. KKT.nzval[maps.diag_full] += eps*kktsolver.Dsigns
         @. KKT.nzval[maps.diagP]     -= eps
     end
 
@@ -156,34 +156,14 @@ function linsys_update!(
 end
 
 
-function linsys_solve!(
-    linsys::MKLPardisoLinearSolver{T},
-    lhsx::Union{Nothing,AbstractVector{T}},
-    lhsz::Union{Nothing,AbstractVector{T}}
-) where {T}
-
-    (x,b) = (linsys.x,linsys.b)
-
-    ps  = linsys.ps
-    KKT = linsys.KKT
-
-    set_phase!(ps, Pardiso.SOLVE_ITERATIVE_REFINE)
-    pardiso(ps, x, KKT, b)
-
-    linsys_getlhs!(linsys,lhsx,lhsz)
-    return nothing
-end
-
-
-
-function linsys_setrhs!(
-    linsys::MKLPardisoLinearSolver{T},
+function kktsolver_setrhs!(
+    kktsolver::MKLPardisoKKTSolver{T},
     rhsx::AbstractVector{T},
     rhsz::AbstractVector{T}
 ) where {T}
 
-    b = linsys.b
-    (m,n,p) = (linsys.m,linsys.n,linsys.p)
+    b = kktsolver.b
+    (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
 
     b[1:n]             .= rhsx
     b[(n+1):(n+m)]     .= rhsz
@@ -193,17 +173,36 @@ function linsys_setrhs!(
 end
 
 
-function linsys_getlhs!(
-    linsys::MKLPardisoLinearSolver{T},
+function kktsolver_getlhs!(
+    kktsolver::MKLPardisoKKTSolver{T},
     lhsx::Union{Nothing,AbstractVector{T}},
     lhsz::Union{Nothing,AbstractVector{T}}
 ) where {T}
 
-    x = linsys.x
-    (m,n,p) = (linsys.m,linsys.n,linsys.p)
+    x = kktsolver.x
+    (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
 
     isnothing(lhsx) || (lhsx .= x[1:n])
     isnothing(lhsz) || (lhsz .= x[(n+1):(n+m)])
 
+    return nothing
+end
+
+
+function kktsolver_solve!(
+    kktsolver::MKLPardisoKKTSolver{T},
+    lhsx::Union{Nothing,AbstractVector{T}},
+    lhsz::Union{Nothing,AbstractVector{T}}
+) where {T}
+
+    (x,b) = (kktsolver.x,kktsolver.b)
+
+    ps  = kktsolver.ps
+    KKT = kktsolver.KKT
+
+    set_phase!(ps, Pardiso.SOLVE_ITERATIVE_REFINE)
+    pardiso(ps, x, KKT, b)
+
+    linsys_getlhs!(linsys,lhsx,lhsz)
     return nothing
 end

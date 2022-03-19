@@ -1,6 +1,6 @@
 module Clarabel
 
-    using SparseArrays, LinearAlgebra, QDLDL, AMD, Printf
+    using SparseArrays, LinearAlgebra, Printf
     const DefaultFloat = Float64
     const DefaultInt   = LinearAlgebra.BlasInt
 
@@ -16,17 +16,16 @@ module Clarabel
     include("./types.jl")
     include("./variables.jl")
     include("./residuals.jl")
+    include("./equilibration.jl")
     include("./info.jl")
 
-    #linear subsolver implementations
-    #must precede the KKT solver typedef
-    include("./linsys/linearsolver_defaults.jl")
+    #KKT system and solvers
+    include("./kktsolvers/kktsolver_defaults.jl")
+    include("./kktsystem.jl")
 
-    #direct solve methods
-    include("./linsys/kkt_utils.jl")
-    include("./linsys/linearsolver_qdldl.jl")
-    include("./linsys/linearsolver_mkl.jl")
-    include("./kkt.jl")
+    #direct LDL linear solve methods
+    include("./kktsolvers/kktsolver_directldl.jl")
+    include("./kktsolvers/direct-ldl/includes.jl")
 
     # display, print and top level solver
     include("./printing.jl")
@@ -34,7 +33,7 @@ module Clarabel
     include("./solver.jl")
 
     #conic constraints.  Additional
-    #cone implementations here
+    #cone implementations go here
     include("./cones/coneops.jl")
     include("./cones/coneops_defaults.jl")
     include("./cones/coneops_zerocone.jl")
@@ -42,10 +41,9 @@ module Clarabel
     include("./cones/coneops_socone.jl")
     include("./cones/coneops_psdtrianglecone.jl")
 
-    #equilibration and various algebraic
-    #utilities
-    include("./equilibration.jl")
-    include("./mathutils.jl")
+    #various algebraic utilities
+    include("./utils/mathutils.jl")
+    include("./utils/csc_assembly.jl")
 
     #MathOptInterface for JuMP/Convex.jl
     include("./MOI_wrapper/MOI_wrapper.jl")

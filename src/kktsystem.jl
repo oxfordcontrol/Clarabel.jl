@@ -1,11 +1,11 @@
 # ---------------
-# KKT Solver
+# KKT System
 # ---------------
 
-mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
+mutable struct DefaultKKTSystem{T} <: AbstractKKTSystem{T}
 
-    #the linear solver engine
-    linsys::AbstractLinearSolver{T}
+    #the KKT system solver
+    kktsolver::AbstractKKTSolver{T}
 
     #solution vector for constant part of KKT solves
     x1::Vector{T}
@@ -20,7 +20,7 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
     workz::ConicVector{T}
     work_conic::ConicVector{T}
 
-        function DefaultKKTSolver{T}(
+        function DefaultKKTSystem{T}(
             data::DefaultProblemData{T},
             cones::ConeSet{T},
             settings::Settings{T}
@@ -29,15 +29,8 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
         #basic problem dimensions
         (m, n) = (data.m, data.n)
 
-        #create the linear solver
-        solverengine = settings.direct_solve_method
-        if solverengine == :qdldl
-            linsys = QDLDLLinearSolver{T}(data.P,data.A,cones,m,n,settings)
-        elseif solverengine == :mkl
-            linsys = MKLPardisoLinearSolver{T}(data.P,data.A,cones,m,n,settings)
-        else
-            error("Unknown solver engine type: ", solverengine)
-        end
+        #create the linear solver.  Always LDL for now
+        kktsolver = DirectLDLKKTSolver{T}(data.P,data.A,cones,m,n,settings)
 
         #the LHS constant part of the reduced solve
         x1   = Vector{T}(undef,n)
@@ -54,70 +47,70 @@ mutable struct DefaultKKTSolver{T} <: AbstractKKTSolver{T}
         #additional conic workspace vector compatible with s and z
         work_conic = ConicVector{T}(cones)
 
-        return new(linsys,x1,z1,x2,z2,workx,workz,work_conic)
+        return new(kktsolver,x1,z1,x2,z2,workx,workz,work_conic)
 
     end
 
 end
 
-DefaultKKTSolver(args...) = DefaultKKTSolver{DefaultFloat}(args...)
+DefaultKKTSystem(args...) = DefaultKKTSystem{DefaultFloat}(args...)
 
 
 function kkt_update!(
-    kktsolver::DefaultKKTSolver{T},
+    kktsystem::DefaultKKTSystem{T},
     data::DefaultProblemData{T},
     cones::ConeSet{T}
 ) where {T}
 
-    #update the linear solver with new scalings
-    linsys_update!(kktsolver.linsys,cones)
+    #update the linear solver with new cones
+    kktsolver_update!(kktsystem.kktsolver,cones)
 
     #calculate KKT solution for constant terms
-    _kkt_solve_constant_rhs!(kktsolver,data)
+    _kkt_solve_constant_rhs!(kktsystem,data)
 
     return nothing
 end
 
 
 function _kkt_solve_constant_rhs!(
-    kktsolver::DefaultKKTSolver{T},
+    kktsystem::DefaultKKTSystem{T},
     data::DefaultProblemData{T}
 ) where {T}
 
-    linsys_setrhs!(kktsolver.linsys, -data.q, data.b)
-    linsys_solve!(kktsolver.linsys,kktsolver.x2, kktsolver.z2)
+    kktsolver_setrhs!(kktsystem.kktsolver, -data.q, data.b)
+    kktsolver_solve!(kktsystem.kktsolver, kktsystem.x2, kktsystem.z2)
 
     return nothing
 end
 
 
 function kkt_solve_initial_point!(
-    kktsolver::DefaultKKTSolver{T},
+    kktsystem::DefaultKKTSystem{T},
     variables::DefaultVariables{T},
     data::DefaultProblemData{T}
 ) where{T}
 
     # solve with [0;b] as a RHS to get (x,s) initializers
     # zero out any sparse cone variables at end
-    kktsolver.workx .= zero(T)
-    kktsolver.workz .= data.b
-    linsys_setrhs!(kktsolver.linsys, kktsolver.workx, kktsolver.workz)
-    linsys_solve!(kktsolver.linsys, variables.x, variables.s)
+    kktsystem.workx .= zero(T)
+    kktsystem.workz .= data.b
+    kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
+    kktsolver_solve!(kktsystem.kktsolver, variables.x, variables.s)
 
     # solve with [-c;0] as a RHS to get z initializer
     # zero out any sparse cone variables at end
-    kktsolver.workx .= -data.q
-    kktsolver.workz .=  zero(T)
+    kktsystem.workx .= -data.q
+    kktsystem.workz .=  zero(T)
 
-    linsys_setrhs!(kktsolver.linsys, kktsolver.workx, kktsolver.workz)
-    linsys_solve!(kktsolver.linsys, nothing, variables.z)
+    kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
+    kktsolver_solve!(kktsystem.kktsolver, nothing, variables.z)
 
     return nothing
 end
 
 
 function kkt_solve!(
-    kktsolver::DefaultKKTSolver{T},
+    kktsystem::DefaultKKTSystem{T},
     lhs::DefaultVariables{T},
     rhs::DefaultVariables{T},
     data::DefaultProblemData{T},
@@ -126,16 +119,16 @@ function kkt_solve!(
     steptype::Symbol   #:affine or :combined
 ) where{T}
 
-    (x1,z1) = (kktsolver.x1, kktsolver.z1)
-    (x2,z2) = (kktsolver.x2, kktsolver.z2)
-    (workx,workz) = (kktsolver.workx, kktsolver.workz)
+    (x1,z1) = (kktsystem.x1, kktsystem.z1)
+    (x2,z2) = (kktsystem.x2, kktsystem.z2)
+    (workx,workz) = (kktsystem.workx, kktsystem.workz)
 
     #solve for (x1,z1)
     #-----------
     @. workx = rhs.x
 
     #compute Wᵀ(λ \ ds), with shortcut in affine case
-    Wtlinvds = kktsolver.work_conic
+    Wtlinvds = kktsystem.work_conic
 
     if steptype == :affine
         @. Wtlinvds = variables.s
@@ -151,8 +144,8 @@ function kkt_solve!(
     @. workz = Wtlinvds - rhs.z
 
     #this solves the variable part of reduced KKT system
-    linsys_setrhs!(kktsolver.linsys, workx, workz)
-    linsys_solve!(kktsolver.linsys,x1,z1)
+    kktsolver_setrhs!(kktsystem.kktsolver, workx, workz)
+    kktsolver_solve!(kktsystem.kktsolver,x1,z1)
 
     #solve for Δτ.
     #-----------
