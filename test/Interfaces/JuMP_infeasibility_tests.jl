@@ -1,15 +1,14 @@
 using Test, LinearAlgebra, SparseArrays
 using Clarabel, JuMP
-FloatT = Float64
-tol = FloatT(1e-3)
-
-# A collection of tests from problems partly taken from the MOI Test
-# collection, all of which caused issues with faulty infeasibility
-# detection.
 
 @testset "Infeasibility" begin
 
+    #JuMP presently supports Float64 only
+    for FloatT in [Float64]
+
     @testset "Infeasibility checks (T = $(FloatT))" begin
+
+        tol = FloatT(1e-3)
 
         @testset "dual infeasible LP" begin
             #from MOI.Test.test_conic_SecondOrderCone_no_initial_bound
@@ -161,8 +160,7 @@ tol = FloatT(1e-3)
             @test JuMP.termination_status(model) == MOI.DUAL_INFEASIBLE
 
         end
-
-
-    end # UnitTestFloats
+            end
+    end
 end
 nothing

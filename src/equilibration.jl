@@ -6,25 +6,26 @@ import Statistics: mean
 const IdentityMatrix = UniformScaling{Bool}
 
 function equilibrate!(
-        scalings::DefaultScalings{T},
+        equil::DefaultEquilibration{T},
         data::DefaultProblemData{T},
+        cones::ConeSet{T},
         settings::Settings{T}
 ) where {T}
 
     #if equilibration is disabled, return identities
     #everywhere
     if(!settings.equilibrate_enable)
-        @. scalings.d    = one(T)
-        @. scalings.e    = one(T)
-        @. scalings.dinv = one(T)
-        @. scalings.einv = one(T)
+        @. equil.d    = one(T)
+        @. equil.e    = one(T)
+        @. equil.dinv = one(T)
+        @. equil.einv = one(T)
         return
     end
 
 	#references to scaling matrices from workspace
-	D = scalings.D;   d = scalings.d
-	E = scalings.E;   e = scalings.e
-	c = scalings.c
+	D = equil.D;   d = equil.d
+	E = equil.E;   e = equil.e
+	c = equil.c
 
 	#unit scaling to start
 	D.diag .= one(T)
@@ -32,10 +33,10 @@ function equilibrate!(
 	c[]     = one(T)
 
 	#use the inverse scalings as work vectors
-	Dwork = scalings.Dinv
-	Ework = scalings.Einv
-    dwork = scalings.dinv
-    ework = scalings.einv
+	Dwork = equil.Dinv
+	Ework = equil.Einv
+    dwork = equil.dinv
+    ework = equil.einv
 
 	#references to problem data
     #note that P may be triu, but it shouldn't matter
@@ -53,8 +54,8 @@ function equilibrate!(
 		limit_scaling!(dwork, scale_min, scale_max)
 		limit_scaling!(ework, scale_min, scale_max)
 
-		inv_sqrt!(dwork)
-		inv_sqrt!(ework)
+		dwork .= inv.(sqrt.(dwork))
+		ework .= inv.(sqrt.(ework))
 
 		# Scale the problem data and update the
 		# equilibration matrices
@@ -85,15 +86,15 @@ function equilibrate!(
 
 	# fix scalings in cones for which elementwise
     # scaling can't be applied
-	if cones_rectify_equilibration!(scalings.cones, ework, e)
+	if cones_rectify_equilibration!(cones, ework, e)
 		#only rescale again of some cones were rectified
 		scale_data!(P, A, q, b, I, Ework, one(T))
 		LinearAlgebra.lmul!(Ework, E)
 	end
 
 	#update the inverse scaling data
-	@. scalings.dinv = one(T) / d
-	@. scalings.einv = one(T) / e
+	@. equil.dinv = one(T) / d
+	@. equil.einv = one(T) / e
 
 	return nothing
 end

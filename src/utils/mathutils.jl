@@ -8,13 +8,7 @@ function clip(
     min_new::Real = min_thresh,
     max_new::Real = max_thresh)
 	s = ifelse(s < min_thresh, min_new, ifelse(s > max_thresh, max_new, s))
-end
-
-
-function inv_sqrt!(v::AbstractVector{T}) where{T <: Real}
-	@fastmath v .= one(T) ./ sqrt.(v)
-
-    return nothing
+    return s
 end
 
 
@@ -242,4 +236,40 @@ function symdot(
         out += tmp1*y[j] + tmp2*x[j]
     end
     return out
+end
+
+
+
+#Just put elements from a vector of length
+#n*(n+1)/2 into the upper triangle of an
+#nxn matrix.   It does NOT perform any scaling
+#of the vector entries.
+function pack_triu(v::Vector{T},A::Matrix{T}) where T
+    n     = LinearAlgebra.checksquare(A)
+    numel = (n*(n+1))>>1
+    length(v) == numel || throw(DimensionMismatch())
+    k = 1
+    for col = 1:n, row = 1:col
+        @inbounds v[k] = A[row,col]
+        k += 1
+    end
+    return v
+end
+
+# ---------------------------------
+# functions for manipulating scaled vectors
+# representing packed matrices in the upper
+# triangle, read columnwise
+# ---------------------------------
+_triangle_svec_to_unscaled(v::T,idx::Int) where {T} = _triangle_svec_scale(v, idx, 1/sqrt(T(2)))
+_triangle_unscaled_to_svec(v::T,idx::Int) where {T} = _triangle_svec_scale(v, idx,   sqrt(T(2)))
+_triangle_svec_scale(v, index, scale) = _is_triangular_value(index) ? v : scale*v
+
+#vectorized versions on full triangles
+_triangle_svec_to_unscaled(v::AbstractVector) = _triangle_svec_to_unscaled.(v,eachindex(v))
+_triangle_unscaled_to_svec(v::AbstractVector) = _triangle_unscaled_to_svec.(v,eachindex(v))
+
+function _is_triangular_value(k::Int)
+    #true if the int is a triangular number
+    return isqrt(8*k + 1)^2 == 8*k + 1
 end

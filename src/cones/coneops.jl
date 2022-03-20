@@ -10,7 +10,7 @@ function cones_rectify_equilibration!(
 
     any_changed = false
 
-    #we will update e <- \delta .*e using return values
+    #we will update e <- δ .* e using return values
     #from this function.  default is to do nothing at all
     δ .= 1
 
@@ -25,14 +25,13 @@ end
 function cones_update_scaling!(
     cones::ConeSet{T},
     s::ConicVector{T},
-    z::ConicVector{T},
-    λ::ConicVector{T}
+    z::ConicVector{T}
 ) where {T}
 
-    # update scalings by passing subview to each of
+    # update cone scalings by passing subview to each of
     # the appropriate cone types.
-    for i = 1:length(cones)
-        update_scaling!(cones[i],s.views[i],z.views[i],λ.views[i])
+    for i = eachindex(cones)
+        update_scaling!(cones[i],s.views[i],z.views[i])
     end
 
     return nothing
@@ -43,7 +42,7 @@ function cones_set_identity_scaling!(
     cones::ConeSet{T}
 ) where {T}
 
-    for i = 1:length(cones)
+    for i = eachindex(cones)
         set_identity_scaling!(cones[i])
     end
 
@@ -51,43 +50,68 @@ function cones_set_identity_scaling!(
 end
 
 
-# The diagonal part of the KKT scaling
-# matrix for each cone
-function cones_get_diagonal_scaling!(
+# The WtW block for each cone.
+function cones_get_WtW_blocks!(
     cones::ConeSet{T},
-    diagW2::ConicVector{T}
+    WtWblocks::Vector{Vector{T}}
 ) where {T}
 
-    for i = 1:length(cones)
-        get_diagonal_scaling!(cones[i],diagW2.views[i])
+    for i = eachindex(cones)
+        get_WtW_block!(cones[i],WtWblocks[i])
+    end
+    return nothing
+end
+
+# x = λ ∘ λ
+function cones_λ_circ_λ!(
+    cones::ConeSet{T},
+    x::ConicVector{T}
+) where {T}
+
+    for i = eachindex(cones)
+        λ_circ_λ!(cones[i],x.views[i])
     end
     return nothing
 end
 
 # x = y ∘ z
-function cones_circle_op!(
+function cones_circ_op!(
     cones::ConeSet{T},
     x::ConicVector{T},
     y::ConicVector{T},
     z::ConicVector{T}
 ) where {T}
 
-    for i = 1:length(cones)
-        circle_op!(cones[i],x.views[i],y.views[i],z.views[i])
+    for i = eachindex(cones)
+        circ_op!(cones[i],x.views[i],y.views[i],z.views[i])
+    end
+    return nothing
+end
+
+# x = λ \ z,  where λ is scaled internal
+# variable for each cone
+function cones_λ_inv_circ_op!(
+    cones::ConeSet{T},
+    x::ConicVector{T},
+    z::ConicVector{T}
+) where {T}
+
+    for i = eachindex(cones)
+        λ_inv_circ_op!(cones[i],x.views[i],z.views[i])
     end
     return nothing
 end
 
 # x = y \ z
-function cones_inv_circle_op!(
+function cones_inv_circ_op!(
     cones::ConeSet{T},
     x::ConicVector{T},
     y::ConicVector{T},
     z::ConicVector{T}
 ) where {T}
 
-    for i = 1:length(cones)
-        inv_circle_op!(cones[i],x.views[i],y.views[i],z.views[i])
+    for i = eachindex(cones)
+        inv_circ_op!(cones[i],x.views[i],y.views[i],z.views[i])
     end
     return nothing
 end
@@ -98,7 +122,7 @@ function cones_shift_to_cone!(
     z::ConicVector{T}
 ) where {T}
 
-    for i = 1:length(cones)
+    for i = eachindex(cones)
         shift_to_cone!(cones[i],z.views[i])
     end
     return nothing
@@ -109,7 +133,7 @@ end
 #Warning: x must not alias y.
 function cones_gemv_W!(
     cones::ConeSet{T},
-    is_transpose::Bool,
+    is_transpose::Symbol,
     x::ConicVector{T},
     y::ConicVector{T},
     α::T,
@@ -128,7 +152,7 @@ end
 #Warning: x must not alias y.
 function cones_gemv_Winv!(
     cones::ConeSet{T},
-    is_transpose::Bool,
+    is_transpose::Symbol,
     x::ConicVector{T},
     y::ConicVector{T},
     α::T,
@@ -136,39 +160,8 @@ function cones_gemv_Winv!(
 ) where {T}
 
     #@assert x !== y
-    for i = 1:length(cones)
+    for i = eachindex(cones)
         gemv_Winv!(cones[i],is_transpose,x.views[i],y.views[i],α,β)
-    end
-    return nothing
-end
-
-# computes y = (W^TW){-1}x.
-# Warning: x must not alias y.
-function cones_mul_WtWinv!(
-    cones::ConeSet{T},
-    x::ConicVector{T},
-    y::ConicVector{T}
-) where {T}
-
-    #@assert x !== y
-    for i = 1:length(cones)
-        mul_WtWinv!(cones[i],x.views[i],y.views[i])
-    end
-
-    return nothing
-end
-
-# computes y = (W^TW)x
-# Warning: x must not alias y.
-function cones_mul_WtW!(
-    cones::ConeSet{T},
-    x::ConicVector{T},
-    y::ConicVector{T}
-) where {T}
-
-    #@assert x !== y
-    for i = 1:length(cones)
-        mul_WtW!(cones[i],x.views[i],y.views[i])
     end
     return nothing
 end
@@ -180,7 +173,7 @@ function cones_add_scaled_e!(
     α::T
 ) where {T}
 
-    for i = 1:length(cones)
+    for i = eachindex(cones)
         add_scaled_e!(cones[i],x.views[i],α)
     end
     return nothing
@@ -192,21 +185,21 @@ function cones_step_length(
     dz::ConicVector{T},
     ds::ConicVector{T},
      z::ConicVector{T},
-     s::ConicVector{T},
-     λ::ConicVector{T}
+     s::ConicVector{T}
 ) where {T}
 
     dz    = dz.views
     ds    = ds.views
     z     = z.views
     s     = s.views
-    λ     = λ.views
 
-    α = 1/eps(T)
+    huge    = inv(eps(T))
+    (αz,αs) = (huge, huge)
     for i = eachindex(cones)
-        nextα = step_length(cones[i],dz[i],ds[i],z[i],s[i],λ[i])
-        α = min(α, nextα)
+        (nextαz,nextαs) = step_length(cones[i],dz[i],ds[i],z[i],s[i])
+        αz = min(αz, nextαz)
+        αs = min(αs, nextαs)
     end
 
-    return α
+    return (αz,αs)
 end

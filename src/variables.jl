@@ -2,10 +2,10 @@
 function calc_mu(
     variables::DefaultVariables{T},
     residuals::DefaultResiduals{T},
-    scalings::DefaultScalings{T}
+    cones::ConeSet{T}
 ) where {T}
 
-  μ = (residuals.dot_sz + variables.τ * variables.κ)/(scalings.total_degree + 1)
+  μ = (residuals.dot_sz + variables.τ * variables.κ)/(cones.degree + 1)
 
   return μ
 end
@@ -14,18 +14,18 @@ end
 function calc_step_length(
     variables::DefaultVariables{T},
     step::DefaultVariables{T},
-    scalings::DefaultScalings{T}
+    cones::ConeSet{T}
 ) where {T}
 
-    ατ    = step.τ < 0 ? -variables.τ / step.τ : 1/eps(T)
-    ακ    = step.κ < 0 ? -variables.κ / step.κ : 1/eps(T)
+    ατ    = step.τ < 0 ? -variables.τ / step.τ : inv(eps(T))
+    ακ    = step.κ < 0 ? -variables.κ / step.κ : inv(eps(T))
 
-    αcone = cones_step_length(
-        scalings.cones, step.z, step.s,
-        variables.z, variables.s, scalings.λ
+    (αz,αs) = cones_step_length(
+        cones, step.z, step.s,
+        variables.z, variables.s,
     )
 
-    return min(ατ,ακ,αcone,one(T))
+    return min(ατ,ακ,αz,αs,one(T))
 end
 
 function variables_rescale!(variables)
@@ -42,6 +42,17 @@ vars.τ /= scale
 vars.κ /= scale
 
 end
+
+function scaling_update!(
+    cones::ConeSet{T},
+    variables::DefaultVariables{T},
+) where {T}
+
+    cones_update_scaling!(cones,variables.s,variables.z)
+    return nothing
+end
+
+
 
 
 function variables_add_step!(
@@ -64,14 +75,12 @@ function calc_affine_step_rhs!(
     r::DefaultResiduals{T},
     data::DefaultProblemData{T},
     variables::DefaultVariables{T},
-    scalings::DefaultScalings{T}
+    cones::ConeSet{T}
 ) where{T}
-
-    cones = scalings.cones
 
     @. d.x    .=  r.rx
     @. d.z     =  r.rz
-    cones_circle_op!(cones, d.s, scalings.λ, scalings.λ)
+    cones_λ_circ_λ!(cones, d.s)
     d.τ        =  r.rτ
     d.κ        =  variables.τ * variables.κ
 
@@ -84,20 +93,13 @@ function calc_combined_step_rhs!(
     r::DefaultResiduals{T},
     data::DefaultProblemData{T},
     variables::DefaultVariables{T},
-    scalings::DefaultScalings{T},
+    cones::ConeSet{T},
     step::DefaultVariables{T},
     σ::T, μ::T
 ) where {T}
 
-    cones = scalings.cones
-
-    #PJG: Still not clear whether second order corrections
-    #on the dτ variable make sense here or not.   Not used for now
-    #tmp2 = symdot(q,data.Psym,q) / variables.τ
-    tmp0 = zero(T)  #PJG no higher order correction
-
     @. d.x  = (one(T) - σ)*r.rx
-       d.τ  = (one(T) - σ)*r.rτ + tmp0    #PJG: second order correction?
+       d.τ  = (one(T) - σ)*r.rτ
        d.κ  = - σ*μ + step.τ * step.κ + variables.τ * variables.κ
 
     # d.s must be assembled carefully if we want to be economical with
@@ -110,14 +112,14 @@ function calc_combined_step_rhs!(
 
     tmp  = d.z     #alias
     tmp .= step.z  #copy for safe call to gemv_W
-    cones_gemv_W!(cones, false, tmp, step.z, one(T), zero(T))       #Δz <- WΔz
+    cones_gemv_W!(cones, :N, tmp, step.z, one(T), zero(T))       #Δz <- WΔz
     tmp .= step.s  #copy for safe call to gemv_Winv
-    cones_gemv_Winv!(cones, false, tmp, step.s, one(T), zero(T))    #Δs <- W⁻¹Δs
-    cones_circle_op!(cones, tmp, step.s, step.z)                    #tmp = W⁻¹Δs ∘ WΔz
-    cones_add_scaled_e!(cones,tmp,-σ*μ)                             #tmp = W⁻¹Δs ∘ WΔz - σμe
+    cones_gemv_Winv!(cones, :T, tmp, step.s, one(T), zero(T))    #Δs <- W⁻¹Δs
+    cones_circ_op!(cones, tmp, step.s, step.z)                   #tmp = W⁻¹Δs ∘ WΔz
+    cones_add_scaled_e!(cones,tmp,-σ*μ)                          #tmp = W⁻¹Δs ∘ WΔz - σμe
 
-    #PJG: We are relying on d.s = λ ◦ λ from the affine step here
-    @. d.s += d.z                                           #d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
+    #We are relying on d.s = λ ◦ λ already from the affine step here
+    @. d.s += d.z                                                #d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
 
     # now we copy the scaled res for rz and d.z is no longer work
     @. d.z .= (1 - σ)*r.rz
@@ -126,12 +128,12 @@ function calc_combined_step_rhs!(
 end
 
 function variables_shift_to_cone!(
-    variables::DefaultVariables,
-    scalings::DefaultScalings
-)
+    variables::DefaultVariables{T},
+    cones::ConeSet{T}
+) where {T}
 
-    cones_shift_to_cone!(scalings.cones,variables.s)
-    cones_shift_to_cone!(scalings.cones,variables.z)
+    cones_shift_to_cone!(cones,variables.s)
+    cones_shift_to_cone!(cones,variables.z)
 
     variables.τ = 1
     variables.κ = 1
@@ -139,7 +141,7 @@ end
 
 function variables_finalize!(
     variables::DefaultVariables{T},
-    scalings::DefaultScalings{T},
+    equil::DefaultEquilibration{T},
     status::SolverStatus
 ) where {T}
 
@@ -161,12 +163,12 @@ function variables_finalize!(
        variables.κ *= scaleinv
 
     #undo the equilibration
-    d = scalings.d; dinv = scalings.dinv
-    e = scalings.e; einv = scalings.einv
-    cscale = scalings.c[]
+    d = equil.d; dinv = equil.dinv
+    e = equil.e; einv = equil.einv
+    cscale = equil.c[]
 
-    @. variables.x *=     d
-    @. variables.z *=     e ./ cscale
+    @. variables.x *=  d
+    @. variables.z *=  e ./ cscale
     @. variables.s *=  einv
 
 end

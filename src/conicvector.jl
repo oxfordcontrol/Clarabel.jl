@@ -1,9 +1,9 @@
-import LinearAlgebra: BlasReal
-
 # -------------------------------------
 # vectors defined w.r.t. to conic constraints
 # get this type with views into the subcomponents
 # ---------------------------------------
+
+const VectorView{T} = SubArray{T, 1, Vector{T}, Tuple{UnitRange{Int}}, true}
 
 struct ConicVector{T<:AbstractFloat} <: AbstractVector{T}
 
@@ -13,20 +13,19 @@ struct ConicVector{T<:AbstractFloat} <: AbstractVector{T}
     #array of data views of type Vector{T}
     views::Vector{VectorView{T}}
 
-    function ConicVector{T}(
-        cone_info::ConeInfo) where {T}
+    function ConicVector{T}(S::ConeSet{T}) where {T}
 
         #undef initialization would possibly result
         #in Infs or NaNs, causing failure in gemv!
         #style vector updates
-        vec   = zeros(T,cone_info.totaldim)
-        views = Vector{VectorView{T}}(undef, length(cone_info.types))
+        vec   = zeros(T,S.numel)
+        views = Vector{VectorView{T}}(undef, length(S))
 
         # loop over the sets and create views
         last = 0
-        for i = eachindex(cone_info.dims)
+        for i = eachindex(S)
             first  = last + 1
-            last   = last + cone_info.dims[i]
+            last   = last + numel(S[i])
             rng = first:last
             views[i] = view(vec, rng)
         end

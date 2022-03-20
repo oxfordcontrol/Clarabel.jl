@@ -28,7 +28,8 @@ end
 function print_header(
     info::DefaultInfo{T},
     settings::Settings,
-    data::DefaultProblemData{T}
+    data::DefaultProblemData{T},
+    cones::ConeSet{T}
 ) where {T}
 
     if(settings.verbose == false) return end
@@ -43,13 +44,11 @@ function print_header(
     @printf("  constraints   = %i\n", data.m)
     @printf("  nnz(P)        = %i\n", nnz(data.P))
     @printf("  nnz(A)        = %i\n", nnz(data.A))
-    @printf("  cones         = %i\n", length(data.cone_info.types))
-    @printf("  : zero        = %i", data.cone_info.type_counts[ZeroConeT])
-    print_conedims_by_type(data.cone_info, ZeroConeT)
-    @printf("  : nonnegative = %i", data.cone_info.type_counts[NonnegativeConeT])
-    print_conedims_by_type(data.cone_info, NonnegativeConeT)
-    @printf("  : secondorder = %i", data.cone_info.type_counts[SecondOrderConeT])
-    print_conedims_by_type(data.cone_info, SecondOrderConeT)
+    @printf("  cones (total) = %i\n", length(cones))
+    print_conedims_by_type(cones, ZeroConeT)
+    print_conedims_by_type(cones, NonnegativeConeT)
+    print_conedims_by_type(cones, SecondOrderConeT)
+    print_conedims_by_type(cones, PSDTriangleConeT)
     print_settings(settings, T)
     @printf("\n")
 
@@ -131,32 +130,36 @@ get_precision_string(T::Type{<:Real}) = string(T)
 get_precision_string(T::Type{<:BigFloat}) = string(T," (", precision(T), " bit)")
 
 
-function print_conedims_by_type(c::ConeInfo, type::SupportedCones)
+function print_conedims_by_type(cones::ConeSet{T}, type) where {T}
 
     maxlistlen = 5
 
     #how many of this type of cone?
-    count = c.type_counts[type]
-    dims  = c.dims[c.types .== type]
+    count = cones.type_counts[type]
 
-    #none?
+    #skip if there are none of this type
     if count == 0
-        #print nothing
+        return #don't report if none
+    end
 
-    elseif count == 1
-        @printf("  dim = %i",dims[1])
+    nvars = map(K->Clarabel.numel(K), cones[cones.types .== type])
+    name  = rpad(string(type)[1:end-5],11)  #drops "ConeT part"
+    @printf("    : %s = %i, ", name, count)
+
+    if count == 1
+        @printf(" numel = %i",nvars[1])
 
     elseif count <= maxlistlen
         #print them all
-        @printf("  dim = (")
-        foreach(x->@printf("%i,",x),dims[1:end-1])
-        @printf("%i)",dims[end])
+        @printf(" numel = (")
+        foreach(x->@printf("%i,",x),nvars[1:end-1])
+        @printf("%i)",nvars[end])
 
     else
         #print first (maxlistlen-1) and the final one
-        @printf("  dim = (")
-        foreach(x->@printf("%i,",x),dims[1:(maxlistlen-1)])
-        @printf("...,%i)",dims[end])
+        @printf(" numel = (")
+        foreach(x->@printf("%i,",x),nvars[1:(maxlistlen-1)])
+        @printf("...,%i)",nvars[end])
     end
 
     @printf("\n")
