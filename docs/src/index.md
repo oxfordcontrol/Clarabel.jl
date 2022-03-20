@@ -9,8 +9,8 @@ with decision variables ``x \in \mathbb{R}^n``, ``s \in \mathbb{R}^m`` and data 
 
 ## Features
 
-* __Versatile__: Clarabel.jl solves linear programs (LPs), quadratic programs (QPs) and second-order cone programs (SOCPs).  Future versions will provide support for semidefinite programs and problems involving exponential and power cones.
-* __Quadratic objectives__: Unlike interior point solvers based on the standard homogeneous self-dual embedding (HSDE), Clarabel.jl handles quadratic objective without requiring any epigraphical reformulation of the objective.   It can therefore be significantly faster than other HSDE-based solvers for problems with quadratic objective functions.
+* __Versatile__: Clarabel.jl solves linear programs (LPs), quadratic programs (QPs), second-order cone programs (SOCPs) and semidefinite programs (SDPs).  Future versions will provide support for problems involving exponential and power cones.
+* __Quadratic objectives__: Unlike interior point solvers based on the standard homogeneous self-dual embedding (HSDE) model, Clarabel.jl handles quadratic objective without requiring any epigraphical reformulation of its objective function.   It can therefore be significantly faster than other HSDE-based solvers for problems with quadratic objective functions.
 * __Infeasibility detection__: Infeasible problems are detected using using a homogeneous embedding technique.
 * __JuMP / Convex.jl support__: We provide an interface to [MathOptInterface](https://jump.dev/JuMP.jl/stable/moi/) (MOI), which allows you to describe your problem in [JuMP](https://github.com/JuliaOpt/JuMP.jl) and [Convex.jl](https://github.com/JuliaOpt/Convex.jl).
 * __Arbitrary precision types__: You can solve problems with any floating point precision, e.g. Float32 or Julia's BigFloat type, using either the native interface, or via MathOptInterface / Convex.jl.

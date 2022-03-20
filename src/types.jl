@@ -7,6 +7,7 @@ abstract type AbstractVariables{T <: AbstractFloat}   end
 abstract type AbstractEquilibration{T <: AbstractFloat}   end
 abstract type AbstractResiduals{T <: AbstractFloat}   end
 abstract type AbstractProblemData{T <: AbstractFloat} end
+abstract type AbstractKKTSystem{T <: AbstractFloat} end
 abstract type AbstractKKTSolver{T <: AbstractFloat} end
 abstract type AbstractInfo{T <: AbstractFloat} end
 
@@ -284,7 +285,7 @@ mutable struct Solver{T <: AbstractFloat}
     equilibration::Union{AbstractEquilibration{T},Nothing}
     cones::Union{ConeSet{T},Nothing}
     residuals::Union{AbstractResiduals{T},Nothing}
-    kktsolver::Union{AbstractKKTSolver{T},Nothing}
+    kktsystem::Union{AbstractKKTSystem{T},Nothing}
     info::Union{AbstractInfo{T},Nothing}
     step_lhs::Union{AbstractVariables{T},Nothing}
     step_rhs::Union{AbstractVariables{T},Nothing}

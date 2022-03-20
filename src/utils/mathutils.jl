@@ -12,12 +12,6 @@ function clip(
 end
 
 
-function inv_sqrt!(v::AbstractVector{T}) where{T <: Real}
-	v .= inv.(sqrt.(v))
-    return nothing
-end
-
-
 #2-norm of the product M*v
 function scaled_norm(M::Diagonal{T},v::AbstractVector{T}) where{T}
     return scaled_norm(M.diag,v)
@@ -245,6 +239,11 @@ function symdot(
 end
 
 
+
+#Just put elements from a vector of length
+#n*(n+1)/2 into the upper triangle of an
+#nxn matrix.   It does NOT perform any scaling
+#of the vector entries.
 function pack_triu(v::Vector{T},A::Matrix{T}) where T
     n     = LinearAlgebra.checksquare(A)
     numel = (n*(n+1))>>1
@@ -256,8 +255,6 @@ function pack_triu(v::Vector{T},A::Matrix{T}) where T
     end
     return v
 end
-
-
 
 # ---------------------------------
 # functions for manipulating scaled vectors
