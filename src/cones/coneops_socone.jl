@@ -93,11 +93,9 @@ function λ_circ_λ!(
     x::AbstractVector{T}
 ) where {T}
 
-    #PJG: this could maybe be specialized
-    #or stored, since it may be called
-    #twice per IP iteration
     circ_op!(K,x,K.λ,K.λ)
 
+    return nothing
 end
 
 

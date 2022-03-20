@@ -26,7 +26,6 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     settings::Settings{T}
 
     #the direct linear LDL solver
-    #PJG: come back make this parametric maybe
     ldlsolver::AbstractDirectLDLSolver{T}
 
     function DirectLDLKKTSolver{T}(P,A,cones,m,n,settings) where {T}
@@ -105,7 +104,7 @@ function kktsolver_update!(
 
 
     #Set the elements the W^tW blocks in the KKT matrix.
-    scaling_get_WtW_blocks!(cones,kktsolver.WtWblocks)
+    cones_get_WtW_blocks!(cones,kktsolver.WtWblocks)
     for (index, values) in zip(map.WtWblocks,kktsolver.WtWblocks)
         #change signs to get -W^TW
         values .= -values

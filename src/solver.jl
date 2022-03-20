@@ -245,7 +245,7 @@ end
 function solver_default_start!(s::Solver{T}) where {T}
 
     #set all scalings to identity (or zero for the zero cone)
-    scaling_identity!(s.cones)
+    cones_set_identity_scaling!(s.cones)
     #Refactor
     kkt_update!(s.kktsystem,s.data,s.cones)
     #solve for primal/dual initial points via KKT

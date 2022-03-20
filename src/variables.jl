@@ -43,6 +43,17 @@ vars.κ /= scale
 
 end
 
+function scaling_update!(
+    cones::ConeSet{T},
+    variables::DefaultVariables{T},
+) where {T}
+
+    cones_update_scaling!(cones,variables.s,variables.z)
+    return nothing
+end
+
+
+
 
 function variables_add_step!(
     variables::DefaultVariables{T},
@@ -87,13 +98,8 @@ function calc_combined_step_rhs!(
     σ::T, μ::T
 ) where {T}
 
-    #PJG: Still not clear whether second order corrections
-    #on the dτ variable make sense here or not.   Not used for now
-    tmp = zero(T)  #PJG no higher order correction
-    #tmp = symdot(data.q,data.Psym,data.q) / variables.τ
-
     @. d.x  = (one(T) - σ)*r.rx
-       d.τ  = (one(T) - σ)*r.rτ + tmp    #PJG: second order correction instead?
+       d.τ  = (one(T) - σ)*r.rτ
        d.κ  = - σ*μ + step.τ * step.κ + variables.τ * variables.κ
 
     # d.s must be assembled carefully if we want to be economical with
@@ -112,7 +118,7 @@ function calc_combined_step_rhs!(
     cones_circ_op!(cones, tmp, step.s, step.z)                   #tmp = W⁻¹Δs ∘ WΔz
     cones_add_scaled_e!(cones,tmp,-σ*μ)                          #tmp = W⁻¹Δs ∘ WΔz - σμe
 
-    #PJG: We are relying on d.s = λ ◦ λ from the affine step here
+    #We are relying on d.s = λ ◦ λ already from the affine step here
     @. d.s += d.z                                                #d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
 
     # now we copy the scaled res for rz and d.z is no longer work

@@ -42,7 +42,6 @@ struct ConeSet{T}
         end
 
         #count up elements and degree
-        #PJG: why do I need to specify the module here?
         numel  = sum(cone -> Clarabel.numel(cone), cones; init = 0)
         degree = sum(cone -> Clarabel.degree(cone), cones; init = 0)
 

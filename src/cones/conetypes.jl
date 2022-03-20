@@ -88,7 +88,7 @@ end
 SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
 
 # ------------------------------------
-# Positive Semidefinite Cone
+# Positive Semidefinite Cone (Scaled triangular form)
 # ------------------------------------
 
 mutable struct PSDConeWork{T}
@@ -124,40 +124,12 @@ mutable struct PSDConeWork{T}
     end
 end
 
-#PJG: PSDConeWork(args...) = PSDConeWork{DefaultFloat}(args...)
-
-struct PSDCone{T} <: AbstractCone{T}
-
-      n::DefaultInt  #this is the matrix dimension, i.e. representing n /times n
-  numel::DefaultInt  #this is the total number of elements in the matrix
-
-    #PJG: need some further structure here to maintain
-    #working memory for all of the steps in computing R
-    work::PSDConeWork{T}   #PJG: kludgey AF for now
-
-    function PSDCone{T}(n) where {T}
-
-        n >= 1   || throw(DomainError(dim, "dimension must be positive"))
-        numel = n*n
-
-        work = PSDConeWork{T}(n)
-
-        return new(n,numel,work)
-
-    end
-
-end
-
-PSDCone(args...) = PSDCone{DefaultFloat}(args...)
 
 struct PSDTriangleCone{T} <: AbstractCone{T}
 
         n::DefaultInt  #this is the matrix dimension, i.e. representing n /times n
     numel::DefaultInt  #this is the total number of elements in the matrix
-
-    #PJG: need some further structure here to maintain
-    #working memory for all of the steps in computing R
-    work::PSDConeWork{T}   #PJG: kludgey AF for now
+     work::PSDConeWork{T}
 
     function PSDTriangleCone{T}(n) where {T}
 
