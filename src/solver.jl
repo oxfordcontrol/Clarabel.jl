@@ -210,7 +210,7 @@ function solve!(
 
             #compute final step length and update the current iterate
             #--------------
-            @timeit_debug timer "step length" α  = calc_step_length(s.variables,s.step_lhs,s.cones)
+            @timeit_debug timer "step length" α = calc_step_length(s.variables,s.step_lhs,s.cones)
             α *= s.settings.max_step_fraction
 
             variables_add_step!(s.variables,s.step_lhs,α)
