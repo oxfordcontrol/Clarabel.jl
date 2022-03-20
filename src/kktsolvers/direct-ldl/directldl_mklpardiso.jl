@@ -27,6 +27,7 @@ struct PardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
     end
 end
 
+DirectLDLSolversDict[:mkl] = PardisoDirectLDLSolver
 required_matrix_shape(::Type{PardisoDirectLDLSolver}) = :tril
 
 #update entries in the KKT matrix using the

@@ -1,7 +1,12 @@
 abstract type AbstractDirectLDLSolver{T <: AbstractFloat} end
 
+const DirectLDLSolversDict = Dict{Symbol, UnionAll}()
+
 # Any new LDL solver type should provide implementations of all
-# of the following and then the type added to the DirectLDLSolversDict
+# of the following and add itself to the DirectLDLSolversDict
+
+# register type, .e.g
+# DirectLDLSolversDict[:qdldl] = QDLDLDirectLDLSolver
 
 # return either :triu or :tril
 function required_matrix_shape(::Type{AbstractDirectLDLSolver})

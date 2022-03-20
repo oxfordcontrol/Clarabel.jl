@@ -25,6 +25,7 @@ mutable struct CholmodDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
     end
 end
 
+DirectLDLSolversDict[:cholmod] = CholmodDirectLDLSolver
 required_matrix_shape(::Type{CholmodDirectLDLSolver}) = :triu
 
 #update entries in the KKT matrix using the
