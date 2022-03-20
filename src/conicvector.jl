@@ -1,9 +1,9 @@
-import LinearAlgebra: BlasReal
-
 # -------------------------------------
 # vectors defined w.r.t. to conic constraints
 # get this type with views into the subcomponents
 # ---------------------------------------
+
+const VectorView{T} = SubArray{T, 1, Vector{T}, Tuple{UnitRange{Int}}, true}
 
 struct ConicVector{T<:AbstractFloat} <: AbstractVector{T}
 

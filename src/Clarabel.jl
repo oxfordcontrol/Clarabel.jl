@@ -8,7 +8,6 @@ module Clarabel
     include("./version.jl")
 
     #core solver components
-    include("./consttypes.jl")
     include("./cones/conetypes.jl")
     include("./cones/coneset.jl")
     include("./settings.jl")
@@ -22,11 +21,10 @@ module Clarabel
     #direct LDL linear solve methods
     include("./kktsolvers/direct-ldl/includes.jl")
 
-    #KKT solvers and solver level system
+    #KKT solvers and solver level kktsystem
     include("./kktsolvers/kktsolver_defaults.jl")
     include("./kktsolvers/kktsolver_directldl.jl")
     include("./kktsystem.jl")
-
 
     # display, print and top level solver
     include("./printing.jl")
