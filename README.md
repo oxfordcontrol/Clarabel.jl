@@ -1,12 +1,7 @@
 
 <h1 align="center" margin=0px>
   <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/logo-banner-light.png#gh-light-mode-only" width=50%>
-</h1>
-<h1 align="center" margin=0px>
   <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/logo-banner-dark.png#gh-dark-mode-only" width=50%>
-</h1>
-
-<h1 align="center">
 Interior Point Conic Optimization for Julia
 </h1>
 <p align="center">
