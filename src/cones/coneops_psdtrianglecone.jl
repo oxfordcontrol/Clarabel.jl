@@ -21,15 +21,12 @@ function update_scaling!(
 
     f = K.work
 
-    # Make into matrix form for Cholesky
-    # PJG: probably only necessary to fill
-    # in the upper triangle (unscaled) of
-    # (S,V) and wrap it in Symmetric ()
-    map((M,v)->_tomat!(M,v,K),(f.S,f.Z),(s,z))
+    (S,Z) = (f.workmat1,f.workmat2)
+    map((M,v)->_svec_to_mat!(M,v,K),(S,Z),(s,z))
 
     #compute Cholesky factors
-    f.cholS = cholesky(f.S, check = true)
-    f.cholZ = cholesky(f.Z, check = true)
+    f.cholS = cholesky!(S, check = true)
+    f.cholZ = cholesky!(Z, check = true)
     (L1,L2) = (f.cholS.L,f.cholZ.L)
 
     #R is the same size as L2'*L1,
@@ -82,13 +79,13 @@ function get_WtW_block!(
     for i = 1:size(B,2)
         @views M = reshape(kRR[:,i],size(R,1),size(R,1))
         b = view(B,:,i)
-        _tovec!(b,M,K)
+        _mat_to_svec!(b,M,K)
     end
 
     #compute WtW = triu(B*B')
     LinearAlgebra.BLAS.syrk!('U', 'N', one(T), B, zero(T), WtW)
 
-    pack_triu(WtWblock,WtW)
+    _pack_triu(WtWblock,WtW)
 
     return nothing
 end
@@ -111,7 +108,6 @@ function λ_circ_λ!(
 end
 
 # implements x = y ∘ z for the SDP cone
-#PJG Bottom p5, CVXOPT
 function circ_op!(
     K::PSDTriangleCone{T},
     x::AbstractVector{T},
@@ -119,46 +115,37 @@ function circ_op!(
     z::AbstractVector{T}
 ) where {T}
 
-    #PJG: allocation here.   Remove
-    (X,Y,Z) = map(m->zeros(K.n,K.n), (x,y,z))
-    map((M,v)->_tomat!(M,v,K),(X,Y,Z),(x,y,z))
+    (Y,Z) = (K.work.workmat1,K.work.workmat2)
+    map((M,v)->_svec_to_mat!(M,v,K),(Y,Z),(y,z))
 
-    X  .= Y*Z + Z*Y
-    X .*= 0.5
-
-    _tovec!(x,X,K)
+    Y  .= (Y*Z + Z*Y)/2
+    _mat_to_svec!(x,Y,K)
 
     return nothing
 end
 
 # implements x = λ \ z for the SDP cone
-# PJG, Top page 14, \S5, CVXOPT
 function λ_inv_circ_op!(
     K::PSDTriangleCone{T},
     x::AbstractVector{T},
     z::AbstractVector{T}
 ) where {T}
 
-    #PJG: allocation here.   Remove
-    (X,Z) = map(m->zeros(K.n,K.n), (x,z))
-    map((M,v)->_tomat!(M,v,K),(X,Z),(x,z))
+    (X,Z) = (K.work.workmat1,K.work.workmat2)
+    map((M,v)->_svec_to_mat!(M,v,K),(X,Z),(x,z))
 
-    # PJG : mayble should only really need to compute
-    # a triangular part of this matrix.  Keeping
-    # like this for now until something works
     λ = K.work.λ
     for i = 1:K.n
         for j = 1:K.n
             X[i,j] = 2*Z[i,j]/(λ[i] + λ[j])
         end
     end
-    _tovec!(x,X,K)
+    _mat_to_svec!(x,X,K)
 
     return nothing
 end
 
 # implements x = y \ z for the SDP cone
-# PJG, Top page 14, \S5, CVXOPT
 function inv_circ_op!(
     K::PSDTriangleCone{T},
     x::AbstractVector{T},
@@ -168,14 +155,12 @@ function inv_circ_op!(
 
     # X should be the solution to (YX + XY)/2 = Z
 
-    # PJG: or general arguments this requires solution to a symmetric
+    #  For general arguments this requires solution to a symmetric
     # Sylvester equation.  Throwing an error here since I do not think
     # the inverse of the ∘ operator is ever required for general arguments,
     # and solving this equation is best avoided.
 
     error("This function not implemented and should never be reached.")
-
-    _tovec!(x,X,K)
 
     return nothing
 end
@@ -187,8 +172,8 @@ function shift_to_cone!(
     z::AbstractVector{T}
 ) where{T}
 
-    Z = zeros(K.n,K.n)
-    _tomat!(Z,z,K)
+    Z = K.work.workmat1
+    _svec_to_mat!(Z,z,K)
 
     α = eigvals(Symmetric(Z),1:1)[1]  #min eigenvalue
 
@@ -215,22 +200,18 @@ function gemv_W!(
 
   β == 0 ? y .= 0 : y .*= β
 
-  #PJG :allocated.  Probably some tomats and
-  #multiplies can be avoided if \beta = 0 or \alpha 1
-  (X,Y) = map(m->zeros(K.n,K.n), (x,y))
-  map((M,v)->_tomat!(M,v,K),(X,Y),(x,y))
+  (X,Y) = (K.work.workmat1,K.work.workmat2)
+  map((M,v)->_svec_to_mat!(M,v,K),(X,Y),(x,y))
 
   R = K.work.R
 
-  #PJG: needs unit test since only one of these
-  #cases is explicitly described in the CVXOPT paper
   if is_transpose === :T
       Y .+= α*(R*X*R')  #W^T*x
   else  # :N
       Y .+= α*(R'*X*R)  #W*x
   end
 
-  _tovec!(y,Y,K)
+  _mat_to_svec!(y,Y,K)
 
   return nothing
 end
@@ -247,22 +228,18 @@ function gemv_Winv!(
 
     β == 0 ? y .= 0 : y .*= β
 
-    #PJG :allocated.  Probably some tomats and
-    #multiplies can be avoided if \beta = 0 or \alpha 1
-    (X,Y) = map(m->zeros(K.n,K.n), (x,y))
-    map((M,v)->_tomat!(M,v,K),(X,Y),(x,y))
+    (X,Y) = (K.work.workmat1,K.work.workmat2)
+    map((M,v)->_svec_to_mat!(M,v,K),(X,Y),(x,y))
 
     Rinv = K.work.Rinv
 
-    #PJG: needs unit test since only one of these
-    #cases is explicitly described in the CVXOPT paper
     if is_transpose === :T
         Y .+= α*(Rinv*X*Rinv')  #W^{-T}*x
     else # :N
         Y .+= α*(Rinv'*X*Rinv)  #W^{-1}*x
     end
 
-    _tovec!(y,Y,K)
+    _mat_to_svec!(y,Y,K)
 
     return nothing
 end
@@ -294,11 +271,8 @@ function step_length(
      s::AbstractVector{T}
 ) where {T}
 
-    #PJG: this inv sqrt is repeating
     Λisqrt = K.work.Λisqrt
-
-    #PJG: DEBUG: allocs here requires removal
-    d   = similar(dz)
+    d   = K.work.workvec
 
     #d = Δz̃ = WΔz
     gemv_W!(K, :N, dz, d, one(T), zero(T))
@@ -318,11 +292,8 @@ function _step_length_psd_component(
     Λisqrt::Diagonal{T}
 ) where {T}
 
-    #PJG:passing K since it probably need a workspace
-
-    #allocate.   Slow AF
-    Δ = zeros(K.n,K.n)
-    _tomat!(Δ,d,K)
+    Δ = K.work.workmat1
+    _svec_to_mat!(Δ,d,K)
 
     #allocate.   Slow AF
     M = Symmetric(Λisqrt*Δ*Λisqrt)
@@ -331,92 +302,4 @@ function _step_length_psd_component(
     α = γ < 0 ? inv(-γ) : inv(eps(T))
     return α
 
-end
-
-# -------------------
-# internal utilities for this cone
-#--------------------
-
-# PJG: This should move to math utils, and should probably
-# apply Vector -> Vector, or have a separate method to do so.
-# Would also be nice to have an option that only fills in the
-# upper triangle of a Symmetric matrix
-
-#make a matrix view from a vectorized input
-function _tomat!(M::AbstractMatrix{T}, x::AbstractVector{T}, K::PSDTriangleCone{T}) where {T}
-
-    #PJG: sanity checking sizes
-    @assert(K.numel == length(x))
-    @assert(K.n == LinearAlgebra.checksquare(M))
-
-    ISQRT2 = inv(sqrt(T(2)))
-
-    #PJG: I am filling in the whole thing, not just the upper
-    #triangular part.   For Cholesky etc only the upper triangle (scaled)
-    #is needed probably
-    idx = 1
-    for col = 1:K.n, row = 1:col
-        if row == col
-            M[row,col] = x[idx]
-            else
-            M[row,col] = x[idx]*ISQRT2
-            M[col,row] = x[idx]*ISQRT2
-        end
-        idx += 1
-    end
-end
-
-# make an svec input from a matrix and should probably
-# apply Vector -> Vector, or have a separate method to do so.
-# Not clear if a another method for reading from the upper
-# triangle only is useful, e.g. for a Symmetric input
-function _tovec!(x::AbstractVector{T},M::AbstractMatrix{T},K::PSDTriangleCone{T}) where {T}
-
-    #PJG: sanity checking sizes
-    @assert(K.numel == length(x))
-    @assert(K.n == LinearAlgebra.checksquare(M))
-
-    ISQRT2 = 1/sqrt(T(2))
-
-    idx = 1
-    for row = 1:K.n, col = 1:row
-        @inbounds x[idx] = row == col ? M[row,col] : (M[row,col]+M[col,row])*ISQRT2
-        idx += 1
-    end
-
-    return nothing
-end
-
-
-_tomat_operator(K::PSDTriangleCone{T}) where {T} = _tomat_operator(T,K.n)
-
-function _tomat_operator(T,n::Int)
-
-    ISQRT2 = 1. / sqrt(T(2.))
-
-    nrows = n^2
-    ncols = (n*(n+1))>>1
-    numel = nrows
-
-    IX = zeros(Int,numel)
-    JX = zeros(Int,numel)
-    VX = zeros(Float64,numel)
-
-    i = 1
-    for c = 1:n, r = 1:n
-        IX[i] = i
-        if r == c
-            JX[i] = (r*(r+1)) >> 1
-            VX[i] = 1
-        elseif r > c  #lower triangle
-            JX[i] = ((r*(r-1)) >> 1) + c
-            VX[i] = ISQRT2
-        else          #upper triangle
-            JX[i] = ((c*(c-1)) >> 1) + r
-            VX[i] = ISQRT2
-        end
-        i = i+1
-    end
-
-    Q = sparse(IX,JX,VX)
 end
