@@ -1,11 +1,9 @@
+![Clarabel-Banner-Light](https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/logo-banner-light.png#gh-light-mode-only)
+![Clarabel-Banner-Dark](https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/logo-banner-dark.png#gh-dark-mode-only)
+
 
 <h1 align="center">
 Clarabel.jl : Interior Point Conic Optimization for Julia
-</h1>
-
-<h1 align="center" margin=0px>
-  <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/logo.png" width=25%>
-    <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/ox_logo.png" width=25%>
 </h1>
 <p align="center">
    <a href="https://github.com/oxfordcontrol/Clarabel.jl/actions"><img src="https://github.com/oxfordcontrol/Clarabel.jl/workflows/ci/badge.svg?branch=main"></a>
