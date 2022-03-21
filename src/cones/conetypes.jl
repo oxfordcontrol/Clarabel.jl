@@ -93,8 +93,6 @@ SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
 
 mutable struct PSDConeWork{T}
 
-    S::Matrix{T}
-    Z::Matrix{T}
     cholS::Union{Nothing,Cholesky{T,Matrix{T}}}
     cholZ::Union{Nothing,Cholesky{T,Matrix{T}}}
     SVD::Union{Nothing,SVD{T,T,Matrix{T}}}
@@ -106,11 +104,17 @@ mutable struct PSDConeWork{T}
     B::Matrix{T}
     WtW::Matrix{T}
 
+    #workspace for various internal use
+    workmat1::Matrix{T}
+    workmat2::Matrix{T}
+    workvec::Vector{T}
+
     function PSDConeWork{T}(n::Int) where {T}
 
-        S      = zeros(T,n,n)
-        Z      = zeros(T,n,n)
+        #there is no obvious way of pre-allocating
+        #or recycling memory in these factorizations
         (cholS,cholZ,SVD) = (nothing,nothing,nothing)
+
         λ      = zeros(T,n)
         Λisqrt = Diagonal(zeros(T,n))
         R      = zeros(T,n,n)
@@ -119,8 +123,12 @@ mutable struct PSDConeWork{T}
         B      = zeros(T,((n+1)*n)>>1,n^2)
         WtW    = zeros(T,size(B,1),size(B,1))
 
-        return new(S,Z,cholS,cholZ,SVD,λ,Λisqrt,
-                   R,Rinv,kronRR,B,WtW)
+        workmat1 = zeros(T,n,n)
+        workmat2 = zeros(T,n,n)
+        workvec  = zeros(T,(n*(n+1))>>1)
+
+        return new(cholS,cholZ,SVD,λ,Λisqrt,R,Rinv,
+                   kronRR,B,WtW,workmat1,workmat2,workvec)
     end
 end
 
