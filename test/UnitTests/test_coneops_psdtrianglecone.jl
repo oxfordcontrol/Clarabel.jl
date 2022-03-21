@@ -27,14 +27,14 @@ FloatT = Float64
         x = zeros((n*(n+1))>>1)
         y = zeros((n*(n+1))>>1)
 
-        map((v,M)->Clarabel._tovec!(v,M,K), (x,y), (X,Y))
+        map((v,M)->Clarabel._mat_to_svec!(v,M,K), (x,y), (X,Y))
         @test x'y - tr(X'Y)≈ 0  atol = 1e-12
 
-        Clarabel._tovec!(x,X,K)
-        Clarabel._tomat!(Z,x,K)
+        Clarabel._mat_to_svec!(x,X,K)
+        Clarabel._svec_to_mat!(Z,x,K)
         @test norm(X-Z) ≈ 0     atol = 1e-12
 
-        Q = Clarabel._tomat_operator(Float64, n)
+        Q = Clarabel._svec_to_mat_operator(Float64, n)
         @test norm(Q'*Q - I) ≈ 0     atol = 1e-12
         @test norm(Q*x - X[:]) ≈ 0     atol = 1e-12
         @test norm(Q'*Z[:] - x) ≈ 0     atol = 1e-12
@@ -52,13 +52,13 @@ FloatT = Float64
         Y = randsym(rng, n)
         Z = randsym(rng, n)
         (x,y,z) = map(v->zeros((n*(n+1))>>1),1:3)
-        map((v,M)->Clarabel._tovec!(v,M,K), (y,z), (Y,Z))
+        map((v,M)->Clarabel._mat_to_svec!(v,M,K), (y,z), (Y,Z))
         K = Clarabel.PSDTriangleCone(n)
 
         X1 .= 0.5*(Y*Z + Z*Y)
 
         Clarabel.circ_op!(K,x,y,z)
-        Clarabel._tomat!(X2,x,K)
+        Clarabel._svec_to_mat!(X2,x,K)
 
         @test tr(X1) ≈ dot(y,z)
         @test norm(X2-X1) ≈ 0   atol = 1e-12
@@ -76,7 +76,7 @@ FloatT = Float64
         Z = zeros(n,n)
         W = zeros(n,n)
         (x,z,λ,w) = map(m->zeros(K.numel), 1:4)
-        map((v,M)->Clarabel._tovec!(v,M,K),(x,z,λ,w),(X,Z,Λ,W))
+        map((v,M)->Clarabel._mat_to_svec!(v,M,K),(x,z,λ,w),(X,Z,Λ,W))
 
         #Z = 1/2(ΛX + XΛ)
         Clarabel.circ_op!(K,z,λ,x)
@@ -84,7 +84,7 @@ FloatT = Float64
         #W should now be the solution to 1/2(ΛW + WΛ) = Z
         K.work.λ .= λdiag        #diagonal internal scaling
         Clarabel.λ_inv_circ_op!(K,w,z)
-        Clarabel._tomat!(W,w,K)
+        Clarabel._svec_to_mat!(W,w,K)
 
         #now we should have x = w
         @test norm(x  - w) ≈ 0 atol = 100*eps(FloatT)
@@ -105,9 +105,9 @@ FloatT = Float64
         x = zeros(K.numel)
 
         XplusaI = X + a*I(n)
-        Clarabel._tovec!(x,X,K)
+        Clarabel._mat_to_svec!(x,X,K)
         Clarabel.add_scaled_e!(K,x,a)
-        Clarabel._tomat!(X,x,K)
+        Clarabel._svec_to_mat!(X,x,K)
 
         @test norm(X - XplusaI) ≈ 0
 
@@ -122,17 +122,17 @@ FloatT = Float64
         X = -randpsd(rng,n).*0
         X = X - 1e-10*I(n)
         x = zeros(K.numel)
-        Clarabel._tovec!(x,X,K)
+        Clarabel._mat_to_svec!(x,X,K)
         Clarabel.shift_to_cone!(K,x)
-        Clarabel._tomat!(X,x,K)
+        Clarabel._svec_to_mat!(X,x,K)
         @test minimum(eigvals(X)) ≈ 1
 
         #X is positive definite.   eigenvalues should not change
         X = randpsd(rng,n)
         e = minimum(eigvals(X))
-        Clarabel._tovec!(x,X,K)
+        Clarabel._mat_to_svec!(x,X,K)
         Clarabel.shift_to_cone!(K,x)
-        Clarabel._tomat!(X,x,K)
+        Clarabel._svec_to_mat!(X,x,K)
         @test minimum(eigvals(X)) ≈ e
 
     end
@@ -148,7 +148,7 @@ FloatT = Float64
         Z = randpsd(rng,n)
 
         (s,z) = map(m->zeros(K.numel), 1:2)
-        map((v,M)->Clarabel._tovec!(v,M,K),(s,z),(S,Z))
+        map((v,M)->Clarabel._mat_to_svec!(v,M,K),(s,z),(S,Z))
 
         Clarabel.update_scaling!(K,s,z)
 
@@ -174,7 +174,7 @@ FloatT = Float64
         S = randpsd(rng,n); dS = randsym(rng,n)
 
         (s,z,ds,dz) = map(m->zeros(K.numel), 1:4)
-        map((v,M)->Clarabel._tovec!(v,M,K),(s,z,ds,dz),(S,Z,dS,dZ))
+        map((v,M)->Clarabel._mat_to_svec!(v,M,K),(s,z,ds,dz),(S,Z,dS,dZ))
 
         #compute internal scaling required for step calc
         Clarabel.update_scaling!(K,s,z)
@@ -195,7 +195,7 @@ FloatT = Float64
 
         #unbounded
         dS .= randpsd(rng,n); dZ .= randpsd(rng,n)
-        map((v,M)->Clarabel._tovec!(v,M,K),(ds,dz),(dS,dZ))
+        map((v,M)->Clarabel._mat_to_svec!(v,M,K),(ds,dz),(dS,dZ))
         (αz,αs) = Clarabel.step_length(K,dz,ds,z,s)
         @test min(αz,αs) ≈ inv(eps(FloatT))  rtol = 10*eps(FloatT)
 
@@ -208,7 +208,7 @@ FloatT = Float64
 
         (Z,S,V1,V2) = map(m->randpsd(rng,n), 1:4)
         (s,z,v1,v2) = map(m->zeros(K.numel), 1:4)
-        map((v,M)->Clarabel._tovec!(v,M,K),(s,z,v1,v2),(S,Z,V1,V2))
+        map((v,M)->Clarabel._mat_to_svec!(v,M,K),(s,z,v1,v2),(S,Z,V1,V2))
 
         #compute internal scaling required for step calc
         Clarabel.update_scaling!(K,s,z)
@@ -239,7 +239,7 @@ FloatT = Float64
 
         (Z,S,V1,V2,V3) = map(m->randpsd(rng,n), 1:5)
         (z,s,v1,v2,v3) = map(m->zeros(K.numel), 1:5)
-        map((v,M)->Clarabel._tovec!(v,M,K),(s,z,v1,v2,v3),(S,Z,V1,V2,V3))
+        map((v,M)->Clarabel._mat_to_svec!(v,M,K),(s,z,v1,v2,v3),(S,Z,V1,V2,V3))
 
         #compute internal scaling required for step calc
         Clarabel.update_scaling!(K,s,z)
