@@ -14,6 +14,7 @@ Symbol | Package | Description
 ---  | :--- | :---
 :qdldl | [QDLDL.jl](https://github.com/osqp/QDLDL.jl)   | Default solver
 :mkl   | [Pardiso.jl](https://github.com/JuliaSparse/Pardiso.jl) | Intel MKL Pardiso
+:cholmod | Julia native [ldlt](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/#LinearAlgebra.ldlt) solver | SuiteSparse.CHOLMOD
 
 !!! note
     To use the MKL Pardiso solver you must install the respective libraries and the corresponding Julia wrapper. For more information about installing these, visit the [Pardiso.jl](https://github.com/JuliaSparse/Pardiso.jl) repository page.

@@ -20,7 +20,7 @@ end
 @testset "Basic LP Tests" begin
 
     for FloatT in UnitTestFloats
-        
+
         @testset "Basic LP Tests (T = $(FloatT))" begin
 
             tol = FloatT(1e-3)
@@ -31,7 +31,7 @@ end
                 Clarabel.solve!(solver)
 
                 @test solver.info.status == Clarabel.SOLVED
-                @test isapprox(norm(solver.variables.x - FloatT[-0.5; 0.5; -0.5]), zero(FloatT), atol=tol)
+                @test isapprox(norm(solver.result.x - FloatT[-0.5; 0.5; -0.5]), zero(FloatT), atol=tol)
                 @test isapprox(solver.info.cost_primal, FloatT(-3.), atol=tol)
 
             end
