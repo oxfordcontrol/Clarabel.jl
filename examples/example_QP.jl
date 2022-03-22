@@ -70,15 +70,11 @@ nothing  #hide
 # Finally we can populate the solver with problem data and solve
 
 Clarabel.setup!(solver, P, q, A, b, cone_types, cone_dims, settings)
-Clarabel.solve!(solver)
+result = Clarabel.solve!(solver)
 
 # then retrieve our solution
 
-solver.variables.x
-
-# and the termination status of the solver
-
-solver.info.status
+result.x
 
 #=
 !!! tip

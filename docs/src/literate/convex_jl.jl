@@ -14,7 +14,7 @@ where `problem` is an object of type `Convex.Problem`.
 
 Clarabel.jl supports both Convex.jl and JuMP via MathOptInterface.   Both packages are excellent and can make problem construction considerably easier than via the solver's native interface.
 
-For problems with quadratic objective functions, JuMP is generally preferred when using Clarabel.jl since it will keep the quadratic function in the objective rather than reformulating the problem to a form with a linear cost and additional second-order cone constraints.   Clarabel.jl natively supports quadratic objectives and solve times are generally faster if this reformulation is avoided. 
+For problems with quadratic objective functions, JuMP is generally preferred when using Clarabel.jl since it will keep the quadratic function in the objective rather than reformulating the problem to a form with a linear cost and additional second-order cone constraints.   Clarabel.jl natively supports quadratic objectives and solve times are generally faster if this reformulation is avoided.
 
 ## Arbitrary Precision Arithmetic
 

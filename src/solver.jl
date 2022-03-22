@@ -99,6 +99,9 @@ function setup!(
         s.step_rhs  = DefaultVariables{T}(s.data.n,s.cones)
         s.step_lhs  = DefaultVariables{T}(s.data.n,s.cones)
 
+        # user facing results go here
+        s.result    = Result{T}(s.data.m,s.data.n,s.info.timer)
+
     end
 
     return s
@@ -224,14 +227,14 @@ function solve!(
 
         end #end IP iteration timer
 
-    variables_finalize!(s.variables, s.equilibration, s.info.status)
-
     end #end solve! timer
 
-    info_finalize!(s.info)
+    info_finalize!(s.info)  #halts timers
+    result_finalize!(s.result,s.variables,s.equilibration,s.info)
+
     @notimeit print_footer(s.info,s.settings)
 
-    return nothing
+    return s.result
 end
 
 
@@ -254,4 +257,9 @@ function solver_default_start!(s::Solver{T}) where {T}
     variables_shift_to_cone!(s.variables, s.cones)
 
     return nothing
+end
+
+
+function Base.show(io::IO, solver::Clarabel.Solver{T}) where {T}
+    println(io, "Clarabel model with Float precision: $(T)")
 end

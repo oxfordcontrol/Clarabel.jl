@@ -50,7 +50,11 @@ nothing  #hide
 # Finally we can set up the problem in the usual way and solve
 
 Clarabel.setup!(solver, P, q, A, b, cone_types, cone_dims, settings)
-Clarabel.solve!(solver)
+result = Clarabel.solve!(solver)
+
+#then retrieve the solution
+
+result.x
 
 # Notice that the above would fail if the default solver was used, because Clarabel.jl uses Float64 by default
 Clarabel.Solver()
