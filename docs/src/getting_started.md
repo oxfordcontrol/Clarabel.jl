@@ -99,7 +99,7 @@ cone_dims  = [1,2,3]
 
 
 ## Adding problem data
-Once the objective function and an array of constraints have been defined, you can populate the solver with problem data using
+Once the objective function and an array of constraints have been defined, you can provide the solver with problem data using
 ```julia
 Clarabel.setup!(solver, P, q, A, b, cone_types, cone_dims, settings)
 ```
@@ -107,14 +107,14 @@ This takes an internal copy of all data parameters and initializes internal vari
 
 
 ## Solving
-Once you have populate your solver with problem data, you can solve it:
+Now you can solve it using:
 ```julia
-Clarabel.solve!(solver)
+result = Clarabel.solve!(solver)
 ```
 
 ## Results
 
-Once the solver algorithm terminates, you can inspect the solver solution using the `solver.variables` and the `solver.info` fields.   In particular, the outcome of the solve is specified in `solver.info.status` and will be one of the following :
+Once the solver algorithm terminates you can inspect the solution using the `result` object and the `result.info` fields.   The primal solution will be in `result.x` and the dual solution in `result.z`. The outcome of the solve is specified in `result.status` and will be one of the following :
 
 ### Status Codes
 
@@ -128,6 +128,10 @@ DUAL_INFEASIBLE     |  Problem is dual infeasible
 MAX_ITERATIONS      |  Solver halted after reaching iteration limit
 MAX_TIME            |  Solver halted after reaching time limit
 
+The total solution time (include combined `setup!` and `solve!` times) is given in `result.info.solve_time`.   Detailed information about the solve time and memory allocation can be found in `result.info.timer`.
+
+!!! warning
+    Be careful to retrieve solver solutions from the `result` that is returned by the solver, or directly from a `solver` object from the `solver.result` field.   Do *not* use the `solver.variables`, since these have both homogenization and equilibration scaling applied and therefore do *not* solve the optimization problem posed to the solver.
 
 ### Settings
 

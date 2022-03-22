@@ -17,6 +17,7 @@ module Clarabel
     include("./residuals.jl")
     include("./equilibration.jl")
     include("./info.jl")
+    include("./result.jl")
 
     #direct LDL linear solve methods
     include("./kktsolvers/direct-ldl/includes.jl")
@@ -26,9 +27,8 @@ module Clarabel
     include("./kktsolvers/kktsolver_directldl.jl")
     include("./kktsystem.jl")
 
-    # display, print and top level solver
+    # printing and top level solver
     include("./printing.jl")
-    include("./show.jl")
     include("./solver.jl")
 
     #conic constraints.  Additional

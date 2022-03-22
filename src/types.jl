@@ -267,6 +267,74 @@ end
 
 DefaultInfo(args...) = DefaultInfo{DefaultFloat}(args...)
 
+
+# ---------------
+# solver results
+# ---------------
+
+"""
+    ResultInfo{T <: AbstractFloat}
+Object that contains further information about the primal and dual residuals, solver iterations and solve time.
+
+Field | Description
+:--- | :---
+iter         | number of interior point iterations
+r_prim       | primal residual at termination
+r_dual       | dual residual at termination
+solve_time   | total solve time (includes setup! and solve!)
+timer        | more detailed timing and allocation information
+
+"""
+mutable struct ResultInfo{T <: AbstractFloat}
+    iter::Int
+    r_prim::T
+    r_dual::T
+    solve_time::T
+    timer::TimerOutput
+end
+
+function ResultInfo{T}(timer::TimerOutput) where {T <: AbstractFloat}
+  return ResultInfo{T}(0,0.,0.,0.,timer)
+end
+
+ResultInfo(args...) = ResultInfo{DefaultFloat}(args...)
+
+"""
+    Result{T <: AbstractFloat}
+Object returned by the Clarabel solver after calling `optimize!(model)`.
+
+Fieldname | Description
+---  | :--- | :---
+x | Vector{T}| Primal variable
+z | Vector{T}| Dual variable
+s | Vector{T}| (Primal) set variable
+obj_val | T | Objective value
+status | Symbol | Solution status
+
+If the status field indicates that the problem is solved then (x,z,s) are the calculated solution, or a best guess if the solver has terminated early due to time or iterations limits.
+
+If the status indicates either primal or dual infeasibility, then (x,z,s) provide instead an infeasibility certificate.
+"""
+mutable struct Result{T <: AbstractFloat}
+    x::Vector{T}
+    z::Vector{T}
+    s::Vector{T}
+    obj_val::T
+    status::SolverStatus
+    info::ResultInfo
+
+    function Result{T}(m,n,timer) where {T <: AbstractFloat}
+        x = Vector{T}(undef,n)
+        z = Vector{T}(undef,m)
+        s = Vector{T}(undef,m)
+      return new(x,z,s,NaN,UNSOLVED,ResultInfo(timer))
+    end
+
+end
+
+Result(args...) = Result{DefaultFloat}(args...)
+
+
 # -------------------------------------
 # top level solver type
 # -------------------------------------
@@ -289,6 +357,7 @@ mutable struct Solver{T <: AbstractFloat}
     info::Union{AbstractInfo{T},Nothing}
     step_lhs::Union{AbstractVariables{T},Nothing}
     step_rhs::Union{AbstractVariables{T},Nothing}
+    result::Union{Result{T},Nothing}
     settings::Settings{T}
 
 end

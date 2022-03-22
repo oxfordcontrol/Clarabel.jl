@@ -203,7 +203,7 @@ MOI.set(opt::Optimizer, param::MOI.RawOptimizerAttribute, value) =
 MOI.supports(::Optimizer, ::MOI.VariablePrimal) = true
 function MOI.get(opt::Optimizer, a::MOI.VariablePrimal, vi::MOI.VariableIndex)
     MOI.check_result_index_bounds(opt, a)
-    return opt.inner.variables.x[vi.value]
+    return opt.inner.result.x[vi.value]
 end
 
 MOI.supports(::Optimizer, ::MOI.ConstraintPrimal) = true
@@ -214,8 +214,8 @@ function MOI.get(
 ) where {F, S <: MOI.AbstractSet}
 
     MOI.check_result_index_bounds(opt, a)
-    rows = constraint_rows(opt.rowranges, ci)   
-    sout = unscalecoef(opt.inner.variables.s[rows],S)
+    rows = constraint_rows(opt.rowranges, ci)
+    sout = unscalecoef(opt.inner.result.s[rows],S)
     return sout
 end
 
@@ -228,7 +228,7 @@ function MOI.get(
 
     MOI.check_result_index_bounds(opt, a)
     rows = constraint_rows(opt.rowranges, ci)
-    zout = unscalecoef(opt.inner.variables.z[rows],S)
+    zout = unscalecoef(opt.inner.result.z[rows],S)
     return zout
 end
 
