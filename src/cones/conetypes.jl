@@ -1,11 +1,7 @@
-# -------------------------------------
+    # -------------------------------------
 # abstract type defs
 # -------------------------------------
 abstract type AbstractCone{T} end
-
-function Base.deepcopy(m::Type{<: AbstractCone{T}}) where {T}
-    typeof(m)(deepcopy(m.dim))
-end
 
 # -------------------------------------
 # Zero Cone
