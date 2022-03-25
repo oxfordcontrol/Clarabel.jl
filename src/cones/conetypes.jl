@@ -154,6 +154,60 @@ end
 PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 
 
+# ----------------------------------------------------
+# Exponential Cone
+# ----------------------------------------------------
+
+#   YC: contain both primal & dual variables at present
+mutable struct ExponentialCone{T} <: AbstractCone{T}
+
+    dim::DefaultInt
+
+    #internal working variables for W: s, δ, z, r, t
+    #W = [s/sqrt(<x,s>); δs/sqrt(<δx,δs>); sqrt(t)*z]⊤, W^{-1} = [x/sqrt(<x,s>); δx/sqrt(<δx,δs>); r/sqrt(t)]⊤
+    W::Matrix{T}        #Scaling matrix W
+    invW::Matrix{T}     #inverse scaling matrix W^{-1}
+
+    x::Vector{T}
+    xt::Vector{T}
+    δx::Vector{T}
+    s::Vector{T}
+    st::Vector{T}
+    δs::Vector{T}
+    z::Vector{T}
+    r::Vector{T}
+    t::T
+    v::Vector{T}        #x
+    vt::Vector{T}
+
+
+    function ExponentialCone{T}() where {T}
+        dim = 3
+
+        #explicit initialzation of x,s as Mosek
+        x = [1.290928; 0.805102; -0.827838]
+        s = [1.290928; 0.805102; -0.827838]
+        xt = 
+        st =
+        δx =
+        δs =
+        z =
+        r =
+        t =
+
+        W =
+        invW =
+
+        v = W*x
+        vt = W*xt
+
+        return new(dim,W,invW,x,xt,δx,s,st,δs,z,r,t,v,vt)
+    end
+
+end
+
+ExponentialCone(args...) = ExponentialCone{DefaultFloat}(args...)
+
 # -------------------------------------
 # Enum and dict for user interface
 # -------------------------------------
@@ -166,12 +220,14 @@ supported types are:
 * `NonnegativeConeT`: The nonnegative orthant.
 * `SecondOrderConeT`: The second order / Lorentz / ice-cream cone.
 # `PSDTriangleConeT`: The positive semidefinite cone (triangular format).
+# `ExponentialConeTT`: The exponetial cone (under development).
 """
 @enum SupportedCones begin
     ZeroConeT
     NonnegativeConeT
     SecondOrderConeT
     PSDTriangleConeT
+    ExponentialConeT
 end
 
 """
@@ -184,4 +240,5 @@ const ConeDict = Dict(
     NonnegativeConeT => NonnegativeCone,
     SecondOrderConeT => SecondOrderCone,
     PSDTriangleConeT => PSDTriangleCone,
+    ExponentialConeT => ExponentialCone,
 )
