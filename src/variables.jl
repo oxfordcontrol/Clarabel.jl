@@ -22,6 +22,7 @@ function calc_step_length(
 
     α = min(ατ,ακ,one(T))
 
+    # Find a feasible step size for all cones
     # YC: add an extra input parameter α for step searching of unsymmetric cones
     α = cones_step_length(cones, step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ, α)
     # println("α after feasibility check: ", α)

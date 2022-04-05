@@ -76,7 +76,7 @@ A5_tmp[3,1] = -1.
 #Run the opimization
 optimize!(model)
 
-settings = Clarabel.Settings(max_iter=50,direct_kkt_solver=true, equilibrate_enable = false)
+settings = Clarabel.Settings(max_iter=50,direct_kkt_solver=true)
 solver   = Clarabel.Solver()
 Clarabel.setup!(solver,P,c,A,b,cone_types,cone_dims,settings)
 Clarabel.debug_solve!(solver)
