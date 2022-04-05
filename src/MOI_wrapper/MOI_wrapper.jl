@@ -20,10 +20,10 @@ const OptimizerSupportedMOICones{T} = Union{
     MOI.Nonnegatives,
     MOI.SecondOrderCone,
     MOI.PositiveSemidefiniteConeTriangle,
+    MOI.ExponentialCone,
     _DummyConeType{T},    #<-placeholder until PowerCone{T} is added
     # MOI.PowerCone{T},
     # MOI.DualPowerCone{T},
-    # MOI.ExponentialCone,
 } where {T}
 
 #Optimizer will consolidate cones of these types if possible
@@ -36,6 +36,7 @@ const MOItoClarabelCones = Dict([
     MOI.Zeros           => Clarabel.ZeroConeT,
     MOI.Nonnegatives    => Clarabel.NonnegativeConeT,
     MOI.SecondOrderCone => Clarabel.SecondOrderConeT,
+    MOI.ExponentialCone => Clarabel.ExponentialConeT
     MOI.PositiveSemidefiniteConeTriangle => Clarabel.PSDTriangleConeT
 ])
 
