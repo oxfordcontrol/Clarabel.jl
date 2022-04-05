@@ -2,6 +2,10 @@
 # dispatch operators for multiple cones
 # -----------------------------------------------------
 
+function cones_all_symmetric(cones::ConeSet{T}) where {T}
+    return any(is_symmetric, cones)
+end
+
 function cones_rectify_equilibration!(
     cones::ConeSet{T},
      δ::ConicVector{T},
@@ -258,7 +262,7 @@ function cones_step_length(
     # feasible step_size for unsymmetric cones
     for i = eachindex(cones)
         # don't implement it for unsymmetric cones
-        if cones.types[i] == ExponentialConeT
+            if cones.types[i] == ExponentialConeT
             αzs = unsymmetric_step_length(cones[i],dz[i],ds[i],z[i],s[i],α,cones.scaling)
             α = min(α,αzs)
         end
@@ -285,11 +289,6 @@ function check_exp_μ_and_centrality(cones::ConeSet{T},
     z     = z.views
     s     = s.views
 
-    # YC: scaling parameter to avoid reaching the boundary of cones
-        # when we compute barrier functions
-    # NB: different choice of α yields different performance, don't know how to explain it
-    α *= T(0.99)
-
     length_exp = cones.type_counts[ExponentialConeT]
     ind_exp = cones.ind_exp
     scaling = cones.scaling
@@ -308,18 +307,15 @@ function check_exp_μ_and_centrality(cones::ConeSet{T},
                 println("too close to boundary")
                 α *= scaling
                 μ = (zs + τ*κ + α*(s_dz + z_ds + dτ*κ + τ*dκ) + α^2*(dzs + dτ*dκ))/(cones.degree + 1)
-                upper = cones.minDist*μ
 
                 i = 0   #restart from the first exponential cone
             end
         end
 
         # check centrality, functional proximity measure
-        # NB: the update x+α*dx is inefficient right now and need to be rewritten later
-        barrier = central_coef*log(μ) - log(τ+α*dτ) - log(κ+α*dκ)
-
+        barrier = central_coef*log(μ) - log(τ) - log(κ)
         for i = eachindex(cones)
-            barrier += f_sum(cones[i], s[i]+α*ds[i], z[i]+α*dz[i])
+            barrier += f_sum(cones[i], s[i], z[i])
         end
 
         if barrier < 1.

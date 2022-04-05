@@ -36,7 +36,7 @@ const MOItoClarabelCones = Dict([
     MOI.Zeros           => Clarabel.ZeroConeT,
     MOI.Nonnegatives    => Clarabel.NonnegativeConeT,
     MOI.SecondOrderCone => Clarabel.SecondOrderConeT,
-    MOI.ExponentialCone => Clarabel.ExponentialConeT
+    MOI.ExponentialCone => Clarabel.ExponentialConeT,
     MOI.PositiveSemidefiniteConeTriangle => Clarabel.PSDTriangleConeT
 ])
 

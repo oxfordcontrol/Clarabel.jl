@@ -14,6 +14,10 @@ dim(K::AbstractCone{T}) where {T} = K.dim
 degree(K::AbstractCone{T}) where {T} = dim(K)
 numel(K::AbstractCone{T}) where {T} = dim(K)
 
+#All cones default to symmetric unless overridden
+is_symmetric(::AbstractCone{T}) where {T} = true
+
+
 #NB: custom rectify functions should return
 #true unless δ == e on return
 function rectify_equilibration!(
