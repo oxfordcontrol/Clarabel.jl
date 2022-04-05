@@ -145,7 +145,7 @@ function kkt_solve!(
         cones_gemv_W!(cones, :T, tmp, Wtlinvds, one(T), zero(T)) #Wᵀ(λ \ ds) = Wᵀ(tmp)
     end
     
-    # YC: no Wᵀ(λ \ ds) operation for nonsymmetric cones, just ds
+    # YC: for unsymmetric cones, set Wᵀ(λ \ ds) = ds
     for i = 1:length_exp
         Wtlinvds.views[ind_exp[i]] .= rhs.s.views[ind_exp[i]]
     end

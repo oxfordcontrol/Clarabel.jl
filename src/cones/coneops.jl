@@ -285,7 +285,6 @@ function check_exp_μ_and_centrality(cones::ConeSet{T},
     z     = z.views
     s     = s.views
 
-    ncones = length(cones)
     length_exp = cones.type_counts[ExponentialConeT]
     ind_exp = cones.ind_exp
     scaling = cones.scaling

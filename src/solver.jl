@@ -241,6 +241,118 @@ function solve!(
     return s.result
 end
 
+function debug_solve!(
+    s::Solver{T}
+) where{T}
+
+    #various initializations
+    info_reset!(s.info)
+    iter   = 0
+    isdone = false
+    timer  = s.info.timer
+
+    #initial residuals and duality gap
+    gap       = T(0)
+    sigma     = T(0)
+
+    #solver release info, solver config
+    #problem dimensions, cone type etc
+    print_header(s.info,s.settings,s.data,s.cones)
+
+    #initialize variables to some reasonable starting point
+    solver_default_start!(s)
+
+    #----------
+    # main loop
+    #----------
+    while true
+
+        #update the residuals
+        #--------------
+        residuals_update!(s.residuals,s.variables,s.data)
+
+        #calculate duality gap (scaled)
+        #--------------
+        μ = calc_mu(s.variables, s.residuals, s.cones)
+
+        #convergence check and printing
+        #--------------
+            info_update!(
+                s.info,s.data,s.variables,
+                s.residuals,s.equilibration,s.settings
+            )
+            isdone = info_check_termination!(s.info,s.residuals,s.settings)
+
+        iter += 1
+        @notimeit print_status(s.info,s.settings)
+        isdone && break
+
+        #update the scalings
+        #--------------
+        scaling_update!(s.cones,s.variables,μ)
+
+        #update the KKT system and the constant
+        #parts of its solution
+        #--------------
+        kkt_update!(s.kktsystem,s.data,s.cones)
+
+        #calculate the affine step
+        #--------------
+        calc_affine_step_rhs!(
+            s.step_rhs, s.residuals,
+            s.data, s.variables, s.cones
+        )
+
+        kkt_solve!(
+            s.kktsystem, s.step_lhs, s.step_rhs,
+            s.data, s.variables, s.cones, :affine
+        )
+
+        #calculate step length and centering parameter
+        #--------------
+        α = calc_step_length(s.variables,s.step_lhs,s.cones)
+        σ = calc_centering_parameter(α)
+
+        #calculate the combined step and length
+        #--------------
+        calc_combined_step_rhs!(
+            s.step_rhs, s.residuals,
+            s.data, s.variables, s.cones,
+            s.step_lhs, σ, μ
+        )
+
+        kkt_solve!(
+            s.kktsystem, s.step_lhs, s.step_rhs,
+            s.data, s.variables, s.cones, :combined
+        )
+
+        #compute final step length and update the current iterate
+        #--------------
+        α = calc_step_length(s.variables,s.step_lhs,s.cones)
+        α *= s.settings.max_step_fraction
+
+        variables_add_step!(s.variables,s.step_lhs,α)
+
+        #record scalar values from this iteration
+        info_save_scalars(s.info,μ,α,σ,iter)
+
+        # #update the scalings
+        # #--------------
+        # @timeit_debug timer "NT scaling" scaling_update!(s.cones,s.variables,μ)
+
+    end  #end while
+    #----------
+    #----------
+
+
+    info_finalize!(s.info)  #halts timers
+    result_finalize!(s.result,s.variables,s.equilibration,s.info)
+
+    print_footer(s.info,s.settings)
+
+    return s.result
+end
+
 # Mehrotra heuristic
 function calc_centering_parameter(α::T) where{T}
 
