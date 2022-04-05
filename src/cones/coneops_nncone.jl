@@ -17,6 +17,7 @@ function update_scaling!(
     K::NonnegativeCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
+    μ::T
 ) where {T}
 
     @. K.λ = sqrt(s*z)
@@ -113,6 +114,20 @@ function shift_to_cone!(
     return nothing
 end
 
+# unsymmetric initialization
+function unsymmetric_init!(
+   K::NonnegativeCone{T},
+   s::AbstractVector{T},
+   z::AbstractVector{T}
+) where{T}
+
+    s .= zero(T)                #or just s .= one(T); z .= one(T)
+    z .= zero(T)
+    add_scaled_e!(K,s,one(T))
+    add_scaled_e!(K,z,one(T))
+
+   return nothing
+end
 
 # implements y = αWx + βy for the nn cone
 function gemv_W!(
@@ -154,7 +169,7 @@ end
 
 # implements y = y + αe for the nn cone
 function add_scaled_e!(
-    K::NonnegativeCone,
+    K::NonnegativeCone{T},
     x::AbstractVector{T},α::T
 ) where {T}
 
@@ -183,4 +198,18 @@ function step_length(
     end
 
     return (αz,αs)
+end
+
+function f_sum(
+    K::NonnegativeCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+
+    barrier = T(0)
+    for i = 1:K.dim
+        barrier += -log(s[i]) - log(z[i])
+    end
+
+    return barrier
 end

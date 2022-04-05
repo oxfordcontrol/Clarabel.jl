@@ -170,7 +170,7 @@ function solve!(
 
             #update the scalings
             #--------------
-            @timeit_debug timer "NT scaling" scaling_update!(s.cones,s.variables)
+            @timeit_debug timer "NT scaling" scaling_update!(s.cones,s.variables,μ)
 
             #update the KKT system and the constant
             #parts of its solution
@@ -221,6 +221,10 @@ function solve!(
             #record scalar values from this iteration
             info_save_scalars(s.info,μ,α,σ,iter)
 
+            # #update the scalings
+            # #--------------
+            # @timeit_debug timer "NT scaling" scaling_update!(s.cones,s.variables,μ)
+
         end  #end while
         #----------
         #----------
@@ -237,7 +241,6 @@ function solve!(
     return s.result
 end
 
-
 # Mehrotra heuristic
 function calc_centering_parameter(α::T) where{T}
 
@@ -246,19 +249,25 @@ end
 
 
 function solver_default_start!(s::Solver{T}) where {T}
-
-    #set all scalings to identity (or zero for the zero cone)
-    cones_set_identity_scaling!(s.cones)
-    #Refactor
-    kkt_update!(s.kktsystem,s.data,s.cones)
-    #solve for primal/dual initial points via KKT
-    kkt_solve_initial_point!(s.kktsystem,s.variables,s.data)
-    #fix up (z,s) so that they are in the cone
-    variables_shift_to_cone!(s.variables, s.cones)
+    # YC:If there are only smmetric cones, use Mehrotra initialization strategy as ECOS and CVXOPT
+    # Otherwise, initialize along central rays
+    if (s.cones.type_counts[ZeroConeT] + s.cones.type_counts[NonnegativeConeT] +
+        s.cones.type_counts[SecondOrderConeT] + s.cones.type_counts[PSDTriangleConeT] == length(s.cones))
+        #set all scalings to identity (or zero for the zero cone)
+        cones_set_identity_scaling!(s.cones)
+        #Refactor
+        kkt_update!(s.kktsystem,s.data,s.cones)
+        #solve for primal/dual initial points via KKT
+        kkt_solve_initial_point!(s.kktsystem,s.variables,s.data)
+        #fix up (z,s) so that they are in the cone
+        variables_shift_to_cone!(s.variables, s.cones)
+    else
+        #Unit initialization
+        unsymmetricInit(s.variables, s.cones)
+    end
 
     return nothing
 end
-
 
 function Base.show(io::IO, solver::Clarabel.Solver{T}) where {T}
     println(io, "Clarabel model with Float precision: $(T)")

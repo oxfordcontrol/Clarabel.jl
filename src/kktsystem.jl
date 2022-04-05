@@ -119,6 +119,9 @@ function kkt_solve!(
     steptype::Symbol   #:affine or :combined
 ) where{T}
 
+    ind_exp = cones.ind_exp
+    length_exp = cones.type_counts[ExponentialConeT]
+
     (x1,z1) = (kktsystem.x1, kktsystem.z1)
     (x2,z2) = (kktsystem.x2, kktsystem.z2)
     (workx,workz) = (kktsystem.workx, kktsystem.workz)
@@ -141,6 +144,12 @@ function kkt_solve!(
         cones_λ_inv_circ_op!(cones, tmp, rhs.s)                  #tmp = λ \ ds
         cones_gemv_W!(cones, :T, tmp, Wtlinvds, one(T), zero(T)) #Wᵀ(λ \ ds) = Wᵀ(tmp)
     end
+    
+    # YC: no Wᵀ(λ \ ds) operation for nonsymmetric cones, just ds
+    for i = 1:length_exp
+        Wtlinvds.views[ind_exp[i]] .= rhs.s.views[ind_exp[i]]
+    end
+
     @. workz = Wtlinvds - rhs.z
 
     #this solves the variable part of reduced KKT system
@@ -174,6 +183,13 @@ function kkt_solve!(
     #-------------
     cones_gemv_W!(cones, :N, lhs.z, workz,  one(T), zero(T))    #work = WΔz
     cones_gemv_W!(cones, :T, workz, lhs.s, -one(T), zero(T))    #Δs = -WᵀWΔz
+    #YC: for unsymmetric cones, -WᵀWΔz = -μH*(z)Δz
+    #NB: could possiblely merge with twp cones_gemv_W! steps to reduce the indexing from the begining
+    for  i = 1:length_exp
+        compute_muHessianF(lhs.s.views[ind_exp[i]],cones.cones[ind_exp[i]].H,lhs.z.views[ind_exp[i]])
+        lhs.s.views[ind_exp[i]] .*= -1
+    end
+
     @. lhs.s -= Wtlinvds
 
     #solve for Δκ

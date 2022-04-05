@@ -19,7 +19,8 @@ end
 function update_scaling!(
     K::ZeroCone{T},
     s::AbstractVector{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    μ::T
 ) where {T}
 
     #nothing to do.
@@ -107,6 +108,19 @@ function shift_to_cone!(
     return nothing
 end
 
+# unsymmetric initialization
+function unsymmetric_init!(
+    K::ZeroCone{T},
+	s::AbstractVector{T},
+    z::AbstractVector{T}
+) where{T}
+
+    s .= zero(T)
+    z .= zero(T)
+
+    return nothing
+end
+
 # implements y = αWx + βy for the zero cone
 function gemv_W!(
     K::ZeroCone{T},
@@ -162,4 +176,15 @@ function step_length(
     #equality constraints allow arbitrary step length
     huge = inv(eps(T))
     return (huge,huge)
+end
+
+# no f_sum for Zerocone
+function f_sum(
+    K::ZeroCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+
+    return T(0)
+
 end

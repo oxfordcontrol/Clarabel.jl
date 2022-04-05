@@ -46,7 +46,8 @@ end
 function update_scaling!(
     K::AbstractCone{T},
     s::AbstractVector{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    μ::T
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -141,6 +142,17 @@ function shift_to_cone!(
 
 end
 
+# unsymmetric initialization
+function unsymmetric_init!(
+    K::AbstractCone{T},
+	s::AbstractVector{T},
+    z::AbstractVector{T}
+) where{T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
 # implements y = αWx + βy
 function gemv_W!(
     K::AbstractCone{T},
@@ -192,5 +204,16 @@ function step_length(
 ) where {T}
 
      error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
+# Computes f(s) + f*(z) for each cone as in Section 8.3 in Santiago's thesis
+function f_sum(
+    K::AbstractCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
 
 end

@@ -17,6 +17,7 @@ function update_scaling!(
     K::PSDTriangleCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
+    μ::T
 ) where {T}
 
     f = K.work
@@ -187,6 +188,20 @@ function shift_to_cone!(
     return nothing
 end
 
+#  unsymmetric initialization
+function unsymmetric_init!(
+   K::PSDTriangleCone{T},
+   s::AbstractVector{T},
+   z::AbstractVector{T}
+) where{T}
+
+    s .= zero(T)
+    z .= zero(T)
+    add_scaled_e!(K,s,one(T))
+    add_scaled_e!(K,z,one(T))
+
+   return nothing
+end
 
 # implements y = αWx + βy for the PSD cone
 function gemv_W!(
@@ -287,7 +302,7 @@ end
 
 
 function _step_length_psd_component(
-    K::PSDTriangleCone,
+    K::PSDTriangleCone{T},
     d::Vector{T},
     Λisqrt::Diagonal{T}
 ) where {T}
@@ -302,4 +317,13 @@ function _step_length_psd_component(
     α = γ < 0 ? inv(-γ) : inv(eps(T))
     return α
 
+end
+
+function f_sum(
+    K::PSDTriangleCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+    error("sdp barrier is computationally expensive")
+    # return -log(det(s)) - log(det(z))
 end

@@ -157,53 +157,67 @@ PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 # ----------------------------------------------------
 # Exponential Cone
 # ----------------------------------------------------
+#
+# #   YC: contain both primal & dual variables at present
+# mutable struct ExponentialCone{T} <: AbstractCone{T}
+#
+#     dim::DefaultInt
+#
+#     #internal working variables for W: s, δ, z, r, t
+#     #In Mosek, W = [s/sqrt(<x,s>); δs/sqrt(<δx,δs>); sqrt(t)*z]⊤, W^{-1} = [x/sqrt(<x,s>); δx/sqrt(<δx,δs>); r/sqrt(t)]⊤
+#
+#     Hs::Matrix{T}       #Hessian workspace
+#
+#     st::Vector{T}
+#     δs::Vector{T}
+#     zt::Vector{T}
+#     δz::Vector{T}
+#     q::Vector{T}
+#     r::Vector{T}
+#     t::T
+#     v::Vector{T}        #x
+#     vt::Vector{T}
+#
+#
+#     function ExponentialCone{T}() where {T}
+#         dim = 3
+#
+#         #explicit initialzation of x,s as Mosek
+#         # s = [1.290928; 0.805102; -0.827838]
+#         # z = [1.290928; 0.805102; -0.827838]
+#         st = zeros(T,3)
+#         zt = zeros(T,3)
+#         δs = zeros(T,3)
+#         δz = zeros(T,3)
+#         q = zeros(T,3)
+#         r = zeros(T,3)
+#         t = T(1)
+#
+#         W = zeros(T,3,3)
+#         invW = zeros(T,3,3)
+#         Hs = zeros(T,3,3)
+#
+#         v = W*z
+#         vt = W*zt
+#
+#         return new(dim,W,invW,Hs,s,st,δs,z,zt,δz,q,r,t,v,vt)
+#     end
+#
+# end
+
 
 #   YC: contain both primal & dual variables at present
 mutable struct ExponentialCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
+    H::AbstractMatrix{T}       #Hessian workspace
+    grad::AbstractVector{T}
 
-    #internal working variables for W: s, δ, z, r, t
-    #W = [s/sqrt(<x,s>); δs/sqrt(<δx,δs>); sqrt(t)*z]⊤, W^{-1} = [x/sqrt(<x,s>); δx/sqrt(<δx,δs>); r/sqrt(t)]⊤
-    W::Matrix{T}        #Scaling matrix W
-    invW::Matrix{T}     #inverse scaling matrix W^{-1}
-
-    x::Vector{T}
-    xt::Vector{T}
-    δx::Vector{T}
-    s::Vector{T}
-    st::Vector{T}
-    δs::Vector{T}
-    z::Vector{T}
-    r::Vector{T}
-    t::T
-    v::Vector{T}        #x
-    vt::Vector{T}
-
-
-    function ExponentialCone{T}() where {T}
-        dim = 3
-
-        #explicit initialzation of x,s as Mosek
-        x = [1.290928; 0.805102; -0.827838]
-        s = [1.290928; 0.805102; -0.827838]
-        xt = 
-        st =
-        δx =
-        δs =
-        z =
-        r =
-        t =
-
-        W =
-        invW =
-
-        v = W*x
-        vt = W*xt
-
-        return new(dim,W,invW,x,xt,δx,s,st,δs,z,r,t,v,vt)
+    function ExponentialCone{T}(dim::Integer=3) where {T}
+        H = Matrix{T}(undef,3,3)
+        grad = Vector{T}(undef,3)
+        return new(dim,H,grad)
     end
-
 end
 
 ExponentialCone(args...) = ExponentialCone{DefaultFloat}(args...)

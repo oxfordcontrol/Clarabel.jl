@@ -20,6 +20,11 @@ struct ConeSet{T}
     #first element in each cone.  For convenience
     headidx::Vector{Int}
 
+    # the scaling for unsymmetric backtrack
+    scaling::T
+    minDist::T
+    ind_exp::Vector{Int}    #index for exponential cones
+
     function ConeSet{T}(types,dims) where {T}
 
         length(types) == length(dims) || throw(DimensionMismatch())
@@ -30,15 +35,27 @@ struct ConeSet{T}
         ncones = length(types)
         cones  = Vector{AbstractCone{T}}(undef,ncones)
 
-        #create cones with the given dims
-        for i in eachindex(dims)
-            cones[i] = ConeDict[types[i]]{T}(dims[i])
-        end
-
         #count the number of each cone type
         type_counts = Dict{SupportedCones,Int}()
         for coneT in instances(SupportedCones)
             type_counts[coneT] = count(==(coneT), types)
+        end
+
+        # parameter for unsymmetric cones
+        scaling = T(0.8)
+        minDist = T(0.1)
+        ind_exp = Vector{Int}(undef,type_counts[ExponentialConeT])
+
+        cur_exp = 0
+        #create cones with the given dims
+        for i in eachindex(dims)
+            cones[i] = ConeDict[types[i]]{T}(dims[i])
+
+            #store indexing of exponential cones
+            if types[i] == ExponentialConeT
+                cur_exp += 1
+                ind_exp[cur_exp] = i
+            end
         end
 
         #count up elements and degree
@@ -49,7 +66,7 @@ struct ConeSet{T}
         headidx = Vector{Int}(undef,length(cones))
         _coneset_make_headidx!(headidx,cones)
 
-        return new(cones,types,type_counts,numel,degree,headidx)
+        return new(cones,types,type_counts,numel,degree,headidx,scaling,minDist,ind_exp)
     end
 end
 

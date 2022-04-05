@@ -8,7 +8,8 @@ degree(K::SecondOrderCone{T}) where {T} = 1
 function update_scaling!(
     K::SecondOrderCone{T},
     s::AbstractVector{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    μ::T
 ) where {T}
 
     #first calculate the scaled vector w
@@ -166,6 +167,21 @@ function shift_to_cone!(
     return nothing
 end
 
+# unsymmetric initialization
+function unsymmetric_init!(
+   K::SecondOrderCone{T},
+   s::AbstractVector{T},
+   z::AbstractVector{T}
+) where{T}
+
+    s .= zero(T)
+    z .= zero(T)
+    add_scaled_e!(K,s,one(T))
+    add_scaled_e!(K,z,one(T))
+
+   return nothing
+end
+
 # implements y = αWx + βy for the socone
 function gemv_W!(
     K::SecondOrderCone{T},
@@ -219,7 +235,7 @@ end
 
 # implements y = y + αe for the socone
 function add_scaled_e!(
-    K::SecondOrderCone,
+    K::SecondOrderCone{T},
     x::AbstractVector{T},α::T
 ) where {T}
 
@@ -281,4 +297,15 @@ function _step_length_soc_component(
         return min(r1,r2)
     end
 
+end
+
+function f_sum(
+    K::SecondOrderCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+    barrier_s = s[1]^2 - dot(s[2:end],s[2:end])
+    barrier_z = z[1]^2 - dot(z[2:end],z[2:end])
+
+    return (- log(barrier_s) - log(barrier_z))/2
 end
