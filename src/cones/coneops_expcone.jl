@@ -27,7 +27,7 @@ end
 
 # return μH*(z) for exponetial cone
 function get_WtW_block!(
-    K::AbstractCone{T},
+    K::ExponentialCone{T},
     WtWblock::AbstractVector{T}
 ) where {T}
 
