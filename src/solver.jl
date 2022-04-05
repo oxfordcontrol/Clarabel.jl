@@ -373,7 +373,7 @@ function solver_default_start!(s::Solver{T}) where {T}
         #fix up (z,s) so that they are in the cone
         variables_shift_to_cone!(s.variables, s.cones)
     else
-        #Unit initialization
+        #Unit initialization when there are unsymmetric cones
         unsymmetricInit(s.variables, s.cones)
     end
 

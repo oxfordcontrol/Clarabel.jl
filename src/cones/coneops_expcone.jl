@@ -45,13 +45,13 @@ function unsymmetric_init!(
    z::AbstractVector{T}
 ) where{T}
 
-    s[1] = one(T)*(1.258967884768947)
+    s[1] = one(T)*(-1.051383945322714)
     s[2] = one(T)*(0.556409619469370)
-    s[3] = one(T)*(-1.051383945322714)
+    s[3] = one(T)*(1.258967884768947)
 
-    z[1] = one(T)*(1.258967884768947)
+    z[1] = one(T)*(-1.051383945322714)
     z[2] = one(T)*(0.556409619469370)
-    z[3] = one(T)*(-1.051383945322714)
+    z[3] = one(T)*(1.258967884768947)
 
    return nothing
 end
@@ -130,51 +130,53 @@ end
 ###############################################
 # Basic operations for exponential Cones
 # Follwing ECOS solver and Santiago's thesis
-# Primal exponential cone: s1 ≥ s2*e^(s3/s2), s1,s2 > 0
-# Dual exponential cone: z1 ≥ -z3*e^(z2/z3 - 1), z1 > 0, z3 < 0
-# As in ECOS, we use the dual barrier function: f*(z) = -log(z2 - z3 - z3log(z1/-z3)) - log(-z3) - log(z1):
+# Primal exponential cone: s3 ≥ s2*e^(s1/s2), s3,s2 > 0
+# Dual exponential cone: z3 ≥ -z1*e^(z2/z1 - 1), z3 > 0, z1 < 0
+# As in ECOS, we use the dual barrier function: f*(z) = -log(z2 - z1 - z1log(z3/-z1)) - log(-z1) - log(z3):
 # Evaluates the gradient of the dual exponential cone ∇f*(z) at z, and stores the result at g
 function GradF(z::AbstractVector{T}, g::AbstractVector{T}) where {T}
     z1 = z[1]               #z1
     z2 = z[2]               #z2
     z3 = z[3]               #z3
-    c1 = log(-z1/z3)
-    c2 = 1/(-z3*c1-z3+z2)
+    c1 = log(-z3/z1)
+    c2 = 1/(-z1*c1-z1+z2)
 
-    g[1] = (c2*z3-1)/z1
+    g[1] = c2*c1 - 1/z1
     g[2] = -c2
-    g[3] = c2*c1 - 1/z3
+    g[3] = (c2*z1-1)/z3
+
 end
 
 # Evaluates the Hessian of the exponential dual cone barrier at z and stores the upper triangular part of the matrix μH*(z)
 # NB:could reduce H to an upper triangular matrix later, remove duplicate updates
 function muHessianF(z::AbstractVector{T}, H::AbstractMatrix{T}, μ::T) where {T}
     # y = z1; z = z2; x = z3;
-    # l = log(-z1/z3);
-    # r = -z3*l-z3+z2;
-    # Hessian = [[1/z1^2 - z3/(r*z1^2) + z3^2/(r^2*z1^2),   -z3/(r^2*z1),   1/(r*z1) + (l*z3)/(r^2*z1)];
-    #            [-z3/(r^2*z1),                             1/r^2],                             -l/r^2];
-    #            [1/(r*z1) + (l*z3)/(r^2*z1),               -l/r^2,         1/z3^2 - 1/(r*z3) + l^2/r^2]]
+    # l = log(-z3/z1);
+    # r = -z1*l-z1+z2;
+    # Hessian = [[1/z1^2 - 1/(r*z1) + l^2/r^2,     -l/r^2,     1/(r*z3) + (l*z1)/(r^2*z3)];
+    #            [-l/r^2,                           1/r^2],                  -z1/(r^2*z3)];
+    #            [1/(r*z3) + (l*z1)/(r^2*z3),   -z1/(r^2*z3),  1/z3^2 - z1/(r*z3^2) + z1^2/(r^2*z3^2)]]
+
     z1 = z[1]               #z1
     z2 = z[2]               #z2
     z3 = z[3]               #z3
-    l = log(-z1/z3)
-    r = -z3*l-z3+z2
+    l = log(-z3/z1)
+    r = -z1*l-z1+z2
 
-    H[1,1] = ((r*r-z3*r+z3*z3)/(r*r*z1*z1))
-    H[1,2] = (-z3/(r*r*z1))
+    H[1,1] = ((r*r-z1*r+l*l*z1*z1)/(r*z1*z1*r))
+    H[1,2] = (-l/(r*r))
     H[2,1] = H[1,2]
     H[2,2] = (1/(r*r))
-    H[1,3] = ((z2-z3)/(r*r*z1))
+    H[1,3] = ((z2-z1)/(r*r*z3))
     H[3,1] = H[1,3]
-    H[2,3] = (-l/(r*r))
+    H[2,3] = (-z1/(r*r*z3))
     H[3,2] = H[2,3]
-    H[3,3] = ((r*r-z3*r+l*l*z3*z3)/(r*z3*z3*r))
+    H[3,3] = ((r*r-z1*r+z1*z1)/(r*r*z3*z3))
 
     H .*= μ
 end
 
-# f(s) = -2*log(s2) - log(s1) - log((1-barω)^2/barω) - 3, where barω = ω(1 - s3/s2 - log(s2) - log(s1))
+# f(s) = -2*log(s2) - log(s3) - log((1-barω)^2/barω) - 3, where barω = ω(1 - s1/s2 - log(s2) - log(s3))
 function f_sum(K::ExponentialCone{T}, s::AbstractVector{T}, z::AbstractVector{T}) where {T}
     z1 = z[1]
     z2 = z[2]
@@ -186,13 +188,13 @@ function f_sum(K::ExponentialCone{T}, s::AbstractVector{T}, z::AbstractVector{T}
     barrier = T(0)
 
     # Dual barrier
-    l = log(-z1/z3)
-    barrier += -log(z2-z3-z3*l)-log(-z3)-log(z1)
+    l = log(-z3/z1)
+    barrier += -log(z2-z1-z1*l)-log(-z1)-log(z3)
 
     # Primal barrier
-    o = WrightOmega(1-s3/s2-log(s2)+log(s1))
+    o = WrightOmega(1-s1/s2-log(s2)+log(s3))
     o = (o-1)*(o-1)/o
-    barrier += -log(o)-2*log(s2)-log(s1)-3
+    barrier += -log(o)-2*log(s2)-log(s3)-3
 
     return barrier
 end
@@ -209,16 +211,14 @@ function checkExpPrimalFeas(s::AbstractVector{T}) where {T}
     s2 = s[2]
     s3 = s[3]
 
-    if (s1>0. && s2>0.)   #feasible
-        res = s2*log(s1/s2) - s3
+    if (s3>0. && s2>0.)   #feasible
+        res = s2*log(s3/s2) - s1
         if (res>0.)
             return true
-        else
-            return false
         end
-    else
-        return false
     end
+
+    return false
 end
 
 # Returns true if s is dual feasible
@@ -227,16 +227,14 @@ function checkExpDualFeas(z::AbstractVector{T}) where {T}
     z2 = z[2]
     z3 = z[3]
 
-    if (z1>0. && z3<0.)
-        res = z2 - z3 - z3*log(-z1/z3)
+    if (z3>0. && z1<0.)
+        res = z2 - z1 - z1*log(-z3/z1)
         if (res>0.)
             return true
-        else
-            return false
         end
-    else
-        return false
     end
+
+    return false
 end
 
 

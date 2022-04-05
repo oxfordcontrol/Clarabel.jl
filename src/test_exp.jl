@@ -37,21 +37,21 @@ function expcone_1()
     # b = [b1;b2;b3;b4;b5]
     # A = sparse([A1;A2;A3;A5])
     # b = [b1;b2;b3;b5]
-    A = sparse([A1;A2;A3])
-    b = [b1;b2;b3]
+    A = sparse([A1;A2;A5])
+    b = [b1;b2;b5]
 
     cone_types = [Clarabel.ZeroConeT,
     Clarabel.NonnegativeConeT,
-    Clarabel.SecondOrderConeT,
+    # Clarabel.SecondOrderConeT,
     # Clarabel.PSDTriangleConeT,
-    # Clarabel.ExponentialConeT,
+    Clarabel.ExponentialConeT,
     ]
 
     cone_dims  = [length(b1),
     length(b2),
-    length(b3),
+    # length(b3),
     # Int(floor(sqrt(2*length(b4)))),
-    # length(b5)
+    length(b5)
     ]
 
     return (P,c,A,b,cone_types,cone_dims,A1,A2,A3,A4,A5,b1,b2,b3,b4,b5)
@@ -66,14 +66,9 @@ model = Model(ECOS.Optimizer)
 @variable(model, x[1:n])
 @constraint(model, c1, A1*x .== b1)
 @constraint(model, c2, A2*x .<= b2)
-@constraint(model, c3, b3-A3*x in MOI.SecondOrderCone(cone_dims[3]))
+# @constraint(model, c3, b3-A3*x in MOI.SecondOrderCone(cone_dims[3]))
 # @constraint(model, c4, b4-A4*x in MOI.PositiveSemidefiniteConeTriangle(cone_dims[4]))
-A5_tmp = zeros(3,7)
-A5_tmp[1,5] = -1.0
-A5_tmp[2,3] = -1.
-A5_tmp[3,1] = -1.
-
-# @constraint(model, c5, b5-A5_tmp*x in MOI.ExponentialCone())
+@constraint(model, c5, b5-A5*x in MOI.ExponentialCone())
 @objective(model, Min, sum(c.*x) + 1/2*x'*P*x)
 
 #Run the opimization
