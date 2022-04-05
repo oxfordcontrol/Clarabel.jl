@@ -7,8 +7,10 @@ dim(K::ExponentialCone{T}) where {T} = K.dim
 degree(K::ExponentialCone{T}) where {T} = dim(K)
 numel(K::ExponentialCone{T}) where {T} = dim(K)
 
+is_symmetric(::ExponentialCone{T}) where {T} = false
+
 #exponential cone returns a dense WtW block
-function WtW_is_diagonal(
+function WtW_is_diagonal
     K::ExponentialCone{T}
 ) where{T}
     return false

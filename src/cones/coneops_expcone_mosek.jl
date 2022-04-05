@@ -1,3 +1,4 @@
+is_symmetric(::ExponentialCone{T}) where {T} = false
 
 function update_scaling!(
     K::ExponentialCone{T},

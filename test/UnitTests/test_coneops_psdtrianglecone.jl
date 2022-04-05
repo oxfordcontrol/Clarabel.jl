@@ -144,7 +144,8 @@ FloatT = Float64
         (s,z) = map(m->zeros(K.numel), 1:2)
         map((v,M)->Clarabel._mat_to_svec!(v,M,K),(s,z),(S,Z))
 
-        Clarabel.update_scaling!(K,s,z)
+        μ = 0.0 #placeholder value, not used
+        Clarabel.update_scaling!(K,s,z,μ)
 
         f = K.work
         R = f.R
@@ -171,7 +172,8 @@ FloatT = Float64
         map((v,M)->Clarabel._mat_to_svec!(v,M,K),(s,z,ds,dz),(S,Z,dS,dZ))
 
         #compute internal scaling required for step calc
-        Clarabel.update_scaling!(K,s,z)
+        μ = 0.0 #placeholder value, not used
+        Clarabel.update_scaling!(K,s,z,μ)
 
         #Z direction only
         α = Clarabel.step_length(K,dz,ds.*0.,z,s)[1]
@@ -205,7 +207,8 @@ FloatT = Float64
         map((v,M)->Clarabel._mat_to_svec!(v,M,K),(s,z,v1,v2),(S,Z,V1,V2))
 
         #compute internal scaling required for step calc
-        Clarabel.update_scaling!(K,s,z)
+        μ = 0.0 #placeholder value, not used
+        Clarabel.update_scaling!(K,s,z,μ)
 
         #check W^{-T}s = Wz = λ (λ is Diagonal)
         Clarabel.gemv_W!(K,:N,z,v1,one(FloatT),zero(FloatT)) #v1 = Wz
@@ -236,7 +239,8 @@ FloatT = Float64
         map((v,M)->Clarabel._mat_to_svec!(v,M,K),(s,z,v1,v2,v3),(S,Z,V1,V2,V3))
 
         #compute internal scaling required for step calc
-        Clarabel.update_scaling!(K,s,z)
+        μ = 0.0 #placeholder value, not used
+        Clarabel.update_scaling!(K,s,z,μ)
 
         R    = K.work.R
         Rinv = K.work.Rinv
