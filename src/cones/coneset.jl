@@ -25,6 +25,9 @@ struct ConeSet{T}
     minDist::T
     ind_exp::Vector{Int}    #index for exponential cones
 
+    # the flag for symmetric cone check
+    symFlag::Bool
+
     function ConeSet{T}(types,dims) where {T}
 
         length(types) == length(dims) || throw(DimensionMismatch())
@@ -66,7 +69,15 @@ struct ConeSet{T}
         headidx = Vector{Int}(undef,length(cones))
         _coneset_make_headidx!(headidx,cones)
 
-        return new(cones,types,type_counts,numel,degree,headidx,scaling,minDist,ind_exp)
+        #check whether we only have symmetric cones
+        if (type_counts[ZeroConeT] + type_counts[NonnegativeConeT] +
+            type_counts[SecondOrderConeT] + type_counts[PSDTriangleConeT] == ncones)
+            symFlag = true
+        else
+            symFlag = false
+        end
+
+        return new(cones,types,type_counts,numel,degree,headidx,scaling,minDist,ind_exp,symFlag)
     end
 end
 

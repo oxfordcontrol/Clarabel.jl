@@ -363,8 +363,7 @@ end
 function solver_default_start!(s::Solver{T}) where {T}
     # YC:If there are only smmetric cones, use Mehrotra initialization strategy as ECOS and CVXOPT
     # Otherwise, initialize along central rays
-    if (s.cones.type_counts[ZeroConeT] + s.cones.type_counts[NonnegativeConeT] +
-        s.cones.type_counts[SecondOrderConeT] + s.cones.type_counts[PSDTriangleConeT] == length(s.cones))
+    if (s.cones.symFlag)
         #set all scalings to identity (or zero for the zero cone)
         cones_set_identity_scaling!(s.cones)
         #Refactor

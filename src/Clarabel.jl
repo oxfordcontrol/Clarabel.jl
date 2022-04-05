@@ -46,6 +46,6 @@ module Clarabel
     include("./utils/csc_assembly.jl")
 
     #MathOptInterface for JuMP/Convex.jl
-    include("./MOI_wrapper/MOI_wrapper.jl")
+    # include("./MOI_wrapper/MOI_wrapper.jl")
 
 end

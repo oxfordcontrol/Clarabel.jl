@@ -35,21 +35,24 @@ function expcone_1()
 
     # A = sparse([A1;A2;A3;A4;A5])
     # b = [b1;b2;b3;b4;b5]
-    A = sparse([A1;A2;A3;A5])
-    b = [b1;b2;b3;b5]
+    # A = sparse([A1;A2;A3;A5])
+    # b = [b1;b2;b3;b5]
+    A = sparse([A1;A2;A3])
+    b = [b1;b2;b3]
 
     cone_types = [Clarabel.ZeroConeT,
     Clarabel.NonnegativeConeT,
     Clarabel.SecondOrderConeT,
     # Clarabel.PSDTriangleConeT,
-    Clarabel.ExponentialConeT,
+    # Clarabel.ExponentialConeT,
     ]
 
     cone_dims  = [length(b1),
     length(b2),
     length(b3),
     # Int(floor(sqrt(2*length(b4)))),
-    length(b5)]
+    # length(b5)
+    ]
 
     return (P,c,A,b,cone_types,cone_dims,A1,A2,A3,A4,A5,b1,b2,b3,b4,b5)
 
@@ -70,7 +73,7 @@ A5_tmp[1,5] = -1.0
 A5_tmp[2,3] = -1.
 A5_tmp[3,1] = -1.
 
-@constraint(model, c5, b5-A5_tmp*x in MOI.ExponentialCone())
+# @constraint(model, c5, b5-A5_tmp*x in MOI.ExponentialCone())
 @objective(model, Min, sum(c.*x) + 1/2*x'*P*x)
 
 #Run the opimization

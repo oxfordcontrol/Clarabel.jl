@@ -27,16 +27,19 @@ function calc_step_length(
     α = cones_step_length(cones, step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ, α)
     # println("α after feasibility check: ", α)
 
-    # check each μ_i and the centrality
-    zs= dot(variables.z,variables.s)
-    dzs = dot(step.z,step.s)
-    s_dz = dot(variables.s,step.z)
-    z_ds = dot(variables.z,step.s)
 
-    # YC: balance global μ and local μ_i of each exponential cone;
+    # YC: only for unsymmetric cones
+    #   balance global μ and local μ_i of each exponential cone;
     #   check centrality, ensure the update is close to the central path
-    α = check_exp_μ_and_centrality(cones,step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ,zs,dzs,s_dz,z_ds,α)
-    # println("α after centrality check: ", α)
+    if (!cones.symFlag)
+        zs= dot(variables.z,variables.s)
+        dzs = dot(step.z,step.s)
+        s_dz = dot(variables.s,step.z)
+        z_ds = dot(variables.z,step.s)
+
+        α = check_exp_μ_and_centrality(cones,step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ,zs,dzs,s_dz,z_ds,α)
+        # println("α after centrality check: ", α)
+    end
 
     return α
 end
