@@ -35,21 +35,21 @@ function expcone_1()
 
     # A = sparse([A1;A2;A3;A4;A5])
     # b = [b1;b2;b3;b4;b5]
-    # A = sparse([A1;A2;A3;A5])
-    # b = [b1;b2;b3;b5]
-    A = sparse([A1;A2;A5])
-    b = [b1;b2;b5]
+    A = sparse([A1;A2;A3;A5])
+    b = [b1;b2;b3;b5]
+    # A = sparse([A1;A2;A5])
+    # b = [b1;b2;b5]
 
     cone_types = [Clarabel.ZeroConeT,
     Clarabel.NonnegativeConeT,
-    # Clarabel.SecondOrderConeT,
+    Clarabel.SecondOrderConeT,
     # Clarabel.PSDTriangleConeT,
     Clarabel.ExponentialConeT,
     ]
 
     cone_dims  = [length(b1),
     length(b2),
-    # length(b3),
+    length(b3),
     # Int(floor(sqrt(2*length(b4)))),
     length(b5)
     ]
@@ -66,7 +66,7 @@ model = Model(ECOS.Optimizer)
 @variable(model, x[1:n])
 @constraint(model, c1, A1*x .== b1)
 @constraint(model, c2, A2*x .<= b2)
-# @constraint(model, c3, b3-A3*x in MOI.SecondOrderCone(cone_dims[3]))
+@constraint(model, c3, b3-A3*x in MOI.SecondOrderCone(cone_dims[3]))
 # @constraint(model, c4, b4-A4*x in MOI.PositiveSemidefiniteConeTriangle(cone_dims[4]))
 @constraint(model, c5, b5-A5*x in MOI.ExponentialCone())
 @objective(model, Min, sum(c.*x) + 1/2*x'*P*x)
@@ -74,7 +74,12 @@ model = Model(ECOS.Optimizer)
 #Run the opimization
 optimize!(model)
 
+# settings = Clarabel.Settings{BigFloat}(max_iter=50,direct_kkt_solver=true)
+# solver   = Clarabel.Solver{BigFloat}()
+# Clarabel.setup!(solver,BigFloat.(P),BigFloat.(c),BigFloat.(A),BigFloat.(b),cone_types,cone_dims,settings)
+# Clarabel.solve!(solver)
+
 settings = Clarabel.Settings(max_iter=50,direct_kkt_solver=true)
 solver   = Clarabel.Solver()
 Clarabel.setup!(solver,P,c,A,b,cone_types,cone_dims,settings)
-Clarabel.debug_solve!(solver)
+Clarabel.solve!(solver)

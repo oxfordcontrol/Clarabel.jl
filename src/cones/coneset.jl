@@ -24,6 +24,7 @@ struct ConeSet{T}
     scaling::T
     minDist::T
     ind_exp::Vector{Int}    #index for exponential cones
+    η::T                    #centrality bound
 
     # the flag for symmetric cone check
     symFlag::Bool
@@ -48,6 +49,7 @@ struct ConeSet{T}
         scaling = T(0.8)
         minDist = T(0.1)
         ind_exp = Vector{Int}(undef,type_counts[ExponentialConeT])
+        η = T(0.99)     #should be less than 1
 
         cur_exp = 0
         #create cones with the given dims
@@ -77,7 +79,7 @@ struct ConeSet{T}
             symFlag = false
         end
 
-        return new(cones,types,type_counts,numel,degree,headidx,scaling,minDist,ind_exp,symFlag)
+        return new(cones,types,type_counts,numel,degree,headidx,scaling,minDist,ind_exp,η,symFlag)
     end
 end
 

@@ -23,7 +23,7 @@ function update_scaling!(
     μ::T
 ) where {T}
     #update both gradient and Hessian for function f*(z) at the point z
-    muHessianF(z,K.H,μ)
+    muHessianF(z,K.μH,K.μHinv,μ)
     GradF(z,K.grad)
 end
 
@@ -33,8 +33,8 @@ function get_WtW_block!(
     WtWblock::AbstractVector{T}
 ) where {T}
 
-    #Vectorize triu(K.H)
-    WtWblock .= _pack_triu(WtWblock,K.H)
+    #Vectorize triu(K.μH)
+    WtWblock .= _pack_triu(WtWblock,K.μH)
 
 end
 
@@ -80,6 +80,10 @@ function unsymmetric_step_length(
      scaling::T
 ) where {T}
 
+    if isnan(α)
+        error("numerical error")
+    end
+    
     αz = _step_length_exp_dual(dz,z,α,scaling)
     αs = _step_length_exp_primal(ds,s,α,scaling)
 
@@ -149,7 +153,7 @@ end
 
 # Evaluates the Hessian of the exponential dual cone barrier at z and stores the upper triangular part of the matrix μH*(z)
 # NB:could reduce H to an upper triangular matrix later, remove duplicate updates
-function muHessianF(z::AbstractVector{T}, H::AbstractMatrix{T}, μ::T) where {T}
+function muHessianF(z::AbstractVector{T}, H::AbstractMatrix{T}, Hinv::AbstractMatrix{T}, μ::T) where {T}
     # y = z1; z = z2; x = z3;
     # l = log(-z3/z1);
     # r = -z1*l-z1+z2;
@@ -174,29 +178,65 @@ function muHessianF(z::AbstractVector{T}, H::AbstractMatrix{T}, μ::T) where {T}
     H[3,3] = ((r*r-z1*r+z1*z1)/(r*r*z3*z3))
 
     H .*= μ
+
+    # compute (μH)^{-1}, 3x3 inverse is easy
+    Hinv .= inv(H) 
 end
 
-# f(s) = -2*log(s2) - log(s3) - log((1-barω)^2/barω) - 3, where barω = ω(1 - s1/s2 - log(s2) - log(s3))
-function f_sum(K::ExponentialCone{T}, s::AbstractVector{T}, z::AbstractVector{T}) where {T}
-    z1 = z[1]
-    z2 = z[2]
-    z3 = z[3]
-    s1 = s[1]
-    s2 = s[2]
-    s3 = s[3]
+# # f(s) = -2*log(s2) - log(s3) - log((1-barω)^2/barω) - 3, where barω = ω(1 - s1/s2 - log(s2) - log(s3))
+# function f_sum(
+#     K::ExponentialCone{T}, 
+#     s::AbstractVector{T}, 
+#     z::AbstractVector{T}
+# ) where {T}
 
-    barrier = T(0)
+#     z1 = z[1]
+#     z2 = z[2]
+#     z3 = z[3]
+#     s1 = s[1]
+#     s2 = s[2]
+#     s3 = s[3]
 
-    # Dual barrier
-    l = log(-z3/z1)
-    barrier += -log(z2-z1-z1*l)-log(-z1)-log(z3)
+#     barrier = T(0)
 
-    # Primal barrier
-    o = WrightOmega(1-s1/s2-log(s2)+log(s3))
-    o = (o-1)*(o-1)/o
-    barrier += -log(o)-2*log(s2)-log(s3)-3
+#     # Dual barrier
+#     l = log(-z3/z1)
+#     barrier += -log(z2-z1-z1*l)-log(-z1)-log(z3)
 
-    return barrier
+#     # Primal barrier
+#     o = WrightOmega(1-s1/s2-log(s2)+log(s3))
+#     o = (o-1)*(o-1)/o
+#     barrier += -log(o)-2*log(s2)-log(s3)-3
+
+#     return barrier
+# end
+
+# check neighbourhood
+function _check_neighbourhood(
+    K::ExponentialCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T},
+    μ::T,
+    η::T
+) where {T}
+
+    grad = zeros(T,3)
+    μH = zeros(T,3,3)
+    μHinv = zeros(T,3,3)
+
+    # compute gradient and Hessian at z
+    GradF(z, grad)
+    muHessianF(z, μH, μHinv, μ)
+    
+    # grad as a workspace for s + μ*grad
+    grad .*= μ
+    grad .+= s
+
+    if (norm(dot(grad,μHinv,grad)/μ) < η^2)
+        return true
+    end
+
+    return false
 end
 
 
@@ -297,3 +337,4 @@ function WrightOmega(z::T) where {T}
 
     return w;
 end
+

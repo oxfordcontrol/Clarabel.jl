@@ -298,40 +298,67 @@ function check_exp_μ_and_centrality(cones::ConeSet{T},
     length_exp = cones.type_counts[ExponentialConeT]
     ind_exp = cones.ind_exp
     scaling = cones.scaling
-
+    η = cones.η
+    
     for j = 1:20
         #Initialize μ
         central_coef = cones.degree + 1
         μ = (zs + τ*κ + α*(s_dz + z_ds + dτ*κ + τ*dκ) + α^2*(dzs + dτ*dκ))/central_coef
         upper = cones.minDist*μ     #bound for boundary distance
 
-        #balance global and local μ
-        for i = 1:length_exp
-            μi = dot(z[ind_exp[i]] + α*dz[ind_exp[i]],s[ind_exp[i]] + α*ds[ind_exp[i]])/3
-            # if too close to boundary
-            if μi < upper
-                println("too close to boundary")
-                α *= scaling
-                μ = (zs + τ*κ + α*(s_dz + z_ds + dτ*κ + τ*dκ) + α^2*(dzs + dτ*dκ))/(cones.degree + 1)
-                upper = cones.minDist*μ
-                i = 0   #restart from the first exponential cone
-            end
-        end
+        cur_z = z + α*dz
+        cur_s = s + α*ds
 
-        # check centrality, functional proximity measure
-        # NB: the update x+α*dx is inefficient right now and need to be rewritten later
-        barrier = central_coef*log(μ) - log(τ+α*dτ) - log(κ+α*dκ)
-        for i = eachindex(cones)
-            barrier += f_sum(cones[i], s[i]+α*ds[i], z[i]+α*dz[i])
-        end
-
-        if barrier < 1.
+        #boundary check from ECOS and centrality check from Hypatia
+        # NB:   1) the update x+α*dx is inefficient right now and need to be rewritten later
+        #       2) symmetric cones use the central path as in CVXOPT
+        if boundary_check!(cur_z,cur_s,ind_exp,length_exp,upper) && check_centrality!(cones,cur_s,cur_z,μ,η)
             return α
         else
-            α *= scaling    #backtrack line search
+            α *= scaling
         end
-        println("centrality quite bad: ", barrier, " with ", central_coef)
+        
+
+        # # ECOS: check centrality, functional proximity measure
+        # # NB: the update x+α*dx is inefficient right now and need to be rewritten later
+        # barrier = central_coef*log(μ) - log(τ+α*dτ) - log(κ+α*dκ)
+        # for i = eachindex(cones)
+        #     barrier += f_sum(cones[i], cur_s[i], cur_z[i])
+        # end
+
+        # if barrier < 1.
+        #     return α
+        # else
+        #     α *= scaling    #backtrack line search
+        # end
+        # println("centrality quite bad: ", barrier, " with ", central_coef)
+
     end
 
     return α
+end
+
+function boundary_check!(z,s,ind_exp,length_exp,upper)     
+    for i = 1:length_exp
+        μi = dot(z[ind_exp[i]],s[ind_exp[i]])/3
+
+        # ECOS: if too close to boundary
+        if μi < upper
+            println("exp var too close to boundary")
+            return false
+        end
+    end
+    
+    return true
+end
+
+function check_centrality!(cones,s,z,μ,η)
+    for i in eachindex(cones)
+        if !_check_neighbourhood(cones[i],s[i],z[i],μ,η)
+            println("away from central path")
+            return false
+        end
+    end
+
+    return true
 end

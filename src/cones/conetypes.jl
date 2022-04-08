@@ -210,13 +210,15 @@ PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 mutable struct ExponentialCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
-    H::AbstractMatrix{T}       #Hessian workspace
+    μH::AbstractMatrix{T}       #Hessian workspace
+    μHinv::AbstractMatrix{T}
     grad::AbstractVector{T}
 
     function ExponentialCone{T}(dim::Integer=3) where {T}
-        H = Matrix{T}(undef,3,3)
+        μH = Matrix{T}(undef,3,3)
+        μHinv = Matrix{T}(undef,3,3)
         grad = Vector{T}(undef,3)
-        return new(dim,H,grad)
+        return new(dim,μH,μHinv,grad)
     end
 end
 

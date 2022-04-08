@@ -319,11 +319,33 @@ function _step_length_psd_component(
 
 end
 
-function f_sum(
+# function f_sum(
+#     K::PSDTriangleCone{T},
+#     s::AbstractVector{T},
+#     z::AbstractVector{T}
+# ) where {T}
+#     error("sdp barrier is computationally expensive")
+#     # return -log(det(s)) - log(det(z))
+# end
+
+# check neighbourhood
+function _check_neighbourhood(
     K::PSDTriangleCone{T},
     s::AbstractVector{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    μ::T,
+    η::T
 ) where {T}
-    error("sdp barrier is computationally expensive")
-    # return -log(det(s)) - log(det(z))
+
+    tmp = zeros(T,length(s))
+
+    circ_op!(K,tmp,s,z)
+    add_scaled_e!(K,tmp,-μ)
+
+    if norm(tmp, Inf) < η
+        return true
+    end
+
+    return false
+
 end

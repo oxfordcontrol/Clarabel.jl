@@ -186,7 +186,7 @@ function kkt_solve!(
     #YC: for unsymmetric cones, -WᵀWΔz = -μH*(z)Δz
     #NB: could possiblely merge with twp cones_gemv_W! steps to reduce the indexing from the begining
     for  i = 1:length_exp
-        compute_muHessianF(lhs.s.views[ind_exp[i]],cones.cones[ind_exp[i]].H,lhs.z.views[ind_exp[i]])
+        compute_muHessianF(lhs.s.views[ind_exp[i]],cones.cones[ind_exp[i]].μH,lhs.z.views[ind_exp[i]])
         lhs.s.views[ind_exp[i]] .*= -1
     end
 

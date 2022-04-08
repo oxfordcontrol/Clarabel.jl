@@ -178,13 +178,26 @@ function step_length(
     return (huge,huge)
 end
 
-# no f_sum for Zerocone
-function f_sum(
+# # no f_sum for Zerocone
+# function f_sum(
+#     K::ZeroCone{T},
+#     s::AbstractVector{T},
+#     z::AbstractVector{T}
+# ) where {T}
+
+#     return T(0)
+
+# end
+
+# no need to check Zerocone 
+function _check_neighbourhood(
     K::ZeroCone{T},
     s::AbstractVector{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    μ::T,
+    η::T
 ) where {T}
 
-    return T(0)
+    return true
 
 end
