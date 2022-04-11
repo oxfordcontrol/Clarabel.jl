@@ -127,14 +127,15 @@ function calc_combined_step_rhs!(
     # want to have aliasing vector arguments to gemv_W or gemv_Winv, so we
     # need to copy into a temporary variable to assign #Δz = WΔz and Δs = W⁻¹Δs
 
-    # YC: for unsymmetric cones, set W⁻¹Δs ∘ WΔz = 0 in the step cones_circ_op!()
+    # YC: for unsymmetric cones, set W⁻¹Δs ∘ WΔz to 3rd-order correction in the step cones_circ_op!()
 
     tmp  = d.z     #alias
     tmp .= step.z  #copy for safe call to gemv_W
     cones_gemv_W!(cones, :N, tmp, step.z, one(T), zero(T))       #Δz <- WΔz
     tmp .= step.s  #copy for safe call to gemv_Winv
     cones_gemv_Winv!(cones, :T, tmp, step.s, one(T), zero(T))    #Δs <- W⁻¹Δs
-    cones_circ_op!(cones, tmp, step.s, step.z)                   #tmp = W⁻¹Δs ∘ WΔz
+    cones_circ_op!(cones, tmp, step.s, step.z, variables.z)                   #tmp = W⁻¹Δs ∘ WΔz
+
     cones_add_scaled_e!(cones,tmp,-σ*μ)                          #tmp = W⁻¹Δs ∘ WΔz - σμe
 
     #We are relying on d.s = λ ◦ λ already from the affine step here

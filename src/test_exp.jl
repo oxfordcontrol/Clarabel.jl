@@ -61,8 +61,10 @@ end
 P,c,A,b,cone_types,cone_dims,A1,A2,A3,A4,A5,b1,b2,b3,b4,b5 = expcone_1()
 n = 7
 
+using Hypatia
+
 println("\n\nJuMP\n-------------------------\n\n")
-model = Model(ECOS.Optimizer)
+model = Model(Hypatia.Optimizer)
 @variable(model, x[1:n])
 @constraint(model, c1, A1*x .== b1)
 @constraint(model, c2, A2*x .<= b2)
@@ -79,7 +81,7 @@ optimize!(model)
 # Clarabel.setup!(solver,BigFloat.(P),BigFloat.(c),BigFloat.(A),BigFloat.(b),cone_types,cone_dims,settings)
 # Clarabel.solve!(solver)
 
-settings = Clarabel.Settings(max_iter=50,direct_kkt_solver=true)
+settings = Clarabel.Settings(max_iter=50,direct_kkt_solver=true, equilibrate_enable = true)
 solver   = Clarabel.Solver()
 Clarabel.setup!(solver,P,c,A,b,cone_types,cone_dims,settings)
 Clarabel.solve!(solver)

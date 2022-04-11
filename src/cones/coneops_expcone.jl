@@ -23,7 +23,7 @@ function update_scaling!(
     μ::T
 ) where {T}
     #update both gradient and Hessian for function f*(z) at the point z
-    muHessianF(z,K.μH,K.μHinv,μ)
+    muHessianF(z,K.μH,K.Hinv,μ)
     GradF(z,K.grad)
 end
 
@@ -138,7 +138,11 @@ end
 # Dual exponential cone: z3 ≥ -z1*e^(z2/z1 - 1), z3 > 0, z1 < 0
 # As in ECOS, we use the dual barrier function: f*(z) = -log(z2 - z1 - z1log(z3/-z1)) - log(-z1) - log(z3):
 # Evaluates the gradient of the dual exponential cone ∇f*(z) at z, and stores the result at g
-function GradF(z::AbstractVector{T}, g::AbstractVector{T}) where {T}
+function GradF(
+    z::AbstractVector{T}, 
+    g::AbstractVector{T}
+) where {T}
+
     z1 = z[1]               #z1
     z2 = z[2]               #z2
     z3 = z[3]               #z3
@@ -153,7 +157,12 @@ end
 
 # Evaluates the Hessian of the exponential dual cone barrier at z and stores the upper triangular part of the matrix μH*(z)
 # NB:could reduce H to an upper triangular matrix later, remove duplicate updates
-function muHessianF(z::AbstractVector{T}, H::AbstractMatrix{T}, Hinv::AbstractMatrix{T}, μ::T) where {T}
+function muHessianF(
+    z::AbstractVector{T}, 
+    H::AbstractMatrix{T}, 
+    Hinv::AbstractMatrix{T}, 
+    μ::T
+) where {T}
     # y = z1; z = z2; x = z3;
     # l = log(-z3/z1);
     # r = -z1*l-z1+z2;
@@ -177,10 +186,54 @@ function muHessianF(z::AbstractVector{T}, H::AbstractMatrix{T}, Hinv::AbstractMa
     H[3,2] = H[2,3]
     H[3,3] = ((r*r-z1*r+z1*z1)/(r*r*z3*z3))
 
-    H .*= μ
-
-    # compute (μH)^{-1}, 3x3 inverse is easy
+    # compute H^{-1}, 3x3 inverse is easy
+    # NB: may need to be modified later rather than using inv() directly
     Hinv .= inv(H) 
+
+    H .*= μ
+end
+
+# 3rd-order correction at the point z, w.r.t. directions u,v, and then save it to η
+function higherCorrection!(
+    K::ExponentialCone{T},
+    η::AbstractVector{T},
+    wu::AbstractVector{T}, 
+    v::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+    z1 = z[1]               #z1
+    z2 = z[2]               #z2
+    z3 = z[3]               #z3   
+    v1 = v[1]
+    v2 = v[2]
+    v3 = v[3]
+
+    # u for H^{-1}*Δs 
+    u = K.Hinv*wu
+
+    u1 = u[1]
+    u2 = u[2]
+    u3 = u[3]
+
+    l = log(-z3/z1)
+    ψ = -z1*l-z1+z2
+    gψ = [-l; 1; -z1/z3]    # gradient of ψ
+    Hψ = [  1/z1    0   -1/z3;
+            0       0   0;
+            -1/z3   0   z1/(z3*z3);]
+
+    dotψu = dot(gψ,u)
+    dotψv = dot(gψ,v)
+
+    dotψuv = [-u1*v1/(z1*z1) + u3*v3/(z3*z3); 0; (u3*v1+u1*v3)/(z3*z3) - 2*z1*u3*v3/(z3*z3*z3)]
+    dothuv = [-2*u1*v1/(z1*z1*z1); 0; -2*u3*v3/(z3*z3*z3)]
+    Hψv = Hψ*v
+    Hψu = Hψ*u
+
+    η .= (dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv
+    η ./= -2
+
+    return η
 end
 
 # # f(s) = -2*log(s2) - log(s3) - log((1-barω)^2/barω) - 3, where barω = ω(1 - s1/s2 - log(s2) - log(s3))
@@ -222,17 +275,17 @@ function _check_neighbourhood(
 
     grad = zeros(T,3)
     μH = zeros(T,3,3)
-    μHinv = zeros(T,3,3)
+    Hinv = zeros(T,3,3)
 
     # compute gradient and Hessian at z
     GradF(z, grad)
-    muHessianF(z, μH, μHinv, μ)
+    muHessianF(z, μH, Hinv, μ)
     
     # grad as a workspace for s + μ*grad
     grad .*= μ
     grad .+= s
 
-    if (norm(dot(grad,μHinv,grad)/μ) < η^2)
+    if (norm(dot(grad,Hinv,grad)/(μ*μ)) < η^2)
         return true
     end
 

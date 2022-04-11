@@ -211,14 +211,14 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
     μH::AbstractMatrix{T}       #Hessian workspace
-    μHinv::AbstractMatrix{T}
+    Hinv::AbstractMatrix{T}
     grad::AbstractVector{T}
 
     function ExponentialCone{T}(dim::Integer=3) where {T}
         μH = Matrix{T}(undef,3,3)
-        μHinv = Matrix{T}(undef,3,3)
+        Hinv = Matrix{T}(undef,3,3)
         grad = Vector{T}(undef,3)
-        return new(dim,μH,μHinv,grad)
+        return new(dim,μH,Hinv,grad)
     end
 end
 

@@ -87,12 +87,14 @@ function cones_λ_circ_λ!(
 end
 
 # YC:   x = y ∘ z for symmetric cones
-#       x = 0 for unsymmetric cones
+#       x = 3rd-correction for unsymmetric cones
+# NB: could merge functions later
 function cones_circ_op!(
     cones::ConeSet{T},
     x::ConicVector{T},
     y::ConicVector{T},
-    z::ConicVector{T}
+    z::ConicVector{T},
+    var::ConicVector{T}
 ) where {T}
 
     for i = eachindex(cones)
@@ -100,8 +102,11 @@ function cones_circ_op!(
         if cones.types[i] != ExponentialConeT
             circ_op!(cones[i],x.views[i],y.views[i],z.views[i])
         else
-        # set unsymmtric parts of x to 0
-            x.views[i] .= 0
+        # set unsymmtric parts of x to 3rd-order corrections
+            # println("higer order correction:", higherCorrection!(cones[i],x.views[i],y.views[i],z.views[i],var.views[i]))
+            # x.views[i] .= 0
+
+            higherCorrection!(cones[i],x.views[i],y.views[i],z.views[i],var.views[i])
         end
     end
     return nothing
