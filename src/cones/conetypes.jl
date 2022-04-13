@@ -206,12 +206,16 @@ PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 # end
 
 
-#   YC: contain both primal & dual variables at present
+# ------------------------------------
+# Exponential Cone
+# ------------------------------------
+
+# gradient and Hessian for the dual barrier function
 mutable struct ExponentialCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
-    μH::AbstractMatrix{T}       #Hessian workspace
-    Hinv::AbstractMatrix{T}
+    μH::AbstractMatrix{T}       #μ*H for the linear sysmtem
+    Hinv::AbstractMatrix{T}     # inverse of H
     grad::AbstractVector{T}
 
     function ExponentialCone{T}(dim::Integer=3) where {T}
@@ -223,6 +227,30 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
 end
 
 ExponentialCone(args...) = ExponentialCone{DefaultFloat}(args...)
+
+# # ------------------------------------
+# # Power Cone
+# # ------------------------------------
+
+# gradient and Hessian for the dual barrier function
+mutable struct PowerCone{T} <: AbstractCone{T}
+
+    dim::DefaultInt
+    α::T
+    μH::AbstractMatrix{T}       #μ*H for the linear sysmtem
+    Hinv::AbstractMatrix{T}     # inverse of H
+    grad::AbstractVector{T}
+
+    function PowerCone{T}(α::T) where {T}
+        dim = 3
+        μH = Matrix{T}(undef,3,3)
+        Hinv = Matrix{T}(undef,3,3)
+        grad = Vector{T}(undef,3)
+        return new(dim,α,μH,Hinv,grad)
+    end
+end
+
+PowerCone(args...) = PowerCone{DefaultFloat}(args...)
 
 # -------------------------------------
 # Enum and dict for user interface
@@ -236,7 +264,8 @@ supported types are:
 * `NonnegativeConeT`: The nonnegative orthant.
 * `SecondOrderConeT`: The second order / Lorentz / ice-cream cone.
 # `PSDTriangleConeT`: The positive semidefinite cone (triangular format).
-# `ExponentialConeTT`: The exponetial cone (under development).
+# `ExponentialConeT`: The exponetial cone.
+# `PowerConeT`: The power cone (under development).
 """
 @enum SupportedCones begin
     ZeroConeT
@@ -244,6 +273,7 @@ supported types are:
     SecondOrderConeT
     PSDTriangleConeT
     ExponentialConeT
+    PowerConeT
 end
 
 """
@@ -257,4 +287,9 @@ const ConeDict = Dict(
     SecondOrderConeT => SecondOrderCone,
     PSDTriangleConeT => PSDTriangleCone,
     ExponentialConeT => ExponentialCone,
+    PowerConeT => PowerCone,
 )
+
+
+# set of nonsymmetric cones
+const NonsymmetricCones = [ExponentialConeT; PowerConeT]

@@ -48,16 +48,36 @@ setup!(model, P, q, A, b, cone_types, cone_dims, settings)
 
 To solve the problem, you must make a subsequent call to [`solve!`](@ref)
 """
-function setup!(s,P,c,A,b,cone_types,cone_dims,settings::Settings)
+function setup!(
+    s::Solver{T},
+    P::AbstractMatrix{T},
+    q::Vector{T},
+    A::AbstractMatrix{T},
+    b::Vector{T},
+    cone_types::Vector{SupportedCones},
+    cone_dims::Vector{Int},
+    settings::Settings{T},
+    α::Vector{T}= T[]
+) where {T}
     #this allows total override of settings during setup
     s.settings = settings
-    setup!(s,P,c,A,b,cone_types,cone_dims)
+    setup!(s,P,q,A,b,cone_types,cone_dims,α)
 end
 
-function setup!(s,P,c,A,b,cone_types,cone_dims; kwargs...)
+function setup!(
+    s::Solver{T},
+    P::AbstractMatrix{T},
+    q::Vector{T},
+    A::AbstractMatrix{T},
+    b::Vector{T},
+    cone_types::Vector{SupportedCones},
+    cone_dims::Vector{Int},
+    α::Vector{T}= T[];
+    kwargs...
+) where {T}
     #this allows override of individual settings during setup
     settings_populate!(s.settings, Dict(kwargs))
-    setup!(s,P,c,A,b,cone_types,cone_dims)
+    setup!(s,P,q,A,b,cone_types,cone_dims,α)
 end
 
 # main setup function
@@ -68,7 +88,8 @@ function setup!(
     A::AbstractMatrix{T},
     b::Vector{T},
     cone_types::Vector{SupportedCones},
-    cone_dims::Vector{Int}
+    cone_dims::Vector{Int},
+    α::Vector{T}
 ) where{T}
 
     #make this first to create the timers
@@ -77,7 +98,7 @@ function setup!(
     @timeit s.info.timer "setup!" begin
 
         s.data   = DefaultProblemData{T}(P,q,A,b)
-        s.cones  = ConeSet{T}(cone_types,cone_dims)
+        s.cones  = ConeSet{T}(cone_types,cone_dims,α)
         s.data.m == s.cones.numel || throw(DimensionMismatch())
 
         s.variables = DefaultVariables{T}(s.data.n,s.cones)
@@ -232,6 +253,117 @@ function solve!(
         end #end IP iteration timer
 
     end #end solve! timer
+
+    info_finalize!(s.info)  #halts timers
+    result_finalize!(s.result,s.variables,s.equilibration,s.info)
+
+    @notimeit print_footer(s.info,s.settings)
+
+    return s.result
+end
+
+function debug_solve!(
+    s::Solver{T}
+) where{T}
+
+    #various initializations
+    info_reset!(s.info)
+    iter   = 0
+    isdone = false
+    timer  = s.info.timer
+
+    #initial residuals and duality gap
+    gap       = T(0)
+    sigma     = T(0)
+
+    #solver release info, solver config
+    #problem dimensions, cone type etc
+    print_header(s.info,s.settings,s.data,s.cones)
+
+
+        #initialize variables to some reasonable starting point
+    solver_default_start!(s)
+
+    #----------
+    # main loop
+    #----------
+    while true
+
+        #update the residuals
+        #--------------
+        residuals_update!(s.residuals,s.variables,s.data)
+
+        #calculate duality gap (scaled)
+        #--------------
+        μ = calc_mu(s.variables, s.residuals, s.cones)
+
+        #convergence check and printing
+        #--------------
+        info_update!(
+            s.info,s.data,s.variables,
+            s.residuals,s.equilibration,s.settings
+        )
+        isdone = info_check_termination!(s.info,s.residuals,s.settings)
+    
+        iter += 1
+        print_status(s.info,s.settings)
+        isdone && break
+
+        #update the scalings
+        #--------------
+        scaling_update!(s.cones,s.variables,μ)
+
+        #update the KKT system and the constant
+        #parts of its solution
+        #--------------
+        kkt_update!(s.kktsystem,s.data,s.cones)
+
+        #calculate the affine step
+        #--------------
+        calc_affine_step_rhs!(
+            s.step_rhs, s.residuals,
+            s.data, s.variables, s.cones
+        )
+
+        kkt_solve!(
+            s.kktsystem, s.step_lhs, s.step_rhs,
+            s.data, s.variables, s.cones, :affine
+        )
+
+        #calculate step length and centering parameter
+        #--------------
+        α = calc_step_length(s.variables,s.step_lhs,s.cones)
+        σ = calc_centering_parameter(α)
+
+        #calculate the combined step and length
+        #--------------
+        calc_combined_step_rhs!(
+            s.step_rhs, s.residuals,
+            s.data, s.variables, s.cones,
+            s.step_lhs, σ, μ
+        )
+
+        kkt_solve!(
+            s.kktsystem, s.step_lhs, s.step_rhs,
+            s.data, s.variables, s.cones, :combined
+        )
+
+        #compute final step length and update the current iterate
+        #--------------
+        α = calc_step_length(s.variables,s.step_lhs,s.cones)
+        α *= s.settings.max_step_fraction
+
+        variables_add_step!(s.variables,s.step_lhs,α)
+
+        #record scalar values from this iteration
+        info_save_scalars(s.info,μ,α,σ,iter)
+
+        # #update the scalings
+        # #--------------
+        # @timeit_debug timer "NT scaling" scaling_update!(s.cones,s.variables,μ)
+
+    end  #end while
+
 
     info_finalize!(s.info)  #halts timers
     result_finalize!(s.result,s.variables,s.equilibration,s.info)

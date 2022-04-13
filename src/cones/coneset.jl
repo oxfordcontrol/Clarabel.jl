@@ -24,12 +24,13 @@ struct ConeSet{T}
     scaling::T
     minDist::T
     ind_exp::Vector{Int}    #index for exponential cones
-    η::T                    #centrality bound
+    ind_pow::Vector{Int}    #index for power cones
+    η::T                    #centrality
 
     # the flag for symmetric cone check
     symFlag::Bool
 
-    function ConeSet{T}(types,dims) where {T}
+    function ConeSet{T}(types,dims,α) where {T}
 
         length(types) == length(dims) || throw(DimensionMismatch())
 
@@ -49,12 +50,21 @@ struct ConeSet{T}
         scaling = T(0.8)
         minDist = T(0.1)
         ind_exp = Vector{Int}(undef,type_counts[ExponentialConeT])
+        ind_pow = Vector{Int}(undef,type_counts[PowerConeT])
         η = T(0.99)     #should be less than 1
 
         cur_exp = 0
+        cur_pow = 0
         #create cones with the given dims
         for i in eachindex(dims)
-            cones[i] = ConeDict[types[i]]{T}(dims[i])
+            #initialize power cones
+            if types[i] == PowerConeT
+                cur_pow += 1
+                ind_pow[cur_pow] = i
+                cones[i] = ConeDict[types[i]]{T}(α[cur_pow])
+            else
+                cones[i] = ConeDict[types[i]]{T}(dims[i])
+            end
 
             #store indexing of exponential cones
             if types[i] == ExponentialConeT
@@ -79,7 +89,7 @@ struct ConeSet{T}
             symFlag = false
         end
 
-        return new(cones,types,type_counts,numel,degree,headidx,scaling,minDist,ind_exp,η,symFlag)
+        return new(cones,types,type_counts,numel,degree,headidx,scaling,minDist,ind_exp,ind_pow,η,symFlag)
     end
 end
 

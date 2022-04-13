@@ -40,6 +40,7 @@ module Clarabel
     include("./cones/coneops_socone.jl")
     include("./cones/coneops_psdtrianglecone.jl")
     include("./cones/coneops_expcone.jl")
+    include("./cones/coneops_powcone.jl")
 
     #various algebraic utilities
     include("./utils/mathutils.jl")

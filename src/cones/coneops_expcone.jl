@@ -100,7 +100,7 @@ function _step_length_exp_primal(
     scaling::T
 ) where {T}
 
-    # NB: additional memoory, may need to remove it later
+    # NB: additional memory, may need to remove it later
     ws = s + α*ds
 
     while !checkExpPrimalFeas(ws)
@@ -118,7 +118,7 @@ function _step_length_exp_dual(
     scaling::T
 ) where {T}
 
-    # NB: additional memoory, may need to remove it later
+    # NB: additional memory, may need to remove it later
     ws = z + α*dz
 
     while !checkExpDualFeas(ws)
@@ -197,7 +197,7 @@ end
 function higherCorrection!(
     K::ExponentialCone{T},
     η::AbstractVector{T},
-    wu::AbstractVector{T}, 
+    ds::AbstractVector{T}, 
     v::AbstractVector{T},
     z::AbstractVector{T}
 ) where {T}
@@ -209,7 +209,7 @@ function higherCorrection!(
     v3 = v[3]
 
     # u for H^{-1}*Δs 
-    u = K.Hinv*wu
+    u = K.Hinv*ds
 
     u1 = u[1]
     u2 = u[2]
@@ -291,6 +291,8 @@ function _check_neighbourhood(
 
     return false
 end
+
+
 
 
 # Hessian operator δ = μH*(z)[δz], where v contains μH*.

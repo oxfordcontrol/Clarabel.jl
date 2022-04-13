@@ -76,7 +76,7 @@ function cones_λ_circ_λ!(
 
     for i = eachindex(cones)
         # don't implement it for unsymmetric cones
-        if cones.types[i] != ExponentialConeT
+        if !(cones.types[i] in NonsymmetricCones) 
             λ_circ_λ!(cones[i],x.views[i])
         else
             # NB: check whether the following line is needed
@@ -99,12 +99,12 @@ function cones_circ_op!(
 
     for i = eachindex(cones)
         # don't implement it for unsymmetric cones
-        if cones.types[i] != ExponentialConeT
+        if !(cones.types[i] in NonsymmetricCones)
             circ_op!(cones[i],x.views[i],y.views[i],z.views[i])
         else
         # set unsymmtric parts of x to 3rd-order corrections
             # println("higer order correction:", higherCorrection!(cones[i],x.views[i],y.views[i],z.views[i],var.views[i]))
-            # x.views[i] .= 0
+            x.views[i] .= 0
 
             higherCorrection!(cones[i],x.views[i],y.views[i],z.views[i],var.views[i])
         end
@@ -122,7 +122,7 @@ function cones_λ_inv_circ_op!(
 
     for i = eachindex(cones)
         # don't implement it for unsymmetric cones
-        if cones.types[i] != ExponentialConeT
+        if !(cones.types[i] in NonsymmetricCones)
             λ_inv_circ_op!(cones[i],x.views[i],z.views[i])
         end
     end
@@ -139,7 +139,7 @@ function cones_inv_circ_op!(
 
     for i = eachindex(cones)
         # don't implement it for unsymmetric cones
-        if cones.types[i] != ExponentialConeT
+        if !(cones.types[i] in NonsymmetricCones)
             inv_circ_op!(cones[i],x.views[i],y.views[i],z.views[i])
         end
     end
@@ -187,7 +187,7 @@ function cones_gemv_W!(
     #@assert (x !== y)
     for i = eachindex(cones)
         # don't implement it for unsymmetric cones
-        if cones.types[i] != ExponentialConeT
+        if !(cones.types[i] in NonsymmetricCones)
             gemv_W!(cones[i],is_transpose,x.views[i],y.views[i],α,β)
         end
     end
@@ -209,7 +209,7 @@ function cones_gemv_Winv!(
     #@assert x !== y
     for i = eachindex(cones)
         # don't implement it for unsymmetric cones
-        if cones.types[i] != ExponentialConeT
+        if !(cones.types[i] in NonsymmetricCones)
             gemv_Winv!(cones[i],is_transpose,x.views[i],y.views[i],α,β)
         end
     end
@@ -227,7 +227,7 @@ function cones_add_scaled_e!(
 
     for i = eachindex(cones)
         # don't implement it for unsymmetric cones
-        if cones.types[i] != ExponentialConeT
+        if !(cones.types[i] in NonsymmetricCones)
             add_scaled_e!(cones[i],x.views[i],α)
         else
             add_grad!(cones[i],x.views[i],α)    # nonsymmetric centralling
@@ -258,7 +258,7 @@ function cones_step_length(
     # YC: implement step search for symmetric cones first
     # NB: split the step search for symmetric and unsymmtric cones due to the complexity of the latter
     for i = eachindex(cones)
-        if cones.types[i] != ExponentialConeT
+        if !(cones.types[i] in NonsymmetricCones)
             (nextαz,nextαs) = step_length(cones[i],dz[i],ds[i],z[i],s[i])
             α = min(α,nextαz,nextαs)
         end
@@ -267,7 +267,7 @@ function cones_step_length(
     # feasible step_size for unsymmetric cones
     for i = eachindex(cones)
         # don't implement it for unsymmetric cones
-        if cones.types[i] == ExponentialConeT
+        if (cones.types[i] in NonsymmetricCones)
             αzs = unsymmetric_step_length(cones[i],dz[i],ds[i],z[i],s[i],α,cones.scaling)
             α = min(α,αzs)
         end
@@ -277,7 +277,7 @@ function cones_step_length(
 end
 
 # check the distance to the boundary for unsymmetric cones
-function check_exp_μ_and_centrality(cones::ConeSet{T},
+function check_μ_and_centrality(cones::ConeSet{T},
     dz::ConicVector{T},
     ds::ConicVector{T},
     dτ::T,
@@ -302,6 +302,8 @@ function check_exp_μ_and_centrality(cones::ConeSet{T},
 
     length_exp = cones.type_counts[ExponentialConeT]
     ind_exp = cones.ind_exp
+    length_pow = cones.type_counts[PowerConeT]
+    ind_pow = cones.ind_pow
     scaling = cones.scaling
     η = cones.η
     
@@ -317,7 +319,7 @@ function check_exp_μ_and_centrality(cones::ConeSet{T},
         #boundary check from ECOS and centrality check from Hypatia
         # NB:   1) the update x+α*dx is inefficient right now and need to be rewritten later
         #       2) symmetric cones use the central path as in CVXOPT
-        if boundary_check!(cur_z,cur_s,ind_exp,length_exp,upper) && check_centrality!(cones,cur_s,cur_z,μ,η)
+        if boundary_check!(cur_z,cur_s,ind_exp,length_exp,upper) && boundary_check!(cur_z,cur_s,ind_pow,length_pow,upper) && check_centrality!(cones,cur_s,cur_z,μ,η)
             return α
         else
             α *= scaling
@@ -343,13 +345,13 @@ function check_exp_μ_and_centrality(cones::ConeSet{T},
     return α
 end
 
-function boundary_check!(z,s,ind_exp,length_exp,upper)     
-    for i = 1:length_exp
-        μi = dot(z[ind_exp[i]],s[ind_exp[i]])/3
+function boundary_check!(z,s,ind_cone,length_cone,upper)     
+    for i = 1:length_cone
+        μi = dot(z[ind_cone[i]],s[ind_cone[i]])/3
 
         # ECOS: if too close to boundary
         if μi < upper
-            println("exp var too close to boundary")
+            println("var too close to boundary")
             return false
         end
     end
@@ -360,7 +362,7 @@ end
 function check_centrality!(cones,s,z,μ,η)
     for i in eachindex(cones)
         if !_check_neighbourhood(cones[i],s[i],z[i],μ,η)
-            println("away from central path")
+            println("away from central path due to cone ", i)
             return false
         end
     end

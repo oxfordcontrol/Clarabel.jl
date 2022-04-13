@@ -121,6 +121,8 @@ function kkt_solve!(
 
     ind_exp = cones.ind_exp
     length_exp = cones.type_counts[ExponentialConeT]
+    ind_pow = cones.ind_pow
+    length_pow = cones.type_counts[PowerConeT]
 
     (x1,z1) = (kktsystem.x1, kktsystem.z1)
     (x2,z2) = (kktsystem.x2, kktsystem.z2)
@@ -148,6 +150,9 @@ function kkt_solve!(
     # YC: for unsymmetric cones, set Wᵀ(λ \ ds) = ds
     for i = 1:length_exp
         Wtlinvds.views[ind_exp[i]] .= rhs.s.views[ind_exp[i]]
+    end
+    for i = 1:length_pow
+        Wtlinvds.views[ind_pow[i]] .= rhs.s.views[ind_pow[i]]
     end
 
     @. workz = Wtlinvds - rhs.z
@@ -188,6 +193,10 @@ function kkt_solve!(
     for  i = 1:length_exp
         compute_muHessianF(lhs.s.views[ind_exp[i]],cones.cones[ind_exp[i]].μH,lhs.z.views[ind_exp[i]])
         lhs.s.views[ind_exp[i]] .*= -1
+    end
+	for  i = 1:length_pow
+        compute_muHessianF(lhs.s.views[ind_pow[i]],cones.cones[ind_pow[i]].μH,lhs.z.views[ind_pow[i]])
+        lhs.s.views[ind_pow[i]] .*= -1
     end
 
     @. lhs.s -= Wtlinvds

@@ -37,7 +37,7 @@ function calc_step_length(
         s_dz = dot(variables.s,step.z)
         z_ds = dot(variables.z,step.s)
 
-        α = check_exp_μ_and_centrality(cones,step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ,zs,dzs,s_dz,z_ds,α)
+        α = check_μ_and_centrality(cones,step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ,zs,dzs,s_dz,z_ds,α)
         # println("α after centrality check: ", α)
     end
 
