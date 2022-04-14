@@ -1,5 +1,5 @@
-include("./Clarabel.jl")
-using .Clarabel
+# include("./Clarabel.jl")
+using Clarabel
 using LinearAlgebra, SparseArrays
 using JuMP, Mosek, MosekTools, ECOS
 import MathOptInterface
@@ -33,31 +33,31 @@ function expcone_1()
 
     c = [1.0; 0.5; -2.; -0.1; 1.0; 3.; 0.]
     P = spzeros(length(c), length(c))
-    P = sparse(I(length(c)).*1e-2)
+    P = sparse(I(length(c)).*1e-1)
 
-    A = sparse([A1;A2;A3;A4;A5;A6])
-    b = [b1;b2;b3;b4;b5;b6]
+    # A = sparse([A1;A2;A3;A4;A5;A6])
+    # b = [b1;b2;b3;b4;b5;b6]
     # A = sparse([A1;A2;A3;A5;A6])
     # b = [b1;b2;b3;b5;b6]
     # A = sparse([A1;A2;A5;A6])
     # b = [b1;b2;b5;b6]
-    # A = sparse([A1;A2;A6])
-    # b = [b1;b2;b6]
+    A = sparse([A1;A2;A5])
+    b = [b1;b2;b5]
 
     cone_types = [Clarabel.ZeroConeT,
     Clarabel.NonnegativeConeT,
-    Clarabel.SecondOrderConeT,
-    Clarabel.PSDTriangleConeT,
+    # Clarabel.SecondOrderConeT,
+    # Clarabel.PSDTriangleConeT,
     Clarabel.ExponentialConeT,
-    Clarabel.PowerConeT,
+    # Clarabel.PowerConeT,
     ]
 
     cone_dims  = [length(b1),
     length(b2),
-    length(b3),
-    Int(floor(sqrt(2*length(b4)))),
+    # length(b3),
+    # Int(floor(sqrt(2*length(b4)))),
     length(b5),
-    length(b6)
+    # length(b6)
     ]
 
     α = [1.0/3]
@@ -72,25 +72,25 @@ n = 7
 using Hypatia
 
 println("\n\nJuMP\n-------------------------\n\n")
-model = Model(Hypatia.Optimizer)
+model = Model(Mosek.Optimizer)
 @variable(model, x[1:n])
 @constraint(model, c1, A1*x .== b1)
 @constraint(model, c2, A2*x .<= b2)
-@constraint(model, c3, b3-A3*x in MOI.SecondOrderCone(cone_dims[3]))
-@constraint(model, c4, b4-A4*x in MOI.PositiveSemidefiniteConeTriangle(cone_dims[4]))
+# @constraint(model, c3, b3-A3*x in MOI.SecondOrderCone(cone_dims[3]))
+# @constraint(model, c4, b4-A4*x in MOI.PositiveSemidefiniteConeTriangle(cone_dims[4]))
 @constraint(model, c5, b5-A5*x in MOI.ExponentialCone())
-@constraint(model, c6, b6-A6*x in MOI.PowerCone(α[1]))
+# @constraint(model, c6, b6-A6*x in MOI.PowerCone(α[1]))
 @objective(model, Min, sum(c.*x) + 1/2*x'*P*x)
 
 #Run the opimization
 optimize!(model)
 
-# settings = Clarabel.Settings{BigFloat}(max_iter=50,direct_kkt_solver=true)
+# settings = Clarabel.Settings{BigFloat}(max_iter=50,direct_kkt_solver=true, equilibrate_enable = false)
 # solver   = Clarabel.Solver{BigFloat}()
 # Clarabel.setup!(solver,BigFloat.(P),BigFloat.(c),BigFloat.(A),BigFloat.(b),cone_types,cone_dims,settings,BigFloat.(α))
 # Clarabel.solve!(solver)
 
-settings = Clarabel.Settings(max_iter=50,direct_kkt_solver=true, equilibrate_enable = false)
+settings = Clarabel.Settings(max_iter=50,direct_kkt_solver=true, equilibrate_enable = true)
 solver   = Clarabel.Solver()
 Clarabel.setup!(solver,P,c,A,b,cone_types,cone_dims,settings,α)
-Clarabel.debug_solve!(solver)
+Clarabel.solve!(solver)
