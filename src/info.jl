@@ -3,7 +3,6 @@ function info_update!(
     data::DefaultProblemData{T},
     variables::DefaultVariables{T},
     residuals::DefaultResiduals{T},
-    equil::DefaultEquilibration{T},
     settings::Settings{T}
 ) where {T}
 
@@ -12,9 +11,9 @@ function info_update!(
     τinv = inv(variables.τ)
 
     #shortcuts for the equilibration matrices
-    D = equil.D; Dinv = equil.Dinv
-    E = equil.E; Einv = equil.Einv
-    cscale = equil.c[]
+    D = data.equilibration.D; Dinv = data.equilibration.Dinv
+    E = data.equilibration.E; Einv = data.equilibration.Einv
+    cscale = data.equilibration.c[]
 
     #primal and dual costs. dot products are invariant w.r.t
     #equilibration, but we still need to back out the overall

@@ -3,6 +3,8 @@ module Clarabel
     using SparseArrays, LinearAlgebra, Printf
     const DefaultFloat = Float64
     const DefaultInt   = LinearAlgebra.BlasInt
+    const IdentityMatrix = UniformScaling{Bool}
+
 
     #version / release info
     include("./version.jl")

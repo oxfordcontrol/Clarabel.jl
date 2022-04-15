@@ -1,6 +1,5 @@
 import LinearAlgebra: dot
 
-
 function clip(
     s::Real,
     min_thresh::Real,

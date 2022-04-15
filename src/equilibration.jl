@@ -3,22 +3,18 @@ import Statistics: mean
 
 #Ruiz Equilibration procedure, using same method as in COSMO.jl
 
-const IdentityMatrix = UniformScaling{Bool}
-
-function equilibrate!(
-        equil::DefaultEquilibration{T},
+function data_equilibrate!(
         data::DefaultProblemData{T},
         cones::ConeSet{T},
         settings::Settings{T}
 ) where {T}
 
-    #if equilibration is disabled, return identities
-    #everywhere
+    equil = data.equilibration
+
+    #if equilibration is disabled, just return.  Note that
+    #the default equilibration structure initializes with
+    #identity scaling already.
     if(!settings.equilibrate_enable)
-        @. equil.d    = one(T)
-        @. equil.e    = one(T)
-        @. equil.dinv = one(T)
-        @. equil.einv = one(T)
         return
     end
 
@@ -26,11 +22,6 @@ function equilibrate!(
 	D = equil.D;   d = equil.d
 	E = equil.E;   e = equil.e
 	c = equil.c
-
-	#unit scaling to start
-	D.diag .= one(T)
-	E.diag .= one(T)
-	c[]     = one(T)
 
 	#use the inverse scalings as work vectors
 	Dwork = equil.Dinv

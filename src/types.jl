@@ -69,17 +69,19 @@ struct DefaultEquilibration{T} <: AbstractEquilibration{T}
     function DefaultEquilibration{T}(
         nvars::Int,
         cones::ConeSet{T},
-        settings::Settings
     ) where {T}
 
         #Left/Right diagonal scaling for problem data
-        d    = Vector{T}(undef,nvars)
-        dinv = Vector{T}(undef,nvars)
+        d    = ones(T,nvars)
+        dinv = ones(T,nvars)
         D    = Diagonal(d)
         Dinv = Diagonal(dinv)
 
-        e    = ConicVector{T}(cones)
-        einv = ConicVector{T}(cones)
+        # PJG : note that this double initializes
+        # e / einv because the ConicVector constructor
+        # first initializes to zero.   Could be improved.
+        e    = ConicVector{T}(cones); e .= one(T)
+        einv = ConicVector{T}(cones); e .= one(T)
         E    = Diagonal(e)
         Einv = Diagonal(einv)
 
@@ -150,6 +152,7 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     b::Vector{T}
     n::DefaultInt
     m::DefaultInt
+    equilibration::DefaultEquilibration{T}
 
     # we will require products P*x, but will only store triu(P).
     # Use this convenience object for symmetric products etc
@@ -160,6 +163,7 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
         q::AbstractVector{T},
         A::AbstractMatrix{T},
         b::AbstractVector{T},
+        cones::ConeSet{T}
     ) where {T}
 
         n = length(q)
@@ -178,7 +182,9 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
         q = deepcopy(q)
         b = deepcopy(b)
 
-        new(P,q,A,b,n,m,Psym)
+        equilibration = DefaultEquilibration(n,cones)
+
+        new(P,q,A,b,n,m,equilibration,Psym)
 
     end
 
