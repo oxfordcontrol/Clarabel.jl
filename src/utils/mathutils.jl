@@ -36,31 +36,35 @@ function kkt_col_norms!(
     norm_RHS::AbstractVector{T}
 ) where {T}
 
-	col_norms_sym!(norm_LHS, P, reset = true)   #start from zero.  P can be triu
-	col_norms!(norm_LHS, A, reset = false)       #incrementally from P norms
+	col_norms_sym!(norm_LHS, P)   # P can be triu
+	col_norms_no_reset!(norm_LHS, A)       #incrementally from P norms
 	row_norms!(norm_RHS, A)                      #same as column norms of A'
 
 	return nothing
 end
 
-
 function col_norms!(
-    v::AbstractVector{Tf},
-	A::SparseMatrixCSC{Tf,Ti};
-    reset::Bool = true
+    norms::AbstractVector{Tf},
+	A::SparseMatrixCSC{Tf,Ti}
 ) where {Tf <: AbstractFloat, Ti <: Integer}
 
-	if reset
-		fill!(v, 0)
-	end
+	fill!(norms, zero(Tf))
+    col_norms_no_reset!(norms,A)
+    return nothing
+end
 
-	@inbounds for i = eachindex(v)
+function col_norms_no_reset!(
+    norms::AbstractVector{Tf},
+	A::SparseMatrixCSC{Tf,Ti};
+) where {Tf <: AbstractFloat, Ti <: Integer}
+
+	@inbounds for i = eachindex(norms)
 		for j = A.colptr[i]:(A.colptr[i + 1] - 1)
 			tmp = abs(A.nzval[j])
-			v[i] = v[i] > tmp ? v[i] : tmp
+			norms[i] = norms[i] > tmp ? norms[i] : tmp
 		end
 	end
-	return v
+	return nothing
 end
 
 #column norms of a matrix assumed to be symmetric.
@@ -68,47 +72,57 @@ end
 #don't worry about inspecting diagonal elements twice
 #since we are taking inf norms here anyway
 
+
 function col_norms_sym!(
-    v::AbstractVector{Tf},
+    norms::AbstractVector{Tf},
 	A::SparseMatrixCSC{Tf,Ti};
     reset::Bool = true
 ) where {Tf <: AbstractFloat, Ti <: Integer}
 
-	if reset
-		fill!(v, 0)
-	end
+    fill!(norms, zero(Tf))
+    col_norms_sym_no_reset!(norms,A)
+    return nothing
 
-	@inbounds for i = eachindex(v)
+end
+
+function col_norms_sym_no_reset!(
+    norms::AbstractVector{Tf},
+	A::SparseMatrixCSC{Tf,Ti}
+) where {Tf <: AbstractFloat, Ti <: Integer}
+
+	@inbounds for i = eachindex(norms)
 		for j = A.colptr[i]:(A.colptr[i + 1] - 1)
 			tmp = abs(A.nzval[j])
             r   = A.rowval[j]
-			v[i] = v[i] > tmp ? v[i] : tmp
-            v[r] = v[r] > tmp ? v[r] : tmp
+			norms[i] = norms[i] > tmp ? norms[i] : tmp
+            norms[r] = norms[r] > tmp ? norms[r] : tmp
 		end
 	end
-	return v
+	return nothing
 end
 
-
-
-
-
 function row_norms!(
-    v::AbstractVector{Tf},
+    norms::AbstractVector{Tf},
+	A::SparseMatrixCSC{Tf, Ti}
+) where{Tf <: AbstractFloat, Ti <: Integer}
+
+    fill!(norms, zero(Tf))
+    return row_norms_no_reset!(norms,A)
+	return nothing
+end
+
+function row_norms_no_reset!(
+    norms::AbstractVector{Tf},
 	A::SparseMatrixCSC{Tf, Ti};
 	reset::Bool = true
 ) where{Tf <: AbstractFloat, Ti <: Integer}
 
-	if reset
-		fill!(v,zero(Tf))
-	end
-
-	@inbounds for i = 1:(A.colptr[end] - 1)
+    @inbounds for i = 1:(A.colptr[end] - 1)
 		idx = A.rowval[i]
 		tmp = abs(A.nzval[i])
-		v[idx] = v[idx] > tmp ? v[idx] : tmp
+		norms[idx] = norms[idx] > tmp ? norms[idx] : tmp
 	end
-	return v
+	return nothing
 end
 
 

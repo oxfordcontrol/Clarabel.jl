@@ -41,11 +41,11 @@ function update_scaling!(
     #representation of W^TW
     u0 = sqrt(w0sq + w1sq - K.d)
     u1 = α/u0
-    v0 = 0
+    v0 = zero(T)
     v1 = sqrt(u1*u1 - β)
     K.u[1] = u0
     @views K.u[2:end] .= u1.*K.w[2:end]
-    K.v[1] = zero(T)
+    K.v[1] = v0
     @views K.v[2:end] .= v1.*K.w[2:end]
 
     #λ = Wz
@@ -63,8 +63,7 @@ function set_identity_scaling!(
     K.u .= zero(T)
     K.v .= zero(T)
     K.η  = one(T)
-    K.w[1]      = zero(T)
-    K.w[2:end] .= zero(T)
+    K.w .= zero(T)
 
     return nothing
 end

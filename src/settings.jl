@@ -60,7 +60,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     max_step_fraction::T    = 0.99
 
 	#data equilibration
-	equilibrate_enable::Integer         = true
+	equilibrate_enable::Bool            = true
 	equilibrate_max_iter::Integer       = 10
 	equilibrate_min_scaling::T          = 1e-4
 	equilibrate_max_scaling::T          = 1e+4

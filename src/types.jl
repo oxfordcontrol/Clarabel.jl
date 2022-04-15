@@ -66,6 +66,28 @@ struct DefaultEquilibration{T} <: AbstractEquilibration{T}
     #overall scaling for objective function
     c::Base.RefValue{T}
 
+    function DefaultEquilibration{T}(
+        nvars::Int,
+        cones::ConeSet{T},
+        settings::Settings
+    ) where {T}
+
+        #Left/Right diagonal scaling for problem data
+        d    = Vector{T}(undef,nvars)
+        dinv = Vector{T}(undef,nvars)
+        D    = Diagonal(d)
+        Dinv = Diagonal(dinv)
+
+        e    = ConicVector{T}(cones)
+        einv = ConicVector{T}(cones)
+        E    = Diagonal(e)
+        Einv = Diagonal(einv)
+
+        c    = Ref(T(1.))
+
+        new(d,dinv,D,Dinv,e,einv,E,Einv,c)
+    end
+
 end
 
 DefaultEquilibration(args...) = DefaultEquilibration{DefaultFloat}(args...)
@@ -93,7 +115,7 @@ mutable struct DefaultResiduals{T} <: AbstractResiduals{T}
     dot_sz::T
     dot_xPx::T
 
-    #the product Px by itself required infeasibilty checks
+    #the product Px by itself. Required for infeasibilty checks
     Px::Vector{T}
 
     function DefaultResiduals{T}(n::Integer,
@@ -163,35 +185,6 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
 end
 
 DefaultProblemData(args...) = DefaultProblemData{DefaultFloat}(args...)
-
-
-# ---------------
-# data equilibration
-# ---------------
-
-function DefaultEquilibration{T}(
-    nvars::Int,
-    cones::ConeSet{T},
-    settings::Settings
-) where {T}
-
-    #Left/Right diagonal scaling for problem data
-    d    = Vector{T}(undef,nvars)
-    dinv = Vector{T}(undef,nvars)
-    D    = Diagonal(d)
-    Dinv = Diagonal(dinv)
-
-    e    = ConicVector{T}(cones)
-    einv = ConicVector{T}(cones)
-    E    = Diagonal(e)
-    Einv = Diagonal(einv)
-
-    c    = Ref(T(1.))
-
-    return DefaultEquilibration(
-            d,dinv,D,Dinv,e,einv,E,Einv,c
-           )
-end
 
 
 # ---------------
