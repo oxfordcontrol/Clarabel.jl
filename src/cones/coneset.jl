@@ -55,21 +55,19 @@ struct ConeSet{T}
 
         cur_exp = 0
         cur_pow = 0
-        #create cones with the given dims
+        # create cones with the given dims
+        # store indexing of exponential and power cones
         for i in eachindex(dims)
-            #initialize power cones
             if types[i] == PowerConeT
                 cur_pow += 1
                 ind_pow[cur_pow] = i
-                cones[i] = ConeDict[types[i]]{T}(α[cur_pow])
-            else
-                cones[i] = ConeDict[types[i]]{T}(dims[i])
-            end
-
-            #store indexing of exponential cones
-            if types[i] == ExponentialConeT
+                cones[i] = ConeDict[types[i]]{T}(α[i])
+            elseif types[i] == ExponentialConeT
                 cur_exp += 1
                 ind_exp[cur_exp] = i
+                cones[i] = ConeDict[types[i]]{T}()
+            else
+                cones[i] = ConeDict[types[i]]{T}(dims[i])
             end
         end
 
