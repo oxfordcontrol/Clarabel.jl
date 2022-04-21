@@ -218,7 +218,8 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
     Hinv::AbstractMatrix{T}     # inverse of H
     grad::AbstractVector{T}
 
-    function ExponentialCone{T}(dim::Integer=3) where {T}
+    function ExponentialCone{T}() where {T}
+        dim = 3
         μH = Matrix{T}(undef,3,3)
         Hinv = Matrix{T}(undef,3,3)
         grad = Vector{T}(undef,3)

@@ -6,34 +6,34 @@ import MathOptInterface
 const MOI = MathOptInterface
 
 using Debugger
-function expcone_1()
+function expconeData(Type::Type{T}) where {T<: AbstractFloat}
 
     #x is of dimension 7
-    A1 = hcat(ones(1,3), zeros(1,4))        #ZeroCone
-    b1 = 10.
-    A2 = hcat(zeros(3,2), -Matrix(1.0I, 3, 3), zeros(3,2))       #NNCone
-    b2 = zeros(3)
-    A3 = hcat(zeros(3,4), -Matrix(1.0I, 3, 3))       #socone
-    b3 = zeros(3)
-    A4 = zeros(3,7)             #psdcone, problematic
-    A4[1,2] = 1.
-    A4[2,4] = 1.0
-    A4[3,6] = 1.
-    b4 = [10.;0;10.]
-    A5 = zeros(3,7)               #expcone
-    A5[1,1] = -1.0
-    A5[2,3] = -1.
-    A5[3,5] = -1.
-    b5 = zeros(3)
-    A6 = zeros(3,7)               #powcone
-    A6[1,1] = -1.0
-    A6[2,6] = -1.
-    A6[3,7] = -1.
-    b6 = zeros(3)
+    A1 = hcat(ones(T,1,3), zeros(T,1,4))        #ZeroCone
+    b1 = T(10.)
+    A2 = hcat(zeros(T,3,2), - T.(Matrix(1.0I, 3, 3)), zeros(T,3,2))       #NNCone
+    b2 = zeros(T,3)
+    A3 = hcat(zeros(T,3,4), - T.(Matrix(1.0I, 3, 3)))       #socone
+    b3 = zeros(T,3)
+    A4 = zeros(T,3,7)             #psdcone, problematic
+    A4[1,2] = T(1.)
+    A4[2,4] = T(1.0)
+    A4[3,6] = T(1.)
+    b4 = T.([10.;0;10.])
+    A5 = zeros(T,3,7)               #expcone
+    A5[1,1] = T(-1.0)
+    A5[2,3] = T(-1.)
+    A5[3,5] = T(-1.)
+    b5 = zeros(T,3)
+    A6 = zeros(T,3,7)               #powcone
+    A6[1,1] = T(-1.0)
+    A6[2,6] = T(-1.)
+    A6[3,7] = T(-1.)
+    b6 = zeros(T,3)
 
-    c = [1.0; 0.5; -2.; -0.1; 1.0; 3.; 0.]
-    P = spzeros(length(c), length(c))
-    P = sparse(I(length(c)).*1e-1)
+    c = T.([1.0; 0.5; -2.; -0.1; 1.0; 3.; 0.])
+    P = spzeros(T,length(c), length(c))
+    P = sparse(I(length(c)).*T(1e-1))
 
     # A = sparse([A1;A2;A3;A4;A5;A6])
     # b = [b1;b2;b3;b4;b5;b6]
@@ -60,13 +60,21 @@ function expcone_1()
     # length(b6)
     ]
 
-    α = [1.0/3]
+    α = Vector{Union{T,Nothing}}([nothing; 
+        nothing; 
+        # nothing;
+        # nothing;
+        nothing;
+        # 1.0/3;
+        ])
 
     return (P,c,A,b,cone_types,cone_dims,A1,A2,A3,A4,A5,A6,b1,b2,b3,b4,b5,b6,α)
 
 end
 
-P,c,A,b,cone_types,cone_dims,A1,A2,A3,A4,A5,A6,b1,b2,b3,b4,b5,b6,α = expcone_1()
+# set data type first
+T = Float64
+P,c,A,b,cone_types,cone_dims,A1,A2,A3,A4,A5,A6,b1,b2,b3,b4,b5,b6,α = expconeData(T)
 n = 7
 
 using Hypatia
@@ -79,18 +87,25 @@ model = Model(Hypatia.Optimizer)
 # @constraint(model, c3, b3-A3*x in MOI.SecondOrderCone(cone_dims[3]))
 # @constraint(model, c4, b4-A4*x in MOI.PositiveSemidefiniteConeTriangle(cone_dims[4]))
 @constraint(model, c5, b5-A5*x in MOI.ExponentialCone())
-# @constraint(model, c6, b6-A6*x in MOI.PowerCone(α[1]))
+# @constraint(model, c6, b6-A6*x in MOI.PowerCone(α[end]))
 @objective(model, Min, sum(c.*x) + 1/2*x'*P*x)
 
 #Run the opimization
 optimize!(model)
 
-# settings = Clarabel.Settings{BigFloat}(max_iter=50,direct_kkt_solver=true, equilibrate_enable = false)
+# settings = Clarabel.Settings{BigFloat}(max_iter=50,direct_kkt_solver=true, equilibrate_enable = true)
 # solver   = Clarabel.Solver{BigFloat}()
-# Clarabel.setup!(solver,BigFloat.(P),BigFloat.(c),BigFloat.(A),BigFloat.(b),cone_types,cone_dims,settings,BigFloat.(α))
+# # α =  Vector{Union{BigFloat,Nothing}}([nothing; 
+# #         nothing; 
+# #         # nothing;
+# #         # nothing;
+# #         nothing;
+# #         # BigFloat(1)/3
+# #         ])
+# Clarabel.setup!(solver,BigFloat.(P),BigFloat.(c),BigFloat.(A),BigFloat.(b),cone_types,cone_dims,α,settings)
 # Clarabel.solve!(solver)
 
-settings = Clarabel.Settings(max_iter=50,direct_kkt_solver=true, equilibrate_enable = true)
-solver   = Clarabel.Solver()
-Clarabel.setup!(solver,P,c,A,b,cone_types,cone_dims,settings,α)
+settings = Clarabel.Settings{T}(max_iter=50,direct_kkt_solver=true, equilibrate_enable = true)
+solver   = Clarabel.Solver{T}()
+Clarabel.setup!(solver,P,c,A,b,cone_types,cone_dims,α,settings)
 Clarabel.solve!(solver)

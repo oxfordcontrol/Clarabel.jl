@@ -8,12 +8,13 @@ function Solver(
     A::AbstractMatrix{T},
     b::Vector{T},
     cone_types::Vector{SupportedCones},
-    cone_dims::Vector{Int};
+    cone_dims::Vector{Int},
+    α::Vector{Union{Nothing, T}};
     kwargs...
 ) where{T <: AbstractFloat}
 
     s = Solver{T}()
-    setup!(s,P,c,A,b,cone_types,cone_dims,kwargs...)
+    setup!(s,P,c,A,b,cone_types,cone_dims,α,kwargs...)
     return s
 end
 
@@ -56,8 +57,8 @@ function setup!(
     b::Vector{T},
     cone_types::Vector{SupportedCones},
     cone_dims::Vector{Int},
-    settings::Settings{T},
-    α::Vector{T}= T[]
+    α::Vector{Union{Nothing, T}} = Union{Nothing, T}[],
+    settings::Settings{T} = Settings,
 ) where {T}
     #this allows total override of settings during setup
     s.settings = settings
@@ -72,7 +73,7 @@ function setup!(
     b::Vector{T},
     cone_types::Vector{SupportedCones},
     cone_dims::Vector{Int},
-    α::Vector{T}= T[];
+    α::Vector{Union{Nothing, T}};
     kwargs...
 ) where {T}
     #this allows override of individual settings during setup
@@ -89,7 +90,7 @@ function setup!(
     b::Vector{T},
     cone_types::Vector{SupportedCones},
     cone_dims::Vector{Int},
-    α::Vector{T}
+    α::Vector{Union{Nothing, T}},
 ) where{T}
 
     #make this first to create the timers
