@@ -188,7 +188,21 @@ function muHessianF(
 
     # compute H^{-1}, 3x3 inverse is easy
     # NB: may need to be modified later rather than using inv() directly
-    Hinv .= inv(H) 
+    # Hinv .= inv(H) 
+
+    # symbolic computation from matlab
+    Hinv[1,1] = (z1^2*(z1 - r))/(2*z1 - r)
+    Hinv[1,2] = (z1^2*(z2 - r - l*r))/(2*z1 - r)
+    Hinv[1,3] = (z1^2*z3)/(2*z1 - r)
+    Hinv[2,1] = Hinv[1,2]
+    Hinv[3,1] = Hinv[1,3]
+    Hinv[2,2] = (10*z1^3*l + 5*z1*z2^2 - 8*z1^2*z2 + 7*z1^3*l^2 + 2*z1^3*l^3 + 5*z1^3 - z2^3 - 4*z1^2*z2*l^2 + 3*z1*z2^2*l - 10*z1^2*z2*l)/(2*z1 - r)
+    Hinv[2,3] = (z1*z3*(z2 - 2*r))/(2*z1 - r)
+    Hinv[3,2] = Hinv[2,3]
+    Hinv[3,3] = (z3^2*(z1 - r))/(2*z1 - r)
+
+
+    # println("Hinv*H is: ", Hinv*H)
 
     H .*= μ
 end
