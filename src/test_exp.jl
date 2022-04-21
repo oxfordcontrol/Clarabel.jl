@@ -72,7 +72,7 @@ n = 7
 using Hypatia
 
 println("\n\nJuMP\n-------------------------\n\n")
-model = Model(Mosek.Optimizer)
+model = Model(Hypatia.Optimizer)
 @variable(model, x[1:n])
 @constraint(model, c1, A1*x .== b1)
 @constraint(model, c2, A2*x .<= b2)
