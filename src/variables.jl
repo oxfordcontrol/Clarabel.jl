@@ -14,7 +14,8 @@ end
 function calc_step_length(
     variables::DefaultVariables{T},
     step::DefaultVariables{T},
-    cones::ConeSet{T}
+    cones::ConeSet{T},
+    combinedStep
 ) where {T}
 
     ατ    = step.τ < 0 ? -variables.τ / step.τ : inv(eps(T))
@@ -28,10 +29,11 @@ function calc_step_length(
     # println("α after feasibility check: ", α)
 
 
-    # YC: only for unsymmetric cones
+    # YC: only for unsymmetric cones, check centrality in the combined step
+
     #   balance global μ and local μ_i of each exponential cone;
     #   check centrality, ensure the update is close to the central path
-    if (!cones.symFlag)
+    if (!cones.symFlag && combinedStep)
         zs= dot(variables.z,variables.s)
         dzs = dot(step.z,step.s)
         s_dz = dot(variables.s,step.z)

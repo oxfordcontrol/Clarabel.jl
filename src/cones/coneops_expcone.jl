@@ -23,7 +23,7 @@ function update_scaling!(
     μ::T
 ) where {T}
     #update both gradient and Hessian for function f*(z) at the point z
-    muHessianF(z,K.μH,K.Hinv,μ)
+    muHessianF(z,K.μH,μ)
     GradF(z,K.grad)
 end
 
@@ -160,7 +160,6 @@ end
 function muHessianF(
     z::AbstractVector{T}, 
     H::AbstractMatrix{T}, 
-    Hinv::AbstractMatrix{T}, 
     μ::T
 ) where {T}
     # y = z1; z = z2; x = z3;
@@ -186,28 +185,11 @@ function muHessianF(
     H[3,2] = H[2,3]
     H[3,3] = ((r*r-z1*r+z1*z1)/(r*r*z3*z3))
 
-    # compute H^{-1}, 3x3 inverse is easy
-    # NB: may need to be modified later rather than using inv() directly
-    # Hinv .= inv(H) 
-
-    # symbolic computation from matlab
-    Hinv[1,1] = (z1^2*(z1 - r))/(2*z1 - r)
-    Hinv[1,2] = (z1^2*(z2 - r - l*r))/(2*z1 - r)
-    Hinv[1,3] = (z1^2*z3)/(2*z1 - r)
-    Hinv[2,1] = Hinv[1,2]
-    Hinv[3,1] = Hinv[1,3]
-    Hinv[2,2] = (10*z1^3*l + 5*z1*z2^2 - 8*z1^2*z2 + 7*z1^3*l^2 + 2*z1^3*l^3 + 5*z1^3 - z2^3 - 4*z1^2*z2*l^2 + 3*z1*z2^2*l - 10*z1^2*z2*l)/(2*z1 - r)
-    Hinv[2,3] = (z1*z3*(z2 - 2*r))/(2*z1 - r)
-    Hinv[3,2] = Hinv[2,3]
-    Hinv[3,3] = (z3^2*(z1 - r))/(2*z1 - r)
-
-
-    # println("Hinv*H is: ", Hinv*H)
-
     H .*= μ
 end
 
 # 3rd-order correction at the point z, w.r.t. directions u,v, and then save it to η
+# NB: not finished yet
 function higherCorrection!(
     K::ExponentialCone{T},
     η::AbstractVector{T},
@@ -223,7 +205,24 @@ function higherCorrection!(
     v3 = v[3]
 
     # u for H^{-1}*Δs 
-    u = K.Hinv*ds
+    #NB: need to be refined later
+    μH = K.μHWork
+    # recompute Hessian
+    muHessianF(z,μH,T(1))
+
+    F = K.FWork
+    if F === nothing
+        F = lu(μH, check= false)
+    else
+        F = lu!(μH, check= false)
+    end
+
+    if !issuccess(F)
+        increase_diag!(μH)
+        lu!(F,μH)
+    end
+
+    u = F\ds    #equivalent to Hinv*ds
 
     u1 = u[1]
     u2 = u[2]
@@ -287,19 +286,32 @@ function _check_neighbourhood(
     η::T
 ) where {T}
 
-    grad = zeros(T,3)
-    μH = zeros(T,3,3)
-    Hinv = zeros(T,3,3)
+    grad = K.gradWork
+    μH = K.μHWork
+    F = K.FWork
+    tmp = K.vecWork
 
     # compute gradient and Hessian at z
     GradF(z, grad)
-    muHessianF(z, μH, Hinv, μ)
-    
+    muHessianF(z, μH, μ)
+
+    if F === nothing
+        F = lu(μH, check= false)
+    else
+        F = lu!(μH, check= false)
+    end
+
+    if !issuccess(F)
+        increase_diag!(μH)
+        F = lu!(μH)
+    end
+
     # grad as a workspace for s + μ*grad
     grad .*= μ
     grad .+= s
 
-    if (norm(dot(grad,Hinv,grad)/(μ*μ)) < η^2)
+    ldiv!(tmp,F,grad)
+    if (norm(dot(tmp,grad)/μ) < η^2)
         return true
     end
 

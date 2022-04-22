@@ -215,15 +215,24 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
     μH::AbstractMatrix{T}       #μ*H for the linear sysmtem
-    Hinv::AbstractMatrix{T}     # inverse of H
     grad::AbstractVector{T}
+
+    # workspace for centrality check
+    μHWork::AbstractMatrix{T}     
+    gradWork::AbstractVector{T}
+    vecWork::AbstractVector{T}
+    FWork::Union{SuiteSparse.UMFPACK.UmfpackLU,Nothing}
 
     function ExponentialCone{T}() where {T}
         dim = 3
         μH = Matrix{T}(undef,3,3)
-        Hinv = Matrix{T}(undef,3,3)
         grad = Vector{T}(undef,3)
-        return new(dim,μH,Hinv,grad)
+
+        μHWork = Matrix{T}(undef,3,3)
+        gradWork = Vector{T}(undef,3)
+        vecWork = Vector{T}(undef,3)
+        FWork = nothing
+        return new(dim,μH,grad,μHWork,gradWork,vecWork,FWork)
     end
 end
 
@@ -239,15 +248,24 @@ mutable struct PowerCone{T} <: AbstractCone{T}
     dim::DefaultInt
     α::T
     μH::AbstractMatrix{T}       #μ*H for the linear sysmtem
-    Hinv::AbstractMatrix{T}     # inverse of H
     grad::AbstractVector{T}
+
+    # workspace for centrality check
+    μHWork::AbstractMatrix{T}     
+    gradWork::AbstractVector{T}
+    vecWork::AbstractVector{T}
+    FWork::Union{SuiteSparse.UMFPACK.UmfpackLU,Nothing}
 
     function PowerCone{T}(α::T) where {T}
         dim = 3
         μH = Matrix{T}(undef,3,3)
-        Hinv = Matrix{T}(undef,3,3)
         grad = Vector{T}(undef,3)
-        return new(dim,α,μH,Hinv,grad)
+
+        μHWork = Matrix{T}(undef,3,3)
+        gradWork = Vector{T}(undef,3)
+        vecWork = Vector{T}(undef,3)
+        FWork = nothing             #initialization
+        return new(dim,α,μH,grad,μHWork,gradWork,vecWork,FWork)
     end
 end
 

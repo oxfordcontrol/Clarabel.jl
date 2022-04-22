@@ -23,7 +23,7 @@ function update_scaling!(
     μ::T
 ) where {T}
     #update both gradient and Hessian for function f*(z) at the point z
-    muHessianF(K,z,K.μH,K.Hinv,μ)
+    muHessianF(K,z,K.μH,μ)
     GradF(K,z,K.grad)
 end
 
@@ -170,7 +170,6 @@ function muHessianF(
     K::PowerCone{T},
     z::AbstractVector{T}, 
     H::AbstractMatrix{T}, 
-    Hinv::AbstractMatrix{T}, 
     μ::T
 ) where {T}
 
@@ -196,14 +195,11 @@ function muHessianF(
     H[3,2] = H[2,3]
     H[3,3] = gψ3*gψ3 + 2/ψ
 
-    # compute H^{-1}, 3x3 inverse is easy
-    # NB: may need to be modified later rather than using inv() directly
-    Hinv .= inv(H) 
-
     H .*= μ
 end
 
-# 3rd-order correction at the point z, w.r.t. directions u,v, and then save it to η
+# 3rd-order correction at the point z, w.r.t. directions ds,v, and then save it to η
+# NB: not finished yet
 function higherCorrection!(
     K::PowerCone{T},
     η::AbstractVector{T},
@@ -219,7 +215,24 @@ function higherCorrection!(
     v3 = v[3]
 
     # u for H^{-1}*Δs 
-    u = K.Hinv*ds
+    #NB: need to be refined later
+    μH = K.μHWork
+    # recompute Hessian
+    muHessianF(K,z,μH, T(1))
+
+    F = K.FWork
+    if F === nothing
+        F = lu(μH, check= false)
+    else
+        F = lu!(μH, check= false)
+    end
+
+    if !issuccess(F)
+        increase_diag!(μH)
+        lu!(F,μH)
+    end
+
+    u = F\ds    #equivalent to Hinv*ds
 
     u1 = u[1]
     u2 = u[2]
@@ -257,24 +270,38 @@ function _check_neighbourhood(
     η::T
 ) where {T}
 
-    grad = zeros(T,3)
-    μH = zeros(T,3,3)
-    Hinv = zeros(T,3,3)
+    grad = K.gradWork
+    μH = K.μHWork
+    F = K.FWork
+    tmp = K.vecWork
 
     # compute gradient and Hessian at z
     GradF(K, z, grad)
-    muHessianF(K, z, μH, Hinv, μ)
+    muHessianF(K, z, μH, μ)
     
+    if F === nothing
+        F = lu(μH, check= false)
+    else
+        F = lu!(μH, check= false)
+    end
+
+    if !issuccess(F)
+        increase_diag!(μH)
+        lu!(F,μH)
+    end
+
     # grad as a workspace for s + μ*grad
     grad .*= μ
     grad .+= s
 
-    if (norm(dot(grad,Hinv,grad)/(μ*μ)) < η^2)
+    ldiv!(tmp,F,grad)
+    if (norm(dot(tmp,grad)/μ) < η^2)
         return true
     end
 
     return false
 end
+
 
 
 

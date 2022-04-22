@@ -340,3 +340,15 @@ function Base.getindex(TI::TriuIndex, i::Int)
     1 <= i <= length(TI) || throw(BoundsError(TI, i))
     return _get_triu_index(TI.n,i)
 end
+
+##################################
+# add regularization for Hessian as in Hypatia
+function increase_diag!(A::Matrix{T}) where {T <: Real}
+    diag_pert = 1 + T(1e-5)
+    diag_min = 1000 * eps(T)
+    @inbounds for j in 1:size(A, 1)
+        A[j, j] = diag_pert * max(A[j, j], diag_min)
+    end
+    return A
+end
+###################################

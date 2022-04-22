@@ -215,7 +215,7 @@ function solve!(
 
             #calculate step length and centering parameter
             #--------------
-            α = calc_step_length(s.variables,s.step_lhs,s.cones)
+            α = calc_step_length(s.variables,s.step_lhs,s.cones, false)
             σ = calc_centering_parameter(α)
 
             #calculate the combined step and length
@@ -235,7 +235,7 @@ function solve!(
 
             #compute final step length and update the current iterate
             #--------------
-            @timeit_debug timer "step length" α = calc_step_length(s.variables,s.step_lhs,s.cones)
+            @timeit_debug timer "step length" α = calc_step_length(s.variables,s.step_lhs,s.cones, true)
             α *= s.settings.max_step_fraction
 
             variables_add_step!(s.variables,s.step_lhs,α)
@@ -333,7 +333,7 @@ function debug_solve!(
 
         #calculate step length and centering parameter
         #--------------
-        α = calc_step_length(s.variables,s.step_lhs,s.cones)
+        α = calc_step_length(s.variables,s.step_lhs,s.cones, false)
         σ = calc_centering_parameter(α)
 
         #calculate the combined step and length
@@ -351,7 +351,7 @@ function debug_solve!(
 
         #compute final step length and update the current iterate
         #--------------
-        α = calc_step_length(s.variables,s.step_lhs,s.cones)
+        α = calc_step_length(s.variables,s.step_lhs,s.cones, true)
         α *= s.settings.max_step_fraction
 
         variables_add_step!(s.variables,s.step_lhs,α)

@@ -1,6 +1,7 @@
 module Clarabel
 
     using SparseArrays, LinearAlgebra, Printf
+    using SuiteSparse
     const DefaultFloat = Float64
     const DefaultInt   = LinearAlgebra.BlasInt
 
