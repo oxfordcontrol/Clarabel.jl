@@ -73,7 +73,8 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
 end
 
 # set data type first
-T = Float64
+# T = Float64
+T = BigFloat
 P,c,A,b,cone_types,cone_dims,A1,A2,A3,A4,A5,A6,b1,b2,b3,b4,b5,b6,α = expconeData(T)
 n = 7
 
@@ -87,7 +88,7 @@ model = Model(Mosek.Optimizer)
 # @constraint(model, c3, b3-A3*x in MOI.SecondOrderCone(cone_dims[3]))
 # @constraint(model, c4, b4-A4*x in MOI.PositiveSemidefiniteConeTriangle(cone_dims[4]))
 @constraint(model, c5, b5-A5*x in MOI.ExponentialCone())
-@constraint(model, c6, b6-A6*x in MOI.PowerCone(α[end]))
+@constraint(model, c6, b6-A6*x in MOI.PowerCone(Float64(α[end])))
 @objective(model, Min, sum(c.*x) + 1/2*x'*P*x)
 
 #Run the opimization
@@ -103,7 +104,7 @@ optimize!(model)
 # #         # BigFloat(1)/3
 # #         ])
 # Clarabel.setup!(solver,BigFloat.(P),BigFloat.(c),BigFloat.(A),BigFloat.(b),cone_types,cone_dims,α,settings)
-# Clarabel.solve!(solver)
+# Clarabel.debug_solve!(solver)
 
 settings = Clarabel.Settings{T}(max_iter=50,direct_kkt_solver=true, equilibrate_enable = true)
 solver   = Clarabel.Solver{T}()
