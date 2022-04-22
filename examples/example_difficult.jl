@@ -57,8 +57,9 @@ function lasso_data(Type::Type{T} = Float64) where {T <: AbstractFloat}
     return (P,c,A,b,cone_types,cone_dims,A1,A2,A3,b1,b2,b3)
 
 end
+T = Float64
 
-P,c,A,b,cone_types,cone_dims,A1,A2,A3,b1,b2,b3 = lasso_data(BigFloat)
+P,c,A,b,cone_types,cone_dims,A1,A2,A3,b1,b2,b3 = lasso_data(T)
 n = length(c)
 
 #solve in JuMP
@@ -76,9 +77,10 @@ model = Model(Mosek.Optimizer)
 #Run the opimization
 optimize!(model)
 
-settings = Clarabel.Settings{BigFloat}(max_iter=50,direct_kkt_solver=true)
-solver   = Clarabel.Solver{BigFloat}()
-Clarabel.setup!(solver,P,c,A,b,cone_types,cone_dims,settings)
+settings = Clarabel.Settings{T}(max_iter=50,direct_kkt_solver=true)
+solver   = Clarabel.Solver{T}()
+α = Vector{Union{Nothing, T}}([nothing; nothing; nothing])
+Clarabel.setup!(solver,T.(P),T.(c),T.(A),T.(b),cone_types,cone_dims,α,settings)
 Clarabel.solve!(solver)
 
 s = solver
