@@ -170,9 +170,15 @@ end
 # for the nonnegative cones, e is the vector of all ones;
 # for the second-order cones, e = (1; 0; ... ; 0) where the 1 corresponds to the first variable;
 # for semidenite cones, e is the identity matrix.
-function unsymmetricInit(variables::DefaultVariables{T}, cones::ConeSet{T}) where {T}
+function unsymmetricInit(
+    variables::DefaultVariables{T}, 
+    cones::ConeSet{T}
+) where {T}
     #set conic variables to units and x to 0
     unit_initialization!(cones,variables.s,variables.z)
+    # A = data.A
+    # b = data.b
+    # variables.x .= T.(A'*pinv(Matrix(A*A'))*(b - variables.s))    # it seems that this initialization doesn' help
     variables.x .= T(0)
 
     variables.τ = T(1)
