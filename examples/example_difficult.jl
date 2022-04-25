@@ -64,10 +64,10 @@ n = length(c)
 
 #solve in JuMP
 using JuMP
-using Mosek, MosekTools, OSQP, ECOS, SCS
+using Mosek, MosekTools, OSQP, ECOS, SCS, Hypatia
 
 @printf("\n\nJuMP\n-------------------------\n\n")
-model = Model(Mosek.Optimizer)
+model = Model(Hypatia.Optimizer)
 @variable(model, x[1:n])
 @constraint(model, c1, A1*x .<= b1)
 @constraint(model, c2, A2*x .<= b2)
@@ -77,7 +77,7 @@ model = Model(Mosek.Optimizer)
 #Run the opimization
 optimize!(model)
 
-settings = Clarabel.Settings{T}(max_iter=50,direct_kkt_solver=true)
+settings = Clarabel.Settings{T}(max_iter=50,direct_kkt_solver=true, direct_solve_method=:cholmod)
 solver   = Clarabel.Solver{T}()
 α = Vector{Union{Nothing, T}}([nothing; nothing; nothing])
 Clarabel.setup!(solver,T.(P),T.(c),T.(A),T.(b),cone_types,cone_dims,α,settings)

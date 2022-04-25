@@ -103,7 +103,7 @@ function cones_circ_op!(
             circ_op!(cones[i],x.views[i],y.views[i],z.views[i])
         else
         # set unsymmtric parts of x to 3rd-order corrections
-            # println("higer order correction:", higherCorrection!(cones[i],x.views[i],y.views[i],z.views[i],var.views[i]))
+            # println("higer order correction for cone ", i, " : ", higherCorrection!(cones[i],x.views[i],y.views[i],z.views[i],var.views[i]))
             x.views[i] .= 0
 
             # higherCorrection!(cones[i],x.views[i],y.views[i],z.views[i],var.views[i])
@@ -298,7 +298,7 @@ function check_μ_and_centrality(cones::ConeSet{T},
         # when we compute barrier functions
     # NB: different choice of α yields different performance, don't know how to explain it,
     #       but we must need it. Otherwise, there would be numerical issues for barrier computation
-    α *= T(0.99)
+    α *= T(0.995)
 
     length_exp = cones.type_counts[ExponentialConeT]
     ind_exp = cones.ind_exp

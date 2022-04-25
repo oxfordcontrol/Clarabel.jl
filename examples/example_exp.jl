@@ -80,19 +80,20 @@ n = 7
 
 using Hypatia
 
-# println("\n\nJuMP\n-------------------------\n\n")
-# model = Model(Hypatia.Optimizer)
-# @variable(model, x[1:n])
-# @constraint(model, c1, A1*x .== b1)
-# @constraint(model, c2, A2*x .<= b2)
+println("\n\nJuMP\n-------------------------\n\n")
+opt = Hypatia.Optimizer()
+model = Model(() -> opt)
+@variable(model, x[1:n])
+@constraint(model, c1, A1*x .== b1)
+@constraint(model, c2, A2*x .<= b2)
 # @constraint(model, c3, b3-A3*x in MOI.SecondOrderCone(cone_dims[3]))
-# # @constraint(model, c4, b4-A4*x in MOI.PositiveSemidefiniteConeTriangle(cone_dims[4]))
-# @constraint(model, c5, b5-A5*x in MOI.ExponentialCone())
-# @constraint(model, c6, b6-A6*x in MOI.PowerCone(Float64(α[end])))
-# @objective(model, Min, sum(c.*x) + 1/2*x'*P*x)
+# @constraint(model, c4, b4-A4*x in MOI.PositiveSemidefiniteConeTriangle(cone_dims[4]))
+@constraint(model, c5, b5-A5*x in MOI.ExponentialCone())
+@constraint(model, c6, b6-A6*x in MOI.PowerCone(Float64(α[end])))
+@objective(model, Min, sum(c.*x) + 1/2*x'*P*x)
 
-# #Run the opimization
-# optimize!(model)
+#Run the opimization
+optimize!(model)
 
 # settings = Clarabel.Settings{BigFloat}(max_iter=50,direct_kkt_solver=true, equilibrate_enable = true)
 # solver   = Clarabel.Solver{BigFloat}()
