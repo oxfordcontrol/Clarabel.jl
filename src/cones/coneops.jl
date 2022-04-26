@@ -344,7 +344,7 @@ function check_μ_and_centrality(cones::ConeSet{T},
 
     end
 
-    # error("get stalled with step size ", α)
+    error("get stalled with step size ", α)
 
     return α
 end

@@ -104,6 +104,10 @@ function _step_length_exp_primal(
     ws = s + α*ds
 
     while !checkExpPrimalFeas(ws)
+        # NB: need to be tackled in a smarter way
+        if (α < 1e-4)
+            error("Expcone's step size fails in primal feasibility check!")
+        end
         α *= scaling    #backtrack line search
         @. ws = s + α*ds
     end
@@ -122,6 +126,9 @@ function _step_length_exp_dual(
     ws = z + α*dz
 
     while !checkExpDualFeas(ws)
+        if (α < 1e-4)
+            error("Expcone's step size fails in dual feasibility check!")
+        end
         α *= scaling    #backtrack line search
         @. ws = z + α*dz
     end

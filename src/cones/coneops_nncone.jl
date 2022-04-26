@@ -223,15 +223,16 @@ function _check_neighbourhood(
     η::T
 ) where {T}
 
-    tmp = zeros(T,length(s))
+    # tmp = zeros(T,length(s))
 
-    circ_op!(K,tmp,s,z)
-    add_scaled_e!(K,tmp,-μ)
+    # @. tmp = sqrt(s*z)
+    # add_scaled_e!(K,tmp,-μ)
 
-    if norm(tmp, Inf) < η
-        return true
-    end
+    # if norm(tmp, Inf) < η
+    #     return true
+    # end
 
-    return false
+    # NB: need to compare it with other solvers that whether it is always true
+    return true
 
 end
