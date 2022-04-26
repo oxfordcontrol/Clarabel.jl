@@ -229,8 +229,6 @@ function cones_add_scaled_e!(
         # don't implement it for unsymmetric cones
         if !(cones.types[i] in NonsymmetricCones)
             add_scaled_e!(cones[i],x.views[i],α)
-        else
-            add_grad!(cones[i],x.views[i],α)    # nonsymmetric centralling
         end
     end
     return nothing
@@ -307,7 +305,7 @@ function check_μ_and_centrality(cones::ConeSet{T},
     scaling = cones.scaling
     η = cones.η
     
-    for j = 1:20
+    for j = 1:50
         #Initialize μ
         central_coef = cones.degree + 1
         μ = (zs + τ*κ + α*(s_dz + z_ds + dτ*κ + τ*dκ) + α^2*(dzs + dτ*dκ))/central_coef
@@ -328,6 +326,10 @@ function check_μ_and_centrality(cones::ConeSet{T},
 
         # # ECOS: check centrality, functional proximity measure
         # # NB: the update x+α*dx is inefficient right now and need to be rewritten later
+        # if !(boundary_check!(cur_z,cur_s,ind_exp,length_exp,upper) && boundary_check!(cur_z,cur_s,ind_pow,length_pow,upper))
+        #     α *= scaling
+        #     continue
+        # end
         # barrier = central_coef*log(μ) - log(τ+α*dτ) - log(κ+α*dκ)
         # for i = eachindex(cones)
         #     barrier += f_sum(cones[i], cur_s[i], cur_z[i])
@@ -342,7 +344,7 @@ function check_μ_and_centrality(cones::ConeSet{T},
 
     end
 
-    error("get stalled with step size ", α)
+    # error("get stalled with step size ", α)
 
     return α
 end
@@ -364,7 +366,7 @@ end
 function check_centrality!(cones,s,z,μ,η)
     for i in eachindex(cones)
         if !_check_neighbourhood(cones[i],s[i],z[i],μ,η)
-            println("away from central path due to cone ", i)
+            println("away from central path due to cone ", i, typeof(cones[i]))
             return false
         end
     end

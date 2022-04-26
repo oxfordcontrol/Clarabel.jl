@@ -315,6 +315,7 @@ function _check_neighbourhood(
         return true
     end
 
+    # println("away from central path due to cone with ", norm(dot(tmp,grad)/μ))
     return false
 end
 

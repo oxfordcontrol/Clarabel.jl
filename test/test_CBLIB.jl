@@ -1,0 +1,76 @@
+using ECOS, Hypatia, Mosek, MosekTools
+using JuMP, MathOptInterface
+const MOI = MathOptInterface
+using LinearAlgebra
+using ConicBenchmarkUtilities
+
+include("../src\\Clarabel.jl")
+# using Clarabel
+
+coneMap = Dict(:Zero => MOI.Zeros, :Free => :Free,
+                     :NonPos => MOI.Nonpositives, :NonNeg => MOI.Nonnegatives,
+                     :SOC => MOI.SecondOrderCone, :SOCRotated => MOI.RotatedSecondOrderCone,
+                     :ExpPrimal => MOI.ExponentialCone, :ExpDual => MOI.DualExponentialCone)
+
+filelist = readdir(pwd()*"./primal_exp_cbf")
+
+# dat = readcbfdata("./exp_cbf/car.cbf.gz") # .cbf.gz extension also accepted
+
+for j = 17:17     #length(filelist)
+    println("Current file is ",j)
+    datadir = filelist[j]          #"rijc787.cbf.gz"
+    dat = readcbfdata("./primal_exp_cbf/"*datadir) # .cbf.gz extension also accepted
+
+    println("Current file is: ", datadir)
+
+    # In MathProgBase format:
+    c, A, b, con_cones, var_cones, vartypes, sense, objoffset = cbftompb(dat)
+    # Note: The sense in MathProgBase form is always minimization, and the objective offset is zero.
+    # If sense == :Max, you should flip the sign of c before handing off to a solver.
+    if sense == :Max
+        c .*= -1
+    end
+
+    num_con = size(A,1)
+    num_var = size(A,2)
+
+    model = Model(Clarabel.Optimizer)
+    model = Model(Hypatia.Optimizer)
+    model = Model(ECOS.Optimizer)
+
+    @variable(model, x[1:num_var])
+
+    #Tackling constraint
+    for i = 1:length(con_cones)
+        cur_cone = con_cones[i]
+        # println(coneMap[cur_cone[1]])
+
+        if coneMap[cur_cone[1]] == :Free
+            continue
+        elseif coneMap[cur_cone[1]] == MOI.ExponentialCone
+            @constraint(model, b[cur_cone[2]] - A[cur_cone[2],:]*x in MOI.ExponentialCone())
+        # elseif coneMap[cur_cone[1]] == MOI.DualExponentialCone
+        #     @constraint(model, b[cur_cone[2]] - A[cur_cone[2],:]*x in MOI.DualExponentialCone())
+        else
+            @constraint(model, b[cur_cone[2]] - A[cur_cone[2],:]*x in coneMap[cur_cone[1]](length(cur_cone[2])))
+        end
+    end
+
+    for i = 1:length(var_cones)
+        cur_var = var_cones[i]
+        # println(coneMap[cur_var[1]])
+
+        if coneMap[cur_var[1]] == :Free
+            continue
+        elseif coneMap[cur_var[1]] == MOI.ExponentialCone
+            @constraint(model, x[cur_var[2]] in MOI.ExponentialCone())
+        # elseif coneMap[cur_var[1]] == MOI.DualExponentialCone
+        #     @constraint(model, x[cur_var[2]] in MOI.DualExponentialCone())
+        else
+            @constraint(model, x[cur_var[2]] in coneMap[cur_var[1]](length(cur_var[2])))
+        end
+    end
+
+    @objective(model, Min, sum(c.*x))
+    optimize!(model)
+end

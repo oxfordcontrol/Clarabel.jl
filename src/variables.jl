@@ -14,8 +14,7 @@ end
 function calc_step_length(
     variables::DefaultVariables{T},
     step::DefaultVariables{T},
-    cones::ConeSet{T},
-    combinedStep
+    cones::ConeSet{T}
 ) where {T}
 
     ατ    = step.τ < 0 ? -variables.τ / step.τ : inv(eps(T))
@@ -29,18 +28,17 @@ function calc_step_length(
     # println("α after feasibility check: ", α)
 
 
-    # YC: only for unsymmetric cones, check centrality in the combined step
+    # YC: only for unsymmetric cones, check centrality
 
     #   balance global μ and local μ_i of each exponential cone;
     #   check centrality, ensure the update is close to the central path
-    if (!cones.symFlag && combinedStep)
+    if (!cones.symFlag)
         zs= dot(variables.z,variables.s)
         dzs = dot(step.z,step.s)
         s_dz = dot(variables.s,step.z)
         z_ds = dot(variables.z,step.s)
 
         α = check_μ_and_centrality(cones,step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ,zs,dzs,s_dz,z_ds,α)
-        # println("α after centrality check: ", α)
     end
 
     return α
@@ -129,19 +127,32 @@ function calc_combined_step_rhs!(
     # want to have aliasing vector arguments to gemv_W or gemv_Winv, so we
     # need to copy into a temporary variable to assign #Δz = WΔz and Δs = W⁻¹Δs
 
-    # YC: for unsymmetric cones, set W⁻¹Δs ∘ WΔz to 3rd-order correction in the step cones_circ_op!()
-
     tmp  = d.z     #alias
     tmp .= step.z  #copy for safe call to gemv_W
     cones_gemv_W!(cones, :N, tmp, step.z, one(T), zero(T))       #Δz <- WΔz
     tmp .= step.s  #copy for safe call to gemv_Winv
     cones_gemv_Winv!(cones, :T, tmp, step.s, one(T), zero(T))    #Δs <- W⁻¹Δs
     cones_circ_op!(cones, tmp, step.s, step.z, variables.z)                   #tmp = W⁻¹Δs ∘ WΔz
-
     cones_add_scaled_e!(cones,tmp,-σ*μ)                          #tmp = W⁻¹Δs ∘ WΔz - σμe
 
     #We are relying on d.s = λ ◦ λ already from the affine step here
     @. d.s += d.z                                                #d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
+    
+    # YC: set ds for unsymmetric cones
+    ind_exp = cones.ind_exp
+    length_exp = cones.type_counts[ExponentialConeT]
+    ind_pow = cones.ind_pow
+    length_pow = cones.type_counts[PowerConeT]
+
+    # set ds for unsymmetric cones
+    for i = 1:length_exp
+        d.s.views[ind_exp[i]] .= variables.s.views[ind_exp[i]]
+        add_grad!(cones[ind_exp[i]],d.s.views[ind_exp[i]],σ*μ)    # nonsymmetric centralling
+    end
+    for i = 1:length_pow
+        d.s.views[ind_pow[i]] .= variables.s.views[ind_pow[i]]
+        add_grad!(cones[ind_pow[i]],d.s.views[ind_pow[i]],σ*μ)    # nonsymmetric centralling
+    end
 
     # now we copy the scaled res for rz and d.z is no longer work
     @. d.z .= (1 - σ)*r.rz
@@ -166,10 +177,10 @@ end
 # and the central ray for the exponential cone, scaled by scaling (now is 1.)
 
 # For symmetric cones, e is the identity in the Jordan algebra where the cone
-# is dened. This corresponds to the following:
+# is defined. This corresponds to the following:
 # for the nonnegative cones, e is the vector of all ones;
 # for the second-order cones, e = (1; 0; ... ; 0) where the 1 corresponds to the first variable;
-# for semidenite cones, e is the identity matrix.
+# for semidefinite cones, e is the identity matrix.
 function unsymmetricInit(
     variables::DefaultVariables{T}, 
     cones::ConeSet{T}
