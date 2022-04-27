@@ -121,10 +121,8 @@ function unsymmetric_init!(
    z::AbstractVector{T}
 ) where{T}
 
-    s .= zero(T)                #or just s .= one(T); z .= one(T)
-    z .= zero(T)
-    add_scaled_e!(K,s,one(T))
-    add_scaled_e!(K,z,one(T))
+    s .= one(T)                
+    z .= one(T)
 
    return nothing
 end
@@ -223,16 +221,19 @@ function _check_neighbourhood(
     η::T
 ) where {T}
 
+    # # NB: need to optimize memory later
     # tmp = zeros(T,length(s))
 
-    # @. tmp = sqrt(s*z)
-    # add_scaled_e!(K,tmp,-μ)
+    # # ||si*zi/μ  - 1|| < η for ∀i
+    # @. tmp = s*z
+    # @. tmp /= μ 
+    # @. tmp -= 1
 
     # if norm(tmp, Inf) < η
     #     return true
     # end
 
-    # NB: need to compare it with other solvers that whether it is always true
+    # NB: should keep ||si*zi/μ  - 1|| < C*η where C is a constant, but it seems to be fine when there are no centrality check for nonnegative cones.
     return true
 
 end

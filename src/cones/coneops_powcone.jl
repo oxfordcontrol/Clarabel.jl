@@ -205,7 +205,8 @@ function higherCorrection!(
     η::AbstractVector{T},
     ds::AbstractVector{T}, 
     v::AbstractVector{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    μ::T
 ) where {T}
     z1 = z[1]               #z1
     z2 = z[2]               #z2
@@ -218,7 +219,7 @@ function higherCorrection!(
     #NB: need to be refined later
     μH = K.μHWork
     # recompute Hessian
-    muHessianF(K,z,μH, T(1))
+    muHessianF(K,z,μH, μ)
 
     F = K.FWork
     if F === nothing
@@ -229,10 +230,11 @@ function higherCorrection!(
 
     if !issuccess(F)
         increase_diag!(μH)
-        lu!(F,μH)
+        F = lu!(μH)
     end
 
     u = F\ds    #equivalent to Hinv*ds
+    u .*= μ
 
     u1 = u[1]
     u2 = u[2]

@@ -88,25 +88,18 @@ end
 
 # YC:   x = y ∘ z for symmetric cones
 #       x = 3rd-correction for unsymmetric cones
-# NB: could merge functions later
+# NB: could merge with 3rd-functions later
 function cones_circ_op!(
     cones::ConeSet{T},
     x::ConicVector{T},
     y::ConicVector{T},
-    z::ConicVector{T},
-    var::ConicVector{T}
+    z::ConicVector{T}
 ) where {T}
 
     for i = eachindex(cones)
         # don't implement it for unsymmetric cones
         if !(cones.types[i] in NonsymmetricCones)
             circ_op!(cones[i],x.views[i],y.views[i],z.views[i])
-        else
-        # set unsymmtric parts of x to 3rd-order corrections
-            # println("higer order correction for cone ", i, " : ", higherCorrection!(cones[i],x.views[i],y.views[i],z.views[i],var.views[i]))
-            x.views[i] .= 0
-
-            # higherCorrection!(cones[i],x.views[i],y.views[i],z.views[i],var.views[i])
         end
     end
     return nothing
@@ -366,7 +359,6 @@ end
 function check_centrality!(cones,s,z,μ,η)
     for i in eachindex(cones)
         if !_check_neighbourhood(cones[i],s[i],z[i],μ,η)
-            println("away from central path due to cone ", i, typeof(cones[i]))
             return false
         end
     end

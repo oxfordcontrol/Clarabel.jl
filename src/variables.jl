@@ -132,7 +132,7 @@ function calc_combined_step_rhs!(
     cones_gemv_W!(cones, :N, tmp, step.z, one(T), zero(T))       #Δz <- WΔz
     tmp .= step.s  #copy for safe call to gemv_Winv
     cones_gemv_Winv!(cones, :T, tmp, step.s, one(T), zero(T))    #Δs <- W⁻¹Δs
-    cones_circ_op!(cones, tmp, step.s, step.z, variables.z)                   #tmp = W⁻¹Δs ∘ WΔz
+    cones_circ_op!(cones, tmp, step.s, step.z)                   #tmp = W⁻¹Δs ∘ WΔz
     cones_add_scaled_e!(cones,tmp,-σ*μ)                          #tmp = W⁻¹Δs ∘ WΔz - σμe
 
     #We are relying on d.s = λ ◦ λ already from the affine step here
@@ -147,11 +147,13 @@ function calc_combined_step_rhs!(
     # set ds for unsymmetric cones
     for i = 1:length_exp
         d.s.views[ind_exp[i]] .= variables.s.views[ind_exp[i]]
-        add_grad!(cones[ind_exp[i]],d.s.views[ind_exp[i]],σ*μ)    # nonsymmetric centralling
+        add_grad!(cones[ind_exp[i]],d.s.views[ind_exp[i]],σ*μ)      # nonsymmetric centralling
+        d.s.views[ind_exp[i]] .+= higherCorrection!(cones[ind_exp[i]],d.z.views[ind_exp[i]],step.s.views[ind_exp[i]],step.z.views[ind_exp[i]],variables.z.views[ind_exp[i]],μ)             #higher order correction
     end
     for i = 1:length_pow
         d.s.views[ind_pow[i]] .= variables.s.views[ind_pow[i]]
-        add_grad!(cones[ind_pow[i]],d.s.views[ind_pow[i]],σ*μ)    # nonsymmetric centralling
+        add_grad!(cones[ind_pow[i]],d.s.views[ind_pow[i]],σ*μ)      # nonsymmetric centralling
+        d.s.views[ind_pow[i]] .+= higherCorrection!(cones[ind_pow[i]],d.z.views[ind_pow[i]],step.s.views[ind_pow[i]],step.z.views[ind_pow[i]],variables.z.views[ind_pow[i]],μ)             #higher order correction
     end
 
     # now we copy the scaled res for rz and d.z is no longer work
