@@ -277,7 +277,8 @@ function check_μ_and_centrality(cones::ConeSet{T},
      s::ConicVector{T},
      τ::T,
      κ::T,
-     zs::T,dzs::T,s_dz::T,z_ds::T,α::T
+     zs::T,dzs::T,s_dz::T,z_ds::T,α::T,
+     steptype::Symbol
 ) where {T}
 
     dz    = dz.views
@@ -337,7 +338,9 @@ function check_μ_and_centrality(cones::ConeSet{T},
 
     end
 
-    error("get stalled with step size ", α)
+    if (steptype == :combined)
+        error("get stalled with step size ", α)
+    end
 
     return α
 end
@@ -359,6 +362,7 @@ end
 function check_centrality!(cones,s,z,μ,η)
     for i in eachindex(cones)
         if !_check_neighbourhood(cones[i],s[i],z[i],μ,η)
+            # println("centrality violation at cone ",i, "  ",cones.types[i])
             return false
         end
     end

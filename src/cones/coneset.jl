@@ -51,7 +51,7 @@ struct ConeSet{T}
         minDist = T(0.1)
         ind_exp = Vector{Int}(undef,type_counts[ExponentialConeT])
         ind_pow = Vector{Int}(undef,type_counts[PowerConeT])
-        η = T(100)     #should be less than 1 theoretically; but we could set it larger empirically
+        η = T(1)     #should be less than 1 theoretically; but we could set it larger empirically
 
         cur_exp = 0
         cur_pow = 0

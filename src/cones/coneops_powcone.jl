@@ -198,7 +198,7 @@ function muHessianF(
     H .*= μ
 end
 
-# 3rd-order correction at the point z, w.r.t. directions ds,v, and then save it to η
+# 3rd-order correction at the point z, w.r.t. directions u,v, and then save it to η
 # NB: not finished yet
 function higherCorrection!(
     K::PowerCone{T},
@@ -218,6 +218,7 @@ function higherCorrection!(
     # u for H^{-1}*Δs 
     #NB: need to be refined later
     μH = K.μHWork
+    u = K.vecWork
     # recompute Hessian
     muHessianF(K,z,μH, μ)
 
@@ -233,8 +234,8 @@ function higherCorrection!(
         F = lu!(μH)
     end
 
-    u = F\ds    #equivalent to Hinv*ds
-    u .*= μ
+    ldiv!(u,F,ds)    #equivalent to Hinv*ds
+    @. u *= μ
 
     u1 = u[1]
     u2 = u[2]
@@ -244,8 +245,13 @@ function higherCorrection!(
 
     ϕ = (z1/α)^(2*α)*(z2/(1-α))^(2-2*α)
     ψ = ϕ - z3*z3
-    gψ = [2*α*ϕ/z1; 2*(1-α)*ϕ/z2; -2*z3]
-    Hψ = [  2*α*(2*α-1)*ϕ/(z1*z1)     4*α*(1-α)*ϕ/(z1*z2)       0;
+
+    # memory allocation
+    gψ = K.gradWork
+    Hψ = K.μHWork
+
+    gψ .= [2*α*ϕ/z1; 2*(1-α)*ϕ/z2; -2*z3]
+    Hψ .= [  2*α*(2*α-1)*ϕ/(z1*z1)     4*α*(1-α)*ϕ/(z1*z2)       0;
             4*α*(1-α)*ϕ/(z1*z2)     2*(1-α)*(1-2*α)*ϕ/(z2*z2)   0;
             0                       0                          -2;]
 

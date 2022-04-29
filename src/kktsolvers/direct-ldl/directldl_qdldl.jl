@@ -130,13 +130,18 @@ function iterative_refinement(ldlsolver::QDLDLDirectLDLSolver{T},x,b,settings) w
         #if we haven't improved by at least the halting
         #ratio since the last pass through, then abort
         if(lastnorme/norme < IR_stopratio)
+            println("IR error: ", norme)
             break
         end
 
         #make a refinement and continue
         QDLDL.solve!(ldlsolver.factors,work)     #this is Δξ
         x .+= work
+
+        lastnorme = norme
     end
+
+    println("IR error: ", lastnorme)
 
     return nothing
 end

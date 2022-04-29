@@ -215,7 +215,7 @@ Computes the solution to the problem in a `Clarabel.Solver` previously defined i
 
 #             #calculate step length and centering parameter
 #             #--------------
-#             α = calc_step_length(s.variables,s.step_lhs,s.cones)
+#             α = calc_step_length(s.variables,s.step_lhs,s.cones,:affine)
 #             σ = calc_centering_parameter(α)
 
 #             #calculate the combined step and length
@@ -235,7 +235,7 @@ Computes the solution to the problem in a `Clarabel.Solver` previously defined i
 
 #             #compute final step length and update the current iterate
 #             #--------------
-#             @timeit_debug timer "step length" α = calc_step_length(s.variables,s.step_lhs,s.cones)
+#             @timeit_debug timer "step length" α = calc_step_length(s.variables,s.step_lhs,s.cones,:combined)
 #             α *= s.settings.max_step_fraction
 
 #             variables_add_step!(s.variables,s.step_lhs,α)
@@ -333,9 +333,9 @@ function solve!(
 
         #calculate step length and centering parameter
         #--------------
-        α = calc_step_length(s.variables,s.step_lhs,s.cones)
+        α = calc_step_length(s.variables,s.step_lhs,s.cones,:affine)
         σ = calc_centering_parameter(α)
-
+        println("σ is ", σ)
         #calculate the combined step and length
         #--------------
         calc_combined_step_rhs!(
@@ -351,7 +351,7 @@ function solve!(
 
         #compute final step length and update the current iterate
         #--------------
-        α = calc_step_length(s.variables,s.step_lhs,s.cones)
+        α = calc_step_length(s.variables,s.step_lhs,s.cones,:combined)
         α *= s.settings.max_step_fraction
 
         variables_add_step!(s.variables,s.step_lhs,α)

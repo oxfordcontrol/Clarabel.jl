@@ -233,7 +233,8 @@ function _check_neighbourhood(
     #     return true
     # end
 
-    # NB: should keep ||si*zi/μ  - 1|| < C*η where C is a constant, but it seems to be fine when there are no centrality check for nonnegative cones.
+    # # NB: should keep ||si*zi/μ  - 1|| < C*η where C is a constant, but it seems to be fine when there are no centrality check for nonnegative cones.
+    # println("nonnegative cone is away from central path by ",norm(tmp, Inf) < η)
     return true
 
 end

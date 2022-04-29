@@ -14,7 +14,8 @@ end
 function calc_step_length(
     variables::DefaultVariables{T},
     step::DefaultVariables{T},
-    cones::ConeSet{T}
+    cones::ConeSet{T},
+    steptype::Symbol
 ) where {T}
 
     ατ    = step.τ < 0 ? -variables.τ / step.τ : inv(eps(T))
@@ -38,7 +39,8 @@ function calc_step_length(
         s_dz = dot(variables.s,step.z)
         z_ds = dot(variables.z,step.s)
 
-        α = check_μ_and_centrality(cones,step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ,zs,dzs,s_dz,z_ds,α)
+        α = check_μ_and_centrality(cones,step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ,zs,dzs,s_dz,z_ds,α,steptype)
+        println(string(steptype), " with α ", α)
     end
 
     return α
@@ -148,12 +150,12 @@ function calc_combined_step_rhs!(
     for i = 1:length_exp
         d.s.views[ind_exp[i]] .= variables.s.views[ind_exp[i]]
         add_grad!(cones[ind_exp[i]],d.s.views[ind_exp[i]],σ*μ)      # nonsymmetric centralling
-        d.s.views[ind_exp[i]] .+= higherCorrection!(cones[ind_exp[i]],d.z.views[ind_exp[i]],step.s.views[ind_exp[i]],step.z.views[ind_exp[i]],variables.z.views[ind_exp[i]],μ)             #higher order correction
+        # d.s.views[ind_exp[i]] .+= higherCorrection!(cones[ind_exp[i]],d.z.views[ind_exp[i]],step.s.views[ind_exp[i]],step.z.views[ind_exp[i]],variables.z.views[ind_exp[i]],μ)             #higher order correction
     end
     for i = 1:length_pow
         d.s.views[ind_pow[i]] .= variables.s.views[ind_pow[i]]
         add_grad!(cones[ind_pow[i]],d.s.views[ind_pow[i]],σ*μ)      # nonsymmetric centralling
-        d.s.views[ind_pow[i]] .+= higherCorrection!(cones[ind_pow[i]],d.z.views[ind_pow[i]],step.s.views[ind_pow[i]],step.z.views[ind_pow[i]],variables.z.views[ind_pow[i]],μ)             #higher order correction
+        # d.s.views[ind_pow[i]] .+= higherCorrection!(cones[ind_pow[i]],d.z.views[ind_pow[i]],step.s.views[ind_pow[i]],step.z.views[ind_pow[i]],variables.z.views[ind_pow[i]],μ)             #higher order correction
     end
 
     # now we copy the scaled res for rz and d.z is no longer work

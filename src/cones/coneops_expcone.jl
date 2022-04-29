@@ -195,7 +195,7 @@ function muHessianF(
     H .*= μ
 end
 
-# 3rd-order correction at the point z, w.r.t. directions u,ds, and then save it to η
+# 3rd-order correction at the point z, w.r.t. directions u,v and then save it to η
 # NB: not finished yet
 function higherCorrection!(
     K::ExponentialCone{T},
@@ -215,6 +215,7 @@ function higherCorrection!(
     # u for H^{-1}*Δs 
     #NB: need to be refined later
     μH = K.μHWork
+    u = K.vecWork
     # recompute Hessian
     muHessianF(z,μH,μ)
 
@@ -230,8 +231,8 @@ function higherCorrection!(
         F = lu!(μH)
     end
 
-    u = F\ds    #equivalent to Hinv*ds
-    u .*= μ
+    ldiv!(u,F,ds)    #equivalent to Hinv*ds
+    @. u *= μ
 
     u1 = u[1]
     u2 = u[2]
@@ -239,8 +240,13 @@ function higherCorrection!(
 
     l = log(-z3/z1)
     ψ = -z1*l-z1+z2
-    gψ = [-l; 1; -z1/z3]    # gradient of ψ
-    Hψ = [  1/z1    0   -1/z3;
+
+    # memory allocation
+    gψ = K.gradWork
+    Hψ = K.μHWork
+
+    gψ .= [-l; 1; -z1/z3]    # gradient of ψ
+    Hψ .= [  1/z1    0   -1/z3;
             0       0   0;
             -1/z3   0   z1/(z3*z3);]
 
@@ -324,7 +330,7 @@ function _check_neighbourhood(
         return true
     end
 
-    println("away from central path due to cone with ", norm(dot(tmp,grad)/μ))
+    # println("away from central path due to cone with ", norm(dot(tmp,grad)/μ))
     return false
 end
 
