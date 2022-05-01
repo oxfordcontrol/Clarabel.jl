@@ -50,9 +50,10 @@ function get_WtW_block!(
     return nothing
 end
 
-function λ_circ_λ!(
+function affine_ds!(
     K::ZeroCone{T},
-    x::AbstractVector{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
     x .= zero(T)

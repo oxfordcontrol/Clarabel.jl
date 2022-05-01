@@ -38,6 +38,17 @@ function get_WtW_block!(
 
 end
 
+# return x = y for unsymmetric cones
+function affine_ds!(
+    K::AbstractCone{T},
+    x::AbstractVector{T},
+    y::AbstractVector{T}
+) where {T}
+
+    @. x = y
+
+end
+
 #  unsymmetric initialization
 function unsymmetric_init!(
    K::ExponentialCone{T},
@@ -49,9 +60,7 @@ function unsymmetric_init!(
     s[2] = one(T)*(0.556409619469370)
     s[3] = one(T)*(1.258967884768947)
 
-    z[1] = one(T)*(-1.051383945322714)
-    z[2] = one(T)*(0.556409619469370)
-    z[3] = one(T)*(1.258967884768947)
+    @. z = s
 
    return nothing
 end
@@ -140,7 +149,6 @@ end
 
 ###############################################
 # Basic operations for exponential Cones
-# Follwing ECOS solver and Santiago's thesis
 # Primal exponential cone: s3 ≥ s2*e^(s1/s2), s3,s2 > 0
 # Dual exponential cone: z3 ≥ -z1*e^(z2/z1 - 1), z3 > 0, z1 < 0
 # As in ECOS, we use the dual barrier function: f*(z) = -log(z2 - z1 - z1log(z3/-z1)) - log(-z1) - log(z3):
@@ -150,19 +158,16 @@ function GradF(
     g::AbstractVector{T}
 ) where {T}
 
-    z1 = z[1]               #z1
-    z2 = z[2]               #z2
-    z3 = z[3]               #z3
-    c1 = log(-z3/z1)
-    c2 = 1/(-z1*c1-z1+z2)
+    c1 = log(-z[3]/z[1])
+    c2 = 1/(-z[1]*c1-z[1]+z[2])
 
-    g[1] = c2*c1 - 1/z1
+    g[1] = c2*c1 - 1/z[1]
     g[2] = -c2
-    g[3] = (c2*z1-1)/z3
+    g[3] = (c2*z[1]-1)/z[3]
 
 end
 
-# Evaluates the Hessian of the exponential dual cone barrier at z and stores the upper triangular part of the matrix μH*(z)
+# Evaluates the Hessian of the dual exponential cone barrier at z and stores the upper triangular part of the matrix μH*(z)
 # NB:could reduce H to an upper triangular matrix later, remove duplicate updates
 function muHessianF(
     z::AbstractVector{T}, 
@@ -176,21 +181,18 @@ function muHessianF(
     #            [-l/r^2,                           1/r^2],                  -z1/(r^2*z3)];
     #            [1/(r*z3) + (l*z1)/(r^2*z3),   -z1/(r^2*z3),  1/z3^2 - z1/(r*z3^2) + z1^2/(r^2*z3^2)]]
 
-    z1 = z[1]               #z1
-    z2 = z[2]               #z2
-    z3 = z[3]               #z3
-    l = log(-z3/z1)
-    r = -z1*l-z1+z2
+    l = log(-z[3]/z[1])
+    r = -z[1]*l-z[1]+z[2]
 
-    H[1,1] = ((r*r-z1*r+l*l*z1*z1)/(r*z1*z1*r))
+    H[1,1] = ((r*r-z[1]*r+l*l*z[1]*z[1])/(r*z[1]*z[1]*r))
     H[1,2] = (-l/(r*r))
     H[2,1] = H[1,2]
     H[2,2] = (1/(r*r))
-    H[1,3] = ((z2-z1)/(r*r*z3))
+    H[1,3] = ((z[2]-z[1])/(r*r*z[3]))
     H[3,1] = H[1,3]
-    H[2,3] = (-z1/(r*r*z3))
+    H[2,3] = (-z[1]/(r*r*z[3]))
     H[3,2] = H[2,3]
-    H[3,3] = ((r*r-z1*r+z1*z1)/(r*r*z3*z3))
+    H[3,3] = ((r*r-z[1]*r+z[1]*z[1])/(r*r*z[3]*z[3]))
 
     H .*= μ
 end
@@ -205,21 +207,15 @@ function higherCorrection!(
     z::AbstractVector{T},
     μ::T
 ) where {T}
-    z1 = z[1]               #z1
-    z2 = z[2]               #z2
-    z3 = z[3]               #z3   
-    v1 = v[1]
-    v2 = v[2]
-    v3 = v[3]
 
     # u for H^{-1}*Δs 
-    #NB: need to be refined later
     μH = K.μHWork
     u = K.vecWork
+    F = K.FWork
+
     # recompute Hessian
     muHessianF(z,μH,μ)
 
-    F = K.FWork
     if F === nothing
         F = lu(μH, check= false)
     else
@@ -234,27 +230,35 @@ function higherCorrection!(
     ldiv!(u,F,ds)    #equivalent to Hinv*ds
     @. u *= μ
 
-    u1 = u[1]
-    u2 = u[2]
-    u3 = u[3]
-
-    l = log(-z3/z1)
-    ψ = -z1*l-z1+z2
+    l = log(-z[3]/z[1])
+    ψ = -z[1]*l-z[1]+z[2]
 
     # memory allocation
     gψ = K.gradWork
     Hψ = K.μHWork
 
-    gψ .= [-l; 1; -z1/z3]    # gradient of ψ
-    Hψ .= [  1/z1    0   -1/z3;
-            0       0   0;
-            -1/z3   0   z1/(z3*z3);]
+    gψ[1] = -l
+    gψ[2] = 1
+    gψ[3] = -z[1]/z[3]    # gradient of ψ
+
+    # Hψ = [  1/z[1]    0   -1/z[3];
+    #           0       0   0;
+    #         -1/z[3]   0   z[1]/(z[3]*z[3]);]
+    Hψ[1,1] = 1/z[1]
+    Hψ[1,2] = 0
+    Hψ[2,1] = Hψ[1,2]
+    Hψ[1,3] = -1/z[3]
+    Hψ[3,1] = Hψ[1,3]
+    Hψ[2,2] = 0
+    Hψ[2,3] = 0
+    Hψ[3,2] = Hψ[2,3]
+    Hψ[3,3] = z[1]/(z[3]*z[3])
 
     dotψu = dot(gψ,u)
     dotψv = dot(gψ,v)
 
-    dotψuv = [-u1*v1/(z1*z1) + u3*v3/(z3*z3); 0; (u3*v1+u1*v3)/(z3*z3) - 2*z1*u3*v3/(z3*z3*z3)]
-    dothuv = [-2*u1*v1/(z1*z1*z1); 0; -2*u3*v3/(z3*z3*z3)]
+    dotψuv = [-u[1]*v[1]/(z[1]*z[1]) + u[3]*v[3]/(z[3]*z[3]); 0; (u[3]*v[1]+u[1]*v[3])/(z[3]*z[3]) - 2*z[1]*u[3]*v[3]/(z[3]*z[3]*z[3])]
+    dothuv = [-2*u[1]*v[1]/(z[1]*z[1]*z[1]); 0; -2*u[3]*v[3]/(z[3]*z[3]*z[3])]
     Hψv = Hψ*v
     Hψu = Hψ*u
 
@@ -326,7 +330,7 @@ function _check_neighbourhood(
     grad .+= s
 
     ldiv!(tmp,F,grad)
-    if (norm(dot(tmp,grad)/μ) < η^2)
+    if (dot(tmp,grad)/μ < η)
         return true
     end
 
@@ -344,12 +348,9 @@ end
 
 # Returns true if s is primal feasible
 function checkExpPrimalFeas(s::AbstractVector{T}) where {T}
-    s1 = s[1]
-    s2 = s[2]
-    s3 = s[3]
 
-    if (s3>0. && s2>0.)   #feasible
-        res = s2*log(s3/s2) - s1
+    if (s[3]>0. && s[2]>0.)   #feasible
+        res = s[2]*log(s[3]/s[2]) - s[1]
         if (res>0.)
             return true
         end
@@ -360,12 +361,9 @@ end
 
 # Returns true if s is dual feasible
 function checkExpDualFeas(z::AbstractVector{T}) where {T}
-    z1 = z[1]
-    z2 = z[2]
-    z3 = z[3]
 
-    if (z3>0. && z1<0.)
-        res = z2 - z1 - z1*log(-z3/z1)
+    if (z[3]>0. && z[1]<0.)
+        res = z[2] - z[1] - z[1]*log(-z[3]/z[1])
         if (res>0.)
             return true
         end

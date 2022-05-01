@@ -92,9 +92,10 @@ function get_WtW_block!(
 end
 
 # returns x = λ ∘ λ for the SDP cone
-function λ_circ_λ!(
+function affine_ds!(
     K::PSDTriangleCone{T},
-    x::AbstractVector{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
     #We have Λ = Diagonal(K.λ), so

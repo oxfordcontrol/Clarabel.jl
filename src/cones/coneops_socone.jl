@@ -89,9 +89,10 @@ end
 
 
 # returns x = λ ∘ λ for the socone
-function λ_circ_λ!(
+function affine_ds!(
     K::SecondOrderCone{T},
-    x::AbstractVector{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
     circ_op!(K,x,K.λ,K.λ)

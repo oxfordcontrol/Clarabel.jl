@@ -306,7 +306,7 @@ const ConeDict = Dict(
     SecondOrderConeT => SecondOrderCone,
     PSDTriangleConeT => PSDTriangleCone,
     ExponentialConeT => ExponentialCone,
-    PowerConeT => PowerCone,
+          PowerConeT => PowerCone,
 )
 
 

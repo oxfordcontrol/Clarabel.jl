@@ -21,11 +21,11 @@ struct ConeSet{T}
     headidx::Vector{Int}
 
     # the scaling for unsymmetric backtrack
-    scaling::T
+    scaling::T              #backtracking parameter
     minDist::T
     ind_exp::Vector{Int}    #index for exponential cones
     ind_pow::Vector{Int}    #index for power cones
-    η::T                    #centrality
+    η::T                    #upper centrality parameter
 
     # the flag for symmetric cone check
     symFlag::Bool
@@ -79,7 +79,7 @@ struct ConeSet{T}
         headidx = Vector{Int}(undef,length(cones))
         _coneset_make_headidx!(headidx,cones)
 
-        #check whether we only have symmetric cones
+        #check whether the problem only contains symmetric cones
         if (type_counts[ZeroConeT] + type_counts[NonnegativeConeT] +
             type_counts[SecondOrderConeT] + type_counts[PSDTriangleConeT] == ncones)
             symFlag = true

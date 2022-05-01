@@ -40,7 +40,6 @@ function calc_step_length(
         z_ds = dot(variables.z,step.s)
 
         α = check_μ_and_centrality(cones,step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ,zs,dzs,s_dz,z_ds,α,steptype)
-        println(string(steptype), " with α ", α)
     end
 
     return α
@@ -92,14 +91,13 @@ end
 function calc_affine_step_rhs!(
     d::DefaultVariables{T},
     r::DefaultResiduals{T},
-    data::DefaultProblemData{T},
     variables::DefaultVariables{T},
     cones::ConeSet{T}
 ) where{T}
 
     @. d.x    .=  r.rx
     @. d.z     =  r.rz
-    cones_λ_circ_λ!(cones, d.s, variables.s)    # unsymmetric cones need value of s
+    cones_affine_ds!(cones, d.s, variables.s)    # unsymmetric cones need value of s
     d.τ        =  r.rτ
     d.κ        =  variables.τ * variables.κ
 
@@ -110,11 +108,11 @@ end
 function calc_combined_step_rhs!(
     d::DefaultVariables{T},
     r::DefaultResiduals{T},
-    data::DefaultProblemData{T},
     variables::DefaultVariables{T},
     cones::ConeSet{T},
     step::DefaultVariables{T},
-    σ::T, μ::T
+    σ::T, 
+    μ::T
 ) where {T}
 
     @. d.x  = (one(T) - σ)*r.rx
@@ -140,22 +138,13 @@ function calc_combined_step_rhs!(
     #We are relying on d.s = λ ◦ λ already from the affine step here
     @. d.s += d.z                                                #d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
     
-    # YC: set ds for unsymmetric cones
-    ind_exp = cones.ind_exp
-    length_exp = cones.type_counts[ExponentialConeT]
-    ind_pow = cones.ind_pow
-    length_pow = cones.type_counts[PowerConeT]
-
-    # set ds for unsymmetric cones
-    for i = 1:length_exp
-        d.s.views[ind_exp[i]] .= variables.s.views[ind_exp[i]]
-        add_grad!(cones[ind_exp[i]],d.s.views[ind_exp[i]],σ*μ)      # nonsymmetric centralling
-        # d.s.views[ind_exp[i]] .+= higherCorrection!(cones[ind_exp[i]],d.z.views[ind_exp[i]],step.s.views[ind_exp[i]],step.z.views[ind_exp[i]],variables.z.views[ind_exp[i]],μ)             #higher order correction
-    end
-    for i = 1:length_pow
-        d.s.views[ind_pow[i]] .= variables.s.views[ind_pow[i]]
-        add_grad!(cones[ind_pow[i]],d.s.views[ind_pow[i]],σ*μ)      # nonsymmetric centralling
-        # d.s.views[ind_pow[i]] .+= higherCorrection!(cones[ind_pow[i]],d.z.views[ind_pow[i]],step.s.views[ind_pow[i]],step.z.views[ind_pow[i]],variables.z.views[ind_pow[i]],μ)             #higher order correction
+    # YC: set ds for unsymmetric cones, could be merged with symmetric cones
+    for i in eachindex(cones)
+        if (cones.types[i] in NonsymmetricCones)
+            d.s.views[i] .= variables.s.views[i]
+            add_grad!(cones[i],d.s.views[i],σ*μ)      # nonsymmetric centralling        if σ < T(0.5)
+            # d.s.views[i] .+= higherCorrection!(cones[i],d.z.views[i],step.s.views[i],step.z.views[i],variables.z.views[i],μ)             #higher order correction
+        end
     end
 
     # now we copy the scaled res for rz and d.z is no longer work
@@ -191,11 +180,8 @@ function unsymmetricInit(
 ) where {T}
     #set conic variables to units and x to 0
     unit_initialization!(cones,variables.s,variables.z)
-    # A = data.A
-    # b = data.b
-    # variables.x .= T.(A'*pinv(Matrix(A*A'))*(b - variables.s))    # it seems that this initialization doesn' help
-    variables.x .= T(0)
 
+    variables.x .= T(0)
     variables.τ = T(1)
     variables.κ = T(1)
 

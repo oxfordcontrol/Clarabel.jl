@@ -38,6 +38,17 @@ function get_WtW_block!(
 
 end
 
+# return x = y for unsymmetric cones
+function affine_ds!(
+    K::AbstractCone{T},
+    x::AbstractVector{T},
+    y::AbstractVector{T}
+) where {T}
+
+    @. x = y
+
+end
+
 #  unsymmetric initialization
 function unsymmetric_init!(
    K::PowerCone{T},
@@ -51,9 +62,7 @@ function unsymmetric_init!(
     s[2] = one(T)*sqrt(1+(1-α))
     s[3] = zero(T)
 
-    z[1] = one(T)*sqrt(1+α)
-    z[2] = one(T)*sqrt(1+(1-α))
-    z[3] = zero(T)
+    @. z = s
 
    return nothing
 end
@@ -150,17 +159,14 @@ function GradF(
     g::AbstractVector{T}
 ) where {T}
 
-    z1 = z[1]               #z1
-    z2 = z[2]               #z2
-    z3 = z[3]               #z3
     α = K.α
 
-    ϕ = (z1/α)^(2*α)*(z2/(1-α))^(2-2*α)
-    ψ = ϕ - z3*z3
+    ϕ = (z[1]/α)^(2*α)*(z[2]/(1-α))^(2-2*α)
+    ψ = ϕ - z[3]*z[3]
 
-    g[1] = -2*α*ϕ/(z1*ψ) - (1-α)/z1
-    g[2] = -2*(1-α)*ϕ/(z2*ψ) - α/z2
-    g[3] = 2*z3/ψ
+    g[1] = -2*α*ϕ/(z[1]*ψ) - (1-α)/z[1]
+    g[2] = -2*(1-α)*ϕ/(z[2]*ψ) - α/z[2]
+    g[3] = 2*z[3]/ψ
 
 end
 
@@ -173,27 +179,24 @@ function muHessianF(
     μ::T
 ) where {T}
 
-    z1 = z[1]               #z1
-    z2 = z[2]               #z2
-    z3 = z[3]               #z3
     α = K.α
+    gψ = K.vecWork
 
-    ϕ = (z1/α)^(2*α)*(z2/(1-α))^(2-2*α)
-    ψ = ϕ - z3*z3
-    divgψ = [2*α*ϕ/(z1*ψ); 2*(1-α)*ϕ/(z2*ψ); -2*z3/ψ]
-    gψ1 = divgψ[1]
-    gψ2 = divgψ[2]
-    gψ3 = divgψ[3]
+    ϕ = (z[1]/α)^(2*α)*(z[2]/(1-α))^(2-2*α)
+    ψ = ϕ - z[3]*z[3]
+    gψ[1] = 2*α*ϕ/(z[1]*ψ)
+    gψ[2] = 2*(1-α)*ϕ/(z[2]*ψ)
+    gψ[3] = -2*z[3]/ψ
 
-    H[1,1] = gψ1*gψ1 - 2*α*(2*α-1)*ϕ/(z1*z1*ψ) + (1-α)/(z1*z1)
-    H[1,2] = gψ1*gψ2 - 4*α*(1-α)*ϕ/(z1*z2*ψ)
+    H[1,1] = gψ[1]*gψ[1] - 2*α*(2*α-1)*ϕ/(z[1]*z[1]*ψ) + (1-α)/(z[1]*z[1])
+    H[1,2] = gψ[1]*gψ[2] - 4*α*(1-α)*ϕ/(z[1]*z[2]*ψ)
     H[2,1] = H[1,2]
-    H[2,2] = gψ2*gψ2 - 2*(1-α)*(1-2*α)*ϕ/(z2*z2*ψ) + α/(z2*z2)
-    H[1,3] = gψ1*gψ3 
+    H[2,2] = gψ[2]*gψ[2] - 2*(1-α)*(1-2*α)*ϕ/(z[2]*z[2]*ψ) + α/(z[2]*z[2])
+    H[1,3] = gψ[1]*gψ[3] 
     H[3,1] = H[1,3]
-    H[2,3] = gψ2*gψ3
+    H[2,3] = gψ[2]*gψ[3]
     H[3,2] = H[2,3]
-    H[3,3] = gψ3*gψ3 + 2/ψ
+    H[3,3] = gψ[3]*gψ[3] + 2/ψ
 
     H .*= μ
 end
@@ -208,21 +211,16 @@ function higherCorrection!(
     z::AbstractVector{T},
     μ::T
 ) where {T}
-    z1 = z[1]               #z1
-    z2 = z[2]               #z2
-    z3 = z[3]               #z3   
-    v1 = v[1]
-    v2 = v[2]
-    v3 = v[3]
 
     # u for H^{-1}*Δs 
     #NB: need to be refined later
     μH = K.μHWork
     u = K.vecWork
+    F = K.FWork
+
     # recompute Hessian
     muHessianF(K,z,μH, μ)
 
-    F = K.FWork
     if F === nothing
         F = lu(μH, check= false)
     else
@@ -237,29 +235,37 @@ function higherCorrection!(
     ldiv!(u,F,ds)    #equivalent to Hinv*ds
     @. u *= μ
 
-    u1 = u[1]
-    u2 = u[2]
-    u3 = u[3]
-
     α = K.α
 
-    ϕ = (z1/α)^(2*α)*(z2/(1-α))^(2-2*α)
-    ψ = ϕ - z3*z3
+    ϕ = (z[1]/α)^(2*α)*(z[2]/(1-α))^(2-2*α)
+    ψ = ϕ - z[3]*z[3]
 
     # memory allocation
     gψ = K.gradWork
     Hψ = K.μHWork
 
-    gψ .= [2*α*ϕ/z1; 2*(1-α)*ϕ/z2; -2*z3]
-    Hψ .= [  2*α*(2*α-1)*ϕ/(z1*z1)     4*α*(1-α)*ϕ/(z1*z2)       0;
-            4*α*(1-α)*ϕ/(z1*z2)     2*(1-α)*(1-2*α)*ϕ/(z2*z2)   0;
-            0                       0                          -2;]
+    gψ[1] = 2*α*ϕ/z[1]
+    gψ[2] = 2*(1-α)*ϕ/z[2]
+    gψ[3] = -2*z[3]
+    
+    # Hψ = [  2*α*(2*α-1)*ϕ/(z1*z1)     4*α*(1-α)*ϕ/(z1*z2)       0;
+    #         4*α*(1-α)*ϕ/(z1*z2)     2*(1-α)*(1-2*α)*ϕ/(z2*z2)   0;
+    #         0                       0                          -2;]
+    Hψ[1,1] = 2*α*(2*α-1)*ϕ/(z[1]*z[1])
+    Hψ[1,2] = 4*α*(1-α)*ϕ/(z[1]*z[2])
+    Hψ[2,1] = Hψ[1,2]
+    Hψ[1,3] = 0
+    Hψ[3,1] = Hψ[1,3]
+    Hψ[2,2] = 2*(1-α)*(1-2*α)*ϕ/(z[2]*z[2])
+    Hψ[2,3] = 0
+    Hψ[3,2] = Hψ[2,3]
+    Hψ[3,3] = -2
 
     dotψu = dot(gψ,u)
     dotψv = dot(gψ,v)
 
-    dotψuv = 4*α*(2*α-1)*(1-α)*ϕ*[-u1*v1/(z1*z1*z1) + (u2*v1+u1*v2)/(z1*z1*z2) - u2*v2/(z1*z2*z2); u1*v1/(z1*z1*z2) - (u2*v1+u1*v2)/(z1*z2*z2) + u2*v2/(z2*z2*z2); 0]
-    dothuv = [-2*(1-α)*u1*v1/(z1*z1*z1); -2*α*u2*v2/(z2*z2*z2); 0]
+    dotψuv = 4*α*(2*α-1)*(1-α)*ϕ*[-u[1]*v[1]/(z[1]*z[1]*z[1]) + (u[2]*v[1]+u[1]*v[2])/(z[1]*z[1]*z[2]) - u[2]*v[2]/(z[1]*z[2]*z[2]); u[1]*v[1]/(z[1]*z[1]*z[2]) - (u[2]*v[1]+u[1]*v[2])/(z[1]*z[2]*z[2]) + u[2]*v[2]/(z[2]*z[2]*z[2]); 0]
+    dothuv = [-2*(1-α)*u[1]*v[1]/(z[1]*z[1]*z[1]); -2*α*u[2]*v[2]/(z[2]*z[2]*z[2]); 0]
     Hψv = Hψ*v
     Hψu = Hψ*u
 
@@ -303,7 +309,7 @@ function _check_neighbourhood(
     grad .+= s
 
     ldiv!(tmp,F,grad)
-    if (norm(dot(tmp,grad)/μ) < η^2)
+    if (dot(tmp,grad)/μ < η)
         return true
     end
 

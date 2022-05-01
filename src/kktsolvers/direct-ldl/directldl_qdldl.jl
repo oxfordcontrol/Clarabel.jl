@@ -124,14 +124,13 @@ function iterative_refinement(ldlsolver::QDLDLDirectLDLSolver{T},x,b,settings) w
         # test for convergence before committing
         # to a refinement step
         if(norme <= IR_abstol + IR_reltol*normb)
-            break
+            return
         end
 
         #if we haven't improved by at least the halting
         #ratio since the last pass through, then abort
         if(lastnorme/norme < IR_stopratio)
-            println("IR error: ", norme)
-            break
+            return
         end
 
         #make a refinement and continue
@@ -140,8 +139,6 @@ function iterative_refinement(ldlsolver::QDLDLDirectLDLSolver{T},x,b,settings) w
 
         lastnorme = norme
     end
-
-    println("IR error: ", lastnorme)
 
     return nothing
 end

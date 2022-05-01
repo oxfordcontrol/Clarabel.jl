@@ -82,12 +82,14 @@ function get_WtW_block!(
 
 end
 
-# returns x = λ∘λ.  The cone must have an internal mechanism
+# returns x = λ∘λ for symmetric cones and x = s for unsymmetric cones
+# The cone must have an internal mechanism
 # for storing the scaled variable λ internally.  This variable
 # should be updated at the call to update_scaling!
-function λ_circ_λ!(
+function affine_ds!(
     K::AbstractCone{T},
-    x::AbstractVector{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))

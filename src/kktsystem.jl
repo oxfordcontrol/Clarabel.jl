@@ -145,14 +145,13 @@ function kkt_solve!(
         @. tmp = rhs.z  #Don't want to modify our RHS
         cones_λ_inv_circ_op!(cones, tmp, rhs.s)                  #tmp = λ \ ds
         cones_gemv_W!(cones, :T, tmp, Wtlinvds, one(T), zero(T)) #Wᵀ(λ \ ds) = Wᵀ(tmp)
-    end
     
-    # YC: for unsymmetric cones, set Wᵀ(λ \ ds) = ds
-    for i = 1:length_exp
-        Wtlinvds.views[ind_exp[i]] .= rhs.s.views[ind_exp[i]]
-    end
-    for i = 1:length_pow
-        Wtlinvds.views[ind_pow[i]] .= rhs.s.views[ind_pow[i]]
+        # YC: for unsymmetric cones, set Wᵀ(λ \ ds) = ds, could be merged with steps above
+        for i in eachindex(cones)
+            if (cones.types[i] in NonsymmetricCones)
+                Wtlinvds.views[i] .= rhs.s.views[i]            
+            end
+        end
     end
 
     @. workz = Wtlinvds - rhs.z
@@ -188,15 +187,14 @@ function kkt_solve!(
     #-------------
     cones_gemv_W!(cones, :N, lhs.z, workz,  one(T), zero(T))    #work = WΔz
     cones_gemv_W!(cones, :T, workz, lhs.s, -one(T), zero(T))    #Δs = -WᵀWΔz
+    
     #YC: for unsymmetric cones, -WᵀWΔz = -μH*(z)Δz
     #NB: could possiblely merge with twp cones_gemv_W! steps to reduce the indexing from the begining
-    for  i = 1:length_exp
-        compute_muHessianF(lhs.s.views[ind_exp[i]],cones.cones[ind_exp[i]].μH,lhs.z.views[ind_exp[i]])
-        lhs.s.views[ind_exp[i]] .*= -1
-    end
-	for  i = 1:length_pow
-        compute_muHessianF(lhs.s.views[ind_pow[i]],cones.cones[ind_pow[i]].μH,lhs.z.views[ind_pow[i]])
-        lhs.s.views[ind_pow[i]] .*= -1
+    for i in eachindex(cones)
+        if (cones.types[i] in NonsymmetricCones)
+            compute_muHessianF(lhs.s.views[i],cones.cones[i].μH,lhs.z.views[i])
+            lhs.s.views[i] .*= -1
+        end
     end
 
     @. lhs.s -= Wtlinvds

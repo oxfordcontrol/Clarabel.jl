@@ -68,20 +68,14 @@ function cones_get_WtW_blocks!(
 end
 
 # YC:x = λ ∘ λ for symmetric cone and x = s for unsymmetric cones
-function cones_λ_circ_λ!(
+function cones_affine_ds!(
     cones::ConeSet{T},
     x::ConicVector{T},
     s::ConicVector{T}
 ) where {T}
 
     for i = eachindex(cones)
-        # don't implement it for unsymmetric cones
-        if !(cones.types[i] in NonsymmetricCones) 
-            λ_circ_λ!(cones[i],x.views[i])
-        else
-            # NB: check whether the following line is needed
-            x.views[i] .= s.views[i]
-        end
+        affine_ds!(cones[i],x.views[i],s.views[i])
     end
     return nothing
 end

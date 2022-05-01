@@ -49,9 +49,10 @@ function get_WtW_block!(
 end
 
 # returns x = λ∘λ for the nn cone
-function λ_circ_λ!(
+function affine_ds!(
     K::NonnegativeCone{T},
-    x::AbstractVector{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
     @. x = K.λ^2
