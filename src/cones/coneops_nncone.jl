@@ -199,19 +199,19 @@ function step_length(
     return (αz,αs)
 end
 
-# function f_sum(
-#     K::NonnegativeCone{T},
-#     s::AbstractVector{T},
-#     z::AbstractVector{T}
-# ) where {T}
+function f_sum(
+    K::NonnegativeCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
 
-#     barrier = T(0)
-#     for i = 1:K.dim
-#         barrier += -log(s[i]) - log(z[i])
-#     end
+    barrier = T(0)
+    for i = 1:K.dim
+        barrier += -log(s[i]) - log(z[i])
+    end
 
-#     return barrier
-# end
+    return barrier
+end
 
 # check neighbourhood
 function _check_neighbourhood(

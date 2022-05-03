@@ -173,7 +173,7 @@ end
 # NB:could reduce H to an upper triangular matrix later, remove duplicate updates
 function muHessianF(
     z::AbstractVector{T}, 
-    H::AbstractMatrix{T}, 
+    H::SparseMatrixCSC{T}, 
     μ::T
 ) where {T}
     # y = z1; z = z2; x = z3;
@@ -267,36 +267,35 @@ function higherCorrection!(
     η .= (dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv
     η ./= -2
 
-    return η
 end
 
-# # f(s) = -2*log(s2) - log(s3) - log((1-barω)^2/barω) - 3, where barω = ω(1 - s1/s2 - log(s2) - log(s3))
-# function f_sum(
-#     K::ExponentialCone{T}, 
-#     s::AbstractVector{T}, 
-#     z::AbstractVector{T}
-# ) where {T}
+# f(s) = -2*log(s2) - log(s3) - log((1-barω)^2/barω) - 3, where barω = ω(1 - s1/s2 - log(s2) - log(s3))
+function f_sum(
+    K::ExponentialCone{T}, 
+    s::AbstractVector{T}, 
+    z::AbstractVector{T}
+) where {T}
 
-#     z1 = z[1]
-#     z2 = z[2]
-#     z3 = z[3]
-#     s1 = s[1]
-#     s2 = s[2]
-#     s3 = s[3]
+    z1 = z[1]
+    z2 = z[2]
+    z3 = z[3]
+    s1 = s[1]
+    s2 = s[2]
+    s3 = s[3]
 
-#     barrier = T(0)
+    barrier = T(0)
 
-#     # Dual barrier
-#     l = log(-z3/z1)
-#     barrier += -log(z2-z1-z1*l)-log(-z1)-log(z3)
+    # Dual barrier
+    l = log(-z3/z1)
+    barrier += -log(z2-z1-z1*l)-log(-z1)-log(z3)
 
-#     # Primal barrier
-#     o = WrightOmega(1-s1/s2-log(s2)+log(s3))
-#     o = (o-1)*(o-1)/o
-#     barrier += -log(o)-2*log(s2)-log(s3)-3
+    # Primal barrier
+    o = WrightOmega(1-s1/s2-log(s2)+log(s3))
+    o = (o-1)*(o-1)/o
+    barrier += -log(o)-2*log(s2)-log(s3)-3
 
-#     return barrier
-# end
+    return barrier
+end
 
 # check neighbourhood
 function _check_neighbourhood(
@@ -307,6 +306,8 @@ function _check_neighbourhood(
     η::T
 ) where {T}
 
+    # to = TimerOutput()
+
     grad = K.gradWork
     μH = K.μHWork
     F = K.FWork
@@ -316,16 +317,19 @@ function _check_neighbourhood(
     GradF(z, grad)
     muHessianF(z, μH, μ)
 
-    if F === nothing
-        F = lu(μH, check= false)
-    else
-        F = lu!(μH, check= false)
-    end
+    # if F === nothing
+    #     F = lu(μH, check= false)
+    # else
+    # @timeit to "LU factorization" begin
+    lu!(F, μH; check= false)
 
     if !issuccess(F)
         increase_diag!(μH)
-        F = lu!(μH)
+        lu!(F,μH)
     end
+    # end
+
+    # print_timer(to)
 
     # grad as a workspace for s + μ*grad
     axpby!(one(T), s, μ, grad)

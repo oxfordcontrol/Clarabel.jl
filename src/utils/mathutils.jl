@@ -274,6 +274,15 @@ function _pack_triu(v::Vector{T},A::Matrix{T}) where T
     return v
 end
 
+function _pack_triu(v::Vector{T},A::SparseMatrixCSC{T}) where T
+    n     = 3
+    k = 1
+    for col = 1:n, row = 1:col
+        @inbounds v[k] = A[row,col]
+        k += 1
+    end
+    return v
+end
 
 
 #make a matrix view from a vectorized input
@@ -343,7 +352,7 @@ end
 
 ##################################
 # add regularization for Hessian as in Hypatia
-function increase_diag!(A::Matrix{T}) where {T <: Real}
+function increase_diag!(A::SparseMatrixCSC{T}) where {T <: Real}
     diag_pert = 1 + T(1e-5)
     diag_min = 1000 * eps(T)
     @inbounds for j in 1:size(A, 1)

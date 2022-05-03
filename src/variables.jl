@@ -19,8 +19,6 @@ function calc_step_length(
     steptype::Symbol
 ) where {T}
 
-    to = TimerOutput()
-
     ατ    = step.τ < 0 ? -variables.τ / step.τ : inv(eps(T))
     ακ    = step.κ < 0 ? -variables.κ / step.κ : inv(eps(T))
 
@@ -28,7 +26,7 @@ function calc_step_length(
 
     # Find a feasible step size for all cones
     # YC: add an extra input parameter α for step searching of unsymmetric cones
-    @timeit to "cone step" α = cones_step_length(cones, step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ, α)
+    α = cones_step_length(cones, step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ, α)
     # println("α after feasibility check: ", α)
 
 
@@ -37,10 +35,8 @@ function calc_step_length(
     #   balance global μ and local μ_i of each exponential cone;
     #   check centrality, ensure the update is close to the central path
     if (!cones.symFlag)
-        @timeit to "centrality" α = check_μ_and_centrality(cones,step,variables,workVar,α,steptype)
+        α = check_μ_and_centrality(cones,step,variables,workVar,α,steptype)
     end
-
-    print_timer(to)
 
     return α
 end
@@ -135,17 +131,19 @@ function calc_combined_step_rhs!(
     cones_circ_op!(cones, tmp, step.s, step.z)                   #tmp = W⁻¹Δs ∘ WΔz
     cones_add_scaled_e!(cones,tmp,-σ*μ)                          #tmp = W⁻¹Δs ∘ WΔz - σμe
 
-    #We are relying on d.s = λ ◦ λ already from the affine step here
-    @. d.s += d.z                                                #d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
-    
     # YC: set ds for unsymmetric cones, could be merged with symmetric cones
+    dotσμ = σ*μ
     for i in eachindex(cones)
         if (cones.types[i] in NonsymmetricCones)
-            d.s.views[i] .= variables.s.views[i]
-            add_grad!(cones[i],d.s.views[i],σ*μ)      # nonsymmetric centralling        if σ < T(0.5)
-            # d.s.views[i] .+= higherCorrection!(cones[i],d.z.views[i],step.s.views[i],step.z.views[i],variables.z.views[i],μ)             #higher order correction
+            # higherCorrection!(cones[i],d.z.views[i],step.s.views[i],step.z.views[i],variables.z.views[i],μ)             #higher order correction
+            # @. d.z.views[i] += dotσμ*cones[i].grad
+
+            @. d.z.views[i] = dotσμ*cones[i].grad
         end
     end
+
+    #We are relying on d.s = λ ◦ λ already from the affine step here
+    @. d.s += d.z                                                #d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
 
     # now we copy the scaled res for rz and d.z is no longer work
     @. d.z .= (1 - σ)*r.rz

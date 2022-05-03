@@ -243,18 +243,12 @@ function cones_step_length(
     # YC: implement step search for symmetric cones first
     # NB: split the step search for symmetric and unsymmtric cones due to the complexity of the latter
     for i = eachindex(cones)
-        if !(cones.types[i] in NonsymmetricCones)
-            (nextαz,nextαs) = step_length(cones[i],dz[i],ds[i],z[i],s[i])
-            α = min(α,nextαz,nextαs)
-        end
-    end
-
-    # feasible step_size for unsymmetric cones
-    for i = eachindex(cones)
-        # don't implement it for unsymmetric cones
         if (cones.types[i] in NonsymmetricCones)
             αzs = unsymmetric_step_length(cones[i],dz[i],ds[i],z[i],s[i],α,cones.scaling)
             α = min(α,αzs)
+        else
+            (nextαz,nextαs) = step_length(cones[i],dz[i],ds[i],z[i],s[i])
+            α = min(α,nextαz,nextαs)
         end
     end
 
@@ -328,7 +322,7 @@ function check_μ_and_centrality(
         # end
         # barrier = central_coef*log(μ) - log(τ+α*dτ) - log(κ+α*dκ)
         # for i = eachindex(cones)
-        #     barrier += f_sum(cones[i], cur_s[i], cur_z[i])
+        #     barrier += f_sum(cones[i], cur_s.views[i], cur_z.views[i])
         # end
 
         # if barrier < 1.

@@ -192,7 +192,7 @@ function kkt_solve!(
     #NB: could possiblely merge with twp cones_gemv_W! steps to reduce the indexing from the begining
     for i in eachindex(cones)
         if (cones.types[i] in NonsymmetricCones)
-            compute_muHessianF(lhs.s.views[i],cones.cones[i].μH,lhs.z.views[i])
+            compute_muHessianF(lhs.s.views[i],cones[i].μH,lhs.z.views[i])
             lhs.s.views[i] .*= -1
         end
     end

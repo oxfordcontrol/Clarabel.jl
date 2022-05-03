@@ -274,7 +274,6 @@ function higherCorrection!(
     η .= (dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv
     η ./= -2
 
-    return η
 end
 
 # check neighbourhood

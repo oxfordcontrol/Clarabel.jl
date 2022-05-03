@@ -42,8 +42,8 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
     # b = [b1;b2;b3;b5;b6]
     A = sparse([A1;A2;A5;A6])
     b = [b1;b2;b5;b6]
-    # A = sparse([A1;A2;A5])
-    # b = [b1;b2;b5]
+    # A = sparse([A1;A2;A3])
+    # b = [b1;b2;b3]
 
     cone_types = [Clarabel.ZeroConeT,
     Clarabel.NonnegativeConeT,

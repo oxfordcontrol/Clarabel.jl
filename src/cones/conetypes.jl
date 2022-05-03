@@ -214,24 +214,24 @@ PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 mutable struct ExponentialCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
-    μH::AbstractMatrix{T}       #μ*H for the linear sysmtem
+    μH::SparseMatrixCSC{T}       #μ*H for the linear sysmtem
     grad::AbstractVector{T}
 
     # workspace for centrality check
-    μHWork::AbstractMatrix{T}     
+    μHWork::SparseMatrixCSC{T}     
     gradWork::AbstractVector{T}
     vecWork::AbstractVector{T}
-    FWork::Union{SuiteSparse.UMFPACK.UmfpackLU,Nothing}
+    FWork::SuiteSparse.UMFPACK.UmfpackLU{T}
 
     function ExponentialCone{T}() where {T}
         dim = 3
-        μH = Matrix{T}(undef,3,3)
+        μH = sparse(Matrix{T}(undef,3,3))
         grad = Vector{T}(undef,3)
 
-        μHWork = Matrix{T}(undef,3,3)
+        μHWork = sparse(Matrix{T}(undef,3,3))
         gradWork = Vector{T}(undef,3)
         vecWork = Vector{T}(undef,3)
-        FWork = nothing
+        FWork = lu(sparse(rand(T,3,3)))
         return new(dim,μH,grad,μHWork,gradWork,vecWork,FWork)
     end
 end

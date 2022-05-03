@@ -300,16 +300,16 @@ function _step_length_soc_component(
 
 end
 
-# function f_sum(
-#     K::SecondOrderCone{T},
-#     s::AbstractVector{T},
-#     z::AbstractVector{T}
-# ) where {T}
-#     barrier_s = s[1]^2 - dot(s[2:end],s[2:end])
-#     barrier_z = z[1]^2 - dot(z[2:end],z[2:end])
+function f_sum(
+    K::SecondOrderCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+    barrier_s = s[1]^2 - dot(s[2:end],s[2:end])
+    barrier_z = z[1]^2 - dot(z[2:end],z[2:end])
 
-#     return (- log(barrier_s) - log(barrier_z))/2
-# end
+    return (- log(barrier_s) - log(barrier_z))/2
+end
 
 # check neighbourhood
 function _check_neighbourhood(

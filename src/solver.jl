@@ -169,6 +169,10 @@ Computes the solution to the problem in a `Clarabel.Solver` previously defined i
 #         #----------
 #         # main loop
 #         #----------
+            
+#         #NB: temporary allocation
+#         workVar = deepcopy(s.step_lhs)
+
 #         while true
 
 #             #update the residuals
@@ -217,7 +221,7 @@ Computes the solution to the problem in a `Clarabel.Solver` previously defined i
 
 #             #calculate step length and centering parameter
 #             #--------------
-#             α = calc_step_length(s.variables,s.step_lhs,s.cones,:affine)
+#             α = calc_step_length(s.variables,s.step_lhs,workVar,s.cones,:affine)
 #             σ = calc_centering_parameter(α)
 #             # println("σ is: ", σ)
 #             aff_step = deepcopy(s.step_lhs)
@@ -239,7 +243,7 @@ Computes the solution to the problem in a `Clarabel.Solver` previously defined i
 
 #             #compute final step length and update the current iterate
 #             #--------------
-#             @timeit_debug timer "step length" α = calc_step_length(s.variables,s.step_lhs,s.cones,:combined)
+#             @timeit_debug timer "step length" α = calc_step_length(s.variables,s.step_lhs,workVar,s.cones,:combined)
 
 #             α *= s.settings.max_step_fraction
 
@@ -287,7 +291,7 @@ function solve!(
     print_header(s.info,s.settings,s.data,s.cones)
 
 
-        #initialize variables to some reasonable starting point
+    #initialize variables to some reasonable starting point
     solver_default_start!(s)
 
     #----------
