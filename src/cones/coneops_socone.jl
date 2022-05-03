@@ -319,16 +319,18 @@ function _check_neighbourhood(
     μ::T,
     η::T
 ) where {T}
+    # # NB: need to avoid redundant memory later
+    # tmp = zeros(T,length(s))
 
-    tmp = zeros(T,length(s))
+    # circ_op!(K,tmp,s,z)
+    # add_scaled_e!(K,tmp,-μ)
 
-    circ_op!(K,tmp,s,z)
-    add_scaled_e!(K,tmp,-μ)
+    # if norm(tmp) < η
+    #     return true
+    # end
 
-    if norm(tmp) < η
-        return true
-    end
+    # return false
 
-    return false
+    return true
 
 end

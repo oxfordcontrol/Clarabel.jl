@@ -4,6 +4,8 @@ const MOI = MathOptInterface
 using LinearAlgebra
 using ConicBenchmarkUtilities
 
+using Profile,StatProfilerHTML, TimerOutputs
+
 include("../src\\Clarabel.jl")
 # using Clarabel
 
@@ -12,11 +14,11 @@ coneMap = Dict(:Zero => MOI.Zeros, :Free => :Free,
                      :SOC => MOI.SecondOrderCone, :SOCRotated => MOI.RotatedSecondOrderCone,
                      :ExpPrimal => MOI.ExponentialCone, :ExpDual => MOI.DualExponentialCone)
 
-# filelist = readdir(pwd()*"./primal_exp_cbf")
+filelist = readdir(pwd()*"./primal_exp_cbf")
 
 # dat = readcbfdata("./exp_cbf/car.cbf.gz") # .cbf.gz extension also accepted
 
-for j = 24:32    #length(filelist)
+for j = 1:32    #length(filelist)
     println("Current file is ", j)
     datadir = filelist[j]   #"gp_dave_1.cbf.gz"
     dat = readcbfdata("./primal_exp_cbf/"*datadir) # .cbf.gz extension also accepted

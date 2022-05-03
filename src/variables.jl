@@ -14,9 +14,12 @@ end
 function calc_step_length(
     variables::DefaultVariables{T},
     step::DefaultVariables{T},
+    workVar::DefaultVariables{T},
     cones::ConeSet{T},
     steptype::Symbol
 ) where {T}
+
+    to = TimerOutput()
 
     ατ    = step.τ < 0 ? -variables.τ / step.τ : inv(eps(T))
     ακ    = step.κ < 0 ? -variables.κ / step.κ : inv(eps(T))
@@ -25,7 +28,7 @@ function calc_step_length(
 
     # Find a feasible step size for all cones
     # YC: add an extra input parameter α for step searching of unsymmetric cones
-    α = cones_step_length(cones, step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ, α)
+    @timeit to "cone step" α = cones_step_length(cones, step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ, α)
     # println("α after feasibility check: ", α)
 
 
@@ -34,13 +37,10 @@ function calc_step_length(
     #   balance global μ and local μ_i of each exponential cone;
     #   check centrality, ensure the update is close to the central path
     if (!cones.symFlag)
-        zs= dot(variables.z,variables.s)
-        dzs = dot(step.z,step.s)
-        s_dz = dot(variables.s,step.z)
-        z_ds = dot(variables.z,step.s)
-
-        α = check_μ_and_centrality(cones,step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ,zs,dzs,s_dz,z_ds,α,steptype)
+        @timeit to "centrality" α = check_μ_and_centrality(cones,step,variables,workVar,α,steptype)
     end
+
+    print_timer(to)
 
     return α
 end

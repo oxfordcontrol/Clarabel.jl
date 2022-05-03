@@ -262,23 +262,32 @@ function cones_step_length(
 end
 
 # check the distance to the boundary for unsymmetric cones
-function check_μ_and_centrality(cones::ConeSet{T},
-    dz::ConicVector{T},
-    ds::ConicVector{T},
-    dτ::T,
-    dκ::T,
-     z::ConicVector{T},
-     s::ConicVector{T},
-     τ::T,
-     κ::T,
-     zs::T,dzs::T,s_dz::T,z_ds::T,α::T,
-     steptype::Symbol
+function check_μ_and_centrality(
+    cones::ConeSet{T},
+    step::DefaultVariables{T},
+    variables::DefaultVariables{T},
+    work::DefaultVariables{T},
+    α::T,
+    steptype::Symbol
 ) where {T}
 
-    dz    = dz.views
-    ds    = ds.views
-    z     = z.views
-    s     = s.views
+    dz    = step.z
+    ds    = step.s
+    dτ    = step.τ
+    dκ    = step.κ
+    z     = variables.z
+    s     = variables.s
+    τ     = variables.τ
+    κ     = variables.κ
+    cur_z = work.z
+    cur_s = work.s
+
+    zs= dot(z,s)
+    dzs = dot(dz,ds)
+    s_dz = dot(s,dz)
+    z_ds = dot(z,ds)
+
+    central_coef = cones.degree + 1
 
     # YC: scaling parameter to avoid reaching the boundary of cones
         # when we compute barrier functions
@@ -295,12 +304,11 @@ function check_μ_and_centrality(cones::ConeSet{T},
     
     for j = 1:50
         #Initialize μ
-        central_coef = cones.degree + 1
         μ = (zs + τ*κ + α*(s_dz + z_ds + dτ*κ + τ*dκ) + α^2*(dzs + dτ*dκ))/central_coef
         upper = cones.minDist*μ     #bound for boundary distance
 
-        cur_z = z + α*dz
-        cur_s = s + α*ds
+        @. cur_z = z + α*dz
+        @. cur_s = s + α*ds
 
         #boundary check from ECOS and centrality check from Hypatia
         # NB:   1) the update x+α*dx is inefficient right now and need to be rewritten later
@@ -341,7 +349,7 @@ end
 
 function boundary_check!(z,s,ind_cone,length_cone,upper)     
     for i = 1:length_cone
-        μi = dot(z[ind_cone[i]],s[ind_cone[i]])/3
+        μi = dot(z.views[ind_cone[i]],s.views[ind_cone[i]])/3
 
         # ECOS: if too close to boundary
         if μi < upper
@@ -355,7 +363,7 @@ end
 
 function check_centrality!(cones,s,z,μ,η)
     for i in eachindex(cones)
-        if !_check_neighbourhood(cones[i],s[i],z[i],μ,η)
+        if !_check_neighbourhood(cones[i],s.views[i],z.views[i],μ,η)
             # println("centrality violation at cone ",i, "  ",cones.types[i])
             return false
         end

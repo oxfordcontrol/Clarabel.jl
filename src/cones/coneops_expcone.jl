@@ -93,8 +93,8 @@ function unsymmetric_step_length(
         error("numerical error")
     end
     
-    αz = _step_length_exp_dual(dz,z,α,scaling)
-    αs = _step_length_exp_primal(ds,s,α,scaling)
+    αz = _step_length_exp_dual(K.vecWork,dz,z,α,scaling)
+    αs = _step_length_exp_primal(K.vecWork,ds,s,α,scaling)
 
     return min(αz,αs)
 end
@@ -103,6 +103,7 @@ end
 # find the maximum step length α≥0 so that
 # s + α*ds stays in the exponential cone
 function _step_length_exp_primal(
+    ws::AbstractVector{T},
     ds::AbstractVector{T},
     s::AbstractVector{T},
     α::T,
@@ -110,7 +111,7 @@ function _step_length_exp_primal(
 ) where {T}
 
     # NB: additional memory, may need to remove it later
-    ws = s + α*ds
+    @. ws = s + α*ds
 
     while !checkExpPrimalFeas(ws)
         # NB: need to be tackled in a smarter way
@@ -125,6 +126,7 @@ function _step_length_exp_primal(
 end
 # z + α*dz stays in the dual exponential cone
 function _step_length_exp_dual(
+    ws::AbstractVector{T},
     dz::AbstractVector{T},
     z::AbstractVector{T},
     α::T,
@@ -132,7 +134,7 @@ function _step_length_exp_dual(
 ) where {T}
 
     # NB: additional memory, may need to remove it later
-    ws = z + α*dz
+    @. ws = z + α*dz
 
     while !checkExpDualFeas(ws)
         if (α < 1e-4)
@@ -326,10 +328,9 @@ function _check_neighbourhood(
     end
 
     # grad as a workspace for s + μ*grad
-    grad .*= μ
-    grad .+= s
-
+    axpby!(one(T), s, μ, grad)
     ldiv!(tmp,F,grad)
+
     if (dot(tmp,grad)/μ < η)
         return true
     end

@@ -98,8 +98,8 @@ function unsymmetric_step_length(
     # avoid abuse of α
     exp = K.α
     
-    αz = _step_length_power_dual(dz,z,α,scaling,exp)
-    αs = _step_length_power_primal(ds,s,α,scaling,exp)
+    αz = _step_length_power_dual(K.vecWork,dz,z,α,scaling,exp)
+    αs = _step_length_power_primal(K.vecWork,ds,s,α,scaling,exp)
 
     return min(αz,αs)
 end
@@ -108,6 +108,7 @@ end
 # find the maximum step length α≥0 so that
 # s + α*ds stays in the Power cone
 function _step_length_power_primal(
+    ws::AbstractVector{T},
     ds::AbstractVector{T},
     s::AbstractVector{T},
     α::T,
@@ -116,7 +117,7 @@ function _step_length_power_primal(
 ) where {T}
 
     # NB: additional memory, may need to remove it later
-    ws = s + α*ds
+    @. ws = s + α*ds
 
     while !checkPowerPrimalFeas(ws,exp)
         α *= scaling    #backtrack line search
@@ -127,6 +128,7 @@ function _step_length_power_primal(
 end
 # z + α*dz stays in the dual Power cone
 function _step_length_power_dual(
+    ws::AbstractVector{T},
     dz::AbstractVector{T},
     z::AbstractVector{T},
     α::T,
@@ -135,7 +137,7 @@ function _step_length_power_dual(
 ) where {T}
 
     # NB: additional memory, may need to remove it later
-    ws = z + α*dz
+    @. ws = z + α*dz
 
     while !checkPowerDualFeas(ws,exp)
         α *= scaling    #backtrack line search
@@ -305,8 +307,7 @@ function _check_neighbourhood(
     end
 
     # grad as a workspace for s + μ*grad
-    grad .*= μ
-    grad .+= s
+    axpby!(one(T), s, μ, grad)
 
     ldiv!(tmp,F,grad)
     if (dot(tmp,grad)/μ < η)
