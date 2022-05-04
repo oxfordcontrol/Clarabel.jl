@@ -67,17 +67,46 @@ function unsymmetric_init!(
    return nothing
 end
 
-# add gradient to x
-function add_grad!(
+# compute ds in the combined step where μH(z)Δz + Δs = - ds
+function combined_ds!(
     K::PowerCone{T},
-    x::AbstractVector{T},
-    α::T
+    dz::AbstractVector{T},
+    step_z::AbstractVector{T},
+    step_s::AbstractVector{T},
+    σμ::T 
 ) where {T}
+    # higherCorrection!(K,dz,step_s,step_z,z,μ)             #3rd order correction requires input variables.z
+    # @. dz = σμ*K.grad
 
-    #e is a vector of ones, so just shift
-    @. x += α*K.grad
+    @. dz = σμ*K.grad                   #dz <- σμ*g(z)
 
     return nothing
+end
+
+# compute the generalized step ds
+function Wt_λ_inv_circ_ds!(
+    K::PowerCone{T},
+    lz::AbstractVector{T},
+    rz::AbstractVector{T},
+    rs::AbstractVector{T},
+    Wtlinvds::AbstractVector{T}
+) where {T} 
+
+    @. Wtlinvds = rs    #Wᵀ(λ \ ds) <- ds
+
+    return nothing
+end
+
+# compute the generalized step of -μH(z)Δz
+function WtW_Δz!(
+    K::PowerCone{T},
+    lz::AbstractVector{T},
+    ls::AbstractVector{T},
+    workz::AbstractVector{T}
+) where {T}
+
+    mul!(ls,K.μH,lz,-one(T),zero(T))
+
 end
 
 #return maximum allowable step length while remaining in the Power cone

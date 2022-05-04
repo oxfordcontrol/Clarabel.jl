@@ -111,9 +111,11 @@ function calc_combined_step_rhs!(
     μ::T
 ) where {T}
 
+    dotσμ = σ*μ
+
     @. d.x  = (one(T) - σ)*r.rx
        d.τ  = (one(T) - σ)*r.rτ
-       d.κ  = - σ*μ + step.τ * step.κ + variables.τ * variables.κ
+       d.κ  = - dotσμ + step.τ * step.κ + variables.τ * variables.κ
 
     # d.s must be assembled carefully if we want to be economical with
     # allocated memory.  Will modify the step.z and step.s in place since
@@ -122,28 +124,11 @@ function calc_combined_step_rhs!(
     # Will also use d.z as a temporary work vector here. Note that we don't
     # want to have aliasing vector arguments to gemv_W or gemv_Winv, so we
     # need to copy into a temporary variable to assign #Δz = WΔz and Δs = W⁻¹Δs
-
-    tmp  = d.z     #alias
-    tmp .= step.z  #copy for safe call to gemv_W
-    cones_gemv_W!(cones, :N, tmp, step.z, one(T), zero(T))       #Δz <- WΔz
-    tmp .= step.s  #copy for safe call to gemv_Winv
-    cones_gemv_Winv!(cones, :T, tmp, step.s, one(T), zero(T))    #Δs <- W⁻¹Δs
-    cones_circ_op!(cones, tmp, step.s, step.z)                   #tmp = W⁻¹Δs ∘ WΔz
-    cones_add_scaled_e!(cones,tmp,-σ*μ)                          #tmp = W⁻¹Δs ∘ WΔz - σμe
-
-    # YC: set ds for unsymmetric cones, could be merged with symmetric cones
-    dotσμ = σ*μ
-    for i in eachindex(cones)
-        if (cones.types[i] in NonsymmetricCones)
-            # higherCorrection!(cones[i],d.z.views[i],step.s.views[i],step.z.views[i],variables.z.views[i],μ)             #higher order correction
-            # @. d.z.views[i] += dotσμ*cones[i].grad
-
-            @. d.z.views[i] = dotσμ*cones[i].grad
-        end
-    end
-
-    #We are relying on d.s = λ ◦ λ already from the affine step here
-    @. d.s += d.z                                                #d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
+    #
+    # ds is different for symmetric and unsymmetric cones:
+    # Symmetric cones: d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
+    # Unsymmetric cones: d.s = s + σμ*g(z)
+    cones_combined_ds!(cones,d.z,d.s,step.z,step.s,dotσμ)
 
     # now we copy the scaled res for rz and d.z is no longer work
     @. d.z .= (1 - σ)*r.rz

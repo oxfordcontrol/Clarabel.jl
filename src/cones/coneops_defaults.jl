@@ -197,6 +197,43 @@ function add_scaled_e!(
 
 end
 
+# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - ds
+function combined_ds!(
+    K::AbstractCone{T},
+    dz::AbstractVector{T},
+    step_z::AbstractVector{T},
+    step_s::AbstractVector{T},
+    σμ::T 
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
+# compute the generalized step Wᵀ(λ \ ds)
+function Wt_λ_inv_circ_ds!(
+    K::AbstractCone{T},
+    lz::AbstractVector{T},
+    rz::AbstractVector{T},
+    rs::AbstractVector{T},
+    Wtlinvds::AbstractVector{T}
+) where {T} 
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
+# compute the generalized step of -WᵀWΔz
+function WtW_Δz!(
+    K::AbstractCone{T},
+    lz::AbstractVector{T},
+    ls::AbstractVector{T},
+    workz::AbstractVector{T}
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
 
 #return maximum allowable step length while remaining in cone
 #should return a Tuple of allowable step lengths for each direction

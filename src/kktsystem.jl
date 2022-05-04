@@ -139,19 +139,10 @@ function kkt_solve!(
         @. Wtlinvds = variables.s
 
     else  #:combined expected, but any general RHS should do this
-        #we can use the overall LHS output as
-        #additional workspace for the moment
-        tmp = lhs.z;
-        @. tmp = rhs.z  #Don't want to modify our RHS
-        cones_λ_inv_circ_op!(cones, tmp, rhs.s)                  #tmp = λ \ ds
-        cones_gemv_W!(cones, :T, tmp, Wtlinvds, one(T), zero(T)) #Wᵀ(λ \ ds) = Wᵀ(tmp)
-    
-        # YC: for unsymmetric cones, set Wᵀ(λ \ ds) = ds, could be merged with steps above
-        for i in eachindex(cones)
-            if (cones.types[i] in NonsymmetricCones)
-                Wtlinvds.views[i] .= rhs.s.views[i]            
-            end
-        end
+        #we can use the overall LHS output as additional workspace for the moment
+
+        # compute the generalized step of Wᵀ(λ \ ds), where Wᵀ(λ \ ds) is set to ds for unsymmetric cones
+        cones_Wt_λ_inv_circ_ds!(cones,lhs.z,rhs.z,rhs.s,Wtlinvds)
     end
 
     @. workz = Wtlinvds - rhs.z
@@ -183,19 +174,10 @@ function kkt_solve!(
     @. lhs.z = z1 + lhs.τ * z2
 
     #solve for Δs = -Wᵀ(λ \ dₛ + WΔz) = -Wᵀ(λ \ dₛ) - WᵀWΔz
-    #where the first part is already in work_conic
+    #where the first part is already in Wtlinvds
     #-------------
-    cones_gemv_W!(cones, :N, lhs.z, workz,  one(T), zero(T))    #work = WΔz
-    cones_gemv_W!(cones, :T, workz, lhs.s, -one(T), zero(T))    #Δs = -WᵀWΔz
-    
-    #YC: for unsymmetric cones, -WᵀWΔz = -μH*(z)Δz
-    #NB: could possiblely merge with twp cones_gemv_W! steps to reduce the indexing from the begining
-    for i in eachindex(cones)
-        if (cones.types[i] in NonsymmetricCones)
-            compute_muHessianF(lhs.s.views[i],cones[i].μH,lhs.z.views[i])
-            lhs.s.views[i] .*= -1
-        end
-    end
+    # compute the generalized step of -WᵀWΔz, where -WᵀW is set to -μH(z) for unsymmetric cones
+    cones_WtW_Δz!(cones,lhs.z,lhs.s,workz)
 
     @. lhs.s -= Wtlinvds
 

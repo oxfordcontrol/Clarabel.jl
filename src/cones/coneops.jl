@@ -181,43 +181,55 @@ function cones_gemv_W!(
     return nothing
 end
 
-# computes y = αW^{-1}x + βy, or y = αW⁻ᵀx + βy, i.e.
-# similar to the BLAS gemv interface.
-#Warning: x must not alias y.
-function cones_gemv_Winv!(
+# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - ds
+function cones_combined_ds!(
     cones::ConeSet{T},
-    is_transpose::Symbol,
-    x::ConicVector{T},
-    y::ConicVector{T},
-    α::T,
-    β::T
+    dz::ConicVector{T},
+    ds::ConicVector{T},
+    step_z::ConicVector{T},
+    step_s::ConicVector{T},
+    σμ::T
 ) where {T}
-
-    #@assert x !== y
+    
     for i = eachindex(cones)
-        # don't implement it for unsymmetric cones
-        if !(cones.types[i] in NonsymmetricCones)
-            gemv_Winv!(cones[i],is_transpose,x.views[i],y.views[i],α,β)
-        end
+        #Indeed, we compute the centering and the higher order correction parts in ds and save it in dz
+        combined_ds!(cones[i],dz.views[i],step_z.views[i],step_s.views[i],σμ) 
     end
+
+    #We are relying on d.s = λ ◦ λ (symmetric) or d.s = s (unsymmetric) already from the affine step here
+    ds .+= dz                                 
+
     return nothing
 end
 
-#computes y = y + αe
-# YC: one is for symmetric initialization and the symmetric combined step;
-#       one is for unsymmetric centralling in the combined step
-function cones_add_scaled_e!(
+# compute the generalized step Wᵀ(λ \ ds)
+function cones_Wt_λ_inv_circ_ds!(
     cones::ConeSet{T},
-    x::ConicVector{T},
-    α::T
+    lz::ConicVector{T},
+    rz::ConicVector{T},
+    rs::ConicVector{T},
+    Wtlinvds::ConicVector
 ) where {T}
 
     for i = eachindex(cones)
-        # don't implement it for unsymmetric cones
-        if !(cones.types[i] in NonsymmetricCones)
-            add_scaled_e!(cones[i],x.views[i],α)
-        end
+        Wt_λ_inv_circ_ds!(cones[i],lz.views[i],rz.views[i],rs.views[i],Wtlinvds.views[i]) 
     end
+
+    return nothing
+end
+
+# compute the generalized step of -WᵀWΔz
+function cones_WtW_Δz!(
+    cones::ConeSet{T},
+    lz::ConicVector{T},
+    ls::ConicVector{T},
+    workz::ConicVector{T}
+) where {T}
+
+    for i = eachindex(cones)
+        WtW_Δz!(cones[i],lz.views[i],ls.views[i],workz.views[i])
+    end
+
     return nothing
 end
 
