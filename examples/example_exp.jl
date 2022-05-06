@@ -36,19 +36,19 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
     P = spzeros(T,length(c), length(c))
     P = sparse(I(length(c)).*T(1e-1))
 
-    A = sparse([A1;A2;A3;A4])
-    b = [b1;b2;b3;b4]
+    # A = sparse([A1;A2;A3;A4])
+    # b = [b1;b2;b3;b4]
     # A = sparse([A1;A2;A3;A5;A6])
     # b = [b1;b2;b3;b5;b6]
     # A = sparse([A1;A2;A5;A6])
     # b = [b1;b2;b5;b6]
-    # A = sparse([A1;A2;A3])
-    # b = [b1;b2;b3]
+    A = sparse([A1;A2;A3])
+    b = [b1;b2;b3]
 
     cone_types = [Clarabel.ZeroConeT,
     Clarabel.NonnegativeConeT,
     Clarabel.SecondOrderConeT,
-    Clarabel.PSDTriangleConeT,
+    # Clarabel.PSDTriangleConeT,
     # Clarabel.ExponentialConeT,
     # Clarabel.PowerConeT,
     ]
@@ -56,7 +56,7 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
     cone_dims  = [length(b1),
     length(b2),
     length(b3),
-    Int(floor(sqrt(2*length(b4)))),
+    # Int(floor(sqrt(2*length(b4)))),
     # length(b5),
     # length(b6)
     ]
@@ -64,7 +64,7 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
     α = Vector{Union{T,Nothing}}([nothing; 
         nothing; 
         nothing;
-        nothing;
+        # nothing;
         # nothing;
         # 1.0/3;
         ])
