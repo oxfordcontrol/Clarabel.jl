@@ -119,11 +119,6 @@ function kkt_solve!(
     steptype::Symbol   #:affine or :combined
 ) where{T}
 
-    ind_exp = cones.ind_exp
-    length_exp = cones.type_counts[ExponentialConeT]
-    ind_pow = cones.ind_pow
-    length_pow = cones.type_counts[PowerConeT]
-
     (x1,z1) = (kktsystem.x1, kktsystem.z1)
     (x2,z2) = (kktsystem.x2, kktsystem.z2)
     (workx,workz) = (kktsystem.workx, kktsystem.workz)

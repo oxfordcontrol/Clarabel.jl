@@ -219,12 +219,15 @@ function solve!(
                 )
             end
 
+            check_KKT_system!(
+                s.kktsystem, s.step_lhs, s.step_rhs,
+                s.data, s.variables, s.cones)
+
             #calculate step length and centering parameter
             #--------------
             α = calc_step_length(s.variables,s.step_lhs,workVar,s.cones,:affine)
             σ = calc_centering_parameter(α)
             # println("σ is: ", σ)
-            aff_step = deepcopy(s.step_lhs)
 
             #calculate the combined step and length
             #--------------
@@ -421,4 +424,27 @@ end
 
 function Base.show(io::IO, solver::Clarabel.Solver{T}) where {T}
     println(io, "Clarabel model with Float precision: $(T)")
+end
+
+function check_KKT_system!(
+    kktsystem::DefaultKKTSystem{T},
+    lhs::DefaultVariables{T},
+    rhs::DefaultVariables{T},
+    data::DefaultProblemData{T},
+    variables::DefaultVariables{T},
+    cones::ConeSet{T},
+) where {T}
+    m,n = size(data.A)
+    K = [data.P data.A' data.q; -data.A spzeros(T,m,m) data.b; -data.q' -data.b' zero(T)]
+    v1 = [zeros(n,1); lhs.s; lhs.κ]
+    v2 = [lhs.x; lhs.z; lhs.τ]
+    v3 = [rhs.x; rhs.z; rhs.τ]
+
+    res = v1 - K*v2+v3
+    println(res)
+
+    # compute ds for each cones
+    for i in eachindex(cones)
+
+    end
 end

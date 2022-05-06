@@ -36,8 +36,8 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
     P = spzeros(T,length(c), length(c))
     P = sparse(I(length(c)).*T(1e-1))
 
-    A = sparse([A1;A2;A3;A4;A5;A6])
-    b = [b1;b2;b3;b4;b5;b6]
+    A = sparse([A1;A2;A3;A4])
+    b = [b1;b2;b3;b4]
     # A = sparse([A1;A2;A3;A5;A6])
     # b = [b1;b2;b3;b5;b6]
     # A = sparse([A1;A2;A5;A6])
@@ -49,24 +49,24 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
     Clarabel.NonnegativeConeT,
     Clarabel.SecondOrderConeT,
     Clarabel.PSDTriangleConeT,
-    Clarabel.ExponentialConeT,
-    Clarabel.PowerConeT,
+    # Clarabel.ExponentialConeT,
+    # Clarabel.PowerConeT,
     ]
 
     cone_dims  = [length(b1),
     length(b2),
     length(b3),
     Int(floor(sqrt(2*length(b4)))),
-    length(b5),
-    length(b6)
+    # length(b5),
+    # length(b6)
     ]
 
     α = Vector{Union{T,Nothing}}([nothing; 
         nothing; 
         nothing;
         nothing;
-        nothing;
-        1.0/3;
+        # nothing;
+        # 1.0/3;
         ])
 
     return (P,c,A,b,cone_types,cone_dims,A1,A2,A3,A4,A5,A6,b1,b2,b3,b4,b5,b6,α)
@@ -108,7 +108,7 @@ n = 7
 # Clarabel.setup!(solver,BigFloat.(P),BigFloat.(c),BigFloat.(A),BigFloat.(b),cone_types,cone_dims,α,settings)
 # Clarabel.debug_solve!(solver)
 
-settings = Clarabel.Settings{T}(max_iter=50,direct_kkt_solver=true)
+settings = Clarabel.Settings{T}(max_iter=50,direct_kkt_solver=true,static_regularization_enable=false,dynamic_regularization_enable=true)
 solver   = Clarabel.Solver{T}()
 Clarabel.setup!(solver,P,c,A,b,cone_types,cone_dims,α,settings)
 Clarabel.solve!(solver)
