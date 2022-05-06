@@ -244,6 +244,10 @@ function solve!(
                 )
             end
 
+            check_KKT_system!(
+                s.kktsystem, s.step_lhs, s.step_rhs,
+                s.data, s.variables, s.cones)
+
             #compute final step length and update the current iterate
             #--------------
             @timeit_debug timer "step length" α = calc_step_length(s.variables,s.step_lhs,workVar,s.cones,:combined)
@@ -442,6 +446,6 @@ function check_KKT_system!(
     v3 = [rhs.x; rhs.z; rhs.τ]
 
     res = v1 - K*v2+v3
-    println(res)
+    println("KKT residual is: ", norm(res,Inf))
 
 end
