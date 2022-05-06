@@ -435,7 +435,8 @@ function check_KKT_system!(
     cones::ConeSet{T},
 ) where {T}
     m,n = size(data.A)
-    K = [data.P data.A' data.q; -data.A spzeros(T,m,m) data.b; -data.q' -data.b' zero(T)]
+    ξ = variables.x/variables.τ
+    K = [data.P data.A' data.q; -data.A spzeros(T,m,m) data.b; -(2*data.P*ξ + data.q)' -data.b' dot(ξ,data.P,ξ)]
     v1 = [zeros(n,1); lhs.s; lhs.κ]
     v2 = [lhs.x; lhs.z; lhs.τ]
     v3 = [rhs.x; rhs.z; rhs.τ]
