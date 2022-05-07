@@ -18,9 +18,9 @@ filelist = readdir(pwd()*"./primal_exp_cbf")
 
 # dat = readcbfdata("./exp_cbf/car.cbf.gz") # .cbf.gz extension also accepted
 
-for j = 1:32    #length(filelist)
-    println("Current file is ", j)
-    datadir = filelist[j]   #"gp_dave_1.cbf.gz"
+for j = 4:4    #length(filelist)
+    # println("Current file is ", j)
+    datadir = "bss1.cbf.gz"     #filelist[j]   #"gp_dave_1.cbf.gz"
     dat = readcbfdata("./primal_exp_cbf/"*datadir) # .cbf.gz extension also accepted
 
     println("Current file is: ", datadir)

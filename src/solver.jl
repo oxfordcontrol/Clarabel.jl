@@ -441,9 +441,9 @@ function check_KKT_system!(
     m,n = size(data.A)
     ξ = variables.x/variables.τ
     K = [data.P data.A' data.q; -data.A spzeros(T,m,m) data.b; -(2*data.P*ξ + data.q)' -data.b' dot(ξ,data.P,ξ)]
-    v1 = [zeros(T,n,1); lhs.s; lhs.κ]
-    v2 = [lhs.x; lhs.z; lhs.τ]
-    v3 = [rhs.x; rhs.z; rhs.τ]
+    v1 = [zeros(T,n,1); lhs.s.vec; lhs.κ]
+    v2 = [lhs.x; lhs.z.vec; lhs.τ]
+    v3 = [rhs.x; rhs.z.vec; rhs.τ]
 
     res = v1 - K*v2+v3
     println("KKT residual is: ", norm(res,Inf))
