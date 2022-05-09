@@ -444,8 +444,13 @@ function check_KKT_system!(
     v1 = [zeros(T,n,1); lhs.s.vec; lhs.κ]
     v2 = [lhs.x; lhs.z.vec; lhs.τ]
     v3 = [rhs.x; rhs.z.vec; rhs.τ]
-
     res = v1 - K*v2+v3
+
+    # Q = [kktsystem.kktsolver.ldlsolver.KKTsym vcat(data.q, -data.b); -(2*data.Psym*ξ + data.q)' -data.b' (dot(ξ,data.Psym,ξ)+variables.κ/variables.τ)]
+    # w1 = [lhs.x; lhs.z.vec; lhs.τ]
+    # w2 = [rhs.x; kktsystem.work_conic.vec-rhs.z.vec; rhs.τ - rhs.κ/variables.τ]
+    # res = Q*w1 - w2
+
     println("KKT residual is: ", norm(res,Inf))
 
 end

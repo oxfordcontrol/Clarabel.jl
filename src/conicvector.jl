@@ -58,6 +58,8 @@ Base.size(s::ConicVector{T}) where{T} = size(s.vec)
 Base.length(s::ConicVector{T}) where{T} = length(s.vec)
 Base.IndexStyle(s::ConicVector{T}) where{T} = IndexStyle(s.vec)
 
+# PJG: fix the .vec access when setting the ConicVector as a subvector of a larger vector
+
 #For maximum speed, it seems we need to explicitly define
 #a bunch of functions that use the vec field directly, which
 #will force calls to the BLAS specialized methods when possible
