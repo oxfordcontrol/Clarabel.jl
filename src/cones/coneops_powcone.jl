@@ -25,6 +25,7 @@ function update_scaling!(
     #update both gradient and Hessian for function f*(z) at the point z
     muHessianF(K,z,K.μH,μ)
     GradF(K,z,K.grad)
+    K.z .= z
 end
 
 # return μH*(z) for exponetial cone
@@ -75,8 +76,9 @@ function combined_ds!(
     step_s::AbstractVector{T},
     σμ::T 
 ) where {T}
-    # higherCorrection!(K,dz,step_s,step_z,z,μ)             #3rd order correction requires input variables.z
-    # @. dz = σμ*K.grad
+    # η = similar(dz)
+    # higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
+    # @. dz = η + σμ*K.grad
 
     @. dz = σμ*K.grad                   #dz <- σμ*g(z)
 
@@ -238,9 +240,7 @@ function higherCorrection!(
     K::PowerCone{T},
     η::AbstractVector{T},
     ds::AbstractVector{T}, 
-    v::AbstractVector{T},
-    z::AbstractVector{T},
-    μ::T
+    v::AbstractVector{T}
 ) where {T}
 
     # u for H^{-1}*Δs 
@@ -248,9 +248,10 @@ function higherCorrection!(
     μH = K.μHWork
     u = K.vecWork
     F = K.FWork
+    z = K.z
 
     # recompute Hessian
-    muHessianF(K,z,μH, μ)
+    muHessianF(K,z,μH, one(T))
 
     if F === nothing
         F = lu(μH, check= false)
@@ -264,7 +265,6 @@ function higherCorrection!(
     end
 
     ldiv!(u,F,ds)    #equivalent to Hinv*ds
-    @. u *= μ
 
     α = K.α
 

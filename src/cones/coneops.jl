@@ -316,32 +316,32 @@ function check_μ_and_centrality(
         @. cur_z = z + α*dz
         @. cur_s = s + α*ds
 
-        #boundary check from ECOS and centrality check from Hypatia
-        # NB:   1) the update x+α*dx is inefficient right now and need to be rewritten later
-        #       2) symmetric cones use the central path as in CVXOPT
-        if boundary_check!(cur_z,cur_s,ind_exp,length_exp,upper) && boundary_check!(cur_z,cur_s,ind_pow,length_pow,upper) && check_centrality!(cones,cur_s,cur_z,μ,η)
-            return α
-        else
-            α *= scaling
-        end
-        
-
-        # # ECOS: check centrality, functional proximity measure
-        # # NB: the update x+α*dx is inefficient right now and need to be rewritten later
-        # if !(boundary_check!(cur_z,cur_s,ind_exp,length_exp,upper) && boundary_check!(cur_z,cur_s,ind_pow,length_pow,upper))
-        #     α *= scaling
-        #     continue
-        # end
-        # barrier = central_coef*log(μ) - log(τ+α*dτ) - log(κ+α*dκ)
-        # for i = eachindex(cones)
-        #     barrier += f_sum(cones[i], cur_s.views[i], cur_z.views[i])
-        # end
-
-        # if barrier < 1.
+        # #boundary check from ECOS and centrality check from Hypatia
+        # # NB:   1) the update x+α*dx is inefficient right now and need to be rewritten later
+        # #       2) symmetric cones use the central path as in CVXOPT
+        # if boundary_check!(cur_z,cur_s,ind_exp,length_exp,upper) && boundary_check!(cur_z,cur_s,ind_pow,length_pow,upper) && check_centrality!(cones,cur_s,cur_z,μ,η)
         #     return α
         # else
-        #     α *= scaling    #backtrack line search
+        #     α *= scaling
         # end
+        
+
+        # ECOS: check centrality, functional proximity measure
+        # NB: the update x+α*dx is inefficient right now and need to be rewritten later
+        if !(boundary_check!(cur_z,cur_s,ind_exp,length_exp,upper) && boundary_check!(cur_z,cur_s,ind_pow,length_pow,upper))
+            α *= scaling
+            continue
+        end
+        barrier = central_coef*log(μ) - log(τ+α*dτ) - log(κ+α*dκ)
+        for i = eachindex(cones)
+            barrier += f_sum(cones[i], cur_s.views[i], cur_z.views[i])
+        end
+
+        if barrier < 1.
+            return α
+        else
+            α *= scaling    #backtrack line search
+        end
         # println("centrality quite bad: ", barrier, " with ", central_coef)
 
     end

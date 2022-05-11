@@ -1,4 +1,4 @@
-using ECOS, Hypatia, Mosek, MosekTools
+using ECOS, Mosek, MosekTools
 using JuMP, MathOptInterface
 const MOI = MathOptInterface
 using LinearAlgebra
@@ -6,8 +6,9 @@ using ConicBenchmarkUtilities
 
 using Profile,StatProfilerHTML, TimerOutputs
 
-include("../src\\Clarabel.jl")
-# using Clarabel
+# include("../src\\Clarabel.jl")
+using Clarabel
+# using Hypatia
 
 coneMap = Dict(:Zero => MOI.Zeros, :Free => :Free,
                      :NonPos => MOI.Nonpositives, :NonNeg => MOI.Nonnegatives,
@@ -75,5 +76,10 @@ for j = 32:32    #length(filelist)
     end
 
     @objective(model, Min, sum(c.*x))
-    optimize!(model)
+    
+    Profile.clear() 
+
+    Profile.init() 
+
+    @profilehtml optimize!(model)
 end

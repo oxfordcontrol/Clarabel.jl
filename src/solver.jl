@@ -219,9 +219,9 @@ function solve!(
                 )
             end
 
-            check_KKT_system!(
-                s.kktsystem, s.step_lhs, s.step_rhs,
-                s.data, s.variables, s.cones)
+            # check_KKT_system!(
+            #     s.kktsystem, s.step_lhs, s.step_rhs,
+            #     s.data, s.variables, s.cones)
 
             #calculate step length and centering parameter
             #--------------
@@ -243,10 +243,6 @@ function solve!(
                     s.data, s.variables, s.cones, :combined
                 )
             end
-
-            check_KKT_system!(
-                s.kktsystem, s.step_lhs, s.step_rhs,
-                s.data, s.variables, s.cones)
 
             #compute final step length and update the current iterate
             #--------------

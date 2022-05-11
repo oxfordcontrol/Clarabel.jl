@@ -25,6 +25,7 @@ function update_scaling!(
     #update both gradient and Hessian for function f*(z) at the point z
     muHessianF(z,K.μH,μ)
     GradF(z,K.grad)
+    K.z .= z
 end
 
 # return μH*(z) for exponetial cone
@@ -73,8 +74,9 @@ function combined_ds!(
     step_s::AbstractVector{T},
     σμ::T 
 ) where {T}
-    # higherCorrection!(K,dz,step_s,step_z,z,μ)             #3rd order correction requires input variables.z
-    # @. dz = σμ*K.grad
+    # η = similar(dz)
+    # higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
+    # @. dz = η + σμ*K.grad
 
     @. dz = σμ*K.grad                   #dz <- σμ*g(z)
 
@@ -202,7 +204,7 @@ end
 # NB:could reduce H to an upper triangular matrix later, remove duplicate updates
 function muHessianF(
     z::AbstractVector{T}, 
-    H::SparseMatrixCSC{T}, 
+    H::AbstractMatrix{T}, 
     μ::T
 ) where {T}
     # y = z1; z = z2; x = z3;
@@ -234,18 +236,17 @@ function higherCorrection!(
     K::ExponentialCone{T},
     η::AbstractVector{T},
     ds::AbstractVector{T}, 
-    v::AbstractVector{T},
-    z::AbstractVector{T},
-    μ::T
+    v::AbstractVector{T}
 ) where {T}
 
     # u for H^{-1}*Δs 
     μH = K.μHWork
     u = K.vecWork
     F = K.FWork
+    z = K.z
 
     # recompute Hessian
-    muHessianF(z,μH,μ)
+    muHessianF(z,μH,one(T))
 
     if F === nothing
         F = lu(μH, check= false)
@@ -259,7 +260,6 @@ function higherCorrection!(
     end
 
     ldiv!(u,F,ds)    #equivalent to Hinv*ds
-    @. u *= μ
 
     l = log(-z[3]/z[1])
     ψ = -z[1]*l-z[1]+z[2]
@@ -350,11 +350,11 @@ function _check_neighbourhood(
     #     F = lu(μH, check= false)
     # else
     # @timeit to "LU factorization" begin
-    lu!(F, μH; check= false)
+    F = lu!(μH; check= false)
 
     if !issuccess(F)
         increase_diag!(μH)
-        lu!(F,μH)
+        F = lu!(μH)
     end
     # end
 

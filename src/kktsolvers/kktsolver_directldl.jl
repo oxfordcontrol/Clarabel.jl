@@ -192,7 +192,5 @@ function kktsolver_solve!(
     solve!(kktsolver.ldlsolver,x,b,kktsolver.settings)
     kktsolver_getlhs!(kktsolver,lhsx,lhsz)
 
-    println("reduced system error: ", norm(kktsolver.ldlsolver.KKTsym*[lhsx;lhsz] - b,Inf))
-
     return nothing
 end

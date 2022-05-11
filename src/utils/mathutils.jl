@@ -352,7 +352,7 @@ end
 
 ##################################
 # add regularization for Hessian as in Hypatia
-function increase_diag!(A::SparseMatrixCSC{T}) where {T <: Real}
+function increase_diag!(A::Matrix{T}) where {T <: Real}
     diag_pert = 1 + T(1e-5)
     diag_min = 1000 * eps(T)
     @inbounds for j in 1:size(A, 1)
