@@ -91,11 +91,14 @@ function calc_affine_step_rhs!(
     cones::ConeSet{T}
 ) where{T}
 
-    @. d.x    .=  r.rx
+    to = TimerOutput()
+    @timeit to "dx" @. d.x    .=  r.rx
     @. d.z     =  r.rz
-    cones_affine_ds!(cones, d.s, variables.s)    # unsymmetric cones need value of s
+    @timeit to "ds" cones_affine_ds!(cones, d.s, variables.s)    # unsymmetric cones need value of s
     d.τ        =  r.rτ
     d.κ        =  variables.τ * variables.κ
+
+    print_timer(to)
 
     return nothing
 end
