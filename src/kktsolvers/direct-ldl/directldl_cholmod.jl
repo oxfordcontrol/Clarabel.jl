@@ -39,6 +39,17 @@ function update_values!(
     ldlsolver.KKT.nzval[index] .= values
 end
 
+#scale entries in the KKT matrix using the
+#given index into its CSC representation
+function scale_values!(
+    ldlsolver::CholmodDirectLDLSolver{T},
+    index::Vector{Int},
+    scale::T
+) where{T}
+
+    ldlsolver.KKT.nzval[index] .*= scale
+end
+
 #offset entries in the KKT matrix using the
 #given index into its CSC representation and
 #an optional vector of signs

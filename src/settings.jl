@@ -34,7 +34,7 @@ equilibrate\\_max\\_scaling             | 1e+4      | maximum equilibration scal
 	__Linear Solver Settings__||
 ||
 direct\\_kkt\\_solver                   | true      | use a direct linear solver method (required true)
-direct\\_solve\\_method                 | :qdldl    | direct linear solver (:qdldl or :mkl)
+direct\\_solve\\_method                 | :qdldl    | direct linear solver (:qdldl, :mkl or :cholmod)
 static\\_regularization\\_enable        | true      | enable KKT static regularization
 static\\_regularization\\_eps           | 1e-8      | KKT static regularization parameter
 dynamic\\_regularization\\_enable       | true      | enable KKT dynamic regularization

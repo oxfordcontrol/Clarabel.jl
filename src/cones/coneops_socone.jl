@@ -158,7 +158,7 @@ function shift_to_cone!(
     if(α < eps(T))
         #done in two stages since otherwise (1.-α) = -α for
         #large α, which makes z exactly 0.0 (or worse, -0.0 )
-        z[1] += -α
+        z[1] -=  α
         z[1] +=  one(T)
     end
 

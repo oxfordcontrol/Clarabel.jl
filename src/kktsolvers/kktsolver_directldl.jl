@@ -39,7 +39,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         b    = Vector{T}(undef,n+m+p)
 
         #the expected signs of D in LDL
-        Dsigns = ones(Int,n+m+p)
+        Dsigns = Vector{Int}(undef,n+m+p)
         _fill_Dsigns!(Dsigns,m,n,p)
 
         #updates to the diagonal of KKT will be
@@ -78,16 +78,14 @@ end
 
 function _fill_Dsigns!(Dsigns,m,n,p)
 
-    #the expected signs of D in LDL
+    Dsigns .= 1
+
+    #flip expected negative signs of D in LDL
     Dsigns[n+1:n+m] .= -1
 
     #the trailing block of p entries should
     #have alternating signs
-    sign = -1
-    for idx = (n+m+1):(n+m+p)
-        Dsigns[idx] = sign
-        sign *= -1
-    end
+    Dsigns[(n+m+1):2:(n+m+p)] .= -1
 end
 
 
@@ -95,8 +93,6 @@ function kktsolver_update!(
     kktsolver::DirectLDLKKTSolver{T},
     cones::ConeSet{T}
 ) where {T}
-
-    (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
 
     settings  = kktsolver.settings
     ldlsolver = kktsolver.ldlsolver
@@ -120,8 +116,10 @@ function kktsolver_update!(
                 η2 = K.η^2
 
                 #off diagonal columns (or rows)
-                update_values!(ldlsolver,map.SOC_u[cidx],(-η2).*K.u)
-                update_values!(ldlsolver,map.SOC_v[cidx],(-η2).*K.v)
+                update_values!(ldlsolver,map.SOC_u[cidx],K.u)
+                update_values!(ldlsolver,map.SOC_v[cidx],K.v)
+                scale_values!(ldlsolver,map.SOC_u[cidx],-η2)
+                scale_values!(ldlsolver,map.SOC_v[cidx],-η2)
 
                 #add η^2*(1/-1) to diagonal in the extended rows/cols
                 update_values!(ldlsolver,[map.SOC_D[cidx*2-1]],[-η2])

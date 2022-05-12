@@ -71,13 +71,13 @@ function kkt_update!(
     return nothing
 end
 
-
 function _kkt_solve_constant_rhs!(
     kktsystem::DefaultKKTSystem{T},
     data::DefaultProblemData{T}
 ) where {T}
 
-    kktsolver_setrhs!(kktsystem.kktsolver, -data.q, data.b)
+    kktsystem.workx .= -data.q;
+    kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, data.b)
     kktsolver_solve!(kktsystem.kktsolver, kktsystem.x2, kktsystem.z2)
 
     return nothing
@@ -97,7 +97,7 @@ function kkt_solve_initial_point!(
     kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
     kktsolver_solve!(kktsystem.kktsolver, variables.x, variables.s)
 
-    # solve with [-c;0] as a RHS to get z initializer
+    # solve with [-q;0] as a RHS to get z initializer
     # zero out any sparse cone variables at end
     kktsystem.workx .= -data.q
     kktsystem.workz .=  zero(T)
@@ -152,7 +152,7 @@ function kkt_solve!(
     # Numerator first
     ξ   = workx
     ξ  .= variables.x / variables.τ
-    P   = data.Psym
+    P   = Symmetric(data.P)
 
     tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,x1) + dot(data.b,z1) + 2*symdot(ξ,P,x1)
 

@@ -19,20 +19,15 @@ function data_equilibrate!(
     end
 
 	#references to scaling matrices from workspace
-	D = equil.D;   d = equil.d
-	E = equil.E;   e = equil.e
-	c = equil.c
+	(c,d,e) = (equil.c,equil.d,equil.e)
 
 	#use the inverse scalings as work vectors
-	Dwork = equil.Dinv
-	Ework = equil.Einv
     dwork = equil.dinv
     ework = equil.einv
 
 	#references to problem data
     #note that P may be triu, but it shouldn't matter
-	P = data.P; A = data.A
-	q = data.q; b = data.b
+    (P,A,q,b) = (data.P,data.A,data.q,data.b)
 
     scale_min = settings.equilibrate_min_scaling
     scale_max = settings.equilibrate_max_scaling
@@ -50,9 +45,9 @@ function data_equilibrate!(
 
 		# Scale the problem data and update the
 		# equilibration matrices
-		scale_data!(P, A, q, b, Dwork, Ework, one(T))
-		LinearAlgebra.lmul!(Dwork, D)        #D[:,:] = Dwork*D
-		LinearAlgebra.lmul!(Ework, E)        #E[:,:] = Ework*E
+		scale_data!(P, A, q, b, dwork, ework)
+		@. d *= dwork
+		@. e *= ework
 
 		# now use the Dwork array to hold the
 		# column norms of the newly scaled P
@@ -78,9 +73,9 @@ function data_equilibrate!(
 	# fix scalings in cones for which elementwise
     # scaling can't be applied
 	if cones_rectify_equilibration!(cones, ework, e)
-		#only rescale again of some cones were rectified
-		scale_data!(P, A, q, b, I, Ework, one(T))
-		LinearAlgebra.lmul!(Ework, E)
+		#only rescale again if some cones were rectified
+		scale_data!(P, A, q, b, nothing, ework)
+		@. e *= ework
 	end
 
 	#update the inverse scaling data
@@ -110,18 +105,18 @@ function scale_data!(
     A::AbstractMatrix{T},
     q::AbstractVector{T},
     b::AbstractVector{T},
-    Ds::Union{IdentityMatrix, AbstractMatrix{T}},
-    Es::Union{IdentityMatrix, AbstractMatrix{T}},
-    cs::T = one(T)
+    d::Union{Nothing,AbstractVector{T}},
+    e::AbstractVector{T}
 ) where {T <: AbstractFloat}
 
-	lrmul!(Ds, P, Ds) # P[:,:] = Ds*P*Ds
-	lrmul!(Es, A, Ds) # A[:,:] = Es*A*Ds
-	q[:] = Ds * q
-	b[:] = Es * b
-	if cs != one(T)
-		scalarmul!(P,cs)
-		q .*= cs
-	end
-	return nothing
+    if(!isnothing(d))
+        lrscale!(d, P, d) # P[:,:] = Ds*P*Ds
+        lrscale!(e, A, d) # A[:,:] = Es*A*Ds
+        @. q *= d
+    else
+        lscale!(e, A) # A[:,:] = Es*A
+    end
+
+    @. b *= e
+    return nothing
 end

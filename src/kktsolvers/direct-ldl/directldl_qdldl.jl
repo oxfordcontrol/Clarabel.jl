@@ -7,6 +7,7 @@ struct QDLDLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
     factors::QDLDL.QDLDLFactorisation{T, Int}
 
     #symmetric view for residual calcs
+    #get rid of this
     KKTsym::Symmetric{T, SparseMatrixCSC{T,Int}}
 
     # internal workspace for IR scheme
@@ -52,6 +53,23 @@ function update_values!(
     #QDLDL does not have internal iterative refinement
     QDLDL.update_values!(ldlsolver.factors,index,values)
     ldlsolver.KKT.nzval[index] .= values
+
+end
+
+#scale entries in the KKT matrix using the
+#given index into its CSC representation
+function scale_values!(
+    ldlsolver::QDLDLDirectLDLSolver{T},
+    index::Vector{Ti},
+    scale::T
+) where{T,Ti}
+
+    #Updating values in both the KKT matrix and
+    #in the reordered copy held internally by QDLDL.
+    #The former is needed for iterative refinement since
+    #QDLDL does not have internal iterative refinement
+    QDLDL.scale_values!(ldlsolver.factors,index,scale)
+    ldlsolver.KKT.nzval[index] .*= scale
 
 end
 

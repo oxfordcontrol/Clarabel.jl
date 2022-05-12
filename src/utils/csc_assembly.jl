@@ -150,32 +150,42 @@ function _csc_fill_dense_triangle(K,blocktoKKT,offset,blockdim,shape)
     #separate cases for clarity here
 
     if(shape === :triu)
-        kidx = 1
-        for col in offset:(offset + blockdim - 1)
-            for row in (offset:col)
-                dest             = K.colptr[col]
-                K.rowval[dest]   = row
-                K.nzval[dest]    = 0.  #structural zero
-                K.colptr[col]   += 1
-                blocktoKKT[kidx] = dest
-                kidx = kidx + 1
-            end
-        end
-
+        _fill_dense_triangle_triu(K,blocktoKKT,offset,blockdim)
     else #shape ==== :tril
+        _fill_dense_triangle_tril(K,blocktoKKT,offset,blockdim)
+    end
+end
+
+function _fill_dense_triangle_triu(K,blocktoKKT,offset,blockdim,shape)
+
     kidx = 1
-        for row in offset:(offset + blockdim - 1)
-            for col in offset:row
-                dest             = K.colptr[col]
-                K.rowval[dest]   = row
-                K.nzval[dest]    = 0.  #structural zero
-                K.colptr[col]   += 1
-                blocktoKKT[kidx] = dest
-                kidx = kidx + 1
-            end
+    for col in offset:(offset + blockdim - 1)
+        for row in (offset:col)
+            dest             = K.colptr[col]
+            K.rowval[dest]   = row
+            K.nzval[dest]    = 0.  #structural zero
+            K.colptr[col]   += 1
+            blocktoKKT[kidx] = dest
+            kidx = kidx + 1
         end
     end
 end
+
+function _fill_dense_triangle_tril(K,blocktoKKT,offset,blockdim,shape)
+
+    kidx = 1
+    for row in offset:(offset + blockdim - 1)
+        for col in offset:row
+            dest             = K.colptr[col]
+            K.rowval[dest]   = row
+            K.nzval[dest]    = 0.  #structural zero
+            K.colptr[col]   += 1
+            blocktoKKT[kidx] = dest
+            kidx = kidx + 1
+        end
+    end
+end
+
 
 #Populate the diagonal with 0s using the K.colptr as indicator of
 #next fill location in each row
@@ -223,18 +233,18 @@ end
 
 function _kkt_backshift_colptrs(K)
 
+    #NB: julia circshift! not used since does not operate in place on a single vector, i.e. circshift!(a,a,1) is disallowed
     for i = K.n:-1:1
         K.colptr[i+1] = K.colptr[i]
     end
     K.colptr[1] = 1  #zero in C
+
 end
 
 
 function _count_diagonal_entries(P)
 
     count = 0
-    i     = 0
-
     for i = 1:P.n
 
         #compare last entry in each column with

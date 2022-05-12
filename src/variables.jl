@@ -43,6 +43,8 @@ vars.κ /= scale
 
 end
 
+
+# PJG: Rust makes this variables_scale_cones
 function scaling_update!(
     cones::ConeSet{T},
     variables::DefaultVariables{T},

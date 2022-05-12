@@ -11,23 +11,24 @@ function info_update!(
     τinv = inv(variables.τ)
 
     #shortcuts for the equilibration matrices
-    D = data.equilibration.D; Dinv = data.equilibration.Dinv
-    E = data.equilibration.E; Einv = data.equilibration.Einv
+    d = data.equilibration.d; dinv = data.equilibration.dinv
+    e = data.equilibration.e; einv = data.equilibration.einv
     cscale = data.equilibration.c[]
 
     #primal and dual costs. dot products are invariant w.r.t
     #equilibration, but we still need to back out the overall
     #objective scaling term c
-    info.cost_primal =  (+residuals.dot_qx*τinv + residuals.dot_xPx * τinv * τinv / 2)/cscale
-    info.cost_dual   =  (-residuals.dot_bz*τinv - residuals.dot_xPx * τinv * τinv / 2)/cscale
+    xPx_τinvsq_over2 = residuals.dot_xPx * τinv * τinv / 2;
+    info.cost_primal =  (+residuals.dot_qx*τinv + xPx_τinvsq_over2)/cscale
+    info.cost_dual   =  (-residuals.dot_bz*τinv - xPx_τinvsq_over2)/cscale
 
     #primal and dual residuals.   Need to invert the equilibration
-    info.res_primal  = scaled_norm(Einv,residuals.rz) * τinv
-    info.res_dual    = scaled_norm(Dinv,residuals.rx) * τinv
+    info.res_primal  = scaled_norm(einv,residuals.rz) * τinv
+    info.res_dual    = scaled_norm(dinv,residuals.rx) * τinv
 
     #primal and dual infeasibility residuals.   Need to invert the equilibration
-    info.res_primal_inf = scaled_norm(Dinv,residuals.rx_inf)
-    info.res_dual_inf   = max(scaled_norm(Dinv,residuals.Px),scaled_norm(Einv,residuals.rz_inf))
+    info.res_primal_inf = scaled_norm(dinv,residuals.rx_inf)
+    info.res_dual_inf   = max(scaled_norm(dinv,residuals.Px),scaled_norm(einv,residuals.rz_inf))
 
     #absolute and relative gaps
     info.gap_abs   = residuals.dot_sz * τinv * τinv

@@ -52,16 +52,11 @@ struct DefaultEquilibration{T} <: AbstractEquilibration{T}
 
     #scaling matrices for problem data equilibration
     #fields d,e,dinv,einv are vectors of scaling values
-    #The other fields are diagonal views for convenience
+    #to be treated as diagonal scaling data
     d::Vector{T}
     dinv::Vector{T}
-    D::Diagonal{T}
-    Dinv::Diagonal{T}
-
     e::ConicVector{T}
     einv::ConicVector{T}
-    E::Diagonal{T}
-    Einv::Diagonal{T}
 
     #overall scaling for objective function
     c::Base.RefValue{T}
@@ -74,20 +69,16 @@ struct DefaultEquilibration{T} <: AbstractEquilibration{T}
         #Left/Right diagonal scaling for problem data
         d    = ones(T,nvars)
         dinv = ones(T,nvars)
-        D    = Diagonal(d)
-        Dinv = Diagonal(dinv)
 
         # PJG : note that this double initializes
         # e / einv because the ConicVector constructor
         # first initializes to zero.   Could be improved.
         e    = ConicVector{T}(cones); e .= one(T)
-        einv = ConicVector{T}(cones); e .= one(T)
-        E    = Diagonal(e)
-        Einv = Diagonal(einv)
+        einv = ConicVector{T}(cones); einv .= one(T)
 
         c    = Ref(T(1.))
 
-        new(d,dinv,D,Dinv,e,einv,E,Einv,c)
+        new(d,dinv,e,einv,c)
     end
 
 end
@@ -154,10 +145,6 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     m::DefaultInt
     equilibration::DefaultEquilibration{T}
 
-    # we will require products P*x, but will only store triu(P).
-    # Use this convenience object for symmetric products etc
-    Psym::AbstractMatrix{T}
-
     function DefaultProblemData{T}(
         P::AbstractMatrix{T},
         q::AbstractVector{T},
@@ -177,14 +164,13 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
         #take an internal copy of all problem
         #data, since we are going to scale it
         P = triu(P)
-        Psym = Symmetric(P)
         A = deepcopy(A)
         q = deepcopy(q)
         b = deepcopy(b)
 
-        equilibration = DefaultEquilibration(n,cones)
+        equilibration = DefaultEquilibration{T}(n,cones)
 
-        new(P,q,A,b,n,m,equilibration,Psym)
+        new(P,q,A,b,n,m,equilibration)
 
     end
 
@@ -349,7 +335,6 @@ mutable struct Solver{T <: AbstractFloat}
 
     data::Union{AbstractProblemData{T},Nothing}
     variables::Union{AbstractVariables{T},Nothing}
-    equilibration::Union{AbstractEquilibration{T},Nothing}
     cones::Union{ConeSet{T},Nothing}
     residuals::Union{AbstractResiduals{T},Nothing}
     kktsystem::Union{AbstractKKTSystem{T},Nothing}

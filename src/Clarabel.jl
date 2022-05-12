@@ -5,7 +5,6 @@ module Clarabel
     const DefaultInt   = LinearAlgebra.BlasInt
     const IdentityMatrix = UniformScaling{Bool}
 
-
     #version / release info
     include("./version.jl")
 

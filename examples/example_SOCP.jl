@@ -77,9 +77,9 @@ result.x
 # Clarabel.jl as the backend solver within [JuMP](http://www.juliaopt.org/JuMP.jl/stable/).
 # Here is the same problem again:
 
-using Clarabel, JuMP
+using Clarabel, JuMP, ECOS
 
-model = JuMP.Model(Clarabel.Optimizer)
+model = JuMP.Model(ECOS.Optimizer)
 set_optimizer_attribute(model, "verbose", true)
 
 @variable(model, x[1:2])
