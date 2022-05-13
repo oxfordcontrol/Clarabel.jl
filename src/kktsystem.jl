@@ -55,8 +55,7 @@ end
 
 DefaultKKTSystem(args...) = DefaultKKTSystem{DefaultFloat}(args...)
 
-
-function kkt_update!(
+    function kkt_update!(
     kktsystem::DefaultKKTSystem{T},
     data::DefaultProblemData{T},
     cones::ConeSet{T}
@@ -77,7 +76,10 @@ function _kkt_solve_constant_rhs!(
     data::DefaultProblemData{T}
 ) where {T}
 
-    kktsolver_setrhs!(kktsystem.kktsolver, -data.q, data.b)
+    minus_q = kktsystem.workx;
+    @. minus_q = -data.q;
+
+    kktsolver_setrhs!(kktsystem.kktsolver, minus_q, data.b)
     kktsolver_solve!(kktsystem.kktsolver, kktsystem.x2, kktsystem.z2)
 
     return nothing
@@ -150,14 +152,14 @@ function kkt_solve!(
     #-----------
     # Numerator first
     ξ   = workx
-    ξ  .= variables.x / variables.τ
+    ξ  .= variables.x ./ variables.τ
     P   = data.Psym
 
     tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,x1) + dot(data.b,z1) + 2*symdot(ξ,P,x1)
 
     #offset ξ for the quadratic form in the denominator
     ξ_minus_x2    = ξ   #alias to ξ, same as workx
-    ξ_minus_x2  .-= x2
+    @. ξ_minus_x2  -= x2
 
     tau_den  = variables.κ/variables.τ - dot(data.q,x2) - dot(data.b,z2)
     tau_den += symdot(ξ_minus_x2,P,ξ_minus_x2) - symdot(x2,P,x2)

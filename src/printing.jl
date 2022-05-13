@@ -49,6 +49,8 @@ function print_header(
     print_conedims_by_type(cones, NonnegativeConeT)
     print_conedims_by_type(cones, SecondOrderConeT)
     print_conedims_by_type(cones, PSDTriangleConeT)
+    print_conedims_by_type(cones, PowerConeT)
+    print_conedims_by_type(cones, ExponentialConeT)
     print_settings(settings, T)
     @printf("\n")
 
@@ -132,7 +134,7 @@ get_precision_string(T::Type{<:BigFloat}) = string(T," (", precision(T), " bit)"
 
 function print_conedims_by_type(cones::ConeSet{T}, type) where {T}
 
-    maxlistlen = 5 
+    maxlistlen = 5
 
     #how many of this type of cone?
     count = cones.type_counts[type]

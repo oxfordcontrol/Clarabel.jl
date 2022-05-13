@@ -27,7 +27,7 @@ end
 	setup!(solver, P, q, A, b, cone_types, cone_dims, α, [settings])
 
 Populates a [`Solver`](@ref) with a cost function defined by `P` and `q`, and one or more conic constraints defined by `A`, `b` and a description of a conic constraint composed of cones whose types and dimensions are in `cone_types` and `cone_dims`, respectively.
-α is set to the exponent for a power cone and is set 'nothing' otherwise 
+α is set to the exponent for a power cone and is set 'nothing' otherwise
 
 The solver will be configured to solve the following optimization problem:
 
@@ -159,6 +159,10 @@ function solve!(
     #problem dimensions, cone type etc
     @notimeit print_header(s.info,s.settings,s.data,s.cones)
 
+    #NB: temporary allocation
+    #PJG: This should be removed.
+    workVar = deepcopy(s.step_lhs)
+
     @timeit timer "solve!" begin
 
         #initialize variables to some reasonable starting point
@@ -169,15 +173,12 @@ function solve!(
         #----------
         # main loop
         #----------
-            
-        #NB: temporary allocation
-        workVar = deepcopy(s.step_lhs)
 
         while true
 
             #update the residuals
             #--------------
-            residuals_update!(s.residuals,s.variables,s.data)
+            @timeit_debug timer "residuals_update" residuals_update!(s.residuals,s.variables,s.data)
 
             #calculate duality gap (scaled)
             #--------------
@@ -192,9 +193,11 @@ function solve!(
                 )
                 isdone = info_check_termination!(s.info,s.residuals,s.settings)
             end
+
             iter += 1
             @notimeit print_status(s.info,s.settings)
             isdone && break
+
 
             #update the scalings
             #--------------
@@ -207,12 +210,14 @@ function solve!(
 
             #calculate the affine step
             #--------------
-            calc_affine_step_rhs!(
-                s.step_rhs, s.residuals,
-                s.variables, s.cones
-            )
+            @timeit_debug timer "calc_affine_step_rhs" begin
+                calc_affine_step_rhs!(
+                    s.step_rhs, s.residuals,
+                    s.variables, s.cones
+                )
+            end
 
-            @timeit_debug timer "kkt solve" begin
+            @timeit_debug timer "kkt solve affine" begin
                 kkt_solve!(
                     s.kktsystem, s.step_lhs, s.step_rhs,
                     s.data, s.variables, s.cones, :affine
@@ -225,19 +230,23 @@ function solve!(
 
             #calculate step length and centering parameter
             #--------------
-            α = calc_step_length(s.variables,s.step_lhs,workVar,s.cones,:affine)
-            σ = calc_centering_parameter(α)
+            @timeit_debug timer "step length affine" begin
+                α = calc_step_length(s.variables,s.step_lhs,workVar,s.cones,:affine)
+                σ = calc_centering_parameter(α)
+            end
             # println("σ is: ", σ)
 
             #calculate the combined step and length
             #--------------
-            calc_combined_step_rhs!(
-                s.step_rhs, s.residuals,
-                s.variables, s.cones,
-                s.step_lhs, σ, μ
-            )
+            @timeit_debug timer "calc_combined_step_rhs" begin
+                calc_combined_step_rhs!(
+                    s.step_rhs, s.residuals,
+                    s.variables, s.cones,
+                    s.step_lhs, σ, μ
+                )
+            end
 
-            @timeit_debug timer "kkt solve" begin
+            @timeit_debug timer "kkt solve combined" begin
                 kkt_solve!(
                     s.kktsystem, s.step_lhs, s.step_rhs,
                     s.data, s.variables, s.cones, :combined
@@ -246,14 +255,20 @@ function solve!(
 
             #compute final step length and update the current iterate
             #--------------
-            @timeit_debug timer "step length" α = calc_step_length(s.variables,s.step_lhs,workVar,s.cones,:combined)
+            @timeit_debug timer "step length" begin
+                α = calc_step_length(s.variables,s.step_lhs,workVar,s.cones,:combined)
+            end
 
-            α *= s.settings.max_step_fraction
+            @timeit_debug timer "alpha scale " α *= s.settings.max_step_fraction
 
-            variables_add_step!(s.variables,s.step_lhs,α)
+            @timeit_debug timer "variables_add_step" begin
+                variables_add_step!(s.variables,s.step_lhs,α)
+            end
 
             #record scalar values from this iteration
-            info_save_scalars(s.info,μ,α,σ,iter)
+            @timeit_debug timer "save scalars" begin
+                info_save_scalars(s.info,μ,α,σ,iter)
+            end
 
             # #update the scalings
             # #--------------
@@ -323,7 +338,7 @@ end
 #             s.residuals,s.equilibration,s.settings
 #         )
 #         isdone = info_check_termination!(s.info,s.residuals,s.settings)
-    
+
 #         iter += 1
 #         print_status(s.info,s.settings)
 #         isdone && break

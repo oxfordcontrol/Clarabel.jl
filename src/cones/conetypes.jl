@@ -214,15 +214,15 @@ PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 mutable struct ExponentialCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
-    μH::AbstractMatrix{T}       #μ*H for the linear sysmtem
-    grad::AbstractVector{T}
+    μH::Matrix{T}       #μ*H for the linear sysmtem
+    grad::Vector{T}
 
     # workspace for centrality check
-    μHWork::AbstractMatrix{T}     
-    gradWork::AbstractVector{T}
-    vecWork::AbstractVector{T}
+    μHWork::Matrix{T}
+    gradWork::Vector{T}
+    vecWork::Vector{T}
     FWork::Union{SuiteSparse.UMFPACK.UmfpackLU,Nothing}
-    z::AbstractVector{T}            # temporary storage for current z
+    z::Vector{T}            # temporary storage for current z
 
     function ExponentialCone{T}() where {T}
         dim = 3
@@ -249,15 +249,15 @@ mutable struct PowerCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
     α::T
-    μH::AbstractMatrix{T}       #μ*H for the linear sysmtem
-    grad::AbstractVector{T}
+    μH::Matrix{T}       #μ*H for the linear sysmtem
+    grad::Vector{T}
 
     # workspace for centrality check
-    μHWork::AbstractMatrix{T}     
-    gradWork::AbstractVector{T}
-    vecWork::AbstractVector{T}
+    μHWork::Matrix{T}
+    gradWork::Vector{T}
+    vecWork::Vector{T}
     FWork::Union{SuiteSparse.UMFPACK.UmfpackLU,Nothing}
-    z::AbstractVector{T}            # temporary storage for current z
+    z::Vector{T}            # temporary storage for current z
 
     function PowerCone{T}(α::T) where {T}
         dim = 3

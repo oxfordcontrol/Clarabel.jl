@@ -38,7 +38,7 @@ function update_values!(
     values::Vector{T}
 ) where{T}
 
-    ldlsolver.KKT.nzval[index] .= values
+    @views ldlsolver.KKT.nzval[index] .= values
 end
 
 #offset entries in the KKT matrix using the
@@ -51,7 +51,7 @@ function offset_values!(
     signs::Union{Int,Vector{Int}} = 1
 ) where{T}
 
-    @. ldlsolver.KKT.nzval[index] += offset*signs
+    @views @. ldlsolver.KKT.nzval[index] += offset*signs
 end
 
 

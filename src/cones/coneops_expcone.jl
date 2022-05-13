@@ -41,7 +41,7 @@ end
 
 # return x = y for unsymmetric cones
 function affine_ds!(
-    K::AbstractCone{T},
+    K::ExponentialCone{T},
     x::AbstractVector{T},
     y::AbstractVector{T}
 ) where {T}
@@ -72,13 +72,22 @@ function combined_ds!(
     dz::AbstractVector{T},
     step_z::AbstractVector{T},
     step_s::AbstractVector{T},
-    σμ::T 
+    σμ::T
 ) where {T}
     # η = similar(dz)
     # higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
     # @. dz = η + σμ*K.grad
 
-    @. dz = σμ*K.grad                   #dz <- σμ*g(z)
+
+    dz[1] = K.grad[1]*σμ
+    dz[2] = K.grad[2]*σμ
+    dz[3] = K.grad[3]*σμ
+    @inbounds for i = 1:3
+        dz[i] = K.grad[i]*σμ                 #dz <- σμ*g(z)
+    end
+    #println("type K.grad = ", typeof(K.grad))
+    #println("type σμ = ", typeof(σμ))
+    #println("type dz = ", typeof(dz))
 
     return nothing
 end
@@ -90,7 +99,7 @@ function Wt_λ_inv_circ_ds!(
     rz::AbstractVector{T},
     rs::AbstractVector{T},
     Wtlinvds::AbstractVector{T}
-) where {T} 
+) where {T}
 
     @. Wtlinvds = rs    #Wᵀ(λ \ ds) <- ds
 
@@ -123,7 +132,7 @@ function unsymmetric_step_length(
     if isnan(α)
         error("numerical error")
     end
-    
+
     αz = _step_length_exp_dual(K.vecWork,dz,z,α,scaling)
     αs = _step_length_exp_primal(K.vecWork,ds,s,α,scaling)
 
@@ -187,7 +196,7 @@ end
 # As in ECOS, we use the dual barrier function: f*(z) = -log(z2 - z1 - z1log(z3/-z1)) - log(-z1) - log(z3):
 # Evaluates the gradient of the dual exponential cone ∇f*(z) at z, and stores the result at g
 function GradF(
-    z::AbstractVector{T}, 
+    z::AbstractVector{T},
     g::AbstractVector{T}
 ) where {T}
 
@@ -203,8 +212,8 @@ end
 # Evaluates the Hessian of the dual exponential cone barrier at z and stores the upper triangular part of the matrix μH*(z)
 # NB:could reduce H to an upper triangular matrix later, remove duplicate updates
 function muHessianF(
-    z::AbstractVector{T}, 
-    H::AbstractMatrix{T}, 
+    z::AbstractVector{T},
+    H::AbstractMatrix{T},
     μ::T
 ) where {T}
     # y = z1; z = z2; x = z3;
@@ -235,11 +244,11 @@ end
 function higherCorrection!(
     K::ExponentialCone{T},
     η::AbstractVector{T},
-    ds::AbstractVector{T}, 
+    ds::AbstractVector{T},
     v::AbstractVector{T}
 ) where {T}
 
-    # u for H^{-1}*Δs 
+    # u for H^{-1}*Δs
     μH = K.μHWork
     u = K.vecWork
     F = K.FWork
@@ -300,8 +309,8 @@ end
 
 # f(s) = -2*log(s2) - log(s3) - log((1-barω)^2/barω) - 3, where barω = ω(1 - s1/s2 - log(s2) - log(s3))
 function f_sum(
-    K::ExponentialCone{T}, 
-    s::AbstractVector{T}, 
+    K::ExponentialCone{T},
+    s::AbstractVector{T},
     z::AbstractVector{T}
 ) where {T}
 
@@ -372,13 +381,6 @@ function _check_neighbourhood(
     return false
 end
 
-
-
-
-# Hessian operator δ = μH*(z)[δz], where v contains μH*.
-function compute_muHessianF(δ::AbstractVector{T}, H::AbstractMatrix{T}, δz::AbstractVector{T}) where {T}
-    mul!(δ,H,δz)
-end
 
 # Returns true if s is primal feasible
 function checkExpPrimalFeas(s::AbstractVector{T}) where {T}
@@ -466,4 +468,3 @@ function WrightOmega(z::T) where {T}
 
     return w;
 end
-

@@ -203,7 +203,7 @@ function combined_ds!(
     dz::AbstractVector{T},
     step_z::AbstractVector{T},
     step_s::AbstractVector{T},
-    σμ::T 
+    σμ::T
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -217,7 +217,7 @@ function Wt_λ_inv_circ_ds!(
     rz::AbstractVector{T},
     rs::AbstractVector{T},
     Wtlinvds::AbstractVector{T}
-) where {T} 
+) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
 
@@ -261,7 +261,7 @@ function f_sum(
 
 end
 
-# check the neighbourhood  
+# check the neighbourhood
 #   1) nonsymmetric cones: ||ψ(z,s,μ)||_z^* ≤ η, where ψ(z,s,μ) = s + μg*(z) = s - H*(z)[z] and norm ||⋅||_z^* w.r.t H*^{-1}(z)
 #   2) symmetric cones: ||s∘z - μe|| ≤ η,
 #   Here, we choose norm_inf instead of norm2

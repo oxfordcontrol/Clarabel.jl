@@ -46,12 +46,12 @@ function update_values!(
     values::Vector{T}
 ) where{T,Ti}
 
-    #Updating values in both the KKT matrix and
-    #in the reordered copy held internally by QDLDL.
-    #The former is needed for iterative refinement since
-    #QDLDL does not have internal iterative refinement
-    QDLDL.update_values!(ldlsolver.factors,index,values)
-    ldlsolver.KKT.nzval[index] .= values
+        #Updating values in both the KKT matrix and
+        #in the reordered copy held internally by QDLDL.
+        #The former is needed for iterative refinement since
+        #QDLDL does not have internal iterative refinement
+        QDLDL.update_values!(ldlsolver.factors,index,values)
+        @views ldlsolver.KKT.nzval[index] .= values
 
 end
 
@@ -66,7 +66,7 @@ function offset_values!(
 ) where{T}
 
     QDLDL.offset_values!(ldlsolver.factors, index, offset, signs)
-    @. ldlsolver.KKT.nzval[index] += offset*signs
+    @views @. ldlsolver.KKT.nzval[index] += offset*signs
 
 end
 

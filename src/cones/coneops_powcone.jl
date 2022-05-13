@@ -41,7 +41,7 @@ end
 
 # return x = y for unsymmetric cones
 function affine_ds!(
-    K::AbstractCone{T},
+    K::PowerCone{T},
     x::AbstractVector{T},
     y::AbstractVector{T}
 ) where {T}
@@ -74,7 +74,7 @@ function combined_ds!(
     dz::AbstractVector{T},
     step_z::AbstractVector{T},
     step_s::AbstractVector{T},
-    σμ::T 
+    σμ::T
 ) where {T}
     # η = similar(dz)
     # higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
@@ -92,7 +92,7 @@ function Wt_λ_inv_circ_ds!(
     rz::AbstractVector{T},
     rs::AbstractVector{T},
     Wtlinvds::AbstractVector{T}
-) where {T} 
+) where {T}
 
     @. Wtlinvds = rs    #Wᵀ(λ \ ds) <- ds
 
@@ -128,7 +128,7 @@ function unsymmetric_step_length(
 
     # avoid abuse of α
     exp = K.α
-    
+
     αz = _step_length_power_dual(K.vecWork,dz,z,α,scaling,exp)
     αs = _step_length_power_primal(K.vecWork,ds,s,α,scaling,exp)
 
@@ -188,7 +188,7 @@ end
 # Evaluates the gradient of the dual Power cone ∇f*(z) at z, and stores the result at g
 function GradF(
     K::PowerCone{T},
-    z::AbstractVector{T}, 
+    z::AbstractVector{T},
     g::AbstractVector{T}
 ) where {T}
 
@@ -207,8 +207,8 @@ end
 # NB:could reduce H to an upper triangular matrix later, remove duplicate updates
 function muHessianF(
     K::PowerCone{T},
-    z::AbstractVector{T}, 
-    H::AbstractMatrix{T}, 
+    z::AbstractVector{T},
+    H::AbstractMatrix{T},
     μ::T
 ) where {T}
 
@@ -225,7 +225,7 @@ function muHessianF(
     H[1,2] = gψ[1]*gψ[2] - 4*α*(1-α)*ϕ/(z[1]*z[2]*ψ)
     H[2,1] = H[1,2]
     H[2,2] = gψ[2]*gψ[2] - 2*(1-α)*(1-2*α)*ϕ/(z[2]*z[2]*ψ) + α/(z[2]*z[2])
-    H[1,3] = gψ[1]*gψ[3] 
+    H[1,3] = gψ[1]*gψ[3]
     H[3,1] = H[1,3]
     H[2,3] = gψ[2]*gψ[3]
     H[3,2] = H[2,3]
@@ -239,11 +239,11 @@ end
 function higherCorrection!(
     K::PowerCone{T},
     η::AbstractVector{T},
-    ds::AbstractVector{T}, 
+    ds::AbstractVector{T},
     v::AbstractVector{T}
 ) where {T}
 
-    # u for H^{-1}*Δs 
+    # u for H^{-1}*Δs
     #NB: need to be refined later
     μH = K.μHWork
     u = K.vecWork
@@ -278,7 +278,7 @@ function higherCorrection!(
     gψ[1] = 2*α*ϕ/z[1]
     gψ[2] = 2*(1-α)*ϕ/z[2]
     gψ[3] = -2*z[3]
-    
+
     # Hψ = [  2*α*(2*α-1)*ϕ/(z1*z1)     4*α*(1-α)*ϕ/(z1*z2)       0;
     #         4*α*(1-α)*ϕ/(z1*z2)     2*(1-α)*(1-2*α)*ϕ/(z2*z2)   0;
     #         0                       0                          -2;]
@@ -322,7 +322,7 @@ function _check_neighbourhood(
     # compute gradient and Hessian at z
     GradF(K, z, grad)
     muHessianF(K, z, μH, μ)
-    
+
     if F === nothing
         F = lu(μH, check= false)
     else
@@ -346,18 +346,10 @@ function _check_neighbourhood(
 end
 
 
-
-
-
-# Hessian operator δ = μH*(z)[δz], where v contains μH*.
-function compute_muHessianF(δ::AbstractVector{T}, H::AbstractMatrix{T}, δz::AbstractVector{T}) where {T}
-    mul!(δ,H,δz)
-end
-
 # Returns true if s is primal feasible
 function checkPowerPrimalFeas(s::AbstractVector{T},α::T) where {T}
-    s1 = s[1]          
-    s2 = s[2]    
+    s1 = s[1]
+    s2 = s[2]
     s3 = s[3]
 
     if (s1 > 0 && s2 > 0)
@@ -372,8 +364,8 @@ end
 
 # Returns true if s is dual feasible
 function checkPowerDualFeas(z::AbstractVector{T},α::T) where {T}
-    z1 = z[1]          
-    z2 = z[2]    
+    z1 = z[1]
+    z2 = z[2]
     z3 = z[3]
 
     if (z1 > 0 && z2 > 0)
@@ -385,4 +377,3 @@ function checkPowerDualFeas(z::AbstractVector{T},α::T) where {T}
 
     return false
 end
-

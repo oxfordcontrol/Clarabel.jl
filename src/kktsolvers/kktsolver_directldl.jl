@@ -90,24 +90,39 @@ function _fill_Dsigns!(Dsigns,m,n,p)
     end
 end
 
-
 function kktsolver_update!(
     kktsolver::DirectLDLKKTSolver{T},
     cones::ConeSet{T}
-) where {T}
+    ) where {T}
+
+    # the internal ldlsolver is type unstable, so multiple
+    # calls to the ldlsolvers will be very slow if called
+    # directly.   Grab it here and then call an inner function
+    # so that the ldlsolver has concrete type
+    ldlsolver = kktsolver.ldlsolver;
+    _kktsolver_update_inner!(kktsolver,ldlsolver,cones);
+end
+
+function _kktsolver_update_inner!(
+    kktsolver::DirectLDLKKTSolver{T},
+    ldlsolver::AbstractDirectLDLSolver{T},
+    cones::ConeSet{T}
+    ) where {T}
+
+    #real implementation is here, and now ldlsolver
+    #will be compiled to something concrete.
 
     (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
 
     settings  = kktsolver.settings
-    ldlsolver = kktsolver.ldlsolver
     map       = kktsolver.map
-
 
     #Set the elements the W^tW blocks in the KKT matrix.
     cones_get_WtW_blocks!(cones,kktsolver.WtWblocks)
+
     for (index, values) in zip(map.WtWblocks,kktsolver.WtWblocks)
         #change signs to get -W^TW
-        values .= -values
+        @. values = -values
         update_values!(ldlsolver,index,values)
     end
 
@@ -117,17 +132,19 @@ function kktsolver_update!(
     for (i,K) = enumerate(cones)
         if(cones.types[i] == SecondOrderConeT)
 
-                η2 = K.η^2
+            η2 = K.η^2
 
-                #off diagonal columns (or rows)
-                update_values!(ldlsolver,map.SOC_u[cidx],(-η2).*K.u)
-                update_values!(ldlsolver,map.SOC_v[cidx],(-η2).*K.v)
+            #off diagonal columns (or rows)
+            #PJG: allocations here.   Need to implement
+            #two step call with scale_values in QDLDL.
+            update_values!(ldlsolver,map.SOC_u[cidx],(-η2).*K.u)
+            update_values!(ldlsolver,map.SOC_v[cidx],(-η2).*K.v)
 
-                #add η^2*(1/-1) to diagonal in the extended rows/cols
-                update_values!(ldlsolver,[map.SOC_D[cidx*2-1]],[-η2])
-                update_values!(ldlsolver,[map.SOC_D[cidx*2  ]],[+η2])
+            #add η^2*(1/-1) to diagonal in the extended rows/cols
+            update_values!(ldlsolver,[map.SOC_D[cidx*2-1]],[-η2])
+            update_values!(ldlsolver,[map.SOC_D[cidx*2  ]],[+η2])
 
-                cidx += 1
+            cidx += 1
         end
 
     end
@@ -175,8 +192,8 @@ function kktsolver_getlhs!(
     x = kktsolver.x
     (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
 
-    isnothing(lhsx) || (lhsx .= x[1:n])
-    isnothing(lhsz) || (lhsz .= x[(n+1):(n+m)])
+    isnothing(lhsx) || (@views lhsx .= x[1:n])
+    isnothing(lhsz) || (@views lhsz .= x[(n+1):(n+m)])
 
     return nothing
 end

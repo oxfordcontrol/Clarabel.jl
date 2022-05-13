@@ -91,14 +91,17 @@ function calc_affine_step_rhs!(
     cones::ConeSet{T}
 ) where{T}
 
-    to = TimerOutput()
-    @timeit to "dx" @. d.x    .=  r.rx
+    #to = TimerOutput() #DEBUG
+    #@timeit to "dx"
+    @. d.x    .=  r.rx
     @. d.z     =  r.rz
-    @timeit to "ds" cones_affine_ds!(cones, d.s, variables.s)    # unsymmetric cones need value of s
+    #@timeit to "ds"
+    cones_affine_ds!(cones, d.s, variables.s)    # unsymmetric cones need value of s
     d.τ        =  r.rτ
     d.κ        =  variables.τ * variables.κ
 
-    print_timer(to)
+    #DEBUG: printing the timer here
+    #print_timer(to)
 
     return nothing
 end
@@ -110,7 +113,7 @@ function calc_combined_step_rhs!(
     variables::DefaultVariables{T},
     cones::ConeSet{T},
     step::DefaultVariables{T},
-    σ::T, 
+    σ::T,
     μ::T
 ) where {T}
 
@@ -161,7 +164,7 @@ end
 # for the second-order cones, e = (1; 0; ... ; 0) where the 1 corresponds to the first variable;
 # for semidefinite cones, e is the identity matrix.
 function unsymmetricInit(
-    variables::DefaultVariables{T}, 
+    variables::DefaultVariables{T},
     cones::ConeSet{T}
 ) where {T}
     #set conic variables to units and x to 0
