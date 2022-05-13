@@ -1,3 +1,29 @@
+using InteractiveUtils  #allows call to subtypes
+
+# -----------------------------------------------------
+# macro for circumventing runtime dynamic dispatch
+# on AbstractCones and trying to force a jumptable
+# structure instead.   Must wrap a call to a function
+# with an argument explicitly named "cone", and constructs
+# a big if/else table testing the type of cone against
+# the subtypes of AbstractCone
+# -----------------------------------------------------
+
+function _conedispatch(type, x, call)
+    thetypes = subtypes(getfield(@__MODULE__, type))
+    foldr((t, tail) -> :(if $x isa $t; $call else $tail end), thetypes, init=Expr(:block))
+end
+
+macro conedispatch(call)
+    esc(_conedispatch(:AbstractCone, :cone, call))
+end
+
+#for debugging.  Replace @conedispatch with @noop
+#to disable the type expansion.
+macro noop(call)
+    esc(call)
+end
+
 # -----------------------------------------------------
 # dispatch operators for multiple cones
 # -----------------------------------------------------
@@ -18,8 +44,8 @@ function cones_rectify_equilibration!(
     #from this function.  default is to do nothing at all
     δ .= 1
 
-    for i = eachindex(cones)
-        any_changed |= rectify_equilibration!(cones[i],δ.views[i],e.views[i])
+    for (cone,δi,ei) in zip(cones,δ.views,e.views)
+        @conedispatch any_changed |= rectify_equilibration!(cone,δi,ei)
     end
 
     return any_changed
@@ -35,8 +61,8 @@ function cones_update_scaling!(
 
     # update cone scalings by passing subview to each of
     # the appropriate cone types.
-    for i = eachindex(cones)
-        update_scaling!(cones[i],s.views[i],z.views[i],μ)
+    for (cone,si,zi) in zip(cones,s.views,z.views)
+        @conedispatch update_scaling!(cone,si,zi,μ)
     end
 
     return nothing
@@ -47,8 +73,8 @@ function cones_set_identity_scaling!(
     cones::ConeSet{T}
 ) where {T}
 
-    for i = eachindex(cones)
-        set_identity_scaling!(cones[i])
+    for cone in cones
+        @conedispatch set_identity_scaling!(cone)
     end
 
     return nothing
@@ -61,8 +87,8 @@ function cones_get_WtW_blocks!(
     WtWblocks::Vector{Vector{T}}
 ) where {T}
 
-    for i = eachindex(cones)
-        get_WtW_block!(cones[i],WtWblocks[i])
+    for (cone, block) in zip(cones,WtWblocks)
+        @conedispatch get_WtW_block!(cone,block)
     end
     return nothing
 end
@@ -74,8 +100,8 @@ function cones_affine_ds!(
     s::ConicVector{T}
 ) where {T}
 
-    for i = eachindex(cones)
-        affine_ds!(cones[i],x.views[i],s.views[i])
+    for (cone,xi,si) in zip(cones,x.views,s.views)
+        @conedispatch affine_ds!(cone,xi,si)
     end
     return nothing
 end
@@ -90,10 +116,10 @@ function cones_circ_op!(
     z::ConicVector{T}
 ) where {T}
 
-    for i = eachindex(cones)
+    for (cone,xi,yi,zi) in zip(cones,x.views,y.views,z.views)
         # don't implement it for unsymmetric cones
-        if !(cones.types[i] in NonsymmetricCones)
-            circ_op!(cones[i],x.views[i],y.views[i],z.views[i])
+        if !(cone in NonsymmetricCones)
+            @conedispatch circ_op!(cone,xi,yi,zi)
         end
     end
     return nothing
@@ -107,10 +133,10 @@ function cones_λ_inv_circ_op!(
     z::ConicVector{T}
 ) where {T}
 
-    for i = eachindex(cones)
+    for (cone,xi,zi) in zip(cones,x.views,z.views)
         # don't implement it for unsymmetric cones
-        if !(cones.types[i] in NonsymmetricCones)
-            λ_inv_circ_op!(cones[i],x.views[i],z.views[i])
+        if !(cone in NonsymmetricCones)
+            @conedispatch λ_inv_circ_op!(cone,xi,zi)
         end
     end
     return nothing
@@ -124,10 +150,10 @@ function cones_inv_circ_op!(
     z::ConicVector{T}
 ) where {T}
 
-    for i = eachindex(cones)
+    for cone in zip(cones,x.views,y.views,z.views)
         # don't implement it for unsymmetric cones
-        if !(cones.types[i] in NonsymmetricCones)
-            inv_circ_op!(cones[i],x.views[i],y.views[i],z.views[i])
+        if !(cone in NonsymmetricCones)
+            @conedispatch inv_circ_op!(cone,xi,yi,zi)
         end
     end
     return nothing
@@ -140,8 +166,8 @@ function cones_shift_to_cone!(
     z::ConicVector{T}
 ) where {T}
 
-    for i = eachindex(cones)
-        shift_to_cone!(cones[i],z.views[i])
+    for (cone,zi) in zip(cones,z.views)
+        @conedispatch shift_to_cone!(cone,zi)
     end
     return nothing
 end
@@ -153,8 +179,8 @@ function unit_initialization!(
     z::ConicVector{T}
 ) where {T}
 
-    for i = eachindex(cones)
-        unsymmetric_init!(cones[i],s.views[i],z.views[i])
+    for (cone,si,zi) in zip(cones,s.views,z.views)
+        @conedispatch unsymmetric_init!(cone,si,zi)
     end
     return nothing
 end
@@ -172,10 +198,10 @@ function cones_gemv_W!(
 ) where {T}
 
     #@assert (x !== y)
-    for i = eachindex(cones)
+    for (cone,xi,yi) in zip(cones,x.views,y.views)
         # don't implement it for unsymmetric cones
-        if !(cones.types[i] in NonsymmetricCones)
-            gemv_W!(cones[i],is_transpose,x.views[i],y.views[i],α,β)
+        if !(cone in NonsymmetricCones)
+            @conedispatch gemv_W!(cone,is_transpose,xi,yi,α,β)
         end
     end
     return nothing
@@ -190,14 +216,14 @@ function cones_combined_ds!(
     step_s::ConicVector{T},
     σμ::T
 ) where {T}
-    
-    for i = eachindex(cones)
-        #Indeed, we compute the centering and the higher order correction parts in ds and save it in dz
-        combined_ds!(cones[i],dz.views[i],step_z.views[i],step_s.views[i],σμ) 
+
+    for (cone,dzi,zi,si) in zip(cones,dz.views,step_z.views,step_s.views)
+        #We compute the centering and the higher order correction parts in ds and save it in dz
+        @conedispatch combined_ds!(cone,dzi,zi,si,σμ)
     end
 
     #We are relying on d.s = λ ◦ λ (symmetric) or d.s = s (unsymmetric) already from the affine step here
-    ds .+= dz                                 
+    ds .+= dz
 
     return nothing
 end
@@ -211,8 +237,8 @@ function cones_Wt_λ_inv_circ_ds!(
     Wtlinvds::ConicVector
 ) where {T}
 
-    for i = eachindex(cones)
-        Wt_λ_inv_circ_ds!(cones[i],lz.views[i],rz.views[i],rs.views[i],Wtlinvds.views[i]) 
+    for (cone,lzi,rzi,rsi,Wtlinvdsi) in zip(cones,lz.views,rz.views,rs.views,Wtlinvds.views)
+        @conedispatch Wt_λ_inv_circ_ds!(cone,lzi,rzi,rsi,Wtlinvdsi)
     end
 
     return nothing
@@ -226,8 +252,8 @@ function cones_WtW_Δz!(
     workz::ConicVector{T}
 ) where {T}
 
-    for i = eachindex(cones)
-        WtW_Δz!(cones[i],lz.views[i],ls.views[i],workz.views[i])
+    for (cone,lzi,lsi,workzi) in zip(cones,lz.views,ls.views,workz.views)
+        @conedispatch WtW_Δz!(cone,lzi,lsi,workzi)
     end
 
     return nothing
@@ -246,6 +272,7 @@ function cones_step_length(
      κ::T,
     α::T
 ) where {T}
+
     dz    = dz.views
     ds    = ds.views
     z     = z.views
@@ -254,12 +281,12 @@ function cones_step_length(
 
     # YC: implement step search for symmetric cones first
     # NB: split the step search for symmetric and unsymmtric cones due to the complexity of the latter
-    for i = eachindex(cones)
-        if (cones.types[i] in NonsymmetricCones)
-            αzs = unsymmetric_step_length(cones[i],dz[i],ds[i],z[i],s[i],α,cones.scaling)
+    for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
+        if (type in NonsymmetricCones)
+            @conedispatch αzs = unsymmetric_step_length(cone,dzi,dsi,zi,si,α,cones.scaling)
             α = min(α,αzs)
         else
-            (nextαz,nextαs) = step_length(cones[i],dz[i],ds[i],z[i],s[i])
+            @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si)
             α = min(α,nextαz,nextαs)
         end
     end
@@ -307,7 +334,7 @@ function check_μ_and_centrality(
     ind_pow = cones.ind_pow
     scaling = cones.scaling
     η = cones.η
-    
+
     for j = 1:50
         #Initialize μ
         μ = (zs + τ*κ + α*(s_dz + z_ds + dτ*κ + τ*dκ) + α^2*(dzs + dτ*dκ))/central_coef
@@ -324,7 +351,7 @@ function check_μ_and_centrality(
         # else
         #     α *= scaling
         # end
-        
+
 
         # ECOS: check centrality, functional proximity measure
         # NB: the update x+α*dx is inefficient right now and need to be rewritten later
@@ -333,8 +360,9 @@ function check_μ_and_centrality(
             continue
         end
         barrier = central_coef*log(μ) - log(τ+α*dτ) - log(κ+α*dκ)
-        for i = eachindex(cones)
-            barrier += f_sum(cones[i], cur_s.views[i], cur_z.views[i])
+
+        for (cone,cur_si,cur_zi) in zip(cones,cur_s.views, cur_z.views)
+            @conedispatch barrier += f_sum(cone, cur_si, cur_zi)
         end
 
         if barrier < 1.
@@ -353,7 +381,8 @@ function check_μ_and_centrality(
     return α
 end
 
-function boundary_check!(z,s,ind_cone,length_cone,upper)     
+function boundary_check!(z,s,ind_cone,length_cone,upper)
+
     for i = 1:length_cone
         μi = dot(z.views[ind_cone[i]],s.views[ind_cone[i]])/3
 
@@ -363,14 +392,15 @@ function boundary_check!(z,s,ind_cone,length_cone,upper)
             return false
         end
     end
-    
+
     return true
 end
 
 function check_centrality!(cones,s,z,μ,η)
-    for i in eachindex(cones)
-        if !_check_neighbourhood(cones[i],s.views[i],z.views[i],μ,η)
-            # println("centrality violation at cone ",i, "  ",cones.types[i])
+
+    for (cone,si,zi) = zip(cones,s.views,z.views)
+        @conedispatch _chk = _check_neighbourhood(cone,si,zi,μ,η)
+        if !_chk
             return false
         end
     end
