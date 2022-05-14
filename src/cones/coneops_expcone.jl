@@ -25,7 +25,7 @@ function update_scaling!(
     #update both gradient and Hessian for function f*(z) at the point z
     muHessianF(z,K.μH,μ)
     GradF(z,K.grad)
-    K.z .= z
+    # K.z .= z
 end
 
 # return μH*(z) for exponetial cone
@@ -35,7 +35,7 @@ function get_WtW_block!(
 ) where {T}
 
     #Vectorize triu(K.μH)
-    WtWblock .= _pack_triu(WtWblock,K.μH)
+    _pack_triu(WtWblock,K.μH)
 
 end
 
@@ -46,7 +46,10 @@ function affine_ds!(
     y::AbstractVector{T}
 ) where {T}
 
-    @. x = y
+    # @. x = y
+    @inbounds for i = 1:3
+        x[i] = y[i]                
+    end
 
 end
 
@@ -79,9 +82,6 @@ function combined_ds!(
     # @. dz = η + σμ*K.grad
 
 
-    dz[1] = K.grad[1]*σμ
-    dz[2] = K.grad[2]*σμ
-    dz[3] = K.grad[3]*σμ
     @inbounds for i = 1:3
         dz[i] = K.grad[i]*σμ                 #dz <- σμ*g(z)
     end
@@ -101,7 +101,10 @@ function Wt_λ_inv_circ_ds!(
     Wtlinvds::AbstractVector{T}
 ) where {T}
 
-    @. Wtlinvds = rs    #Wᵀ(λ \ ds) <- ds
+    # @. Wtlinvds = rs    #Wᵀ(λ \ ds) <- ds
+    @inbounds for i = 1:3
+        Wtlinvds[i] = rs[i]                
+    end
 
     return nothing
 end
@@ -151,7 +154,10 @@ function _step_length_exp_primal(
 ) where {T}
 
     # NB: additional memory, may need to remove it later
-    @. ws = s + α*ds
+    # @. ws = s + α*ds
+    @inbounds for i = 1:3
+        ws[i] = s[i] + α*ds[i]                
+    end
 
     while !checkExpPrimalFeas(ws)
         # NB: need to be tackled in a smarter way
@@ -159,7 +165,10 @@ function _step_length_exp_primal(
             error("Expcone's step size fails in primal feasibility check!")
         end
         α *= scaling    #backtrack line search
-        @. ws = s + α*ds
+        # @. ws = s + α*ds
+        @inbounds for i = 1:3
+            ws[i] = s[i] + α*ds[i]                
+        end
     end
 
     return α
@@ -174,14 +183,20 @@ function _step_length_exp_dual(
 ) where {T}
 
     # NB: additional memory, may need to remove it later
-    @. ws = z + α*dz
+    # @. ws = z + α*dz
+    @inbounds for i = 1:3
+        ws[i] = z[i] + α*dz[i]                
+    end
 
     while !checkExpDualFeas(ws)
         if (α < 1e-4)
             error("Expcone's step size fails in dual feasibility check!")
         end
         α *= scaling    #backtrack line search
-        @. ws = z + α*dz
+        # @. ws = z + α*dz
+        @inbounds for i = 1:3
+            ws[i] = z[i] + α*dz[i]                
+        end
     end
 
     return α
@@ -314,23 +329,16 @@ function f_sum(
     z::AbstractVector{T}
 ) where {T}
 
-    z1 = z[1]
-    z2 = z[2]
-    z3 = z[3]
-    s1 = s[1]
-    s2 = s[2]
-    s3 = s[3]
-
     barrier = T(0)
 
     # Dual barrier
-    l = log(-z3/z1)
-    barrier += -log(z2-z1-z1*l)-log(-z1)-log(z3)
+    l = log(-z[3]/z[1])
+    barrier += -log(z[2]-z[1]-z[1]*l)-log(-z[1])-log(z[3])
 
     # Primal barrier
-    o = WrightOmega(1-s1/s2-log(s2)+log(s3))
+    o = WrightOmega(1-s[1]/s[2]-log(s[2])+log(s[3]))
     o = (o-1)*(o-1)/o
-    barrier += -log(o)-2*log(s2)-log(s3)-3
+    barrier += -log(o)-2*log(s[2])-log(s[3])-3
 
     return barrier
 end
@@ -385,9 +393,9 @@ end
 # Returns true if s is primal feasible
 function checkExpPrimalFeas(s::AbstractVector{T}) where {T}
 
-    if (s[3]>0. && s[2]>0.)   #feasible
+    if (s[3]>0 && s[2]>0)   #feasible
         res = s[2]*log(s[3]/s[2]) - s[1]
-        if (res>0.)
+        if (res>0)
             return true
         end
     end
@@ -398,9 +406,9 @@ end
 # Returns true if s is dual feasible
 function checkExpDualFeas(z::AbstractVector{T}) where {T}
 
-    if (z[3]>0. && z[1]<0.)
+    if (z[3]>0 && z[1]<0)
         res = z[2] - z[1] - z[1]*log(-z[3]/z[1])
-        if (res>0.)
+        if (res>0)
             return true
         end
     end
@@ -419,11 +427,11 @@ function WrightOmega(z::T) where {T}
     q  = T(0);
     zi = T(0);
 
-	if(z<0.0)
+	if(z< T(0))
         throw(error("β not in supported range", z)); #Fail if the input is not supported
     end
 
-	if(z<1.0+π)      #If z is between 0 and 1+π
+	if(z<T(1)+π)      #If z is between 0 and 1+π
         q = z-1;
         r = q;
         w = 1+0.5*r;
@@ -439,7 +447,7 @@ function WrightOmega(z::T) where {T}
     else
         r = log(z);
         q = r;
-        zi  = 1.0/z;
+        zi  = one(T)/z;
         w = z-r;
         q = r*zi;
         w += q;
