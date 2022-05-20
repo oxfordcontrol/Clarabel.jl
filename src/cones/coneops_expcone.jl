@@ -23,8 +23,8 @@ function update_scaling!(
     μ::T
 ) where {T}
     #update both gradient and Hessian for function f*(z) at the point z
-    muHessianF(z,K.μH,μ)
-    GradF(z,K.grad)
+    muHessianF(K,z,K.μH,μ)
+    GradF(K,z,K.grad)
     # K.z .= z
 end
 
@@ -208,9 +208,10 @@ end
 # Basic operations for exponential Cones
 # Primal exponential cone: s3 ≥ s2*e^(s1/s2), s3,s2 > 0
 # Dual exponential cone: z3 ≥ -z1*e^(z2/z1 - 1), z3 > 0, z1 < 0
-# As in ECOS, we use the dual barrier function: f*(z) = -log(z2 - z1 - z1log(z3/-z1)) - log(-z1) - log(z3):
+# As in ECOS, we use the dual barrier function: f*(z) = -log(z2 - z1 - z1*log(z3/-z1)) - log(-z1) - log(z3):
 # Evaluates the gradient of the dual exponential cone ∇f*(z) at z, and stores the result at g
 function GradF(
+    K::ExponentialCone{T},
     z::AbstractVector{T},
     g::AbstractVector{T}
 ) where {T}
@@ -227,6 +228,7 @@ end
 # Evaluates the Hessian of the dual exponential cone barrier at z and stores the upper triangular part of the matrix μH*(z)
 # NB:could reduce H to an upper triangular matrix later, remove duplicate updates
 function muHessianF(
+    K::ExponentialCone{T},
     z::AbstractVector{T},
     H::AbstractMatrix{T},
     μ::T
@@ -234,9 +236,10 @@ function muHessianF(
     # y = z1; z = z2; x = z3;
     # l = log(-z3/z1);
     # r = -z1*l-z1+z2;
-    # Hessian = [[1/z1^2 - 1/(r*z1) + l^2/r^2,     -l/r^2,     1/(r*z3) + (l*z1)/(r^2*z3)];
-    #            [-l/r^2,                           1/r^2],                  -z1/(r^2*z3)];
-    #            [1/(r*z3) + (l*z1)/(r^2*z3),   -z1/(r^2*z3),  1/z3^2 - z1/(r*z3^2) + z1^2/(r^2*z3^2)]]
+    # Problematic Hessian
+    # Hessian = [1/z1^2 - 1/(r*z1) + l^2/r^2     -l/r^2     1/(r*z3) + (l*z1)/(r^2*z3);
+    #            -l/r^2                           1/r^2                  -z1/(r^2*z3);
+    #            1/(r*z3) + (l*z1)/(r^2*z3)   -z1/(r^2*z3)   1/z3^2 - z1/(r*z3^2) + z1^2/(r^2*z3^2)]
 
     l = log(-z[3]/z[1])
     r = -z[1]*l-z[1]+z[2]
@@ -270,7 +273,7 @@ function higherCorrection!(
     z = K.z
 
     # recompute Hessian
-    muHessianF(z,μH,one(T))
+    muHessianF(K,z,μH,one(T))
 
     if F === nothing
         F = lu(μH, check= false)
@@ -355,37 +358,74 @@ function _check_neighbourhood(
     # to = TimerOutput()
 
     grad = K.gradWork
-    μH = K.μHWork
+    H = K.μHWork
     F = K.FWork
     tmp = K.vecWork
 
-    # compute gradient and Hessian at z
-    GradF(z, grad)
-    muHessianF(z, μH, μ)
+    # compute gradient at z
+    l = log(-z[3]/z[1])
+    r = -z[1]*l-z[1]+z[2]
 
-    # if F === nothing
-    #     F = lu(μH, check= false)
-    # else
-    # @timeit to "LU factorization" begin
-    F = lu!(μH; check= false)
+    grad[1] = r*l - 1/z[1]
+    grad[2] = -r
+    grad[3] = (r*z[1]-1)/z[3]
 
-    if !issuccess(F)
-        increase_diag!(μH)
-        F = lu!(μH)
-    end
-    # end
+    # compute inverse Hessian 
+    H[1,1] = z[1]^2*(z[1]-r)
+    H[1,2] = z[1]^2*(z[1] - l*r + l*z[1])
+    H[2,1] = H[1,2]
+    H[2,2] = -l^2*r*z[1]^2 + (l+2)*l*z[1]^3 - r^3 + 2*r^2*z[1] - r*z[1]^2 + z[1]^3
+    H[1,3] = z[1]^2*z[3]
+    H[3,1] = H[1,3]
+    H[2,3] = z[1]*z[3]*(z[1] - r + l*z[1])
+    H[3,2] = H[2,3]
+    H[3,3] = z[3]^2*(z[1] - r)
+    H ./= (2*z[1] - r)
 
-    # print_timer(to)
-
-    # grad as a workspace for s + μ*grad
-    axpby!(one(T), s, μ, grad)
-    ldiv!(tmp,F,grad)
-
-    if (dot(tmp,grad)/μ < η)
+    # grad as a workspace for s/μ + grad
+    axpy!(1/μ, s, grad)
+    if (dot(grad,H,grad) < η)
         return true
     end
 
+    # NB::Currently, direct Hinv is horrible due to potential numerical errors,
+    # YC:: 1) it implies that we'd better to use only first-order information for centrality check
+    #      2) also, we should allow larger neighbourhood for a shorter iteration number
+
+    # # grad as a workspace for s + μ*grad
+    # axpby!(one(T), s, μ, grad)
+    # if (dot(grad,H,grad)/μ^2 < η)
+        # return true
+    # end
+
+    # println("away from central path due to cone with ", dot(grad,H,grad))
+
+    # # compute gradient and Hessian at z
+    # GradF(K, z, grad)
+    # muHessianF(K, z, H, μ)
+
+    # if F === nothing
+    #     F = lu(H, check= false)
+    # else
+    #     F = lu!(H, check= false)
+    # end
+
+    # if !issuccess(F)
+    #     increase_diag!(H)
+    #     F = lu!(H)
+    # end
+
+    # # grad as a workspace for s + μ*grad
+    # axpby!(one(T), s, μ, grad)
+
+    # ldiv!(tmp,F,grad)
+    # if (dot(tmp,grad)/μ < η)
+    #     println("away from central path due to cone with ", norm(dot(tmp,grad)/μ))
+    #     return true
+    # end
+
     # println("away from central path due to cone with ", norm(dot(tmp,grad)/μ))
+
     return false
 end
 
@@ -393,9 +433,9 @@ end
 # Returns true if s is primal feasible
 function checkExpPrimalFeas(s::AbstractVector{T}) where {T}
 
-    if (s[3]>0 && s[2]>0)   #feasible
+    if (s[3]>eps(T) && s[2]>eps(T))   #feasible
         res = s[2]*log(s[3]/s[2]) - s[1]
-        if (res>0)
+        if (res > eps(T))
             return true
         end
     end
@@ -406,9 +446,9 @@ end
 # Returns true if s is dual feasible
 function checkExpDualFeas(z::AbstractVector{T}) where {T}
 
-    if (z[3]>0 && z[1]<0)
+    if (z[3]>eps(T) && z[1]< -eps(T))
         res = z[2] - z[1] - z[1]*log(-z[3]/z[1])
-        if (res>0)
+        if (res > eps(T))
             return true
         end
     end

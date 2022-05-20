@@ -373,9 +373,9 @@ function checkPowerPrimalFeas(s::AbstractVector{T},α::T) where {T}
     s2 = s[2]
     s3 = s[3]
 
-    if (s1 > 0 && s2 > 0)
+    if (s1 > eps(T) && s2 > eps(T))
         res = exp(2*α*log(s1) + 2*(1-α)*log(s2)) - s3*s3
-        if res > 0
+        if res > eps(T)
             return true
         end
     end
@@ -386,9 +386,9 @@ end
 # Returns true if s is dual feasible
 function checkPowerDualFeas(z::AbstractVector{T},α::T) where {T}
 
-    if (z[1] > zero(T) && z[2] > zero(T))
+    if (z[1] > eps(T) && z[2] > eps(T))
         res = exp(2*α*log(z[1]/α) + 2*(1-α)*log(z[2]/(1-α))) - z[3]*z[3]
-        if res > zero(T)
+        if res > eps(T)
             return true
         end
     end
