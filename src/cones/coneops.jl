@@ -300,8 +300,7 @@ function check_μ_and_centrality(
     step::DefaultVariables{T},
     variables::DefaultVariables{T},
     work::DefaultVariables{T},
-    α::T,
-    steptype::Symbol
+    α::T
 ) where {T}
 
     dz    = step.z
@@ -372,10 +371,6 @@ function check_μ_and_centrality(
         end
         # println("centrality quite bad: ", barrier, " with ", central_coef)
 
-    end
-
-    if (steptype == :combined)
-        error("get stalled with step size ", α)
     end
 
     return α

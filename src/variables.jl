@@ -35,7 +35,11 @@ function calc_step_length(
     #   balance global μ and local μ_i of each exponential cone;
     #   check centrality, ensure the update is close to the central path
     if (!cones.symFlag)
-        α = check_μ_and_centrality(cones,step,variables,workVar,α,steptype)
+        α = check_μ_and_centrality(cones,step,variables,workVar,α)
+
+        if (steptype == :combined && α < 1e-4)
+            error("get stalled with step size ", α)
+        end
     end
 
     return α

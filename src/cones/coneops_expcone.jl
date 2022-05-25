@@ -338,10 +338,14 @@ function f_sum(
     l = log(-z[3]/z[1])
     barrier += -log(z[2]-z[1]-z[1]*l)-log(-z[1])-log(z[3])
 
-    # Primal barrier
-    o = WrightOmega(1-s[1]/s[2]-log(s[2])+log(s[3]))
+    # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
+    # NB: Since ⟨s,g(s)⟩ = -3 = - ν and it would be cancelled out when we add the full degree of the problem, we don't add it here
+    # barrier -= 3
+    o = WrightOmega(1-s[1]/s[2]-log(s[2]/s[3]))
     o = (o-1)*(o-1)/o
-    barrier += -log(o)-2*log(s[2])-log(s[3])-3
+    barrier += -log(o)-2*log(s[2])-log(s[3])
+
+
 
     return barrier
 end
@@ -433,9 +437,9 @@ end
 # Returns true if s is primal feasible
 function checkExpPrimalFeas(s::AbstractVector{T}) where {T}
 
-    if (s[3]>eps(T) && s[2]>eps(T))   #feasible
+    if (s[3] > 0 && s[2] > 0)   #feasible
         res = s[2]*log(s[3]/s[2]) - s[1]
-        if (res > eps(T))
+        if (res > 0)
             return true
         end
     end
@@ -446,9 +450,9 @@ end
 # Returns true if s is dual feasible
 function checkExpDualFeas(z::AbstractVector{T}) where {T}
 
-    if (z[3]>eps(T) && z[1]< -eps(T))
+    if (z[3] > 0 && z[1] < 0)
         res = z[2] - z[1] - z[1]*log(-z[3]/z[1])
-        if (res > eps(T))
+        if (res > 0)
             return true
         end
     end
@@ -456,11 +460,26 @@ function checkExpDualFeas(z::AbstractVector{T}) where {T}
     return false
 end
 
+# Compute the primal gradient of f(s) at s
+# solve it by the Newton-Raphson method
+function GradPrim(
+    K::ExponentialCone{T},
+    g::AbstractVector{T},
+    s::AbstractVector{T}
+) where {T}
+
+    o = WrightOmega(1-s[1]/s[2]-log(s[2]/s[3]))
+    
+    g[1] = one(T)/((o-1)*s[2])
+    g[2] = g[1] + g[1]*log(o*s[2]/s[3]) - one(T)/s[2]
+    g[3] = o/((one(T) - o)*s[3])
+
+end
 
 # ω(z) is the Wright-Omega function
 # Computes the value ω(z) defined as the solution y to
 # the equation y+log(y) = z ONLY FOR z real and z>=1.
-# NB::copy from ECOS solver, which comes from Santiago's thesis, "Algorithms for Unsymmetric Cone Optimization and an Implementation for Problems with the Exponential Cone"
+# NB::the code is from ECOS solver, which comes from Santiago's thesis, "Algorithms for Unsymmetric Cone Optimization and an Implementation for Problems with the Exponential Cone"
 function WrightOmega(z::T) where {T}
     w  = T(0);
     r  = T(0);

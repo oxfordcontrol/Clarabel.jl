@@ -136,10 +136,10 @@ function unsymmetric_step_length(
     end
 
     # avoid abuse of α
-    exp = K.α
+    αExp = K.α
 
-    αz = _step_length_power_dual(K.vecWork,dz,z,α,scaling,exp)
-    αs = _step_length_power_primal(K.vecWork,ds,s,α,scaling,exp)
+    αz = _step_length_power_dual(K.vecWork,dz,z,α,scaling,αExp)
+    αs = _step_length_power_primal(K.vecWork,ds,s,α,scaling,αExp)
 
     return min(αz,αs)
 end
@@ -153,20 +153,20 @@ function _step_length_power_primal(
     s::AbstractVector{T},
     α::T,
     scaling::T,
-    exp::T
+    αExp::T
 ) where {T}
 
     # NB: additional memory, may need to remove it later
     # @. ws = s + α*ds
     @inbounds for i = 1:3
-        ws[i] = s + α*ds[i]                
+        ws[i] = s[i] + α*ds[i]                
     end
 
-    while !checkPowerPrimalFeas(ws,exp)
+    while !checkPowerPrimalFeas(ws,αExp)
         α *= scaling    #backtrack line search
         # @. ws = s + α*ds
         @inbounds for i = 1:3
-            ws[i] = s + α*ds[i]                
+            ws[i] = s[i] + α*ds[i]                
         end
     end
 
@@ -179,20 +179,20 @@ function _step_length_power_dual(
     z::AbstractVector{T},
     α::T,
     scaling::T,
-    exp::T
+    αExp::T
 ) where {T}
 
     # NB: additional memory, may need to remove it later
     # @. ws = z + α*dz
     @inbounds for i = 1:3
-        ws[i] = z + α*dz[i]                
+        ws[i] = z[i] + α*dz[i]                
     end
 
-    while !checkPowerDualFeas(ws,exp)
+    while !checkPowerDualFeas(ws,αExp)
         α *= scaling    #backtrack line search
         # @. ws = z + α*dz
         @inbounds for i = 1:3
-            ws[i] = z + α*dz[i]                
+            ws[i] = z[i] + α*dz[i]                
         end
     end
 
@@ -205,7 +205,7 @@ end
 # Basic operations for Power Cones
 # Primal Power cone: s1^{α}s2^{1-α} ≥ s3, s1,s2 ≥ 0
 # Dual Power cone: (z1/α)^{α} * (z2/(1-α))^{1-α} ≥ z3, z1,z2 ≥ 0
-# We use the dual barrier function: f*(z) = -log((z1/α)^{2α} * (z2/(1-α))^{2(1-α)} - z3*z3) - log(z1) - log(z2):
+# We use the dual barrier function: f*(z) = -log((z1/α)^{2α} * (z2/(1-α))^{2(1-α)} - z3*z3) - (1-α)*log(z1) - α*log(z2):
 # Evaluates the gradient of the dual Power cone ∇f*(z) at z, and stores the result at g
 function GradF(
     K::PowerCone{T},
@@ -326,6 +326,30 @@ function higherCorrection!(
 
 end
 
+function f_sum(
+    K::PowerCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+
+    α = K.α
+    barrier = T(0)
+
+    # Dual barrier
+    barrier += -log((z[1]/α)^(2*α) * (z[2]/(1-α))^(2-2*α) - z[3]*z[3]) - (1-α)*log(z[1]) - α*log(z[2])
+
+    # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
+    # NB: Since ⟨s,g(s)⟩ = -3 = - ν and it would be cancelled out when we add the full degree of the problem, we don't add it here
+    # barrier -= 3
+    g = K.vecWork
+    GradPrim(K,g,s)     #compute g(s)
+    barrier += log((-g[1]/α)^(2*α) * (-g[2]/(1-α))^(2-2*α) - g[3]*g[3]) + (1-α)*log(-g[1]) + α*log(-g[2])
+    
+    # barrier -= 3
+
+    return barrier
+end
+
 # check neighbourhood
 function _check_neighbourhood(
     K::PowerCone{T},
@@ -373,9 +397,9 @@ function checkPowerPrimalFeas(s::AbstractVector{T},α::T) where {T}
     s2 = s[2]
     s3 = s[3]
 
-    if (s1 > eps(T) && s2 > eps(T))
+    if (s1 > 0 && s2 > 0)
         res = exp(2*α*log(s1) + 2*(1-α)*log(s2)) - s3*s3
-        if res > eps(T)
+        if res > 0
             return true
         end
     end
@@ -386,12 +410,79 @@ end
 # Returns true if s is dual feasible
 function checkPowerDualFeas(z::AbstractVector{T},α::T) where {T}
 
-    if (z[1] > eps(T) && z[2] > eps(T))
+    if (z[1] > 0 && z[2] > 0)
         res = exp(2*α*log(z[1]/α) + 2*(1-α)*log(z[2]/(1-α))) - z[3]*z[3]
-        if res > eps(T)
+        if res > 0
             return true
         end
     end
 
     return false
+end
+
+# Compute the primal gradient of f(s) at s
+# solve it by the Newton-Raphson method
+function GradPrim(
+    K::PowerCone{T},
+    g::AbstractVector{T},
+    s::AbstractVector{T}
+) where {T}
+
+    α = K.α
+
+    # unscaled ϕ 
+    ϕ = (s[1])^(2*α)*(s[2])^(2-2*α)
+
+    # obtain g3 from the Newton-Raphson method
+    abs_s = abs(s[3])
+    if abs_s > eps(T)
+        g[3] = NewtonRaphson(abs_s,ϕ,α)    
+        if s[3] < 0
+            g[3] = -g[3]
+        end  
+        g[1] = -(α*g[3]*s[3] + 1 + α)/s[1]
+        g[2] = -((1-α)*g[3]*s[3] + 2 - α)/s[2]
+    else
+        g[3] = zero(T)
+        g[1] = -(1+α)/s[1]
+        g[2] = -(2-α)/s[2]
+    end
+
+end
+
+# Newton-Raphson method 
+# solve an one-dimensional equation f(x) = 0
+# x(k+1) = x(k) - f(x(k))/f'(x(k))
+# When we initialize x0 such that 0 < x0 < x*, the Newton-Raphson method converges quadratically
+function NewtonRaphson(
+    s3::T,
+    ϕ::T,
+    α::T
+) where {T}
+    # init point x0: since our dual barrier has an additional shift -2α*log(α) - 2(1-α)*log(1-α) > 0 in f(x), 
+    # the previous selection from Hypatia is still feasible, i.e. f(x0) > 0 
+    x = -one(T)/s3 + 2*(s3 + sqrt(4*ϕ*ϕ/s3/s3 + 3*ϕ))/(4*ϕ - s3*s3)
+
+    t0 = - 2*α*log(α) - 2*(1-α)*log(1-α)    # additional shift due to the choice of dual barrier
+    t1 = x*x
+    t2 = x*2/s3
+
+    f0 = 2*α*log(2*α*t1 + (1+α)*t2) + 2*(1-α)*log(2*(1-α)*t1 + (2-α)*t2) - log(ϕ) - log(t1+t2) - 2*log(t2) + t0  
+    f1 = 2*α*α/(α*x + (1+α)/s3) + 2*(1-α)*(1-α)/((1-α)*x + (2-α)/s3) - 2*(x + 1/s3)/(t1 + t2)
+
+    xnew = x - f0/f1 
+
+    # terminate when abs(xnew - x) <= eps(T)
+    while (xnew - x) > eps(T)
+        # println("x is ",x)
+        x = xnew
+
+        t1 = x*x
+        t2 = x*2/s3
+        f0 = 2*α*log(2*α*t1 + (1+α)*t2) + 2*(1-α)*log(2*(1-α)*t1 + (2-α)*t2) - log(ϕ) - log(t1+t2) - 2*log(t2) + t0  
+        f1 = 2*α*α/(α*x + (1+α)/s3) + 2*(1-α)*(1-α)/((1-α)*x + (2-α)/s3) - 2*(x + 1/s3)/(t1 + t2)
+        xnew = x - f0/f1 
+    end
+
+    return xnew
 end
