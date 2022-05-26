@@ -28,7 +28,7 @@ function update_scaling!(
     # K.z .= z
 end
 
-# return μH*(z) for exponetial cone
+# return μH*(z) for power cone
 function get_WtW_block!(
     K::PowerCone{T},
     WtWblock::AbstractVector{T}
@@ -156,7 +156,6 @@ function _step_length_power_primal(
     αExp::T
 ) where {T}
 
-    # NB: additional memory, may need to remove it later
     # @. ws = s + α*ds
     @inbounds for i = 1:3
         ws[i] = s[i] + α*ds[i]                
@@ -182,7 +181,6 @@ function _step_length_power_dual(
     αExp::T
 ) where {T}
 
-    # NB: additional memory, may need to remove it later
     # @. ws = z + α*dz
     @inbounds for i = 1:3
         ws[i] = z[i] + α*dz[i]                
@@ -255,77 +253,6 @@ function muHessianF(
     H .*= μ
 end
 
-# 3rd-order correction at the point z, w.r.t. directions u,v, and then save it to η
-# NB: not finished yet
-function higherCorrection!(
-    K::PowerCone{T},
-    η::AbstractVector{T},
-    ds::AbstractVector{T},
-    v::AbstractVector{T}
-) where {T}
-
-    # u for H^{-1}*Δs
-    #NB: need to be refined later
-    μH = K.μHWork
-    u = K.vecWork
-    F = K.FWork
-    z = K.z
-
-    # recompute Hessian
-    muHessianF(K,z,μH, one(T))
-
-    if F === nothing
-        F = lu(μH, check= false)
-    else
-        F = lu!(μH, check= false)
-    end
-
-    if !issuccess(F)
-        increase_diag!(μH)
-        F = lu!(μH)
-    end
-
-    ldiv!(u,F,ds)    #equivalent to Hinv*ds
-
-    α = K.α
-
-    ϕ = (z[1]/α)^(2*α)*(z[2]/(1-α))^(2-2*α)
-    ψ = ϕ - z[3]*z[3]
-
-    # memory allocation
-    gψ = K.gradWork
-    Hψ = K.μHWork
-
-    gψ[1] = 2*α*ϕ/z[1]
-    gψ[2] = 2*(1-α)*ϕ/z[2]
-    gψ[3] = -2*z[3]
-
-    # Hψ = [  2*α*(2*α-1)*ϕ/(z1*z1)     4*α*(1-α)*ϕ/(z1*z2)       0;
-    #         4*α*(1-α)*ϕ/(z1*z2)     2*(1-α)*(1-2*α)*ϕ/(z2*z2)   0;
-    #         0                       0                          -2;]
-    Hψ[1,1] = 2*α*(2*α-1)*ϕ/(z[1]*z[1])
-    Hψ[1,2] = 4*α*(1-α)*ϕ/(z[1]*z[2])
-    Hψ[2,1] = Hψ[1,2]
-    Hψ[1,3] = 0
-    Hψ[3,1] = Hψ[1,3]
-    Hψ[2,2] = 2*(1-α)*(1-2*α)*ϕ/(z[2]*z[2])
-    Hψ[2,3] = 0
-    Hψ[3,2] = Hψ[2,3]
-    Hψ[3,3] = -2
-
-    dotψu = dot(gψ,u)
-    dotψv = dot(gψ,v)
-
-    dotψuv = 4*α*(2*α-1)*(1-α)*ϕ*[-u[1]*v[1]/(z[1]*z[1]*z[1]) + (u[2]*v[1]+u[1]*v[2])/(z[1]*z[1]*z[2]) - u[2]*v[2]/(z[1]*z[2]*z[2]); u[1]*v[1]/(z[1]*z[1]*z[2]) - (u[2]*v[1]+u[1]*v[2])/(z[1]*z[2]*z[2]) + u[2]*v[2]/(z[2]*z[2]*z[2]); 0]
-    dothuv = [-2*(1-α)*u[1]*v[1]/(z[1]*z[1]*z[1]); -2*α*u[2]*v[2]/(z[2]*z[2]*z[2]); 0]
-    Hψv = Hψ*v
-    Hψu = Hψ*u
-
-    η .= (dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv
-    η ./= -2
-
-end
-
 function f_sum(
     K::PowerCone{T},
     s::AbstractVector{T},
@@ -339,57 +266,14 @@ function f_sum(
     barrier += -log((z[1]/α)^(2*α) * (z[2]/(1-α))^(2-2*α) - z[3]*z[3]) - (1-α)*log(z[1]) - α*log(z[2])
 
     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
-    # NB: Since ⟨s,g(s)⟩ = -3 = - ν and it would be cancelled out when we add the full degree of the problem, we don't add it here
-    # barrier -= 3
+    # NB: ⟨s,g(s)⟩ = -3 = - ν 
+
     g = K.vecWork
     GradPrim(K,g,s)     #compute g(s)
-    barrier += log((-g[1]/α)^(2*α) * (-g[2]/(1-α))^(2-2*α) - g[3]*g[3]) + (1-α)*log(-g[1]) + α*log(-g[2])
-    
-    # barrier -= 3
+    barrier += log((-g[1]/α)^(2*α) * (-g[2]/(1-α))^(2-2*α) - g[3]*g[3]) + (1-α)*log(-g[1]) + α*log(-g[2]) - 3
 
     return barrier
 end
-
-# check neighbourhood
-function _check_neighbourhood(
-    K::PowerCone{T},
-    s::AbstractVector{T},
-    z::AbstractVector{T},
-    μ::T,
-    η::T
-) where {T}
-
-    grad = K.gradWork
-    μH = K.μHWork
-    F = K.FWork
-    tmp = K.vecWork
-
-    # compute gradient and Hessian at z
-    GradF(K, z, grad)
-    muHessianF(K, z, μH, μ)
-
-    if F === nothing
-        F = lu(μH, check= false)
-    else
-        F = lu!(μH, check= false)
-    end
-
-    if !issuccess(F)
-        increase_diag!(μH)
-        lu!(F,μH)
-    end
-
-    # grad as a workspace for s + μ*grad
-    axpby!(one(T), s, μ, grad)
-
-    ldiv!(tmp,F,grad)
-    if (dot(tmp,grad)/μ < η)
-        return true
-    end
-
-    return false
-end
-
 
 # Returns true if s is primal feasible
 function checkPowerPrimalFeas(s::AbstractVector{T},α::T) where {T}
@@ -485,4 +369,120 @@ function NewtonRaphson(
     end
 
     return xnew
+end
+
+
+######################################
+# May need to be removed later
+######################################
+
+# 3rd-order correction at the point z, w.r.t. directions u,v, and then save it to η
+# NB: not finished yet
+function higherCorrection!(
+    K::PowerCone{T},
+    η::AbstractVector{T},
+    ds::AbstractVector{T},
+    v::AbstractVector{T}
+) where {T}
+
+    # u for H^{-1}*Δs
+    #NB: need to be refined later
+    μH = K.μHWork
+    u = K.vecWork
+    F = K.FWork
+    z = K.z
+
+    # recompute Hessian
+    muHessianF(K,z,μH, one(T))
+
+    if F === nothing
+        F = lu(μH, check= false)
+    else
+        F = lu!(μH, check= false)
+    end
+
+    if !issuccess(F)
+        increase_diag!(μH)
+        F = lu!(μH)
+    end
+
+    ldiv!(u,F,ds)    #equivalent to Hinv*ds
+
+    α = K.α
+
+    ϕ = (z[1]/α)^(2*α)*(z[2]/(1-α))^(2-2*α)
+    ψ = ϕ - z[3]*z[3]
+
+    # memory allocation
+    gψ = K.gradWork
+    Hψ = K.μHWork
+
+    gψ[1] = 2*α*ϕ/z[1]
+    gψ[2] = 2*(1-α)*ϕ/z[2]
+    gψ[3] = -2*z[3]
+
+    # Hψ = [  2*α*(2*α-1)*ϕ/(z1*z1)     4*α*(1-α)*ϕ/(z1*z2)       0;
+    #         4*α*(1-α)*ϕ/(z1*z2)     2*(1-α)*(1-2*α)*ϕ/(z2*z2)   0;
+    #         0                       0                          -2;]
+    Hψ[1,1] = 2*α*(2*α-1)*ϕ/(z[1]*z[1])
+    Hψ[1,2] = 4*α*(1-α)*ϕ/(z[1]*z[2])
+    Hψ[2,1] = Hψ[1,2]
+    Hψ[1,3] = 0
+    Hψ[3,1] = Hψ[1,3]
+    Hψ[2,2] = 2*(1-α)*(1-2*α)*ϕ/(z[2]*z[2])
+    Hψ[2,3] = 0
+    Hψ[3,2] = Hψ[2,3]
+    Hψ[3,3] = -2
+
+    dotψu = dot(gψ,u)
+    dotψv = dot(gψ,v)
+
+    dotψuv = 4*α*(2*α-1)*(1-α)*ϕ*[-u[1]*v[1]/(z[1]*z[1]*z[1]) + (u[2]*v[1]+u[1]*v[2])/(z[1]*z[1]*z[2]) - u[2]*v[2]/(z[1]*z[2]*z[2]); u[1]*v[1]/(z[1]*z[1]*z[2]) - (u[2]*v[1]+u[1]*v[2])/(z[1]*z[2]*z[2]) + u[2]*v[2]/(z[2]*z[2]*z[2]); 0]
+    dothuv = [-2*(1-α)*u[1]*v[1]/(z[1]*z[1]*z[1]); -2*α*u[2]*v[2]/(z[2]*z[2]*z[2]); 0]
+    Hψv = Hψ*v
+    Hψu = Hψ*u
+
+    η .= (dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv
+    η ./= -2
+
+end
+
+# check neighbourhood
+function _check_neighbourhood(
+    K::PowerCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T},
+    μ::T,
+    η::T
+) where {T}
+
+    grad = K.gradWork
+    μH = K.μHWork
+    F = K.FWork
+    tmp = K.vecWork
+
+    # compute gradient and Hessian at z
+    GradF(K, z, grad)
+    muHessianF(K, z, μH, μ)
+
+    if F === nothing
+        F = lu(μH, check= false)
+    else
+        F = lu!(μH, check= false)
+    end
+
+    if !issuccess(F)
+        increase_diag!(μH)
+        lu!(F,μH)
+    end
+
+    # grad as a workspace for s + μ*grad
+    axpby!(one(T), s, μ, grad)
+
+    ldiv!(tmp,F,grad)
+    if (dot(tmp,grad)/μ < η)
+        return true
+    end
+
+    return false
 end

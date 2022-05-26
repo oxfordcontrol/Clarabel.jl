@@ -85,9 +85,6 @@ function combined_ds!(
     @inbounds for i = 1:3
         dz[i] = K.grad[i]*σμ                 #dz <- σμ*g(z)
     end
-    #println("type K.grad = ", typeof(K.grad))
-    #println("type σμ = ", typeof(σμ))
-    #println("type dz = ", typeof(dz))
 
     return nothing
 end
@@ -153,7 +150,6 @@ function _step_length_exp_primal(
     scaling::T
 ) where {T}
 
-    # NB: additional memory, may need to remove it later
     # @. ws = s + α*ds
     @inbounds for i = 1:3
         ws[i] = s[i] + α*ds[i]                
@@ -257,75 +253,6 @@ function muHessianF(
     H .*= μ
 end
 
-# 3rd-order correction at the point z, w.r.t. directions u,v and then save it to η
-# NB: not finished yet
-function higherCorrection!(
-    K::ExponentialCone{T},
-    η::AbstractVector{T},
-    ds::AbstractVector{T},
-    v::AbstractVector{T}
-) where {T}
-
-    # u for H^{-1}*Δs
-    μH = K.μHWork
-    u = K.vecWork
-    F = K.FWork
-    z = K.z
-
-    # recompute Hessian
-    muHessianF(K,z,μH,one(T))
-
-    if F === nothing
-        F = lu(μH, check= false)
-    else
-        F = lu!(μH, check= false)
-    end
-
-    if !issuccess(F)
-        increase_diag!(μH)
-        F = lu!(μH)
-    end
-
-    ldiv!(u,F,ds)    #equivalent to Hinv*ds
-
-    l = log(-z[3]/z[1])
-    ψ = -z[1]*l-z[1]+z[2]
-
-    # memory allocation
-    gψ = K.gradWork
-    Hψ = K.μHWork
-
-    gψ[1] = -l
-    gψ[2] = 1
-    gψ[3] = -z[1]/z[3]    # gradient of ψ
-
-    # Hψ = [  1/z[1]    0   -1/z[3];
-    #           0       0   0;
-    #         -1/z[3]   0   z[1]/(z[3]*z[3]);]
-    Hψ[1,1] = 1/z[1]
-    Hψ[1,2] = 0
-    Hψ[2,1] = Hψ[1,2]
-    Hψ[1,3] = -1/z[3]
-    Hψ[3,1] = Hψ[1,3]
-    Hψ[2,2] = 0
-    Hψ[2,3] = 0
-    Hψ[3,2] = Hψ[2,3]
-    Hψ[3,3] = z[1]/(z[3]*z[3])
-
-    dotψu = dot(gψ,u)
-    dotψv = dot(gψ,v)
-
-    dotψuv = [-u[1]*v[1]/(z[1]*z[1]) + u[3]*v[3]/(z[3]*z[3]); 0; (u[3]*v[1]+u[1]*v[3])/(z[3]*z[3]) - 2*z[1]*u[3]*v[3]/(z[3]*z[3]*z[3])]
-    dothuv = [-2*u[1]*v[1]/(z[1]*z[1]*z[1]); 0; -2*u[3]*v[3]/(z[3]*z[3]*z[3])]
-    Hψv = Hψ*v
-    Hψu = Hψ*u
-
-    η .= (dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv
-    η ./= -2
-
-end
-
-# f(s) = -2*log(s2) - log(s3) - log((1-barω)^2/barω) - 3, where barω = ω(1 - s1/s2 - log(s2) - log(s3))
 function f_sum(
     K::ExponentialCone{T},
     s::AbstractVector{T},
@@ -339,100 +266,14 @@ function f_sum(
     barrier += -log(z[2]-z[1]-z[1]*l)-log(-z[1])-log(z[3])
 
     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
-    # NB: Since ⟨s,g(s)⟩ = -3 = - ν and it would be cancelled out when we add the full degree of the problem, we don't add it here
-    # barrier -= 3
+    # f(s) = -2*log(s2) - log(s3) - log((1-barω)^2/barω) - 3, where barω = ω(1 - s1/s2 - log(s2) - log(s3))
+    # NB: ⟨s,g(s)⟩ = -3 = - ν 
     o = WrightOmega(1-s[1]/s[2]-log(s[2]/s[3]))
     o = (o-1)*(o-1)/o
-    barrier += -log(o)-2*log(s[2])-log(s[3])
-
-
+    barrier += -log(o)-2*log(s[2])-log(s[3]) - 3
 
     return barrier
 end
-
-# check neighbourhood
-function _check_neighbourhood(
-    K::ExponentialCone{T},
-    s::AbstractVector{T},
-    z::AbstractVector{T},
-    μ::T,
-    η::T
-) where {T}
-
-    # to = TimerOutput()
-
-    grad = K.gradWork
-    H = K.μHWork
-    F = K.FWork
-    tmp = K.vecWork
-
-    # compute gradient at z
-    l = log(-z[3]/z[1])
-    r = -z[1]*l-z[1]+z[2]
-
-    grad[1] = r*l - 1/z[1]
-    grad[2] = -r
-    grad[3] = (r*z[1]-1)/z[3]
-
-    # compute inverse Hessian 
-    H[1,1] = z[1]^2*(z[1]-r)
-    H[1,2] = z[1]^2*(z[1] - l*r + l*z[1])
-    H[2,1] = H[1,2]
-    H[2,2] = -l^2*r*z[1]^2 + (l+2)*l*z[1]^3 - r^3 + 2*r^2*z[1] - r*z[1]^2 + z[1]^3
-    H[1,3] = z[1]^2*z[3]
-    H[3,1] = H[1,3]
-    H[2,3] = z[1]*z[3]*(z[1] - r + l*z[1])
-    H[3,2] = H[2,3]
-    H[3,3] = z[3]^2*(z[1] - r)
-    H ./= (2*z[1] - r)
-
-    # grad as a workspace for s/μ + grad
-    axpy!(1/μ, s, grad)
-    if (dot(grad,H,grad) < η)
-        return true
-    end
-
-    # NB::Currently, direct Hinv is horrible due to potential numerical errors,
-    # YC:: 1) it implies that we'd better to use only first-order information for centrality check
-    #      2) also, we should allow larger neighbourhood for a shorter iteration number
-
-    # # grad as a workspace for s + μ*grad
-    # axpby!(one(T), s, μ, grad)
-    # if (dot(grad,H,grad)/μ^2 < η)
-        # return true
-    # end
-
-    # println("away from central path due to cone with ", dot(grad,H,grad))
-
-    # # compute gradient and Hessian at z
-    # GradF(K, z, grad)
-    # muHessianF(K, z, H, μ)
-
-    # if F === nothing
-    #     F = lu(H, check= false)
-    # else
-    #     F = lu!(H, check= false)
-    # end
-
-    # if !issuccess(F)
-    #     increase_diag!(H)
-    #     F = lu!(H)
-    # end
-
-    # # grad as a workspace for s + μ*grad
-    # axpby!(one(T), s, μ, grad)
-
-    # ldiv!(tmp,F,grad)
-    # if (dot(tmp,grad)/μ < η)
-    #     println("away from central path due to cone with ", norm(dot(tmp,grad)/μ))
-    #     return true
-    # end
-
-    # println("away from central path due to cone with ", norm(dot(tmp,grad)/μ))
-
-    return false
-end
-
 
 # Returns true if s is primal feasible
 function checkExpPrimalFeas(s::AbstractVector{T}) where {T}
@@ -534,4 +375,161 @@ function WrightOmega(z::T) where {T}
     r = (2*w*w-8*w-1)/(72.0*(z*z*z*z*z*z))*r*r*r*r;
 
     return w;
+end
+
+
+######################################
+# May need to be removed later
+######################################
+
+
+# 3rd-order correction at the point z, w.r.t. directions u,v and then save it to η
+# NB: not so effective at present
+function higherCorrection!(
+    K::ExponentialCone{T},
+    η::AbstractVector{T},
+    ds::AbstractVector{T},
+    v::AbstractVector{T}
+) where {T}
+
+    # u for H^{-1}*Δs
+    μH = K.μHWork
+    u = K.vecWork
+    F = K.FWork
+    z = K.z
+
+    # recompute Hessian
+    muHessianF(K,z,μH,one(T))
+
+    if F === nothing
+        F = lu(μH, check= false)
+    else
+        F = lu!(μH, check= false)
+    end
+
+    if !issuccess(F)
+        increase_diag!(μH)
+        F = lu!(μH)
+    end
+
+    ldiv!(u,F,ds)    #equivalent to Hinv*ds
+
+    l = log(-z[3]/z[1])
+    ψ = -z[1]*l-z[1]+z[2]
+
+    # memory allocation
+    gψ = K.gradWork
+    Hψ = K.μHWork
+
+    gψ[1] = -l
+    gψ[2] = 1
+    gψ[3] = -z[1]/z[3]    # gradient of ψ
+
+    # Hψ = [  1/z[1]    0   -1/z[3];
+    #           0       0   0;
+    #         -1/z[3]   0   z[1]/(z[3]*z[3]);]
+    Hψ[1,1] = 1/z[1]
+    Hψ[1,2] = 0
+    Hψ[2,1] = Hψ[1,2]
+    Hψ[1,3] = -1/z[3]
+    Hψ[3,1] = Hψ[1,3]
+    Hψ[2,2] = 0
+    Hψ[2,3] = 0
+    Hψ[3,2] = Hψ[2,3]
+    Hψ[3,3] = z[1]/(z[3]*z[3])
+
+    dotψu = dot(gψ,u)
+    dotψv = dot(gψ,v)
+
+    dotψuv = [-u[1]*v[1]/(z[1]*z[1]) + u[3]*v[3]/(z[3]*z[3]); 0; (u[3]*v[1]+u[1]*v[3])/(z[3]*z[3]) - 2*z[1]*u[3]*v[3]/(z[3]*z[3]*z[3])]
+    dothuv = [-2*u[1]*v[1]/(z[1]*z[1]*z[1]); 0; -2*u[3]*v[3]/(z[3]*z[3]*z[3])]
+    Hψv = Hψ*v
+    Hψu = Hψ*u
+
+    η .= (dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv
+    η ./= -2
+
+end
+
+# check neighbourhood
+function _check_neighbourhood(
+    K::ExponentialCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T},
+    μ::T,
+    η::T
+) where {T}
+
+    # to = TimerOutput()
+
+    grad = K.gradWork
+    H = K.μHWork
+    F = K.FWork
+    tmp = K.vecWork
+
+    # compute gradient at z
+    l = log(-z[3]/z[1])
+    r = -z[1]*l-z[1]+z[2]
+
+    grad[1] = r*l - 1/z[1]
+    grad[2] = -r
+    grad[3] = (r*z[1]-1)/z[3]
+
+    # compute inverse Hessian 
+    H[1,1] = z[1]^2*(z[1]-r)
+    H[1,2] = z[1]^2*(z[1] - l*r + l*z[1])
+    H[2,1] = H[1,2]
+    H[2,2] = -l^2*r*z[1]^2 + (l+2)*l*z[1]^3 - r^3 + 2*r^2*z[1] - r*z[1]^2 + z[1]^3
+    H[1,3] = z[1]^2*z[3]
+    H[3,1] = H[1,3]
+    H[2,3] = z[1]*z[3]*(z[1] - r + l*z[1])
+    H[3,2] = H[2,3]
+    H[3,3] = z[3]^2*(z[1] - r)
+    H ./= (2*z[1] - r)
+
+    # grad as a workspace for s/μ + grad
+    axpy!(1/μ, s, grad)
+    if (dot(grad,H,grad) < η)
+        return true
+    end
+
+    # NB::Currently, direct Hinv is horrible due to potential numerical errors,
+    # YC:: 1) it implies that we'd better to use only first-order information for centrality check
+    #      2) also, we should allow larger neighbourhood for a shorter iteration number
+
+    # # grad as a workspace for s + μ*grad
+    # axpby!(one(T), s, μ, grad)
+    # if (dot(grad,H,grad)/μ^2 < η)
+        # return true
+    # end
+
+    # println("away from central path due to cone with ", dot(grad,H,grad))
+
+    # # compute gradient and Hessian at z
+    # GradF(K, z, grad)
+    # muHessianF(K, z, H, μ)
+
+    # if F === nothing
+    #     F = lu(H, check= false)
+    # else
+    #     F = lu!(H, check= false)
+    # end
+
+    # if !issuccess(F)
+    #     increase_diag!(H)
+    #     F = lu!(H)
+    # end
+
+    # # grad as a workspace for s + μ*grad
+    # axpby!(one(T), s, μ, grad)
+
+    # ldiv!(tmp,F,grad)
+    # if (dot(tmp,grad)/μ < η)
+    #     println("away from central path due to cone with ", norm(dot(tmp,grad)/μ))
+    #     return true
+    # end
+
+    # println("away from central path due to cone with ", norm(dot(tmp,grad)/μ))
+
+    return false
 end

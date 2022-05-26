@@ -84,7 +84,7 @@ T = Float64
 P,c,A,b,cone_types,cone_dims,A1,A2,A3,A4,A5,A6,b1,b2,b3,b4,b5,b6,α = expconeData(T)
 n = 7
 
-# using Hypatia
+using Hypatia
 
 println("\n\nJuMP\n-------------------------\n\n")
 opt = Mosek.Optimizer()
