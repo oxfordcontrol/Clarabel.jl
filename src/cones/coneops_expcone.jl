@@ -77,10 +77,11 @@ function combined_ds!(
     step_s::AbstractVector{T},
     σμ::T
 ) where {T}
-    # η = similar(dz)
+    # η = K.gradWork      #share the same memory as gψ in higherCorrection!()
     # higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
-    # @. dz = η + σμ*K.grad
-
+    # @inbounds for i = 1:3
+    #     dz[i] = η[i] + K.grad[i]*σμ                 
+    # end
 
     @inbounds for i = 1:3
         dz[i] = K.grad[i]*σμ                 #dz <- σμ*g(z)
@@ -441,14 +442,21 @@ function higherCorrection!(
     dotψu = dot(gψ,u)
     dotψv = dot(gψ,v)
 
-    dotψuv = [-u[1]*v[1]/(z[1]*z[1]) + u[3]*v[3]/(z[3]*z[3]); 0; (u[3]*v[1]+u[1]*v[3])/(z[3]*z[3]) - 2*z[1]*u[3]*v[3]/(z[3]*z[3]*z[3])]
-    dothuv = [-2*u[1]*v[1]/(z[1]*z[1]*z[1]); 0; -2*u[3]*v[3]/(z[3]*z[3]*z[3])]
-    Hψv = Hψ*v
-    Hψu = Hψ*u
+    # 3rd order correction: η = -0.5*[(dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv]
+    # where :
+    # dotψuv = [-u[1]*v[1]/(z[1]*z[1]) + u[3]*v[3]/(z[3]*z[3]); 0; (u[3]*v[1]+u[1]*v[3])/(z[3]*z[3]) - 2*z[1]*u[3]*v[3]/(z[3]*z[3]*z[3])]
+    # dothuv = [-2*u[1]*v[1]/(z[1]*z[1]*z[1]) ; 0; -2*u[3]*v[3]/(z[3]*z[3]*z[3])]
+    # Hψv = Hψ*v
+    # Hψu = Hψ*u
 
-    η .= (dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv
-    η ./= -2
+    gψ .*= (dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)
+    inv_ψ2 = 1/ψ/ψ
 
+    gψ[1] += (1/ψ - 2/z[1])*u[1]*v[1]/(z[1]*z[1]) - u[3]*v[3]/(z[3]*z[3])/ψ + dotψu*inv_ψ2*(v[1]/z[1] - v[3]/z[3]) + dotψv*inv_ψ2*(u[1]/z[1] - u[3]/z[3])
+    gψ[3] += 2*(z[1]/ψ-1)*u[3]*v[3]/(z[3]*z[3]*z[3]) - (u[3]*v[1]+u[1]*v[3])/(z[3]*z[3])/ψ + dotψu*inv_ψ2*(z[1]*v[3]/(z[3]*z[3]) - v[1]/z[3]) + dotψv*inv_ψ2*(z[1]*u[3]/(z[3]*z[3]) - u[1]/z[3])
+
+    gψ ./= -2
+    
 end
 
 # check neighbourhood
