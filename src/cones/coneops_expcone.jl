@@ -25,7 +25,7 @@ function update_scaling!(
     #update both gradient and Hessian for function f*(z) at the point z
     muHessianF(K,z,K.μH,μ)
     GradF(K,z,K.grad)
-    # K.z .= z
+    K.z .= z
 end
 
 # return μH*(z) for exponetial cone
