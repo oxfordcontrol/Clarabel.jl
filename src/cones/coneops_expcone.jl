@@ -400,6 +400,8 @@ function higherCorrection!(
     z = K.z
 
     # recompute Hessian
+    # NB:   if we could add μ as an input argument, we could avoid the re-computation of Hessian 
+    #       since μ*H has already be computed in K.μH
     muHessianF(K,z,μH,one(T))
 
     if F === nothing
@@ -409,8 +411,13 @@ function higherCorrection!(
     end
 
     if !issuccess(F)
-        increase_diag!(μH)
-        F = lu!(μH)
+        # regularization for the ill-conditioned case
+        # increase_diag!(μH)
+        # F = lu!(μH)
+        
+        # discard 3rd-order correction when the Hessian is ill-conditioned
+        η .= T(0)
+        return
     end
 
     ldiv!(u,F,ds)    #equivalent to Hinv*ds
@@ -420,36 +427,26 @@ function higherCorrection!(
 
     # memory allocation
     gψ = K.gradWork
-    Hψ = K.μHWork
+    # Hψ = K.μHWork
 
     gψ[1] = -l
     gψ[2] = 1
     gψ[3] = -z[1]/z[3]    # gradient of ψ
-
-    # Hψ = [  1/z[1]    0   -1/z[3];
-    #           0       0   0;
-    #         -1/z[3]   0   z[1]/(z[3]*z[3]);]
-    Hψ[1,1] = 1/z[1]
-    Hψ[1,2] = 0
-    Hψ[2,1] = Hψ[1,2]
-    Hψ[1,3] = -1/z[3]
-    Hψ[3,1] = Hψ[1,3]
-    Hψ[2,2] = 0
-    Hψ[2,3] = 0
-    Hψ[3,2] = Hψ[2,3]
-    Hψ[3,3] = z[1]/(z[3]*z[3])
 
     dotψu = dot(gψ,u)
     dotψv = dot(gψ,v)
 
     # 3rd order correction: η = -0.5*[(dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv]
     # where :
+    # Hψ = [  1/z[1]    0   -1/z[3];
+    #           0       0   0;
+    #         -1/z[3]   0   z[1]/(z[3]*z[3]);]
     # dotψuv = [-u[1]*v[1]/(z[1]*z[1]) + u[3]*v[3]/(z[3]*z[3]); 0; (u[3]*v[1]+u[1]*v[3])/(z[3]*z[3]) - 2*z[1]*u[3]*v[3]/(z[3]*z[3]*z[3])]
     # dothuv = [-2*u[1]*v[1]/(z[1]*z[1]*z[1]) ; 0; -2*u[3]*v[3]/(z[3]*z[3]*z[3])]
     # Hψv = Hψ*v
     # Hψu = Hψ*u
 
-    gψ .*= (dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)
+    gψ .*= ((u[1]*(v[1]/z[1] - v[3]/z[3]) + u[3]*(z[1]*v[3]/z[3] - v[1])/z[3])*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)
     inv_ψ2 = 1/ψ/ψ
 
     gψ[1] += (1/ψ - 2/z[1])*u[1]*v[1]/(z[1]*z[1]) - u[3]*v[3]/(z[3]*z[3])/ψ + dotψu*inv_ψ2*(v[1]/z[1] - v[3]/z[3]) + dotψv*inv_ψ2*(u[1]/z[1] - u[3]/z[3])
