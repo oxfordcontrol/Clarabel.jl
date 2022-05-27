@@ -12,7 +12,7 @@ function update_scaling!(
     q = K.q
     r = K.r
     Hs = K.Hs
-    δs = K.δs
+    δs = K.δs   
     δz = K.δz
 
 
