@@ -31,7 +31,7 @@ function calc_step_length(
     #   Centrality check for unsymmetric cones
     #   balance global μ and local μ_i of each nonsymmetric cone;
     #   check centrality, ensure the update is close to the central path
-    if (!cones.symFlag)
+    if (!cones.symFlag && steptype == :combined)
         α = check_μ_and_centrality(cones,step,variables,workVar,α)
 
         if (steptype == :combined && α < 1e-4)

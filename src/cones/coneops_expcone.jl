@@ -22,10 +22,13 @@ function update_scaling!(
     z::AbstractVector{T},
     μ::T
 ) where {T}
-    #update both gradient and Hessian for function f*(z) at the point z
-    muHessianF(K,z,K.μH,μ)
-    GradF(K,z,K.grad)
+    # #update both gradient and Hessian for function f*(z) at the point z
+    # muHessianF(K,z,K.μH,μ)
+    # GradF(K,z,K.grad)
     K.z .= z
+
+    # Hessian update
+    update_HBFGS(K,s,z,μ)
 end
 
 # return μH*(z) for exponetial cone
@@ -35,7 +38,8 @@ function get_WtW_block!(
 ) where {T}
 
     #Vectorize triu(K.μH)
-    _pack_triu(WtWblock,K.μH)
+    # _pack_triu(WtWblock,K.μH)
+    _pack_triu(WtWblock,K.HBFGS)
 
 end
 
@@ -115,7 +119,7 @@ function WtW_Δz!(
     workz::AbstractVector{T}
 ) where {T}
 
-    mul!(ls,K.μH,lz,-one(T),zero(T))
+    mul!(ls,K.HBFGS,lz,-one(T),zero(T))
 
 end
 
@@ -306,8 +310,8 @@ end
 # solve it by the Newton-Raphson method
 function GradPrim(
     K::ExponentialCone{T},
-    g::AbstractVector{T},
-    s::AbstractVector{T}
+    s::AbstractVector{T},
+    g::AbstractVector{T}
 ) where {T}
 
     o = WrightOmega(1-s[1]/s[2]-log(s[2]/s[3]))
@@ -394,7 +398,7 @@ function higherCorrection!(
 ) where {T}
 
     # u for H^{-1}*Δs
-    μH = K.μHWork
+    H = K.H
     u = K.vecWork
     F = K.FWork
     z = K.z
@@ -402,12 +406,11 @@ function higherCorrection!(
     # recompute Hessian
     # NB:   if we could add μ as an input argument, we could avoid the re-computation of Hessian 
     #       since μ*H has already be computed in K.μH
-    muHessianF(K,z,μH,one(T))
 
     if F === nothing
-        F = lu(μH, check= false)
+        F = lu(H, check= false)
     else
-        F = lu!(μH, check= false)
+        F = lu!(H, check= false)
     end
 
     if !issuccess(F)
@@ -552,19 +555,25 @@ end
 # NB: better to create two matrix spaces, one for the Hessian at z, H*(z), and another one for BFGS (primal-dual scaling) matrix, H-BFGS(z,s)
 
 
-function update_HBFGS(K,z,s,H,HBFGS,μ,μt) where {T}
+function update_HBFGS(
+    K::ExponentialCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T},
+    μ::T
+) where {T}
 
-    zt = rand(3)
-    st = rand(3)
-
-    GradPrim(K,zt,s)
+    st = rand(T,3)
+    zt = rand(T,3)
+    GradPrim(K,s,zt)
     zt .*= -1
-    GradPrim(K,st,z)
+    GradF(K,z,st)
     st .*= -1
 
+    H = K.H
+    HBFGS = K.HBFGS
+
     # should compute μ, μt globally
-    # μ = dot(z,s)/3
-    # μt = dot(zt,st)/3
+    μt = dot(zt,st)/3
 
     muHessianF(K,z,H,one(T))
 
@@ -580,4 +589,20 @@ function update_HBFGS(K,z,s,H,HBFGS,μ,μt) where {T}
         HBFGS .= μ*H
     end
 
+end
+
+# compute shadow iterates for centrality check
+function shadow_iterates!(
+    K::ExponentialCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T},
+    st::AbstractVector{T},
+    zt::AbstractVector{T},
+) where {T}
+
+    GradPrim(K,s,zt)
+    zt .*= -1
+    GradF(K,z,st)
+    st .*= -1
+    
 end

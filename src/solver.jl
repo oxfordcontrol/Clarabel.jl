@@ -184,6 +184,9 @@ function solve!(
             #--------------
             μ = calc_mu(s.variables, s.residuals, s.cones)
 
+            #calculate ̃z, ̃s, and store them in workVar
+            cal_shadow_iterates!(s.variables,s.cones, workVar)
+
             #convergence check and printing
             #--------------
             @timeit_debug timer "check termination" begin
@@ -441,6 +444,17 @@ function Base.show(io::IO, solver::Clarabel.Solver{T}) where {T}
     println(io, "Clarabel model with Float precision: $(T)")
 end
 
+function cal_shadow_iterates!(
+    variables::DefaultVariables{T},
+    cones::ConeSet{T},
+    workVar::DefaultVariables{T},
+) where {T}
+
+    cones_shadow_iterates!(cones, variables.s, variables.z, workVar.s, workVar.z)
+
+end
+
+# YC:need to be removed later
 function check_KKT_system!(
     kktsystem::DefaultKKTSystem{T},
     lhs::DefaultVariables{T},

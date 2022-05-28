@@ -214,11 +214,11 @@ PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 mutable struct ExponentialCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
-    μH::Matrix{T}       #μ*H for the linear sysmtem
+    H::Matrix{T}       #μ*H for the linear sysmtem
     grad::Vector{T}
 
     # workspace for centrality check
-    μHWork::Matrix{T}
+    HBFGS::Matrix{T}
     gradWork::Vector{T}
     vecWork::Vector{T}
     FWork::Union{SuiteSparse.UMFPACK.UmfpackLU,Nothing}
@@ -226,15 +226,15 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
 
     function ExponentialCone{T}() where {T}
         dim = 3
-        μH = Matrix{T}(undef,3,3)
+        H = Matrix{T}(undef,3,3)
         grad = Vector{T}(undef,3)
 
-        μHWork = Matrix{T}(undef,3,3)
+        HBFGS = Matrix{T}(undef,3,3)
         gradWork = Vector{T}(undef,3)
         vecWork = Vector{T}(undef,3)
         FWork = nothing
         z = Vector{T}(undef,3)
-        return new(dim,μH,grad,μHWork,gradWork,vecWork,FWork,z)
+        return new(dim,H,grad,HBFGS,gradWork,vecWork,FWork,z)
     end
 end
 
@@ -253,7 +253,7 @@ mutable struct PowerCone{T} <: AbstractCone{T}
     grad::Vector{T}
 
     # workspace for centrality check
-    μHWork::Matrix{T}
+    HBFGS::Matrix{T}
     gradWork::Vector{T}
     vecWork::Vector{T}
     FWork::Union{SuiteSparse.UMFPACK.UmfpackLU,Nothing}
@@ -264,12 +264,12 @@ mutable struct PowerCone{T} <: AbstractCone{T}
         μH = Matrix{T}(undef,3,3)
         grad = Vector{T}(undef,3)
 
-        μHWork = Matrix{T}(undef,3,3)
+        HBFGS = Matrix{T}(undef,3,3)
         gradWork = Vector{T}(undef,3)
         vecWork = Vector{T}(undef,3)
         FWork = nothing             #initialization
         z = Vector{T}(undef,3)
-        return new(dim,α,μH,grad,μHWork,gradWork,vecWork,FWork,z)
+        return new(dim,α,μH,grad,HBFGS,gradWork,vecWork,FWork,z)
     end
 end
 

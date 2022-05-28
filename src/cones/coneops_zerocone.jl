@@ -251,3 +251,14 @@ function _check_neighbourhood(
     return true
 
 end
+
+function shadow_iterates!(
+    K::ZeroCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T},
+    st::AbstractVector{T},
+    zt::AbstractVector{T},
+) where {T}
+
+    return nothing
+end

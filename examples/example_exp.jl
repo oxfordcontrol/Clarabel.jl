@@ -34,14 +34,14 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
 
     c = T.([1.0; 0.5; -2.; -0.1; 1.0; 3.; 0.])
     P = spzeros(T,length(c), length(c))
-    # P = sparse(I(length(c)).*T(1e-1))
+    P = sparse(I(length(c)).*T(1e-1))
 
     # A = sparse([A1;A2;A3;A4])
     # b = [b1;b2;b3;b4]
-    A = sparse([A1;A2;A3;A5;A6])
-    b = [b1;b2;b3;b5;b6]
-    # A = sparse([A1;A2;A3;A6])
-    # b = [b1;b2;b3;b6]
+    # A = sparse([A1;A2;A3;A5;A6])
+    # b = [b1;b2;b3;b5;b6]
+    A = sparse([A1;A2;A3;A5])
+    b = [b1;b2;b3;b5]
     # A = sparse([A1;A2;A3])
     # b = [b1;b2;b3]
     # A = sparse([A5;A6])
@@ -53,7 +53,7 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
     Clarabel.SecondOrderConeT,
     # Clarabel.PSDTriangleConeT,
     Clarabel.ExponentialConeT,
-    Clarabel.PowerConeT,
+    # Clarabel.PowerConeT,
     ]
 
     cone_dims  = [
@@ -62,7 +62,7 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
     length(b3),
     # Int(floor(sqrt(2*length(b4)))),
     length(b5),
-    length(b6)
+    # length(b6)
     ]
 
     α = Vector{Union{T,Nothing}}([
@@ -71,7 +71,7 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
         nothing;
         # nothing;
         nothing;
-        1.0/3;
+        # 1.0/3;
         ])
 
     return (P,c,A,b,cone_types,cone_dims,A1,A2,A3,A4,A5,A6,b1,b2,b3,b4,b5,b6,α)
@@ -86,20 +86,20 @@ n = 7
 
 # using Hypatia
 
-println("\n\nJuMP\n-------------------------\n\n")
-opt = Mosek.Optimizer()
-model = Model(() -> opt)
-@variable(model, x[1:n])
-@constraint(model, c1, A1*x .== b1)
-@constraint(model, c2, A2*x .<= b2)
-@constraint(model, c3, b3-A3*x in MOI.SecondOrderCone(cone_dims[3]))
-# @constraint(model, c4, b4-A4*x in MOI.PositiveSemidefiniteConeTriangle(cone_dims[4]))
-@constraint(model, c5, b5-A5*x in MOI.ExponentialCone())
-@constraint(model, c6, b6-A6*x in MOI.PowerCone(Float64(α[end])))
-@objective(model, Min, sum(c.*x) + 1/2*x'*P*x)
+# println("\n\nJuMP\n-------------------------\n\n")
+# opt = Mosek.Optimizer()
+# model = Model(() -> opt)
+# @variable(model, x[1:n])
+# @constraint(model, c1, A1*x .== b1)
+# @constraint(model, c2, A2*x .<= b2)
+# @constraint(model, c3, b3-A3*x in MOI.SecondOrderCone(cone_dims[3]))
+# # @constraint(model, c4, b4-A4*x in MOI.PositiveSemidefiniteConeTriangle(cone_dims[4]))
+# @constraint(model, c5, b5-A5*x in MOI.ExponentialCone())
+# @constraint(model, c6, b6-A6*x in MOI.PowerCone(Float64(α[end])))
+# @objective(model, Min, sum(c.*x) + 1/2*x'*P*x)
 
-#Run the opimization
-optimize!(model)
+# #Run the opimization
+# optimize!(model)
 
 # settings = Clarabel.Settings{BigFloat}(max_iter=50,direct_kkt_solver=true, equilibrate_enable = true)
 # solver   = Clarabel.Solver{BigFloat}()
@@ -108,13 +108,13 @@ optimize!(model)
 #         nothing; 
 #         nothing;
 #         # nothing;
-#         # nothing;
+#         nothing;
 #         # BigFloat(1)/3
 #         ])
 # Clarabel.setup!(solver,BigFloat.(P),BigFloat.(c),BigFloat.(A),BigFloat.(b),cone_types,cone_dims,α,settings)
 # Clarabel.solve!(solver)
 
-settings = Clarabel.Settings{T}(max_iter=50,direct_kkt_solver=true,static_regularization_enable=false,dynamic_regularization_enable=true)
+settings = Clarabel.Settings{T}(max_iter=50,direct_kkt_solver=true,static_regularization_enable=true,dynamic_regularization_enable=true)
 solver   = Clarabel.Solver{T}()
 Clarabel.setup!(solver,P,c,A,b,cone_types,cone_dims,α,settings)
 Clarabel.solve!(solver)

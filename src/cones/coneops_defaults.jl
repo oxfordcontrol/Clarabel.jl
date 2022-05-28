@@ -276,3 +276,16 @@ function _check_neighbourhood(
     error("Incomplete cone operation specification: ",typeof(K))
 
 end
+
+# compute shadow iterates for centrality check
+function shadow_iterates!(
+    K::AbstractCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T},
+    st::AbstractVector{T},
+    zt::AbstractVector{T},
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+    
+end

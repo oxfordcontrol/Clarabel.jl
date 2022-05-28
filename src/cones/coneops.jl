@@ -351,17 +351,17 @@ function check_μ_and_centrality(
 
 
         # check centrality, functional proximity measure like ECOS
-        if !(boundary_check!(cur_z,cur_s,ind_exp,length_exp,upper) && boundary_check!(cur_z,cur_s,ind_pow,length_pow,upper))
-            α *= scaling
-            continue
-        end
+        # if !(boundary_check!(cur_z,cur_s,ind_exp,length_exp,upper) && boundary_check!(cur_z,cur_s,ind_pow,length_pow,upper))
+        #     α *= scaling
+        #     continue
+        # end
         barrier = central_coef*log(μ) - log(cur_τ) - log(cur_κ)
 
         for (cone,cur_si,cur_zi) in zip(cones,cur_s.views, cur_z.views)
             @conedispatch barrier += f_sum(cone, cur_si, cur_zi)
         end
 
-        if barrier < 1.
+        if barrier < 10000.
             return α
         else
             α *= scaling    #backtrack line search
@@ -397,4 +397,19 @@ function check_centrality!(cones,s,z,μ,η)
     end
 
     return true
+end
+
+function cones_shadow_iterates!(
+    cones::ConeSet{T},
+    s::ConicVector{T},
+    z::ConicVector{T},
+    st::ConicVector{T},
+    zt::ConicVector{T},
+) where {T}
+
+    for (cone,si,zi,sti,zti) in zip(cones,s.views,z.views,st.views,zt.views)
+        @conedispatch shadow_iterates!(cone,si,zi,sti,zti)
+    end
+    
+    return nothing
 end
