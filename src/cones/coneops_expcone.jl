@@ -28,7 +28,7 @@ function update_scaling!(
     K.z .= z
 
     # Hessian update
-    update_HBFGS(K,s,z,μ)
+    update_HBFGS(K,s,z)
 end
 
 # return μH*(z) for exponetial cone
@@ -560,8 +560,7 @@ end
 function update_HBFGS(
     K::ExponentialCone{T},
     s::AbstractVector{T},
-    z::AbstractVector{T},
-    μ::T
+    z::AbstractVector{T}
 ) where {T}
 
     st = rand(T,3)

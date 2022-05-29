@@ -6,8 +6,8 @@ using ConicBenchmarkUtilities
 
 using Profile,StatProfilerHTML, TimerOutputs
 
-include("../src\\Clarabel.jl")
-# using Clarabel
+# include("../src\\Clarabel.jl")
+using Clarabel
 # using Hypatia
 
 coneMap = Dict(:Zero => MOI.Zeros, :Free => :Free,
@@ -36,8 +36,6 @@ for j = 1:32    #length(filelist)
 
     num_con = size(A,1)
     num_var = size(A,2)
-
-    T = BigFloat
 
     model = Model(Clarabel.Optimizer)
     # model = Model(Hypatia.Optimizer)
