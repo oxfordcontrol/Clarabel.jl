@@ -24,7 +24,7 @@ function update_scaling!(
 ) where {T}
     # #update both gradient and Hessian for function f*(z) at the point z
     # muHessianF(K,z,K.μH,μ)
-    # GradF(K,z,K.grad)
+    GradF(K,z,K.grad)
     K.z .= z
 
     # Hessian update
@@ -81,15 +81,15 @@ function combined_ds!(
     step_s::AbstractVector{T},
     σμ::T
 ) where {T}
-    # η = K.gradWork      #share the same memory as gψ in higherCorrection!()
-    # higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
-    # @inbounds for i = 1:3
-    #     dz[i] = η[i] + K.grad[i]*σμ                 
-    # end
-
+    η = K.gradWork      #share the same memory as gψ in higherCorrection!()
+    higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
     @inbounds for i = 1:3
-        dz[i] = K.grad[i]*σμ                 #dz <- σμ*g(z)
+        dz[i] = η[i] + K.grad[i]*σμ                 
     end
+
+    # @inbounds for i = 1:3
+    #     dz[i] = K.grad[i]*σμ                 #dz <- σμ*g(z)
+    # end
 
     return nothing
 end
@@ -162,6 +162,7 @@ function _step_length_exp_primal(
 
     while !checkExpPrimalFeas(ws)
         # NB: need to be tackled in a smarter way
+        # println("current α is ", α)
         if (α < 1e-4)
             error("Expcone's step size fails in primal feasibility check!")
         end
@@ -190,6 +191,7 @@ function _step_length_exp_dual(
     end
 
     while !checkExpDualFeas(ws)
+        # println("current α is ", α)
         if (α < 1e-4)
             error("Expcone's step size fails in dual feasibility check!")
         end
@@ -420,7 +422,7 @@ function higherCorrection!(
         
         # discard 3rd-order correction when the Hessian is ill-conditioned
         η .= T(0)
-        return
+        return nothing
     end
 
     ldiv!(u,F,ds)    #equivalent to Hinv*ds
@@ -573,6 +575,7 @@ function update_HBFGS(
     HBFGS = K.HBFGS
 
     # should compute μ, μt globally
+    μ = dot(z,s)/3
     μt = dot(zt,st)/3
 
     muHessianF(K,z,H,one(T))
