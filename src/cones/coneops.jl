@@ -361,7 +361,7 @@ function check_μ_and_centrality(
             @conedispatch barrier += f_sum(cone, cur_si, cur_zi)
         end
 
-        if barrier < 1.
+        if barrier < 100.
             return α
         else
             α *= scaling    #backtrack line search
