@@ -371,7 +371,7 @@ function check_μ_and_centrality(
             @conedispatch barrier += f_sum(cone, cur_si, cur_zi)
         end
 
-        println("current barrier is: ", barrier)
+        # println("current barrier is: ", barrier)
         if barrier < 100.
             return α
         else

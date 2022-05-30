@@ -120,7 +120,7 @@ function iterative_refinement(ldlsolver::QDLDLDirectLDLSolver{T},x,b,settings) w
         work .= b
         mul!(work,KKTsym,x,-1.,1.)
         norme = norm(work,Inf)
-        println("current IR: ", norme)
+        # println("current IR: ", norme)
 
         # test for convergence before committing
         # to a refinement step
