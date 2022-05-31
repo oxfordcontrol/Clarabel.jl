@@ -285,9 +285,9 @@ end
 # Returns true if s is primal feasible
 function checkExpPrimalFeas(s::AbstractVector{T}) where {T}
 
-    if (s[3] > 0 && s[2] > 0)   #feasible
+    if (s[3] > eps(T) && s[2] > eps(T))   #feasible
         res = s[2]*log(s[3]/s[2]) - s[1]
-        if (res > 0)
+        if (res > eps(T))
             return true
         end
     end
@@ -298,9 +298,9 @@ end
 # Returns true if s is dual feasible
 function checkExpDualFeas(z::AbstractVector{T}) where {T}
 
-    if (z[3] > 0 && z[1] < 0)
+    if (z[3] > eps(T) && z[1] < -eps(T))
         res = z[2] - z[1] - z[1]*log(-z[3]/z[1])
-        if (res > 0)
+        if (res > eps(T))
             return true
         end
     end

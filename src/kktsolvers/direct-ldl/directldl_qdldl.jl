@@ -95,6 +95,52 @@ function solve!(
     return nothing
 end
 
+# function solve!(
+#     ldlsolver::QDLDLDirectLDLSolver{T},
+#     x::Vector{T},
+#     b::Vector{T},
+#     settings
+# ) where{T}
+
+
+#     work = ldlsolver.work
+#     work .= b
+
+#     KKTsym = ldlsolver.KKTsym
+#     F = ldlt(KKTsym, check = false)
+#     if !issuccess(F)
+#         println("switch to lu factorization")
+#         F = lu(sparse(KKTsym))
+#     end
+
+#     # KKTsym = sparse(ldlsolver.KKTsym)
+#     # F = lu(KKTsym)
+
+#     # KKTsym = Symmetric(Matrix(ldlsolver.KKTsym))
+#     # F = bunchkaufman(KKTsym)
+
+#     lhs_asym = F\work
+#     mul!(work,KKTsym,lhs_asym,-1.,1.)
+#     norme = norm(work,Inf)
+
+#     @. x = lhs_asym
+#     println("current IR: ", norme)
+
+#     # iterative refinement
+#     if norme > T(1e-10)
+#         lhs_asym = F\work
+#         mul!(work,KKTsym,lhs_asym,-1.,1.)
+#         norme = norm(work,Inf)
+
+#         @. x += lhs_asym
+
+#         println("current IR: ", norme)
+#     end
+    
+#     return nothing
+    
+# end
+
 
 function iterative_refinement(ldlsolver::QDLDLDirectLDLSolver{T},x,b,settings) where{T}
 
@@ -119,8 +165,11 @@ function iterative_refinement(ldlsolver::QDLDLDirectLDLSolver{T},x,b,settings) w
         #this is work = error = b - Kξ
         work .= b
         mul!(work,KKTsym,x,-1.,1.)
+
+        # NB: we also need to remove the offset from the static regularization
+
         norme = norm(work,Inf)
-        # println("current IR: ", norme)
+        println("current IR: ", norme)
 
         # test for convergence before committing
         # to a refinement step
@@ -130,7 +179,27 @@ function iterative_refinement(ldlsolver::QDLDLDirectLDLSolver{T},x,b,settings) w
 
         #if we haven't improved by at least the halting
         #ratio since the last pass through, then abort
-        if(lastnorme/norme < IR_stopratio)
+        if(lastnorme/norme < IR_stopratio || isnan(norme) || i == IR_maxiter)
+            # diverging
+            work .= b
+            # F = ldlt(KKTsym)
+            F = lu(sparse(KKTsym))
+            x .= F\work
+
+            mul!(work,KKTsym,x,-1.,1.)
+            norme = norm(work,Inf)
+            println("diverging IR: ", norme)
+
+            if norme > T(1e-10)
+                lhs_asym = F\work
+                mul!(work,KKTsym,lhs_asym,-1.,1.)
+                norme = norm(work,Inf)
+
+                @. x += lhs_asym
+
+                println("diverging IR: ", norme)
+            end
+
             return
         end
 
