@@ -383,20 +383,3 @@ function _check_neighbourhood(
     return true
 
 end
-
-# compute shadow iterates for centrality check
-function shadow_iterates!(
-    K::SecondOrderCone{T},
-    s::AbstractVector{T},
-    z::AbstractVector{T},
-    st::AbstractVector{T},
-    zt::AbstractVector{T},
-) where {T}
-
-    norms = s[1]^2 - dot(s[2:end],s[2:end])
-    normz = z[1]^2 - dot(z[2:end],z[2:end])
-
-    @. st = z/normz
-    @. zt = s/norms
-    
-end

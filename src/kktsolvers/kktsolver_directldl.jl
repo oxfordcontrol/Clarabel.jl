@@ -207,6 +207,28 @@ function kktsolver_solve!(
 
     (x,b) = (kktsolver.x,kktsolver.b)
     solve!(kktsolver.ldlsolver,x,b,kktsolver.settings)
+
+    # # Outer iterative refinement
+    # KKT = kktsolver.ldlsolver.KKT
+    # # KKTsym = Symmetric(KKT,:L)
+    # KKTsym = kktsolver.ldlsolver.KKTsym
+    # tmp = b - KKTsym*x
+    # δx = similar(tmp)
+    # norme = norm(tmp, Inf)
+    # println("residual is: ", norme)
+
+    # iter = 0
+    # while norme > T(1e-10) && iter < 10
+    #     solve!(kktsolver.ldlsolver,δx,tmp,kktsolver.settings)
+    #     @. x += δx
+
+    #     tmp .= b - KKTsym*x
+    #     norme = norm(tmp, Inf)
+    #     println("IR-", iter," residual is: ", norme)
+
+    #     iter += 1
+    # end
+
     kktsolver_getlhs!(kktsolver,lhsx,lhsz)
 
     return nothing

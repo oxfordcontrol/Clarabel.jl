@@ -145,67 +145,68 @@ function kkt_solve!(
     @. workz = Wtlinvds - rhs.z
 
 
+    #####################################################
+    #this solves the variable part of reduced KKT system
+    kktsolver_setrhs!(kktsystem.kktsolver, workx, workz)
+    kktsolver_solve!(kktsystem.kktsolver,x1,z1)
 
-    # #this solves the variable part of reduced KKT system
-    # kktsolver_setrhs!(kktsystem.kktsolver, workx, workz)
-    # kktsolver_solve!(kktsystem.kktsolver,x1,z1)
+    #solve for Δτ.
+    #-----------
+    # Numerator first
+    ξ   = workx
+    ξ  .= variables.x ./ variables.τ
+    P   = data.Psym
 
-    # #solve for Δτ.
-    # #-----------
-    # # Numerator first
-    # ξ   = workx
-    # ξ  .= variables.x ./ variables.τ
-    # P   = data.Psym
+    tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,x1) + dot(data.b,z1) + 2*symdot(ξ,P,x1)
 
-    # tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,x1) + dot(data.b,z1) + 2*symdot(ξ,P,x1)
+    #offset ξ for the quadratic form in the denominator
+    ξ_minus_x2    = ξ   #alias to ξ, same as workx
+    @. ξ_minus_x2  -= x2
 
-    # #offset ξ for the quadratic form in the denominator
-    # ξ_minus_x2    = ξ   #alias to ξ, same as workx
-    # @. ξ_minus_x2  -= x2
+    tau_den  = variables.κ/variables.τ - dot(data.q,x2) - dot(data.b,z2)
+    tau_den += symdot(ξ_minus_x2,P,ξ_minus_x2) - symdot(x2,P,x2)
 
-    # tau_den  = variables.κ/variables.τ - dot(data.q,x2) - dot(data.b,z2)
-    # tau_den += symdot(ξ_minus_x2,P,ξ_minus_x2) - symdot(x2,P,x2)
-
-    # #solve for (Δx,Δz)
-    # #-----------
-    # lhs.τ  = tau_num/tau_den
-    # @. lhs.x = x1 + lhs.τ * x2
-    # @. lhs.z = z1 + lhs.τ * z2
+    #solve for (Δx,Δz)
+    #-----------
+    lhs.τ  = tau_num/tau_den
+    @. lhs.x = x1 + lhs.τ * x2
+    @. lhs.z = z1 + lhs.τ * z2
 
 
-    # asymmetric system solver
-    m,n = size(data.A)
-    ξ = variables.x/variables.τ
+    #####################################################
+    # # asymmetric system solver
+    # m,n = size(data.A)
+    # ξ = variables.x/variables.τ
 
-    rhs_asym = vcat(rhs.x, workz.vec, [rhs.τ - rhs.κ/variables.τ])
-    lhs_asym = Vector{T}(undef, m+n+1)
-    K_tmp = hcat(kktsystem.kktsolver.ldlsolver.KKTsym, [data.q; -data.b])
-    K_asym = vcat(K_tmp, [-(2*data.P*ξ + data.q)' -data.b' dot(ξ,data.P,ξ) + T(1e-8)])
+    # rhs_asym = vcat(rhs.x, workz.vec, [rhs.τ - rhs.κ/variables.τ])
+    # lhs_asym = Vector{T}(undef, m+n+1)
+    # K_tmp = hcat(kktsystem.kktsolver.ldlsolver.KKTsym, [data.q; -data.b])
+    # K_asym = vcat(K_tmp, [-(2*data.P*ξ + data.q)' -data.b' dot(ξ,data.P,ξ) + T(1e-8)])
 
-    F = lu(K_asym)
-    # F = qr(K_asym)
+    # F = lu(K_asym)
+    # # F = qr(K_asym)
 
-    lhs_asym = F\rhs_asym
-    mul!(rhs_asym,K_asym,lhs_asym,-1.,1.)
+    # lhs_asym = F\rhs_asym
+    # mul!(rhs_asym,K_asym,lhs_asym,-1.,1.)
 
-    norme = norm(rhs_asym,Inf)
+    # norme = norm(rhs_asym,Inf)
 
-    @. lhs.x =  lhs_asym[1:n]
-    @. lhs.z.vec = lhs_asym[n+1:m+n]
-    lhs.τ  = lhs_asym[m+n+1]
+    # @. lhs.x =  lhs_asym[1:n]
+    # @. lhs.z.vec = lhs_asym[n+1:m+n]
+    # lhs.τ  = lhs_asym[m+n+1]
 
-    # one iterative refinement
-    if norme > T(1e-10)
-        lhs_asym = F\rhs_asym
-        mul!(rhs_asym,K_asym,lhs_asym,-1.,1.)
-        norme = norm(rhs_asym,Inf)
+    # # one iterative refinement
+    # if norme > T(1e-10)
+    #     lhs_asym = F\rhs_asym
+    #     mul!(rhs_asym,K_asym,lhs_asym,-1.,1.)
+    #     norme = norm(rhs_asym,Inf)
 
-        @. lhs.x +=  lhs_asym[1:n]
-        @. lhs.z.vec += lhs_asym[n+1:m+n]
-        lhs.τ  += lhs_asym[m+n+1]
+    #     @. lhs.x +=  lhs_asym[1:n]
+    #     @. lhs.z.vec += lhs_asym[n+1:m+n]
+    #     lhs.τ  += lhs_asym[m+n+1]
 
-        println("current IR: ", norme)
-    end
+    #     println("current IR: ", norme)
+    # end
     
 
 

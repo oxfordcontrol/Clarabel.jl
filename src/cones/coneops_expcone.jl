@@ -592,19 +592,3 @@ function update_HBFGS(
     end
 
 end
-
-# compute shadow iterates for centrality check
-function shadow_iterates!(
-    K::ExponentialCone{T},
-    s::AbstractVector{T},
-    z::AbstractVector{T},
-    st::AbstractVector{T},
-    zt::AbstractVector{T},
-) where {T}
-
-    GradPrim(K,s,zt)
-    zt .*= -1
-    GradF(K,z,st)
-    st .*= -1
-    
-end

@@ -1,6 +1,6 @@
 using LinearAlgebra, SparseArrays
-# include("../src\\Clarabel.jl")
-using Clarabel
+include("../src\\Clarabel.jl")
+# using Clarabel
 using ConicBenchmarkUtilities
 
 coneMap = Dict(:Zero => Clarabel.ZeroConeT, :Free => :Free,
@@ -12,7 +12,7 @@ filelist = readdir(pwd()*"./primal_exp_cbf")
 
 # dat = readcbfdata("./exp_cbf/car.cbf.gz") # .cbf.gz extension also accepted
 
-for j = 1:31    #length(filelist)
+for j = 25:32    #length(filelist)
     println("Current file is ", j)
     datadir = filelist[j]   #"gp_dave_1.cbf.gz"
     dat = readcbfdata("./primal_exp_cbf/"*datadir) # .cbf.gz extension also accepted
@@ -94,7 +94,7 @@ for j = 1:31    #length(filelist)
 
     Anew = sparse(Anew)
 
-    settings = Clarabel.Settings{T}(max_iter=50,direct_kkt_solver=true,static_regularization_enable=true,dynamic_regularization_enable=true)
+    settings = Clarabel.Settings{T}(max_iter=50,direct_kkt_solver=true, direct_solve_method=:mkl, static_regularization_enable=true,dynamic_regularization_enable=true)
     solver   = Clarabel.Solver{T}()
     Clarabel.setup!(solver,P,c,Anew,bnew,cone_types,cone_dims,α,settings)
     Clarabel.solve!(solver)

@@ -288,16 +288,3 @@ function _check_neighbourhood(
     return true
 
 end
-
-function shadow_iterates!(
-    K::NonnegativeCone{T},
-    s::AbstractVector{T},
-    z::AbstractVector{T},
-    st::AbstractVector{T},
-    zt::AbstractVector{T},
-) where {T}
-
-    @. st = one(T)/z
-    @. zt = one(T)/s
-    
-end

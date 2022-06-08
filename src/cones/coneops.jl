@@ -281,22 +281,12 @@ function cones_step_length(
 
     # YC: implement step search for symmetric cones first
     # NB: split the step search for symmetric and unsymmtric cones due to the complexity of the latter
-    # for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
-    #     if (type in NonsymmetricCones)
-    #         @conedispatch αzs = unsymmetric_step_length(cone,dzi,dsi,zi,si,α,cones.scaling)
-    #         α = min(α,αzs)
-    #     else
-    #         @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si)
-    #         α = min(α,nextαz,nextαs)
-    #     end
-    # end
-    for i in eachindex(cones)
-        # println("Now is cone ", i)
-        if (cones.types[i] in NonsymmetricCones)
-            αzs = unsymmetric_step_length(cones[i],dz[i],ds[i],z[i],s[i],α,cones.scaling)
+    for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
+        if (type in NonsymmetricCones)
+            @conedispatch αzs = unsymmetric_step_length(cone,dzi,dsi,zi,si,α,cones.scaling)
             α = min(α,αzs)
         else
-            (nextαz,nextαs) = step_length(cones[i],dz[i],ds[i],z[i],s[i])
+            @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si)
             α = min(α,nextαz,nextαs)
         end
     end
