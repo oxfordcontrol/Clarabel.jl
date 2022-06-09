@@ -155,7 +155,7 @@ function kkt_solve!(
     ξ  .= variables.x ./ variables.τ
     P   = data.Psym
 
-    tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,x1) + dot(data.b,z1) + 2*symdot(ξ,P,x1)
+    tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,x1) + dot(data.b,z1) + T(2.)*symdot(ξ,P,x1)
 
     #offset ξ for the quadratic form in the denominator
     ξ_minus_x2    = ξ   #alias to ξ, same as workx

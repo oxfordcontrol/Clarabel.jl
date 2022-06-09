@@ -35,7 +35,7 @@ function print_header(
     if(settings.verbose == false) return end
 
     println("-------------------------------------------------------------")
-    @printf("             Clarabel v%s  -  Clever Acronym              \n", version())
+    @printf("           Clarabel.jl v%s  -  Clever Acronym              \n", version())
     println("                   (c) Paul Goulart                          ")
     println("                University of Oxford, 2022                   ")
     println("-------------------------------------------------------------")
