@@ -300,8 +300,7 @@ function check_μ_and_centrality(
     step::DefaultVariables{T},
     variables::DefaultVariables{T},
     work::DefaultVariables{T},
-    α::T,
-    steptype::Symbol
+    α::T
 ) where {T}
 
     dz    = step.z
@@ -314,11 +313,6 @@ function check_μ_and_centrality(
     κ     = variables.κ
     cur_z = work.z
     cur_s = work.s
-
-    zs= dot(z,s)
-    dzs = dot(dz,ds)
-    s_dz = dot(s,dz)
-    z_ds = dot(z,ds)
 
     central_coef = cones.degree + 1
 
@@ -336,12 +330,15 @@ function check_μ_and_centrality(
     η = cones.η
 
     for j = 1:50
-        #Initialize μ
-        μ = (zs + τ*κ + α*(s_dz + z_ds + dτ*κ + τ*dκ) + α^2*(dzs + dτ*dκ))/central_coef
-        upper = cones.minDist*μ     #bound for boundary distance
-
+        # current z,s
         @. cur_z = z + α*dz
         @. cur_s = s + α*ds
+        cur_τ = τ + α*dτ
+        cur_κ = κ + α*dκ
+
+        # compute current μ
+        μ = (dot(cur_s,cur_z) + cur_τ*cur_κ)/central_coef
+        upper = cones.minDist*μ     #bound for boundary distance
 
         # #boundary check from ECOS and centrality check from Hypatia
         # # NB:   1) the update x+α*dx is inefficient right now and need to be rewritten later
@@ -353,29 +350,23 @@ function check_μ_and_centrality(
         # end
 
 
-        # ECOS: check centrality, functional proximity measure
-        # NB: the update x+α*dx is inefficient right now and need to be rewritten later
+        # check centrality, functional proximity measure like ECOS
         if !(boundary_check!(cur_z,cur_s,ind_exp,length_exp,upper) && boundary_check!(cur_z,cur_s,ind_pow,length_pow,upper))
             α *= scaling
             continue
         end
-        barrier = central_coef*log(μ) - log(τ+α*dτ) - log(κ+α*dκ)
+        barrier = central_coef*log(μ) - log(cur_τ) - log(cur_κ)
 
         for (cone,cur_si,cur_zi) in zip(cones,cur_s.views, cur_z.views)
             @conedispatch barrier += f_sum(cone, cur_si, cur_zi)
         end
 
-        if barrier < 1.
+        if barrier < 100.
             return α
         else
             α *= scaling    #backtrack line search
         end
-        # println("centrality quite bad: ", barrier, " with ", central_coef)
 
-    end
-
-    if (steptype == :combined)
-        error("get stalled with step size ", α)
     end
 
     return α

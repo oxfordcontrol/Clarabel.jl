@@ -161,7 +161,7 @@ function solve!(
 
     #NB: temporary allocation
     #PJG: This should be removed.
-    workVar = deepcopy(s.step_lhs)
+    workVar = DefaultVariables{T}(s.data.n,s.cones)
 
     @timeit timer "solve!" begin
 

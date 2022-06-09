@@ -19,8 +19,8 @@ filelist = readdir(pwd()*"./primal_exp_cbf")
 
 # dat = readcbfdata("./exp_cbf/car.cbf.gz") # .cbf.gz extension also accepted
 
-for j = 7:7    #length(filelist)
-    # println("Current file is ", j)
+for j = 25:25    #length(filelist)
+    println("Current file is ", j)
     datadir = filelist[j]   #"gp_dave_1.cbf.gz"
     dat = readcbfdata("./primal_exp_cbf/"*datadir) # .cbf.gz extension also accepted
 
@@ -41,6 +41,8 @@ for j = 7:7    #length(filelist)
     # model = Model(Hypatia.Optimizer)
     # model = Model(ECOS.Optimizer)
     # model = Model(Mosek.Optimizer)
+
+    TimerOutputs.enable_debug_timings(Clarabel)
 
     @variable(model, x[1:num_var])
 

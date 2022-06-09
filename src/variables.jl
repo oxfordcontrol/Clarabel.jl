@@ -25,17 +25,18 @@ function calc_step_length(
     α = min(ατ,ακ,one(T))
 
     # Find a feasible step size for all cones
-    # YC: add an extra input parameter α for step searching of unsymmetric cones
     α = cones_step_length(cones, step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ, α)
-    # println("α after feasibility check: ", α)
 
 
-    # YC: only for unsymmetric cones, check centrality
-
-    #   balance global μ and local μ_i of each exponential cone;
+    #   Centrality check for unsymmetric cones
+    #   balance global μ and local μ_i of each nonsymmetric cone;
     #   check centrality, ensure the update is close to the central path
     if (!cones.symFlag)
-        α = check_μ_and_centrality(cones,step,variables,workVar,α,steptype)
+        α = check_μ_and_centrality(cones,step,variables,workVar,α)
+
+        if (steptype == :combined && α < 1e-4)
+            error("get stalled with step size ", α)
+        end
     end
 
     return α
@@ -91,17 +92,11 @@ function calc_affine_step_rhs!(
     cones::ConeSet{T}
 ) where{T}
 
-    #to = TimerOutput() #DEBUG
-    #@timeit to "dx"
     @. d.x    .=  r.rx
     @. d.z     =  r.rz
-    #@timeit to "ds"
     cones_affine_ds!(cones, d.s, variables.s)    # unsymmetric cones need value of s
     d.τ        =  r.rτ
     d.κ        =  variables.τ * variables.κ
-
-    #DEBUG: printing the timer here
-    #print_timer(to)
 
     return nothing
 end
@@ -155,7 +150,7 @@ function variables_shift_to_cone!(
 end
 
 
-# YC:Set the initial point to the jordan algebra identity e times scaling (now is 1.) for the symmetric cones
+# Set the initial point to the jordan algebra identity e times scaling (now is 1.) for the symmetric cones
 # and the central ray for the exponential cone, scaled by scaling (now is 1.)
 
 # For symmetric cones, e is the identity in the Jordan algebra where the cone
