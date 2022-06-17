@@ -2,8 +2,6 @@ using SuiteSparse
 
 mutable struct CholmodDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
 
-    KKT::SparseMatrixCSC{T}
-    KKTsym::Symmetric{T, SparseMatrixCSC{T,Int}}
     F::Union{SuiteSparse.CHOLMOD.Factor,Nothing}
 
     function CholmodDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
@@ -11,17 +9,13 @@ mutable struct CholmodDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
         #NB: ignore Dsigns here because Cholmod doesn't
         #use information about the expected signs
 
-        #cholmod requires that we always pass it a symmetric
-        #view, so we carry KKTsym for cholmod but modify KKT
-        KKTsym = Symmetric(KKT)
-
         #There is no obvious way to force cholmod to make
         #an initial symbolic factorization only, set
         #set F to nothing and create F as needed on the
         #first refactorization
         F = nothing
 
-        return new(KKT,KKTsym,F)
+        return new(F)
     end
 end
 
@@ -36,7 +30,9 @@ function update_values!(
     values::Vector{T}
 ) where{T}
 
-    ldlsolver.KKT.nzval[index] .= values
+    #no-op.  Will just use KKT matrix as it as
+    #passed to refactor!
+
 end
 
 #offset entries in the KKT matrix using the
@@ -49,21 +45,22 @@ function offset_values!(
     signs::Union{Int,Vector{Int}} = 1
 ) where{T}
 
-    @. ldlsolver.KKT.nzval[index] += offset*signs
+    #no-op.  Will just use KKT matrix as it as
+    #passed to refactor!
 end
 
 
 #refactor the linear system
-function refactor!(ldlsolver::CholmodDirectLDLSolver{T}) where{T}
+function refactor!(ldlsolver::CholmodDirectLDLSolver{T}, K::SparseMatrixCSC{T}) where{T}
 
     if ldlsolver.F === nothing
         #initial symbolic and numeric factor since
         #we can't do symbolic on its own
-        ldlsolver.F = ldlt(ldlsolver.KKTsym)
+        ldlsolver.F = ldlt(Symmetric(K))
 
     else
         #this reuses the symbolic factorization
-        ldlt!(ldlsolver.F, ldlsolver.KKTsym)
+        ldlt!(ldlsolver.F, Symmetric(K))
     end
 end
 
@@ -72,8 +69,7 @@ end
 function solve!(
     ldlsolver::CholmodDirectLDLSolver{T},
     x::Vector{T},
-    b::Vector{T},
-    settings
+    b::Vector{T}
 ) where{T}
 
     x .= ldlsolver.F\b
