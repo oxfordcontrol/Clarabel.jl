@@ -51,7 +51,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         work_dx = Vector{T}(undef,n+m+p)
 
         #the expected signs of D in LDL
-        Dsigns = ones(Int,n+m+p)
+        Dsigns = Vector{Int}(undef,n+m+p)
         _fill_Dsigns!(Dsigns,m,n,p)
 
         #updates to the diagonal of KKT will be
@@ -95,6 +95,7 @@ end
 function _fill_Dsigns!(Dsigns,m,n,p)
 
     #the expected signs of D in LDL
+    Dsigns[1:n]     .=  1
     Dsigns[n+1:n+m] .= -1
 
     #the trailing block of p entries should
@@ -190,11 +191,11 @@ function kktsolver_update!(
     #Perturb the diagonal terms WtW that we have just overwritten
     #with static regularizers.  Note that we don't want to shift
     #elements in the ULHS #(corresponding to P) since we already
-    #shifted them at initialization and haven't overwritten it
+    #shifted them at initialization and haven't overwritten that block
     if(settings.static_regularization_enable)
         ϵ = settings.static_regularization_eps
         _offset_values!(kktsolver,map.diag_full,ϵ,kktsolver.Dsigns)
-        _offset_values!(kktsolver,map.diagP,-ϵ)  #undo to the P shift
+        _offset_values!(kktsolver,map.diagP,-ϵ)  #undo the (now doubled) P shift
     end
 
     #refactor with new data
@@ -250,7 +251,6 @@ function kktsolver_solve!(
         iterative_refinement(kktsolver,x,b)
     end
 
-
     kktsolver_getlhs!(kktsolver,lhsx,lhsz)
 
     return nothing
@@ -285,7 +285,7 @@ function iterative_refinement(kktsolver::DirectLDLKKTSolver{T},x,b) where{T}
 
         if(settings.static_regularization_enable)
             ϵ = settings.static_regularization_eps
-            @. e += ϵ * kktsolver.Dsigns
+            @. e += ϵ * kktsolver.Dsigns * x
         end
 
         norme = norm(e,Inf)
