@@ -399,18 +399,3 @@ function check_centrality!(cones,s,z,μ,η)
 
     return true
 end
-
-function cones_shadow_iterates!(
-    cones::ConeSet{T},
-    s::ConicVector{T},
-    z::ConicVector{T},
-    st::ConicVector{T},
-    zt::ConicVector{T},
-) where {T}
-
-    for (cone,si,zi,sti,zti) in zip(cones,s.views,z.views,st.views,zt.views)
-        @conedispatch shadow_iterates!(cone,si,zi,sti,zti)
-    end
-    
-    return nothing
-end
