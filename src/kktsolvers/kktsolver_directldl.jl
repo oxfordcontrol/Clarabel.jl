@@ -65,17 +65,17 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         kktshape = required_matrix_shape(ldlsolverT)
         KKT, map = _assemble_kkt_matrix(P,A,cones,kktshape)
 
+        if(settings.static_regularization_enable)
+            ϵ = settings.static_regularization_eps
+            _offset_values_KKT!(KKT,map.diagP,ϵ)
+        end
+
         #KKT will be triu data only, but we will want
         #the following to allow products like KKT*x
         KKTsym = Symmetric(KKT)
 
         #the LDL linear solver engine
         ldlsolver = ldlsolverT{T}(KKT,Dsigns,settings)
-
-        if(settings.static_regularization_enable)
-            ϵ = settings.static_regularization_eps
-            offset_values!(ldlsolver,map.diagP,ϵ)
-        end
 
         return new(m,n,p,x,b,work_e,work_dx,map,Dsigns,WtWblocks,KKT,KKTsym,settings,ldlsolver)
     end
@@ -107,7 +107,7 @@ function _fill_Dsigns!(Dsigns,m,n,p)
     end
 end
 
-#update entries in the KKT matrix using the
+#update entries in the kktsolver object using the
 #given index into its CSC representation
 function _update_values!(
     kktsolver::DirectLDLKKTSolver{T},
@@ -116,18 +116,28 @@ function _update_values!(
 ) where{T,Ti}
 
     #Update values in the KKT matrix K
-    kktsolver.KKT.nzval[index] .= values
+    _update_values_KKT!(kktsolver.KKT,index,values)
 
     #give the LDL subsolver an opportunity to update the same
     #values if needed.   This latter is useful for QDLDL
     #since it stores its own permuted copy
     update_values!(kktsolver.ldlsolver,index,values)
 
+end
 
+#updates KKT matrix values
+function _update_values_KKT!(
+    KKT::SparseMatrixCSC{T,Int},
+    index::Vector{Ti},
+    values::Vector{T}
+) where{T,Ti}
+
+    #Update values in the KKT matrix K
+    @. KKT.nzval[index] = values
 
 end
 
-#offset entries in the KKT matrix using the
+#offset entries in the kktsolver object using the
 #given index into its CSC representation and
 #an optional vector of signs
 function _offset_values!(
@@ -138,7 +148,7 @@ function _offset_values!(
 ) where{T}
 
     #Update values in the KKT matrix K
-    @. kktsolver.KKT.nzval[index] += offset*signs
+    _offset_values_KKT!(kktsolver.KKT,index,offset,signs)
 
     #give the LDL subsolver an opportunity to update the same
     #values if needed.   This latter is useful for QDLDL
@@ -146,6 +156,21 @@ function _offset_values!(
     offset_values!(kktsolver.ldlsolver, index, offset, signs)
 
 end
+
+#offsets KKT matrix values
+function _offset_values_KKT!(
+    KKT::SparseMatrixCSC{T,Int},
+    index::Vector{Int},
+    offset::Union{T,Vector{T}},
+    signs::Union{Int,Vector{Int}} = 1
+) where{T}
+
+    #Update values in the KKT matrix K
+    @. KKT.nzval[index] += offset*signs
+
+end
+
+
 
 function kktsolver_update!(
     kktsolver::DirectLDLKKTSolver{T},
