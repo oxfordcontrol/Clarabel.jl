@@ -268,44 +268,63 @@ function iterative_refinement(kktsolver::DirectLDLKKTSolver{T},x,b) where{T}
     IR_maxiter   = settings.iterative_refinement_max_iter
     IR_stopratio = settings.iterative_refinement_stop_ratio
 
+    if(settings.static_regularization_enable)
+        ϵ = settings.static_regularization_eps
+    else
+        ϵ = zero(settings.static_regularization_eps)
+    end
+
     #Note that K is only triu data, so need to
-    #be careful when computing the residual here
+    #be careful when computing the residual
     K      = kktsolver.KKT
     KKTsym = kktsolver.KKTsym
-    lastnorme = Inf
+    normb  = norm(b,Inf)
 
-    normb = norm(b,Inf)
+    #compute the initial error
+    norme = _get_refine_error!(e,b,KKTsym,kktsolver.Dsigns,ϵ,x)
 
     for i = 1:IR_maxiter
 
-        #this error = b - (K+ϵD)ξ + ϵDξ, where
-        #the ϵD term is from the static regularizer
-        e .= b
-        mul!(e,KKTsym,x,-1.,1.)   #  b - Kξ
-
-        if(settings.static_regularization_enable)
-            ϵ = settings.static_regularization_eps
-            @. e += ϵ * kktsolver.Dsigns * x
-        end
-
-        norme = norm(e,Inf)
-
-        # test for convergence before committing
-        # to a refinement step
         if(norme <= IR_abstol + IR_reltol*normb)
-            break
+            # within tolerance.  Exit
+            return nothing
         end
 
-        #Halt if we haven't improved by at least the
-        #halting ratio since the last pass through
-        if(lastnorme/norme < IR_stopratio)
-            break
-        end
+        lastnorme = norme
 
         #make a refinement and continue
         solve!(kktsolver.ldlsolver,dx,e)
-        x .+= dx
+
+        #prospective solution is x + dx.   Use dx space to
+        #hold it for a check before applying to x
+        ξ = dx
+        @. ξ += x
+        norme = _get_refine_error!(e,b,KKTsym,kktsolver.Dsigns,ϵ,ξ)
+
+        if(lastnorme/norme < IR_stopratio)
+            #insufficient improvement.  Exit
+            return nothing
+        else
+            @. x .= ξ  #PJG: pointer swap might be faster
+        end
     end
 
     return nothing
+end
+
+
+# computes e = b - (K+ϵD)ξ + ϵDξ, overwriting the first argument
+# and returning its norm
+
+function _get_refine_error!(e,b,KKTsym,D,ϵ,ξ)
+
+    e .= b
+    mul!(e,KKTsym,ξ,-1.,1.)   #  b - Kξ
+
+    if(iszero(ϵ))
+        @. e += ϵ * D * ξ
+    end
+
+    return norm(e,Inf)
+
 end
