@@ -341,6 +341,7 @@ function iterative_refinement(kktsolver::DirectLDLKKTSolver{T},x,b) where{T}
         ξ = dx
         @. ξ += x
         norme = _get_refine_error!(e,b,KKTsym,kktsolver.Dsigns,ϵ,ξ)
+        println(i,"-th IR error: ", norme)
 
         if(lastnorme/norme < IR_stopratio)
             #insufficient improvement.  Exit

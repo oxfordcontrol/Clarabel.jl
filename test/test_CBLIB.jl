@@ -7,7 +7,7 @@ using ConicBenchmarkUtilities
 using Profile,StatProfilerHTML, TimerOutputs
 
 # include("../src\\Clarabel.jl")
-# using Clarabel
+using Clarabel
 # using Hypatia
 
 coneMap = Dict(:Zero => MOI.Zeros, :Free => :Free,
@@ -37,10 +37,10 @@ for j = 1:32    #length(filelist)
     num_con = size(A,1)
     num_var = size(A,2)
 
-    # model = Model(Clarabel.Optimizer)
+    model = Model(Clarabel.Optimizer)
     # model = Model(Hypatia.Optimizer)
     # model = Model(ECOS.Optimizer)
-    model = Model(Mosek.Optimizer)
+    # model = Model(Mosek.Optimizer)
 
     # TimerOutputs.enable_debug_timings(Clarabel)
 
