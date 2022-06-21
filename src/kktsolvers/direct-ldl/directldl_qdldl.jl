@@ -6,12 +6,6 @@ struct QDLDLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
     KKT::SparseMatrixCSC{T}
     factors::QDLDL.QDLDLFactorisation{T, Int}
 
-    #symmetric view for residual calcs
-    KKTsym::Symmetric{T, SparseMatrixCSC{T,Int}}
-
-    # internal workspace for IR scheme
-    work::Vector{T}
-
     function QDLDLDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
 
         dim = LinearAlgebra.checksquare(KKT)
@@ -25,12 +19,7 @@ struct QDLDLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
             logical          = true
         )
 
-        #KKT will be triu data only, but we will want
-        #the following to allow products like KKT*x
-        KKTsym = Symmetric(KKT)
-        work = Vector{T}(undef,dim)
-
-        return new(KKT,factors,KKTsym,work)
+        return new(KKT,factors)
     end
 
 end
@@ -46,12 +35,17 @@ function update_values!(
     values::Vector{T}
 ) where{T,Ti}
 
-        #Updating values in both the KKT matrix and
-        #in the reordered copy held internally by QDLDL.
-        #The former is needed for iterative refinement since
-        #QDLDL does not have internal iterative refinement
-        QDLDL.update_values!(ldlsolver.factors,index,values)
-        @views ldlsolver.KKT.nzval[index] .= values
+    #Update values that are stored within
+    #the reordered copy held internally by QDLDL.
+
+    #PJG: an alternative implementation would be
+    #to just overwrite the complete KKT data
+    #upon a call to refactor, which would avoid
+    #this step and make the QDLDL implementation
+    #much simpler (i.e. no update or offset methods
+    #would be needed).   Need to test how slow a
+    #complete permuted updated would be though
+    QDLDL.update_values!(ldlsolver.factors,index,values)
 
 end
 
@@ -66,12 +60,15 @@ function offset_values!(
 ) where{T}
 
     QDLDL.offset_values!(ldlsolver.factors, index, offset, signs)
-    @views @. ldlsolver.KKT.nzval[index] += offset*signs
 
 end
 
 #refactor the linear system
-function refactor!(ldlsolver::QDLDLDirectLDLSolver{T}) where{T}
+function refactor!(ldlsolver::QDLDLDirectLDLSolver{T}, K::SparseMatrixCSC) where{T}
+
+    #PJG: K is not used because QDLDL is maintaining
+    #the update matrix entries for itself using the
+    #offset/update methods implemented above.
     QDLDL.refactor!(ldlsolver.factors)
 end
 
@@ -80,135 +77,12 @@ end
 function solve!(
     ldlsolver::QDLDLDirectLDLSolver{T},
     x::Vector{T},
-    b::Vector{T},
-    settings
+    b::Vector{T}
 ) where{T}
 
     #make an initial solve (solves in place)
     x .= b
     QDLDL.solve!(ldlsolver.factors,x)
-
-    if(settings.iterative_refinement_enable)
-        iterative_refinement(ldlsolver,x,b,settings)
-    end
-
-    return nothing
-end
-
-# function solve!(
-#     ldlsolver::QDLDLDirectLDLSolver{T},
-#     x::Vector{T},
-#     b::Vector{T},
-#     settings
-# ) where{T}
-
-
-#     work = ldlsolver.work
-#     work .= b
-
-#     KKTsym = ldlsolver.KKTsym
-#     F = ldlt(KKTsym, check = false)
-#     if !issuccess(F)
-#         println("switch to lu factorization")
-#         F = lu(sparse(KKTsym))
-#     end
-
-#     # KKTsym = sparse(ldlsolver.KKTsym)
-#     # F = lu(KKTsym)
-
-#     # KKTsym = Symmetric(Matrix(ldlsolver.KKTsym))
-#     # F = bunchkaufman(KKTsym)
-
-#     lhs_asym = F\work
-#     mul!(work,KKTsym,lhs_asym,-1.,1.)
-#     norme = norm(work,Inf)
-
-#     @. x = lhs_asym
-#     println("current IR: ", norme)
-
-#     # iterative refinement
-#     if norme > T(1e-10)
-#         lhs_asym = F\work
-#         mul!(work,KKTsym,lhs_asym,-1.,1.)
-#         norme = norm(work,Inf)
-
-#         @. x += lhs_asym
-
-#         println("current IR: ", norme)
-#     end
-    
-#     return nothing
-    
-# end
-
-
-function iterative_refinement(ldlsolver::QDLDLDirectLDLSolver{T},x,b,settings) where{T}
-
-    work = ldlsolver.work
-
-    #iterative refinement params
-    IR_reltol    = settings.iterative_refinement_reltol
-    IR_abstol    = settings.iterative_refinement_abstol
-    IR_maxiter   = settings.iterative_refinement_max_iter
-    IR_stopratio = settings.iterative_refinement_stop_ratio
-
-    #Note that K is only triu data, so need to
-    #be careful when computing the residual here
-    K      = ldlsolver.KKT
-    KKTsym = ldlsolver.KKTsym
-    lastnorme = Inf
-
-    normb = norm(b,Inf)
-
-    for i = 1:IR_maxiter
-
-        #this is work = error = b - Kξ
-        work .= b
-        mul!(work,KKTsym,x,-1.,1.)
-
-        # NB: we also need to remove the offset from the static regularization
-
-        norme = norm(work,Inf)
-        println("current IR: ", norme)
-
-        # test for convergence before committing
-        # to a refinement step
-        if(norme <= IR_abstol + IR_reltol*normb)
-            return
-        end
-
-        #if we haven't improved by at least the halting
-        #ratio since the last pass through, then abort
-        if(lastnorme/norme < IR_stopratio || isnan(norme) || i == IR_maxiter)
-            # diverging
-            work .= b
-            # F = ldlt(KKTsym)
-            F = lu(sparse(KKTsym))
-            x .= F\work
-
-            mul!(work,KKTsym,x,-1.,1.)
-            norme = norm(work,Inf)
-            println("diverging IR: ", norme)
-
-            if norme > T(1e-10)
-                lhs_asym = F\work
-                mul!(work,KKTsym,lhs_asym,-1.,1.)
-                norme = norm(work,Inf)
-
-                @. x += lhs_asym
-
-                println("diverging IR: ", norme)
-            end
-
-            return
-        end
-
-        #make a refinement and continue
-        QDLDL.solve!(ldlsolver.factors,work)     #this is Δξ
-        x .+= work
-
-        lastnorme = norme
-    end
 
     return nothing
 end
