@@ -346,7 +346,7 @@ function _get_refine_error!(e,b,KKTsym,D,ϵ,ξ)
     e .= b
     mul!(e,KKTsym,ξ,-1.,1.)   #  b - Kξ
 
-    if(iszero(ϵ))
+    if(!iszero(ϵ))
         @. e += ϵ * D * ξ
     end
 
