@@ -273,7 +273,7 @@ function kktsolver_solve!(
     solve!(kktsolver.ldlsolver,x,b)
 
     if(kktsolver.settings.iterative_refinement_enable)
-        iterative_refinement(kktsolver,x,b)
+        iterative_refinement(kktsolver)
     end
 
     kktsolver_getlhs!(kktsolver,lhsx,lhsz)
@@ -281,10 +281,10 @@ function kktsolver_solve!(
     return nothing
 end
 
-function iterative_refinement(kktsolver::DirectLDLKKTSolver{T},x,b) where{T}
+function iterative_refinement(kktsolver::DirectLDLKKTSolver{T}) where{T}
 
-    e  = kktsolver.work_e
-    dx = kktsolver.work_dx
+    (x,b)   = (kktsolver.x,kktsolver.b)
+    (e,dx)  = (kktsolver.work_e, kktsolver.work_dx)
     settings = kktsolver.settings
 
     #iterative refinement params
@@ -344,7 +344,7 @@ end
 function _get_refine_error!(e,b,KKTsym,D,ϵ,ξ)
 
     e .= b
-    mul!(e,KKTsym,ξ,-1.,1.)   #  b - Kξ
+    mul!(e,KKTsym,ξ,-1.,1.)   # e = b - Kξ
 
     if(!iszero(ϵ))
         @. e += ϵ * D * ξ
