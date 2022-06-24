@@ -66,14 +66,14 @@ end
 #offset entries in the KKT matrix using the
 #given index into its CSC representation and
 #an optional vector of signs
-function offset_values!(
-    ldlsolver::QDLDLDirectLDLSolver{T},
-    index::Vector{Int},
-    offset::Union{T,Vector{T}},
-    signs::Union{Int,Vector{Int}} = 1
-) where{T}
+function offset_diagonal!(
+    ldlsolver::AbstractDirectLDLSolver{T},
+    index::UnitRange{Ti},
+    offset::T,
+    signs::AbstractVector{<:Integer}
+) where{T,Ti}
 
-    QDLDL.offset_values!(ldlsolver.factors, index, offset, signs)
+    QDLDL.offset_diagonal!(ldlsolver.factors, index, offset, signs)
 
 end
 

@@ -156,7 +156,7 @@ function _csc_fill_dense_triangle(K,blocktoKKT,offset,blockdim,shape)
     end
 end
 
-function _fill_dense_triangle_triu(K,blocktoKKT,offset,blockdim,shape)
+function _fill_dense_triangle_triu(K,blocktoKKT,offset,blockdim)
 
     kidx = 1
     for col in offset:(offset + blockdim - 1)
@@ -171,7 +171,7 @@ function _fill_dense_triangle_triu(K,blocktoKKT,offset,blockdim,shape)
     end
 end
 
-function _fill_dense_triangle_tril(K,blocktoKKT,offset,blockdim,shape)
+function _fill_dense_triangle_tril(K,blocktoKKT,offset,blockdim)
 
     kidx = 1
     for row in offset:(offset + blockdim - 1)
