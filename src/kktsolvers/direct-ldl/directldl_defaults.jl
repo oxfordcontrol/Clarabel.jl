@@ -58,8 +58,7 @@ end
 function solve!(
     ldlsolver::AbstractDirectLDLSolver{T},
     x::AbstractVector{T},
-    b::AbstractVector{T},
-    settings
+    b::AbstractVector{T}
 ) where{T}
     error("function not implemented")
 end

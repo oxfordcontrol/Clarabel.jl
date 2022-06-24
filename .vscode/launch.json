@@ -5,10 +5,33 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "type": "lldb",
+            "request": "attach",
+            "name": "Attach",
+            "pid": "14368",
+            "stopOnEntry": true
+        },
+
+        {
+            "type": "julia",
+            "request": "launch",
+            "name": "Julia interactive terminal launch",
+            "program": "${workspaceFolder}/julia",
+            "stopOnEntry": true
+        },
+
+        {
             "type": "julia",
             "request": "launch",
             "name": "QP Rust debug",
             "program": "${workspaceFolder}/examples/example_QP_debug.jl",
+            "stopOnEntry": false
+        },
+        {
+            "type": "julia",
+            "request": "launch",
+            "name": "QP box Rust debug",
+            "program": "${workspaceFolder}/examples/example_big_box.jl",
             "stopOnEntry": false
         },
         {
