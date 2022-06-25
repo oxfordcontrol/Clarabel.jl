@@ -3,7 +3,7 @@ include("../src\\Clarabel.jl")
 using LinearAlgebra, SparseArrays
 using JuMP, Mosek, MosekTools, ECOS
 import MathOptInterface
-const MOI = MathOptInterface
+# const MOI = MathOptInterface
 
 using Profile,StatProfilerHTML, TimerOutputs
 # using Debugger

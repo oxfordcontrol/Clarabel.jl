@@ -170,6 +170,59 @@ function kkt_solve!(
     @. lhs.x = x1 + lhs.τ * x2
     @. lhs.z = z1 + lhs.τ * z2
 
+    # YC: testing numerical stability of ldl
+    # #####################################################
+    # # asymmetric system solver
+    # m,n = size(data.A)
+    # p = kktsystem.kktsolver.p
+    # ξ = variables.x/variables.τ
+
+    # rhs_asym = vcat(rhs.x, workz.vec, zeros(p), [rhs.τ - rhs.κ/variables.τ])
+
+    # lhs_asym = Vector{T}(undef, m+n+p+1)
+    # lhs_add = Vector{T}(undef, p)
+    # K_tmp = hcat(kktsystem.kktsolver.KKTsym, [data.q; -data.b; zeros(p)])
+    # K_asym = vcat(K_tmp, [-(2*data.P*ξ + data.q)' -data.b' zeros(p)' dot(ξ,data.P,ξ)+variables.κ/variables.τ+T(1e-8)])
+
+    # F = lu(K_asym)
+    # # K_asym = Symmetric(K_asym)
+    # # F= ldlt(K_asym)
+    # # F = qr(K_asym)
+
+    # lhs_asym = F\rhs_asym
+    # mul!(rhs_asym,K_asym,lhs_asym,-1.,1.)
+
+    # norme = norm(rhs_asym,Inf)
+
+    # @. lhs.x =  lhs_asym[1:n]
+    # @. lhs.z.vec = lhs_asym[n+1:m+n]
+    # @. lhs_add = lhs_asym[m+n+1:m+n+p]
+    # lhs.τ  = lhs_asym[m+n+p+1]
+
+    # # one iterative refinement
+    # for j = 1:10
+    #     lastnorme = norme
+    #     lhs_asym = F\rhs_asym
+    #     mul!(rhs_asym,K_asym,lhs_asym,-1.,1.)
+    #     rhs_asym .+= T(1e-8) * [kktsystem.kktsolver.Dsigns; 1] .* lhs_asym 
+    #     norme = norm(rhs_asym,Inf)
+
+    #     if norme > lastnorme 
+    #         break
+    #     end
+
+    #     if norme < T(1e-12)
+    #         break
+    #     end
+
+    #     @. lhs.x +=  lhs_asym[1:n]
+    #     @. lhs.z.vec += lhs_asym[n+1:m+n]
+    #     @. lhs_add += lhs_asym[m+n+1:m+n+p]
+    #     lhs.τ  += lhs_asym[m+n+1]
+
+    #     println(j,"th IR: ", norme)
+    # end
+
     #solve for Δs = -Wᵀ(λ \ dₛ + WΔz) = -Wᵀ(λ \ dₛ) - WᵀWΔz
     #where the first part is already in Wtlinvds
     #-------------

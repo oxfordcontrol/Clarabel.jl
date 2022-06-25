@@ -1,6 +1,6 @@
 using LinearAlgebra, SparseArrays, ECOS,JuMP
-using Clarabel
-# include("../src\\Clarabel.jl")
+# using Clarabel
+include("../src\\Clarabel.jl")
 
 # load example data
 f = open(joinpath(@__DIR__, "chip_data.txt"))
@@ -34,35 +34,37 @@ n_theta = size(X, 2)
 n = n_data
 μ  = 1.
 
-m = JuMP.Model(ECOS.Optimizer)
-@variable(m, v)
-@variable(m, θ[1:n_theta])
-@variable(m, e[1:n])
-@variable(m, t1[1:n])
-@variable(m, t2[1:n])
-@variable(m, s1[1:n])
-@variable(m, s2[1:n])
+# m = JuMP.Model(ECOS.Optimizer)
+# @variable(m, v)
+# @variable(m, θ[1:n_theta])
+# @variable(m, e[1:n])
+# @variable(m, t1[1:n])
+# @variable(m, t2[1:n])
+# @variable(m, s1[1:n])
+# @variable(m, s2[1:n])
 
-@objective(m, Min, μ * v + sum(e))
-@constraint(m, [v; θ] in MOI.SecondOrderCone(n_theta + 1))
+# @objective(m, Min, μ * v + sum(e))
+# @constraint(m, [v; θ] in MOI.SecondOrderCone(n_theta + 1))
 
-# create the constraints for each sample points
-for i = 1:n
-  yi = y[i]
-  x = X[i, :]
-  yi == 1. ? (a = -1) : (a = 1)
-  @constraint(m, [a * dot(θ, x) - e[i]; s1[i]; t1[i] ] in MOI.ExponentialCone())
-  @constraint(m, [-e[i]; s2[i]; t2[i]] in MOI.ExponentialCone())
-  @constraint(m, t1[i] + t2[i] <= 1)
-  @constraint(m, s1[i] == 1)
-  @constraint(m, s2[i] == 1)
-end
-JuMP.optimize!(m)
+# # create the constraints for each sample points
+# for i = 1:n
+#   yi = y[i]
+#   x = X[i, :]
+#   yi == 1. ? (a = -1) : (a = 1)
+#   @constraint(m, [a * dot(θ, x) - e[i]; s1[i]; t1[i] ] in MOI.ExponentialCone())
+#   @constraint(m, [-e[i]; s2[i]; t2[i]] in MOI.ExponentialCone())
+#   @constraint(m, t1[i] + t2[i] <= 1)
+#   @constraint(m, s1[i] == 1)
+#   @constraint(m, s2[i] == 1)
+# end
+# JuMP.optimize!(m)
 
 
 
 #####################################################
 m = JuMP.Model(Clarabel.Optimizer)
+set_optimizer_attribute(m, "direct_solve_method", :cholmod)
+
 @variable(m, v)
 @variable(m, θ[1:n_theta])
 @variable(m, e[1:n])
