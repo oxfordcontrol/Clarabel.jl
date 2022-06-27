@@ -17,8 +17,8 @@ function calc_step_length(
     cones::ConeSet{T}
 ) where {T}
 
-    ατ    = step.τ < 0 ? -variables.τ / step.τ : inv(eps(T))
-    ακ    = step.κ < 0 ? -variables.κ / step.κ : inv(eps(T))
+    ατ    = step.τ < 0 ? -variables.τ / step.τ : floatmax(T)
+    ακ    = step.κ < 0 ? -variables.κ / step.κ : floatmax(T)
 
     (αz,αs) = cones_step_length(
         cones, step.z, step.s,

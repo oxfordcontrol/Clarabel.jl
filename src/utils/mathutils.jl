@@ -177,7 +177,7 @@ lrscale!(L::AbstractVector,M::AbstractMatrix,R::AbstractVector) = lscale!(L, rsc
 
 #Julia SparseArrays dot function is very slow for Symmtric
 #matrices.  See https://github.com/JuliaSparse/SparseArrays.jl/issues/83
-function symdot(
+function quad_form(
     x::AbstractArray{Tf},
     A::Symmetric{Tf,SparseMatrixCSC{Tf,Ti}},
     y::AbstractArray{Tf}

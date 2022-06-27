@@ -268,15 +268,15 @@ function _step_length_soc_component(
     if( (a > 0 && b > 0) || d < 0)
         #all negative roots / complex root pair
         #-> infinite step length
-        return inv(eps(T))
+        return floatmax(T)
 
     else
         sqrtd = sqrt(d)
         r1 = (-b + sqrtd)/(2*a)
         r2 = (-b - sqrtd)/(2*a)
         #return the minimum positive root
-        r1 = r1 < 0 ? inv(eps(T)) : r1
-        r2 = r2 < 0 ? inv(eps(T)) : r2
+        r1 = r1 < 0 ? floatmax(T) : r1
+        r2 = r2 < 0 ? floatmax(T) : r2
         return min(r1,r2)
     end
 
