@@ -1,6 +1,6 @@
 using Revise
 include("../src\\Clarabel.jl")
-using .Clarabel
+# using Clarabel
 using Random
 using LinearAlgebra, SparseArrays
 using Printf

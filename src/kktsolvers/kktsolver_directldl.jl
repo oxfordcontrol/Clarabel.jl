@@ -287,6 +287,7 @@ function kktsolver_solve!(
 
     (x,b) = (kktsolver.x,kktsolver.b)
     solve!(kktsolver.ldlsolver,x,b)
+    # ldlt_solve!(kktsolver,x,b)    YC: just for testing, need to remove it later
 
     if(kktsolver.settings.iterative_refinement_enable)
         iterative_refinement(kktsolver,x,b)
@@ -323,6 +324,7 @@ function iterative_refinement(kktsolver::DirectLDLKKTSolver{T},x,b) where{T}
 
     #compute the initial error
     norme = _get_refine_error!(e,b,KKTsym,kktsolver.Dsigns,ϵ,x)
+    println("initial residual: ", norme)
 
     for i = 1:IR_maxiter
 
@@ -335,12 +337,14 @@ function iterative_refinement(kktsolver::DirectLDLKKTSolver{T},x,b) where{T}
 
         #make a refinement and continue
         solve!(kktsolver.ldlsolver,dx,e)
+        # ldlt_solve!(kktsolver,dx,e)   YC: just for testing, need to remove it later
 
         #prospective solution is x + dx.   Use dx space to
         #hold it for a check before applying to x
         ξ = dx
         @. ξ += x
         norme = _get_refine_error!(e,b,KKTsym,kktsolver.Dsigns,ϵ,ξ)
+        println(i,"-th residual: ", norme)
 
         if(lastnorme/norme < IR_stopratio)
             #insufficient improvement.  Exit
@@ -369,3 +373,18 @@ function _get_refine_error!(e,b,KKTsym,D,ϵ,ξ)
     return norm(e,Inf)
 
 end
+
+# YC: to test different ldl solvers
+function ldlt_solve!( 
+    ldlsolver::DirectLDLKKTSolver{T}, 
+    x::AbstractVector{T}, 
+    b::AbstractVector{T} 
+) where{T} 
+
+    KKT = Ma97(ldlsolver.KKTsym)
+
+    ma97_factorize!(KKT)
+
+    x .= KKT \ b
+
+end 
