@@ -362,7 +362,7 @@ function check_μ_and_centrality(
         end
 
         # println("current barrier is: ", barrier)
-        if barrier < 100.
+        if barrier < 1.
             return α
         else
             α *= scaling    #backtrack line search

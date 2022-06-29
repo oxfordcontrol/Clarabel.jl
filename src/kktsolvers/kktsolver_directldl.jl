@@ -239,6 +239,9 @@ function _kktsolver_update_inner!(
         _offset_values!(kktsolver,map.diagP,-ϵ)  #undo the (now doubled) P shift
     end
 
+    KKTsym = kktsolver.KKTsym
+    KKTdiag = abs.(diag(KKTsym))
+    println("ratio is: ", maximum(KKTdiag)/minimum(KKTdiag))
     #refactor with new data
     refactor!(ldlsolver,kktsolver.KKT)
 
@@ -364,7 +367,7 @@ function _get_refine_error!(e,b,KKTsym,D,ϵ,ξ)
     e .= b
     mul!(e,KKTsym,ξ,-1.,1.)   #  b - Kξ
 
-    if(iszero(ϵ))
+    if(!iszero(ϵ))
         @. e += ϵ * D * ξ
     end
 

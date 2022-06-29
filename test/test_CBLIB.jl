@@ -19,7 +19,7 @@ filelist = readdir(pwd()*"./primal_exp_cbf")
 
 # dat = readcbfdata("./exp_cbf/car.cbf.gz") # .cbf.gz extension also accepted
 
-for j = 1:32    #length(filelist)
+for j = 25:32    #length(filelist)
     println("Current file is ", j)
     datadir = filelist[j]   #"gp_dave_1.cbf.gz"
     dat = readcbfdata("./primal_exp_cbf/"*datadir) # .cbf.gz extension also accepted
@@ -38,9 +38,12 @@ for j = 1:32    #length(filelist)
     num_var = size(A,2)
 
     model = Model(Clarabel.Optimizer)
+    set_optimizer_attribute(model, "direct_solve_method", :cholmod)
+    set_optimizer_attribute(model, "static_regularization_eps", 1e-7)
     # model = Model(Hypatia.Optimizer)
     # model = Model(ECOS.Optimizer)
     # model = Model(Mosek.Optimizer)
+    # set_optimizer_attribute(model, "MSK_IPAR_PRESOLVE_USE", MSK_PRESOLVE_MODE_OFF)
 
     # TimerOutputs.enable_debug_timings(Clarabel)
 
