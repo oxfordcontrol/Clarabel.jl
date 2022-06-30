@@ -11,6 +11,10 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     x::Vector{T}
     b::Vector{T}
 
+    # internal workspace for IR scheme
+    work_e::Vector{T}
+    work_dx::Vector{T}
+
     #KKT mapping from problem data to KKT
     map::LDLDataMap
 
@@ -20,6 +24,12 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     # a vector for storing the WtW blocks
     # on the in the KKT matrix block diagonal
     WtWblocks::Vector{Vector{T}}
+
+    #unpermuted KKT matrix
+    KKT::SparseMatrixCSC{T,Int}
+
+    #symmetric view for residual calcs
+    KKTsym::Symmetric{T, SparseMatrixCSC{T,Int}}
 
     #settings just points back to the main solver settings.
     #Required since there is no separate LDL settings container
@@ -37,9 +47,11 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         #LHS/RHS/work for iterative refinement
         x    = Vector{T}(undef,n+m+p)
         b    = Vector{T}(undef,n+m+p)
+        work_e  = Vector{T}(undef,n+m+p)
+        work_dx = Vector{T}(undef,n+m+p)
 
         #the expected signs of D in LDL
-        Dsigns = ones(Int,n+m+p)
+        Dsigns = Vector{Int}(undef,n+m+p)
         _fill_Dsigns!(Dsigns,m,n,p)
 
         #updates to the diagonal of KKT will be
@@ -53,15 +65,19 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         kktshape = required_matrix_shape(ldlsolverT)
         KKT, map = _assemble_kkt_matrix(P,A,cones,kktshape)
 
+        if(settings.static_regularization_enable)
+            ϵ = settings.static_regularization_eps
+            _offset_diagonal_KKT!(KKT, 1:n, ϵ, @view Dsigns[1:n])
+        end
+
+        #KKT will be triu data only, but we will want
+        #the following to allow products like KKT*x
+        KKTsym = Symmetric(KKT)
+
         #the LDL linear solver engine
         ldlsolver = ldlsolverT{T}(KKT,Dsigns,settings)
 
-        if(settings.static_regularization_enable)
-            ϵ = settings.static_regularization_eps
-            offset_values!(ldlsolver,map.diagP,ϵ)
-        end
-
-        return new(m,n,p,x,b,map,Dsigns,WtWblocks,settings,ldlsolver)
+        return new(m,n,p,x,b,work_e,work_dx,map,Dsigns,WtWblocks,KKT,KKTsym,settings,ldlsolver)
     end
 
 end
@@ -78,17 +94,112 @@ end
 
 function _fill_Dsigns!(Dsigns,m,n,p)
 
-    #the expected signs of D in LDL
+    Dsigns .= 1
+
+    #flip expected negative signs of D in LDL
     Dsigns[n+1:n+m] .= -1
 
     #the trailing block of p entries should
     #have alternating signs
-    sign = -1
-    for idx = (n+m+1):(n+m+p)
-        Dsigns[idx] = sign
-        sign *= -1
-    end
+    Dsigns[(n+m+1):2:(n+m+p)] .= -1
 end
+
+#update entries in the kktsolver object using the
+#given index into its CSC representation
+function _update_values!(
+    ldlsolver::AbstractDirectLDLSolver{T},
+    KKT::SparseMatrixCSC{T,Ti},
+    index::Vector{Ti},
+    values::Vector{T}
+) where{T,Ti}
+
+    #Update values in the KKT matrix K
+    _update_values_KKT!(KKT,index,values)
+
+    #give the LDL subsolver an opportunity to update the same
+    #values if needed.   This latter is useful for QDLDL
+    #since it stores its own permuted copy
+    update_values!(ldlsolver,index,values)
+
+end
+
+#updates KKT matrix values
+function _update_values_KKT!(
+    KKT::SparseMatrixCSC{T,Int},
+    index::Vector{Ti},
+    values::Vector{T}
+) where{T,Ti}
+
+    #Update values in the KKT matrix K
+    @. KKT.nzval[index] = values
+
+end
+
+#scale entries in the kktsolver object using the
+#given index into its CSC representation
+function _scale_values!(
+    ldlsolver::AbstractDirectLDLSolver{T},
+    KKT::SparseMatrixCSC{T,Ti},
+    scale::Vector{Ti},
+    values::T
+) where{T,Ti}
+
+    #Update values in the KKT matrix K
+    _scale_values_KKT!(KKT,index,scale)
+
+    #give the LDL subsolver an opportunity to update the same
+    #values if needed.   This latter is useful for QDLDL
+    #since it stores its own permuted copy
+    scale_values!(ldlsolver,index,scale)
+
+end
+
+#updates KKT matrix values
+function _scale_values_KKT!(
+    KKT::SparseMatrixCSC{T,Int},
+    index::Vector{Ti},
+    scale::T
+) where{T,Ti}
+
+    #Update values in the KKT matrix K
+    @. KKT.nzval[index] *= scale
+
+end
+
+
+
+
+# offset diagonal entries#  the KKT matrix over the Range 
+# of inices passed.  Len#h of signs and index must agree
+function _offset_diagonal!(
+    ldlsolver::AbstractDirectLDLSolver{T},
+    KKT::SparseMatrixCSC{T,Ti},
+    index::UnitRange{Ti},
+    offset::T,
+    signs::AbstractVector{<:Integer}  #allows Vector{T} or a @view
+) where{T,Ti}
+
+    #Update values in the KKT matrix K
+    _offset_diagonal_KKT!(KKT, index, offset, signs)
+
+    # ...and in the LDL subsolver if needed.
+    offset_diagonal!(ldlsolver, index, offset, signs)
+
+end
+
+#offsets KKT matrix values
+function _offset_diagonal_KKT!(
+    KKT::SparseMatrixCSC{T,Ti},
+    index::UnitRange{Ti},
+    offset::T,
+    signs::AbstractVector{<:Integer}  #allows Vector{T} or a @view
+) where{T,Ti}
+
+    #Update values in the KKT matrix K
+    KKT[diagind(KKT)[index]] .+= offset*signs
+
+end
+
 
 
 function kktsolver_update!(
@@ -96,11 +207,10 @@ function kktsolver_update!(
     cones::ConeSet{T}
 ) where {T}
 
-    (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
-
     settings  = kktsolver.settings
     ldlsolver = kktsolver.ldlsolver
     map       = kktsolver.map
+    KKT       = kktsolver.KKT
 
 
     #Set the elements the W^tW blocks in the KKT matrix.
@@ -108,7 +218,7 @@ function kktsolver_update!(
     for (index, values) in zip(map.WtWblocks,kktsolver.WtWblocks)
         #change signs to get -W^TW
         values .= -values
-        update_values!(ldlsolver,index,values)
+        _update_values!(ldlsolver,KKT,index,values)
     end
 
     #update the scaled u and v columns.
@@ -120,12 +230,15 @@ function kktsolver_update!(
                 η2 = K.η^2
 
                 #off diagonal columns (or rows)
-                update_values!(ldlsolver,map.SOC_u[cidx],(-η2).*K.u)
-                update_values!(ldlsolver,map.SOC_v[cidx],(-η2).*K.v)
+                _update_values!(ldlsolver,KKT,map.SOC_u[cidx],K.u)
+                _update_values!(ldlsolver,KKT,map.SOC_v[cidx],K.v)
+                _scale_values!(ldlsolver,KKT,map.SOC_u[cidx],-η2)
+                _scale_values!(ldlsolver,KKT,map.SOC_v[cidx],-η2)
+
 
                 #add η^2*(1/-1) to diagonal in the extended rows/cols
-                update_values!(ldlsolver,[map.SOC_D[cidx*2-1]],[-η2])
-                update_values!(ldlsolver,[map.SOC_D[cidx*2  ]],[+η2])
+                _update_values!(ldlsolver,KKT,[map.SOC_D[cidx*2-1]],[-η2])
+                _update_values!(ldlsolver,KKT,[map.SOC_D[cidx*2  ]],[+η2])
 
                 cidx += 1
         end
@@ -134,16 +247,16 @@ function kktsolver_update!(
 
     #Perturb the diagonal terms WtW that we have just overwritten
     #with static regularizers.  Note that we don't want to shift
-    #elements in the ULHS #(corresponding to P) since we already
-    #shifted them at initialization and haven't overwritten it
+    #elements in the ULHS (corresponding to P) since we already
+    #shifted them at initialization and haven't overwritten that block
     if(settings.static_regularization_enable)
         ϵ = settings.static_regularization_eps
-        offset_values!(ldlsolver,map.diag_full,ϵ,kktsolver.Dsigns)
-        offset_values!(ldlsolver,map.diagP,-ϵ)  #undo to the P shift
+        (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
+        _offset_diagonal!(ldlsolver,KKT,(n+1):(m+n+p),ϵ, @view kktsolver.Dsigns[(n+1):(m+n+p)])
     end
 
     #refactor with new data
-    refactor!(ldlsolver)
+    refactor!(ldlsolver,kktsolver.KKT)
 
     return nothing
 end
@@ -189,8 +302,86 @@ function kktsolver_solve!(
 ) where {T}
 
     (x,b) = (kktsolver.x,kktsolver.b)
-    solve!(kktsolver.ldlsolver,x,b,kktsolver.settings)
+    solve!(kktsolver.ldlsolver,x,b)
+
+    if(kktsolver.settings.iterative_refinement_enable)
+        iterative_refinement(kktsolver)
+    end
+
     kktsolver_getlhs!(kktsolver,lhsx,lhsz)
 
     return nothing
+end
+
+function iterative_refinement(kktsolver::DirectLDLKKTSolver{T}) where{T}
+
+    (x,b)   = (kktsolver.x,kktsolver.b)
+    (e,dx)  = (kktsolver.work_e, kktsolver.work_dx)
+    settings = kktsolver.settings
+
+    #iterative refinement params
+    IR_reltol    = settings.iterative_refinement_reltol
+    IR_abstol    = settings.iterative_refinement_abstol
+    IR_maxiter   = settings.iterative_refinement_max_iter
+    IR_stopratio = settings.iterative_refinement_stop_ratio
+
+    if(settings.static_regularization_enable)
+        ϵ = settings.static_regularization_eps
+    else
+        ϵ = zero(settings.static_regularization_eps)
+    end
+
+    #Note that K is only triu data, so need to
+    #be careful when computing the residual
+    K      = kktsolver.KKT
+    KKTsym = kktsolver.KKTsym
+    normb  = norm(b,Inf)
+
+    #compute the initial error
+    norme = _get_refine_error!(e,b,KKTsym,kktsolver.Dsigns,ϵ,x)
+
+    for i = 1:IR_maxiter
+
+        if(norme <= IR_abstol + IR_reltol*normb)
+            # within tolerance.  Exit
+            return nothing
+        end
+
+        lastnorme = norme
+
+        #make a refinement and continue
+        solve!(kktsolver.ldlsolver,dx,e)
+
+        #prospective solution is x + dx.   Use dx space to
+        #hold it for a check before applying to x
+        ξ = dx
+        @. ξ += x
+        norme = _get_refine_error!(e,b,KKTsym,kktsolver.Dsigns,ϵ,ξ)
+
+        if(lastnorme/norme < IR_stopratio)
+            #insufficient improvement.  Exit
+            return nothing
+        else
+            @. x .= ξ  #PJG: pointer swap might be faster
+        end
+    end
+
+    return nothing
+end
+
+
+# computes e = b - (K+ϵD)ξ + ϵDξ, overwriting the first argument
+# and returning its norm
+
+function _get_refine_error!(e,b,KKTsym,D,ϵ,ξ)
+
+    e .= b
+    mul!(e,KKTsym,ξ,-1.,1.)   # e = b - Kξ
+
+    if(!iszero(ϵ))
+        @. e += ϵ * D * ξ
+    end
+
+    return norm(e,Inf)
+
 end

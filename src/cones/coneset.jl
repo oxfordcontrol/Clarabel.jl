@@ -45,7 +45,8 @@ struct ConeSet{T}
         numel  = sum(cone -> Clarabel.numel(cone), cones; init = 0)
         degree = sum(cone -> Clarabel.degree(cone), cones; init = 0)
 
-        #make head index
+        #headidx gives the index of the first element 
+        #of each constituent cone
         headidx = Vector{Int}(undef,length(cones))
         _coneset_make_headidx!(headidx,cones)
 

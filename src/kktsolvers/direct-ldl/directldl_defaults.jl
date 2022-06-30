@@ -24,6 +24,16 @@ function update_values!(
     error("function not implemented")
 end
 
+#scale entries in the KKT matrix using the
+#given index into its CSC representation
+function scale_values!(
+    ldlsolver::AbstractDirectLDLSolver{T},
+    index::AbstractVector,
+    scale::T
+) where{T}
+    error("function not implemented")
+end
+
 
 #offset entries in the KKT matrix using the
 #given index into its CSC representation and
@@ -48,8 +58,7 @@ end
 function solve!(
     ldlsolver::AbstractDirectLDLSolver{T},
     x::AbstractVector{T},
-    b::AbstractVector{T},
-    settings
+    b::AbstractVector{T}
 ) where{T}
     error("function not implemented")
 end

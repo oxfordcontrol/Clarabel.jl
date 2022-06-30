@@ -193,7 +193,7 @@ function cones_step_length(
     z     = z.views
     s     = s.views
 
-    huge    = inv(eps(T))
+    huge    = floatmax(T)
     (αz,αs) = (huge, huge)
     for i = eachindex(cones)
         (nextαz,nextαs) = step_length(cones[i],dz[i],ds[i],z[i],s[i])
