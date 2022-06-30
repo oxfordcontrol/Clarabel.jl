@@ -27,8 +27,8 @@ for j = 1:32    #length(filelist)
         c .*= -1
     end
 
-    T = Float64
-    # T = BigFloat
+    # T = Float64
+    T = BigFloat
 
     c = T.(c)
 

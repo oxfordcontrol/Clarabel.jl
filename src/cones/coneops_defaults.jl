@@ -51,7 +51,8 @@ function update_scaling!(
     K::AbstractCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
-    μ::T
+    μ::T,
+    flag::Bool
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))

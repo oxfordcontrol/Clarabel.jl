@@ -201,7 +201,7 @@ function solve!(
 
             #update the scalings
             #--------------
-            @timeit_debug timer "NT scaling" scaling_update!(s.cones,s.variables,μ)
+            @timeit_debug timer "NT scaling" scaling_update!(s.cones,s.variables,μ,s.kktsystem.kktsolver.corFlag)
 
             #update the KKT system and the constant
             #parts of its solution
@@ -434,6 +434,8 @@ function solver_default_start!(s::Solver{T}) where {T}
         unsymmetricInit(s.variables, s.cones)
     end
 
+    # YC:: offset_P_diag directly
+    # offset_P_diag(s.kktsystem.kktsolver)
     return nothing
 end
 
@@ -465,4 +467,15 @@ function check_KKT_system!(
 
     println("KKT residual is: ", norm(res,Inf))
 
+end
+
+# offset diagonal static regularization directly
+function offset_P_diag(
+    kktsolver::AbstractKKTSolver{T}
+) where{T}
+    settings  = kktsolver.settings
+    map       = kktsolver.map
+    ϵ = settings.static_regularization_eps
+
+    _offset_values!(kktsolver,map.diagP,-ϵ)  #undo the (now doubled) P shift
 end

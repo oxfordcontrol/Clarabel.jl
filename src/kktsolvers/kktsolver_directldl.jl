@@ -38,6 +38,8 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     #the direct linear LDL solver
     ldlsolver::AbstractDirectLDLSolver{T}
 
+    corFlag::Bool           # higher order correction enabled
+
     function DirectLDLKKTSolver{T}(P,A,cones,m,n,settings) where {T}
 
         #solving in sparse format.  Need this many
@@ -77,7 +79,9 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         #the LDL linear solver engine
         ldlsolver = ldlsolverT{T}(KKT,Dsigns,settings)
 
-        return new(m,n,p,x,b,work_e,work_dx,map,Dsigns,WtWblocks,KKT,KKTsym,settings,ldlsolver)
+        corFlag = true
+
+        return new(m,n,p,x,b,work_e,work_dx,map,Dsigns,WtWblocks,KKT,KKTsym,settings,ldlsolver,corFlag)
     end
 
 end
@@ -241,9 +245,17 @@ function _kktsolver_update_inner!(
 
     KKTsym = kktsolver.KKTsym
     KKTdiag = abs.(diag(KKTsym))
-    println("ratio is: ", maximum(KKTdiag)/minimum(KKTdiag))
+    maxdiag = maximum(KKTdiag)
+    mindiag = minimum(KKTdiag)
+    println("ratio is: ", maxdiag/mindiag)
     #refactor with new data
     refactor!(ldlsolver,kktsolver.KKT)
+
+    # switch from primal-dual scaling to the pure dual scaling
+    if  mindiag/maxdiag < eps(T) #&& kktsolver.corFlag == true
+        kktsolver.corFlag = false
+        println("Switch off correction!!!")
+    end
 
     return nothing
 end

@@ -20,7 +20,8 @@ function update_scaling!(
     K::PowerCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
-    μ::T
+    μ::T,
+    flag::Bool
 ) where {T}
     #update both gradient and Hessian for function f*(z) at the point z
     muHessianF(K,z,K.μH,μ)

@@ -9,7 +9,8 @@ function update_scaling!(
     K::SecondOrderCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
-    μ::T
+    μ::T,
+    flag::Bool
 ) where {T}
 
     #first calculate the scaled vector w

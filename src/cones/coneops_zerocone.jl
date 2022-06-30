@@ -20,7 +20,8 @@ function update_scaling!(
     K::ZeroCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
-    μ::T
+    μ::T,
+    flag::Bool
 ) where {T}
 
     #nothing to do.

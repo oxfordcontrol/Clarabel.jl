@@ -60,10 +60,11 @@ end
 function scaling_update!(
     cones::ConeSet{T},
     variables::DefaultVariables{T},
-	μ::T
+	μ::T,
+    corFlag::Bool
 ) where {T}
 
-    cones_update_scaling!(cones,variables.s,variables.z,μ)
+    cones_update_scaling!(cones,variables.s,variables.z,μ,corFlag)
     return nothing
 end
 

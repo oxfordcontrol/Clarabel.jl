@@ -17,7 +17,8 @@ function update_scaling!(
     K::PSDTriangleCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
-    μ::T
+    μ::T,
+    flag::Bool
 ) where {T}
 
     f = K.work

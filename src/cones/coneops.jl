@@ -56,13 +56,14 @@ function cones_update_scaling!(
     cones::ConeSet{T},
     s::ConicVector{T},
     z::ConicVector{T},
-	μ::T
+	μ::T,
+    flag::Bool
 ) where {T}
 
     # update cone scalings by passing subview to each of
     # the appropriate cone types.
     for (cone,si,zi) in zip(cones,s.views,z.views)
-        @conedispatch update_scaling!(cone,si,zi,μ)
+        @conedispatch update_scaling!(cone,si,zi,μ,flag)
     end
 
     return nothing

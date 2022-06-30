@@ -20,7 +20,8 @@ function update_scaling!(
     K::ExponentialCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
-    μ::T
+    μ::T,
+    flag::Bool
 ) where {T}
     # #update both gradient and Hessian for function f*(z) at the point z
     # muHessianF(K,z,K.μH,μ)
@@ -28,7 +29,7 @@ function update_scaling!(
     K.z .= z
 
     # Hessian update
-    update_HBFGS(K,s,z)
+    update_HBFGS(K,s,z,flag)
 end
 
 # return μH*(z) for exponetial cone
@@ -560,7 +561,8 @@ end
 function update_HBFGS(
     K::ExponentialCone{T},
     s::AbstractVector{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    flag::Bool
 ) where {T}
 
     st = rand(T,3)
@@ -585,7 +587,7 @@ function update_HBFGS(
     tmp = H*zt - μt*st
     de1 = μ*μt-1
     de2 = dot(zt,H,zt) - 3*μt*μt
-    if (de1 > eps(T) && de2 > eps(T))
+    if (de1 > eps(T) && de2 > eps(T) && flag)
         HBFGS .= μ*H + 1/(2*μ*3)*δs*(s + μ*st + δs/de1)' + 1/(2*μ*3)*(s + μ*st + δs/de1)*δs' - μ/de2*tmp*tmp'
     else
         HBFGS .= μ*H

@@ -1,7 +1,7 @@
 using LinearAlgebra, SparseArrays, ECOS,JuMP
 using Mosek, MosekTools
-using Clarabel
-# include("../src\\Clarabel.jl")
+# using Clarabel
+include("../src\\Clarabel.jl")
 
 # load example data
 f = open(joinpath(@__DIR__, "chip_data.txt"))
@@ -63,11 +63,11 @@ n = n_data
 
 
 #####################################################
-m = JuMP.Model(ECOS.Optimizer)
+# m = JuMP.Model(ECOS.Optimizer)
 
-# m = JuMP.Model(Clarabel.Optimizer)
-# set_optimizer_attribute(m, "direct_solve_method", :cholmod)
-# set_optimizer_attribute(m, "static_regularization_eps", 1e-8)
+m = JuMP.Model(Clarabel.Optimizer)
+set_optimizer_attribute(m, "direct_solve_method", :cholmod)
+set_optimizer_attribute(m, "static_regularization_eps", 1e-8)
 
 @variable(m, v)
 @variable(m, θ[1:n_theta])
