@@ -41,6 +41,9 @@ module Clarabel
     include("./cones/coneops_socone.jl")
     include("./cones/coneops_psdtrianglecone.jl")
 
+    #API for user cone specifications
+    include("./cones/cone_api.jl")
+
     #various algebraic utilities
     include("./utils/mathutils.jl")
     include("./utils/csc_assembly.jl")
