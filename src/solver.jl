@@ -199,7 +199,6 @@ function solve!(
             @notimeit print_status(s.info,s.settings)
             isdone && break
 
-
             #update the scalings
             #--------------
             @timeit_debug timer "NT scaling" scaling_update!(s.cones,s.variables,μ,s.kktsystem.kktsolver.corFlag)
@@ -271,6 +270,9 @@ function solve!(
             @timeit_debug timer "save scalars" begin
                 info_save_scalars(s.info,μ,α,σ,iter)
             end
+
+            # YC:: offset_KKT_diag directly
+            offset_KKT_diag(s.kktsystem.kktsolver)
 
             # #update the scalings
             # #--------------
@@ -437,7 +439,7 @@ function solver_default_start!(s::Solver{T}) where {T}
     end
 
     # YC:: offset_P_diag directly
-    # offset_P_diag(s.kktsystem.kktsolver)
+    offset_P_diag(s.kktsystem.kktsolver)
     return nothing
 end
 
@@ -478,6 +480,28 @@ function offset_P_diag(
     settings  = kktsolver.settings
     map       = kktsolver.map
     ϵ = settings.static_regularization_eps
+    KKT       = kktsolver.KKT
 
-    _offset_values!(kktsolver,map.diagP,-ϵ)  #undo the (now doubled) P shift
+    # _offset_values!(kktsolver,map.diagP,-ϵ)  #undo the (now doubled) P shift
+
+    if(settings.static_regularization_enable)
+        (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
+        @views _offset_values!(kktsolver.ldlsolver,KKT, map.diag_full[1:n], -ϵ, kktsolver.Dsigns[1:n])
+    end
+end
+
+function offset_KKT_diag(
+    kktsolver::AbstractKKTSolver{T}
+) where{T}
+    settings  = kktsolver.settings
+    map       = kktsolver.map
+    ϵ = kktsolver.ϵ
+    KKT       = kktsolver.KKT
+
+    # _offset_values!(kktsolver,map.diagP,-ϵ)  #undo the (now doubled) P shift
+
+    if(settings.static_regularization_enable)
+        (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
+        @views _offset_values!(kktsolver.ldlsolver,KKT, map.diag_full, -ϵ, kktsolver.Dsigns)
+    end
 end

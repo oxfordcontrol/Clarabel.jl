@@ -39,6 +39,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     ldlsolver::AbstractDirectLDLSolver{T}
 
     corFlag::Bool           # higher order correction enabled
+    ϵ::T                    # current dynamic regularization
 
     function DirectLDLKKTSolver{T}(P,A,cones,m,n,settings) where {T}
 
@@ -270,13 +271,19 @@ function _kktsolver_update_inner!(
     #with static regularizers.  Note that we don't want to shift
     #elements in the ULHS (corresponding to P) since we already
     #shifted them at initialization and haven't overwritten that block
+    KKTsym = kktsolver.KKTsym
+    KKTdiag = abs.(diag(KKTsym))
+
     if(settings.static_regularization_enable)
         ϵ = settings.static_regularization_eps
+        ξ = settings.proportional_eps
+        ϵ += ξ*maximum(KKTdiag)
+        kktsolver.ϵ = ϵ
+
         (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
-        @views _offset_values!(ldlsolver,KKT, map.diag_full[(n+1):(m+n+p)], ϵ, kktsolver.Dsigns[(n+1):(m+n+p)])
+        @views _offset_values!(ldlsolver,KKT, map.diag_full, ϵ, kktsolver.Dsigns)
     end
 
-    KKTsym = kktsolver.KKTsym
     KKTdiag = abs.(diag(KKTsym))
     maxdiag = maximum(KKTdiag)
     mindiag = minimum(KKTdiag)
