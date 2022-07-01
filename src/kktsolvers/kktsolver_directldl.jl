@@ -140,8 +140,8 @@ end
 function _scale_values!(
     ldlsolver::AbstractDirectLDLSolver{T},
     KKT::SparseMatrixCSC{T,Ti},
-    scale::Vector{Ti},
-    values::T
+    index::Vector{Ti},
+    scale::T
 ) where{T,Ti}
 
     #Update values in the KKT matrix K
@@ -169,7 +169,7 @@ end
 
 
 
-# offset diagonal entries#  the KKT matrix over the Range 
+# offset diagonal entries#  the KKT matrix over the Range
 # of inices passed.  Len#h of signs and index must agree
 function _offset_diagonal!(
     ldlsolver::AbstractDirectLDLSolver{T},
