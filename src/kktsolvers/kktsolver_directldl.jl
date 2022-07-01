@@ -284,7 +284,7 @@ function _kktsolver_update_inner!(
         @views _offset_values!(ldlsolver,KKT, map.diag_full, ϵ, kktsolver.Dsigns)
     end
 
-    KKTdiag = abs.(diag(KKTsym))
+    KKTdiag = abs.(diag(KKTsym))    # different from the previous one after diagonal perturbation
     maxdiag = maximum(KKTdiag)
     mindiag = minimum(KKTdiag)
     println("ratio is: ", maxdiag/mindiag)
