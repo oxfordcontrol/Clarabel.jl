@@ -67,7 +67,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
         if(settings.static_regularization_enable)
             ϵ = settings.static_regularization_eps
-            _offset_diagonal_KKT!(KKT, 1:n, ϵ, @view Dsigns[1:n])
+            @views _offset_values_KKT!(KKT, map.diag_full[1:n], ϵ, Dsigns[1:n])
         end
 
         #KKT will be triu data only, but we will want
@@ -169,34 +169,35 @@ end
 
 
 
-# offset diagonal entries#  the KKT matrix over the Range
-# of inices passed.  Len#h of signs and index must agree
-function _offset_diagonal!(
+#offset entries in the kktsolver object using the
+#given index into its CSC representation.  Lengths
+#of index and signs must agree
+function _offset_values!(
     ldlsolver::AbstractDirectLDLSolver{T},
     KKT::SparseMatrixCSC{T,Ti},
-    index::UnitRange{Ti},
+    index::AbstractVector{Ti},
     offset::T,
-    signs::AbstractVector{<:Integer}  #allows Vector{T} or a @view
+    signs::AbstractVector{<:Integer}
 ) where{T,Ti}
 
     #Update values in the KKT matrix K
-    _offset_diagonal_KKT!(KKT, index, offset, signs)
+    _offset_values_KKT!(KKT, index, offset, signs)
 
     # ...and in the LDL subsolver if needed.
-    offset_diagonal!(ldlsolver, index, offset, signs)
+    offset_values!(ldlsolver, index, offset, signs)
 
 end
 
 #offsets KKT matrix values
-function _offset_diagonal_KKT!(
+function _offset_values_KKT!(
     KKT::SparseMatrixCSC{T,Ti},
-    index::UnitRange{Ti},
+    index::AbstractVector{Ti},
     offset::T,
     signs::AbstractVector{<:Integer}  #allows Vector{T} or a @view
 ) where{T,Ti}
 
     #Update values in the KKT matrix K
-    KKT[diagind(KKT)[index]] .+= offset*signs
+    @. KKT.nzval[index] += offset*signs
 
 end
 
@@ -252,7 +253,7 @@ function kktsolver_update!(
     if(settings.static_regularization_enable)
         ϵ = settings.static_regularization_eps
         (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
-        _offset_diagonal!(ldlsolver,KKT,(n+1):(m+n+p),ϵ, @view kktsolver.Dsigns[(n+1):(m+n+p)])
+        @views _offset_values!(ldlsolver,KKT, map.diag_full[(n+1):(m+n+p)], ϵ, kktsolver.Dsigns[(n+1):(m+n+p)])
     end
 
     #refactor with new data

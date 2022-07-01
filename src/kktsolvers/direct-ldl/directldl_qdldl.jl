@@ -66,21 +66,21 @@ end
 #offset entries in the KKT matrix using the
 #given index into its CSC representation and
 #an optional vector of signs
-function offset_diagonal!(
+function offset_values!(
     ldlsolver::AbstractDirectLDLSolver{T},
-    index::UnitRange{Ti},
+    index::AbstractVector{Ti},
     offset::T,
     signs::AbstractVector{<:Integer}
 ) where{T,Ti}
 
-    QDLDL.offset_diagonal!(ldlsolver.factors, index, offset, signs)
+    QDLDL.offset_values!(ldlsolver.factors, index, offset, signs)
 
 end
 
 #refactor the linear system
 function refactor!(ldlsolver::QDLDLDirectLDLSolver{T}, K::SparseMatrixCSC) where{T}
 
-    #PJG: K is not used because QDLDL is maintaining
+    #PJG: K is not used because QDLDL maintains
     #the update matrix entries for itself using the
     #offset/update methods implemented above.
     QDLDL.refactor!(ldlsolver.factors)
