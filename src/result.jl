@@ -1,8 +1,8 @@
 
 function result_finalize!(
 	result::Result{T},
+	data::DefaultProblemData{T},
 	variables::DefaultVariables{T},
-	equil::DefaultEquilibration{T},
 	info::DefaultInfo{T}
 ) where {T}
 
@@ -29,9 +29,9 @@ function result_finalize!(
     @. result.s *= scaleinv
 
     #undo the equilibration
-    d = equil.d; dinv = equil.dinv
-    e = equil.e; einv = equil.einv
-    cscale = equil.c[]
+    d = data.equilibration.d; dinv = data.equilibration.dinv
+    e = data.equilibration.e; einv = data.equilibration.einv
+    cscale = data.equilibration.c[]
 
     @. result.x *=  d
     @. result.z *=  e ./ cscale

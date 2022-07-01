@@ -35,7 +35,7 @@ function print_header(
     if(settings.verbose == false) return end
 
     println("-------------------------------------------------------------")
-    @printf("             Clarabel v%s  -  Clever Acronym              \n", version())
+    @printf("           Clarabel.jl v%s  -  Clever Acronym              \n", version())
     println("                   (c) Paul Goulart                          ")
     println("                University of Oxford, 2022                   ")
     println("-------------------------------------------------------------")
@@ -87,7 +87,7 @@ function print_settings(settings::Settings, T::DataType)
 
     @printf("  max iter = %i, time limit = %f,  max step = %.3f\n",
         set.max_iter,
-        set.time_limit == 0 ? Inf : set.max_time,
+        set.time_limit == 0 ? Inf : set.time_limit,
         set.max_step_fraction,
     )
     #

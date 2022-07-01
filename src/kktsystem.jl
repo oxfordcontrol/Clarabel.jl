@@ -70,16 +70,13 @@ DefaultKKTSystem(args...) = DefaultKKTSystem{DefaultFloat}(args...)
     return nothing
 end
 
-
 function _kkt_solve_constant_rhs!(
     kktsystem::DefaultKKTSystem{T},
     data::DefaultProblemData{T}
 ) where {T}
 
-    minus_q = kktsystem.workx;
-    @. minus_q = -data.q;
-
-    kktsolver_setrhs!(kktsystem.kktsolver, minus_q, data.b)
+    kktsystem.workx .= -data.q;
+    kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, data.b)
     kktsolver_solve!(kktsystem.kktsolver, kktsystem.x2, kktsystem.z2)
 
     return nothing
@@ -99,7 +96,7 @@ function kkt_solve_initial_point!(
     kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
     kktsolver_solve!(kktsystem.kktsolver, variables.x, variables.s)
 
-    # solve with [-c;0] as a RHS to get z initializer
+    # solve with [-q;0] as a RHS to get z initializer
     # zero out any sparse cone variables at end
     kktsystem.workx .= -data.q
     kktsystem.workz .=  zero(T)
@@ -154,17 +151,17 @@ function kkt_solve!(
     #-----------
     # Numerator first
     ξ   = workx
-    ξ  .= variables.x ./ variables.τ
-    P   = data.Psym
+    ξ  .= variables.x / variables.τ
+    P   = Symmetric(data.P)
 
-    tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,x1) + dot(data.b,z1) + 2*symdot(ξ,P,x1)
+    tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,x1) + dot(data.b,z1) + 2*quad_form(ξ,P,x1)
 
     #offset ξ for the quadratic form in the denominator
     ξ_minus_x2    = ξ   #alias to ξ, same as workx
     @. ξ_minus_x2  -= x2
 
     tau_den  = variables.κ/variables.τ - dot(data.q,x2) - dot(data.b,z2)
-    tau_den += symdot(ξ_minus_x2,P,ξ_minus_x2) - symdot(x2,P,x2)
+    tau_den += quad_form(ξ_minus_x2,P,ξ_minus_x2) - quad_form(x2,P,x2)
 
     #solve for (Δx,Δz)
     #-----------

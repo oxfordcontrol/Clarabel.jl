@@ -8,7 +8,7 @@ function residuals_update!(
   qx  = dot(data.q,variables.x)
   bz  = dot(data.b,variables.z)
   sz  = dot(variables.s,variables.z)
-  mul!(residuals.Px,data.Psym,variables.x)
+  mul!(residuals.Px,Symmetric(data.P),variables.x)
   xPx = dot(variables.x,residuals.Px)
 
   #partial residual calc so we can check primal/dual

@@ -238,8 +238,8 @@ function step_length(
      s::AbstractVector{T},
 ) where {T}
 
-    αz = inv(eps(T))
-    αs = inv(eps(T))
+    αz = floatmax(T)
+    αs = floatmax(T)
 
     for i in eachindex(ds)
         αz = dz[i] < 0 ? min(αz,-z[i]/dz[i]) : αz

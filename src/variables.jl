@@ -19,8 +19,8 @@ function calc_step_length(
     steptype::Symbol
 ) where {T}
 
-    ατ    = step.τ < 0 ? -variables.τ / step.τ : inv(eps(T))
-    ακ    = step.κ < 0 ? -variables.κ / step.κ : inv(eps(T))
+    ατ    = step.τ < 0 ? -variables.τ / step.τ : floatmax(T)
+    ακ    = step.κ < 0 ? -variables.κ / step.κ : floatmax(T)
 
     α = min(ατ,ακ,one(T))
 
@@ -57,6 +57,8 @@ vars.κ /= scale
 
 end
 
+
+# PJG: Rust makes this variables_scale_cones
 function scaling_update!(
     cones::ConeSet{T},
     variables::DefaultVariables{T},

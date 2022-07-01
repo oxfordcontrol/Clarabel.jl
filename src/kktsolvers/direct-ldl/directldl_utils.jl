@@ -10,18 +10,18 @@ struct LDLDataMap
     SOC_D::Vector{Int}              #diag of just the sparse SOC expansion D
 
     #all of above terms should be disjoint and their union
-    #should cover all of the uset data in the KKT matrix.  Now
+    #should cover all of the user data in the KKT matrix.  Now
     #we make two last redundant indices that will tell us where
     #the whole diagonal is, including structural zeros.
 
     diagP::Vector{Int}
     diag_full::Vector{Int}
 
-    function LDLDataMap(P,A,cones)
+    function LDLDataMap(Pmat,Amat,cones)
 
-        (m,n) = (size(A,1), size(P,1))
-        P = zeros(Int,nnz(P))
-        A = zeros(Int,nnz(A))
+        (m,n) = (size(Amat,1), size(Pmat,1))
+        P = zeros(Int,nnz(Pmat))
+        A = zeros(Int,nnz(Amat))
 
         #the diagonal of the ULHS block P.
         #NB : we fill in structural zeros here even if the matrix
@@ -40,12 +40,12 @@ struct LDLDataMap
         SOC_u = Vector{Vector{Int}}(undef,nsoc)
         SOC_v = Vector{Vector{Int}}(undef,nsoc)
 
-        count = 1
+        count = 1;
         for (i,cone) in enumerate(cones)
             if(cones.types[i] == Clarabel.SecondOrderConeT)
                 SOC_u[count] = Vector{Int}(undef,numel(cone))
                 SOC_v[count] = Vector{Int}(undef,numel(cone))
-                count = count+1
+                count += 1
             end
         end
 
@@ -112,7 +112,7 @@ function _assemble_kkt_matrix(
 
     K = _csc_spalloc(T, m+n+p, m+n+p, nnzKKT)
 
-    _kkt_assemble_colcounts(K,maps,P,A,cones,m,n,p,shape)
+    _kkt_assemble_colcounts(K,P,A,cones,m,n,p,shape)
     _kkt_assemble_fill(K,maps,P,A,cones,m,n,p,shape)
 
     return K,maps
@@ -121,7 +121,6 @@ end
 
 function _kkt_assemble_colcounts(
     K,
-    maps,
     P,
     A,
     cones,
@@ -130,8 +129,6 @@ function _kkt_assemble_colcounts(
     p,
     shape::Symbol
 )
-
-    (m,n) = (A.m, P.n)
 
     #use K.p to hold nnz entries in each
     #column of the KKT matrix
@@ -203,8 +200,6 @@ function _kkt_assemble_fill(
     shape::Symbol
 )
 
-    (m,n) = (A.m, P.n)
-
     #cumsum total entries to convert to K.p
     _csc_colcount_to_colptr(K)
 
@@ -268,7 +263,7 @@ function _kkt_assemble_fill(
     #We have filled in structural zeros on it everywhere.
 
     if shape == :triu
-        #matrix is tril, so diagonal is first in each column
+        #matrix is triu, so diagonal is last in each column
         @views maps.diag_full .= K.colptr[2:end] .- 1
         #and the diagonal of just the upper left
         @views maps.diagP     .= K.colptr[2:(n+1)] .- 1

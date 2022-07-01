@@ -2,8 +2,6 @@ import QDLDL
 
 struct QDLDLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
 
-    #KKT matrix and its LDL factors
-    KKT::SparseMatrixCSC{T}
     factors::QDLDL.QDLDLFactorisation{T, Int}
 
     function QDLDLDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
@@ -19,7 +17,7 @@ struct QDLDLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
             logical          = true
         )
 
-        return new(KKT,factors)
+        return new(factors)
     end
 
 end
@@ -49,15 +47,31 @@ function update_values!(
 
 end
 
+#scale entries in the KKT matrix using the
+#given index into its CSC representation
+function scale_values!(
+    ldlsolver::QDLDLDirectLDLSolver{T},
+    index::Vector{Ti},
+    scale::T
+) where{T,Ti}
+
+    #Updating values in both the KKT matrix and
+    #in the reordered copy held internally by QDLDL.
+    #The former is needed for iterative refinement since
+    #QDLDL does not have internal iterative refinement
+    QDLDL.scale_values!(ldlsolver.factors,index,scale)
+
+end
+
 #offset entries in the KKT matrix using the
 #given index into its CSC representation and
 #an optional vector of signs
 function offset_values!(
-    ldlsolver::QDLDLDirectLDLSolver{T},
-    index::Vector{Int},
-    offset::Union{T,Vector{T}},
-    signs::Union{Int,Vector{Int}} = 1
-) where{T}
+    ldlsolver::AbstractDirectLDLSolver{T},
+    index::AbstractVector{Ti},
+    offset::T,
+    signs::AbstractVector{<:Integer}
+) where{T,Ti}
 
     QDLDL.offset_values!(ldlsolver.factors, index, offset, signs)
 
@@ -66,7 +80,7 @@ end
 #refactor the linear system
 function refactor!(ldlsolver::QDLDLDirectLDLSolver{T}, K::SparseMatrixCSC) where{T}
 
-    #PJG: K is not used because QDLDL is maintaining
+    #PJG: K is not used because QDLDL maintains
     #the update matrix entries for itself using the
     #offset/update methods implemented above.
     QDLDL.refactor!(ldlsolver.factors)

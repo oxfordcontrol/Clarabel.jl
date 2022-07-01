@@ -225,7 +225,7 @@ function step_length(
 ) where {T}
 
     #equality constraints allow arbitrary step length
-    huge = inv(eps(T))
+    huge = floatmax(T)
     return (huge,huge)
 end
 
