@@ -26,7 +26,7 @@ required_matrix_shape(::Type{CholmodDirectLDLSolver}) = :triu
 #given index into its CSC representation
 function update_values!(
     ldlsolver::CholmodDirectLDLSolver{T},
-    index::Vector{Int},
+    index::AbstractVector{Int},
     values::Vector{T}
 ) where{T}
 
@@ -39,11 +39,13 @@ end
 #given index into its CSC representation
 function scale_values!(
     ldlsolver::CholmodDirectLDLSolver{T},
-    index::Vector{Int},
+    index::AbstractVector{Int},
     scale::T
 ) where{T}
 
-    ldlsolver.KKT.nzval[index] .*= scale
+    #no-op.  Will just use KKT matrix as it as
+    #passed to refactor!
+
 end
 
 #offset entries in the KKT matrix using the
@@ -51,9 +53,9 @@ end
 #an optional vector of signs
 function offset_values!(
     ldlsolver::CholmodDirectLDLSolver{T},
-    index::Vector{Int},
-    offset::Union{T,Vector{T}},
-    signs::Union{Int,Vector{Int}} = 1
+    index::AbstractVector{Int},
+    offset::T,
+    signs::AbstractVector{<:Integer}
 ) where{T}
 
     #no-op.  Will just use KKT matrix as it as
