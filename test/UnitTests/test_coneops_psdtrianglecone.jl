@@ -191,7 +191,7 @@ FloatT = Float64
         dS .= randpsd(rng,n); dZ .= randpsd(rng,n)
         map((v,M)->Clarabel._mat_to_svec!(v,M,K),(ds,dz),(dS,dZ))
         (αz,αs) = Clarabel.step_length(K,dz,ds,z,s)
-        @test min(αz,αs) ≈ inv(eps(FloatT))  rtol = 10*eps(FloatT)
+        @test min(αz,αs) ≈ floatmax(FloatT)  rtol = 10*eps(FloatT)
 
     end
 

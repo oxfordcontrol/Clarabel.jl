@@ -13,6 +13,6 @@ UnitTestFloats = [Float64,BigFloat]
     include("./run_component_tests.jl")
 
     #MathOptInterface / JuMP etc
-    #include("./run_interface_tests.jl")
+    include("./run_interface_tests.jl")
 
 end
