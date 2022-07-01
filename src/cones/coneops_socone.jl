@@ -42,11 +42,11 @@ function update_scaling!(
     #representation of W^TW
     u0 = sqrt(w0sq + w1sq - K.d)
     u1 = α/u0
-    v0 = 0
+    v0 = zero(T)
     v1 = sqrt(u1*u1 - β)
     K.u[1] = u0
     @views K.u[2:end] .= u1.*K.w[2:end]
-    K.v[1] = zero(T)
+    K.v[1] = v0
     @views K.v[2:end] .= v1.*K.w[2:end]
 
     #λ = Wz
@@ -64,8 +64,7 @@ function set_identity_scaling!(
     K.u .= zero(T)
     K.v .= zero(T)
     K.η  = one(T)
-    K.w[1]      = zero(T)
-    K.w[2:end] .= zero(T)
+    K.w .= zero(T)
 
     return nothing
 end
@@ -161,7 +160,7 @@ function shift_to_cone!(
     if(α < eps(T))
         #done in two stages since otherwise (1.-α) = -α for
         #large α, which makes z exactly 0.0 (or worse, -0.0 )
-        z[1] += -α
+        z[1] -=  α
         z[1] +=  one(T)
     end
 
@@ -335,15 +334,15 @@ function _step_length_soc_component(
     if( (a > 0 && b > 0) || d < 0)
         #all negative roots / complex root pair
         #-> infinite step length
-        return inv(eps(T))
+        return floatmax(T)
 
     else
         sqrtd = sqrt(d)
         r1 = (-b + sqrtd)/(2*a)
         r2 = (-b - sqrtd)/(2*a)
         #return the minimum positive root
-        r1 = r1 < 0 ? inv(eps(T)) : r1
-        r2 = r2 < 0 ? inv(eps(T)) : r2
+        r1 = r1 < 0 ? floatmax(T) : r1
+        r2 = r2 < 0 ? floatmax(T) : r2
         return min(r1,r2)
     end
 

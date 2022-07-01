@@ -100,8 +100,8 @@ function setup!(
 
     @timeit s.info.timer "setup!" begin
 
-        s.data   = DefaultProblemData{T}(P,q,A,b)
         s.cones  = ConeSet{T}(cone_types,cone_dims,α)
+        s.data   = DefaultProblemData{T}(P,q,A,b,s.cones)
         s.data.m == s.cones.numel || throw(DimensionMismatch())
 
         s.variables = DefaultVariables{T}(s.data.n,s.cones)
@@ -110,9 +110,8 @@ function setup!(
         #equilibrate problem data immediately on setup.
         #this prevents multiple equlibrations if solve!
         #is called more than once.
-        s.equilibration  = DefaultEquilibration{T}(s.data.n,s.cones,s.settings)
         @timeit_debug s.info.timer "equilibrate" begin
-            equilibrate!(s.equilibration,s.data,s.cones,s.settings)
+            data_equilibrate!(s.data,s.cones,s.settings)
         end
 
         @timeit_debug s.info.timer "kkt init" begin
@@ -166,7 +165,8 @@ function solve!(
     @timeit timer "solve!" begin
 
         #initialize variables to some reasonable starting point
-        @timeit_debug timer "default start" solver_default_start!(s)
+        #@timeit_debug timer "default start" 
+        solver_default_start!(s)
 
         @timeit_debug timer "IP iteration" begin
 
@@ -186,10 +186,11 @@ function solve!(
 
             #convergence check and printing
             #--------------
-            @timeit_debug timer "check termination" begin
+            #@timeit_debug timer "check termination" 
+            begin
                 info_update!(
                     s.info,s.data,s.variables,
-                    s.residuals,s.equilibration,s.settings
+                    s.residuals,s.settings
                 )
                 isdone = info_check_termination!(s.info,s.residuals,s.settings)
             end
@@ -206,7 +207,8 @@ function solve!(
             #update the KKT system and the constant
             #parts of its solution
             #--------------
-            @timeit_debug timer "kkt update" kkt_update!(s.kktsystem,s.data,s.cones)
+            #@timeit_debug timer "kkt update" 
+            kkt_update!(s.kktsystem,s.data,s.cones)
 
             #calculate the affine step
             #--------------
@@ -283,7 +285,7 @@ function solve!(
     end #end solve! timer
 
     info_finalize!(s.info)  #halts timers
-    result_finalize!(s.result,s.variables,s.equilibration,s.info)
+    result_finalize!(s.result,s.data,s.variables,s.info)
 
     @notimeit print_footer(s.info,s.settings)
 
