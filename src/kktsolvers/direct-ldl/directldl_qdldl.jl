@@ -29,9 +29,9 @@ required_matrix_shape(::Type{QDLDLDirectLDLSolver}) = :triu
 #given index into its CSC representation
 function update_values!(
     ldlsolver::QDLDLDirectLDLSolver{T},
-    index::Vector{Ti},
+    index::AbstractVector{Int},
     values::Vector{T}
-) where{T,Ti}
+) where{T}
 
     #Update values that are stored within
     #the reordered copy held internally by QDLDL.
@@ -51,9 +51,9 @@ end
 #given index into its CSC representation
 function scale_values!(
     ldlsolver::QDLDLDirectLDLSolver{T},
-    index::Vector{Ti},
+    index::AbstractVector{Int},
     scale::T
-) where{T,Ti}
+) where{T}
 
     #Updating values in both the KKT matrix and
     #in the reordered copy held internally by QDLDL.
@@ -67,11 +67,11 @@ end
 #given index into its CSC representation and
 #an optional vector of signs
 function offset_values!(
-    ldlsolver::AbstractDirectLDLSolver{T},
-    index::AbstractVector{Ti},
+    ldlsolver::QDLDLDirectLDLSolver{T},
+    index::AbstractVector{Int},
     offset::T,
     signs::AbstractVector{<:Integer}
-) where{T,Ti}
+) where{T}
 
     QDLDL.offset_values!(ldlsolver.factors, index, offset, signs)
 
