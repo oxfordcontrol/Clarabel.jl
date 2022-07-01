@@ -58,18 +58,16 @@ b = [0.;        #<-- RHS of equality constraint
      ones(4)   #<-- RHS of inequality constraints
     ]
 
-cone_types =
-    [Clarabel.ZeroConeT,           #<--- for the equality constraint
-     Clarabel.NonnegativeConeT]    #<--- for the inequality constraints
+cones =
+    [Clarabel.ZeroConeT(1),           #<--- for the equality constraint
+     Clarabel.NonnegativeConeT(4)]    #<--- for the inequality constraints
 
-cone_dims = [1,                    #<--- number of equality constraints
-             4]                    #<--- number of inequality constraints
 
 nothing  #hide
 
 # Finally we can populate the solver with problem data and solve
 
-Clarabel.setup!(solver, P, q, A, b, cone_types, cone_dims, settings)
+Clarabel.setup!(solver, P, q, A, b, cones, settings)
 result = Clarabel.solve!(solver)
 
 # then retrieve our solution
@@ -79,7 +77,7 @@ result.x
 #=
 !!! tip
     There is no constraint on the ordering of the cones that appears
-    in `cone_types` as long as it is compatible with the ordering of
+    in `cones` as long as it is compatible with the ordering of
     the constraints as they appear in `A` and `b`.   There is also no
     constraint on the number of instances of each type that appear.
     You could, for example, define the inequalities in the above example
@@ -87,15 +85,10 @@ result.x
 
 
     ```julia
-    cone_types =
-        [Clarabel.ZeroConeT,           #<--- for the equality constraint
-         Clarabel.NonnegativeConeT]    #<--- first half of the inequality constraints
-         Clarabel.NonnegativeConeT]    #<--- second half of the inequality constraints
-
-    cone_dims = [1,                    #<--- number of equality constraints
-                 2,                    #<--- first two inequalities constraints
-                 2]                    #<--- final two inequalities constraints
-    ```
+    cones =
+        [Clarabel.ZeroConeT(1),           #<--- for the equality constraint
+         Clarabel.NonnegativeConeT(2),    #<--- first half of the inequality constraints
+         Clarabel.NonnegativeConeT(2)]    #<--- second half of the inequality constraints
 
     and get the same result.
 =#

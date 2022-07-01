@@ -1,3 +1,5 @@
+using InteractiveUtils:subtypes
+
 # -------------------------------------
 # collection of cones for composite
 # operations on a compound set, including
@@ -8,9 +10,9 @@ struct ConeSet{T}
 
     cones::Vector{AbstractCone{T}}
 
-    #Type tags and count of each cone
-    types::Vector{SupportedCones}
-    type_counts::Dict{SupportedCones,Int}
+    #API type specs and count of each cone type
+    cone_specs::Vector{SupportedCone}
+    type_counts::Dict{DataType,Int}
 
     #overall size of the composite cone
     numel::DefaultInt
@@ -20,37 +22,38 @@ struct ConeSet{T}
     #first element in each cone.  For convenience
     headidx::Vector{Int}
 
-    function ConeSet{T}(types,dims) where {T}
+    function ConeSet{T}(cone_specs::Vector{<:SupportedCone}) where {T}
 
-        length(types) == length(dims) || throw(DimensionMismatch())
+        #make copy to protect from user interference after setup,
+        #and explicitly cast as the abstract type.  This prevents
+        #errors arising from input vectors that are all the same cone,
+        #and therefore more concretely typed than we want
+        cone_specs = Vector{SupportedCone}(cone_specs)
 
-        #make copy to protect from user interference after setup
-        types = copy(types)
-
-        ncones = length(types)
+        ncones = length(cone_specs)
         cones  = Vector{AbstractCone{T}}(undef,ncones)
 
         #create cones with the given dims
-        for i in eachindex(dims)
-            cones[i] = ConeDict[types[i]]{T}(dims[i])
+        for i in eachindex(cone_specs)
+            cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].dim)
         end
 
         #count the number of each cone type
-        type_counts = Dict{SupportedCones,Int}()
-        for coneT in instances(SupportedCones)
-            type_counts[coneT] = count(==(coneT), types)
+        type_counts = Dict{DataType,Int}()
+        for coneT in subtypes(SupportedCone)
+            type_counts[coneT] = count(C->isa(C,coneT), cone_specs)
         end
 
         #count up elements and degree
         numel  = sum(cone -> Clarabel.numel(cone), cones; init = 0)
         degree = sum(cone -> Clarabel.degree(cone), cones; init = 0)
 
-        #headidx gives the index of the first element 
+        #headidx gives the index of the first element
         #of each constituent cone
         headidx = Vector{Int}(undef,length(cones))
         _coneset_make_headidx!(headidx,cones)
 
-        return new(cones,types,type_counts,numel,degree,headidx)
+        return new(cones,cone_specs,type_counts,numel,degree,headidx)
     end
 end
 

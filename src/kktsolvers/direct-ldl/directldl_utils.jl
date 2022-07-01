@@ -42,7 +42,7 @@ struct LDLDataMap
 
         count = 1;
         for (i,cone) in enumerate(cones)
-            if(cones.types[i] == Clarabel.SecondOrderConeT)
+            if isa(cones.cone_specs[i],Clarabel.SecondOrderConeT)
                 SOC_u[count] = Vector{Int}(undef,numel(cone))
                 SOC_v[count] = Vector{Int}(undef,numel(cone))
                 count += 1
@@ -159,7 +159,7 @@ function _kkt_assemble_colcounts(
     socidx = 1  #which SOC are we working on?
 
     for i = 1:length(cones)
-        if(cones.types[i] == Clarabel.SecondOrderConeT)
+        if isa(cones.cone_specs[i],Clarabel.SecondOrderConeT)
 
             #we will add the u and v columns for this cone
             nvars   = numel(cones[i])
@@ -231,7 +231,7 @@ function _kkt_assemble_fill(
     socidx = 1  #which SOC are we working on?
 
     for i = 1:length(cones)
-        if(cones.types[i] == Clarabel.SecondOrderConeT)
+        if isa(cones.cone_specs[i],Clarabel.SecondOrderConeT)
 
             nvars = numel(cones[i])
             headidx = cones.headidx[i]

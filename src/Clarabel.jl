@@ -8,9 +8,14 @@ module Clarabel
     #version / release info
     include("./version.jl")
 
-    #core solver components
+    #API for user cone specifications
+    include("./cones/cone_api.jl")
+
+    #cone type definitions
     include("./cones/conetypes.jl")
     include("./cones/coneset.jl")
+
+    #core solver components
     include("./settings.jl")
     include("./conicvector.jl")
     include("./types.jl")
@@ -40,9 +45,6 @@ module Clarabel
     include("./cones/coneops_nncone.jl")
     include("./cones/coneops_socone.jl")
     include("./cones/coneops_psdtrianglecone.jl")
-
-    #API for user cone specifications
-    include("./cones/cone_api.jl")
 
     #various algebraic utilities
     include("./utils/mathutils.jl")

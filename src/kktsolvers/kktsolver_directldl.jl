@@ -226,7 +226,7 @@ function kktsolver_update!(
     cidx = 1        #which of the SOCs are we working on?
 
     for (i,K) = enumerate(cones)
-        if(cones.types[i] == SecondOrderConeT)
+        if isa(cones.cone_specs[i],SecondOrderConeT)
 
                 η2 = K.η^2
 

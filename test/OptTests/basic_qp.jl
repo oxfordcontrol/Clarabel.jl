@@ -10,13 +10,12 @@ function basic_QP_data(Type::Type{T}) where {T <: AbstractFloat}
     l = T[1.;0;0]
     u = T[1.;0.7;0.7]
 
-    cone_types = [Clarabel.NonnegativeConeT, Clarabel.NonnegativeConeT]
-    cone_dims  = [3,3]
+    cones = [Clarabel.NonnegativeConeT(3), Clarabel.NonnegativeConeT(3)]
 
     A = [-A;A]
     b = [-l;u]
 
-    return (P,c,A,b,cone_types,cone_dims)
+    return (P,c,A,b,cones)
 end
 
 
@@ -27,10 +26,9 @@ function basic_QP_data_dualinf(Type::Type{T}) where {T <: AbstractFloat}
     c = T[1; -1.]
     A = sparse(T[1. 1;1. 0;])
     b = T[1.;1]
-    cone_types = [Clarabel.NonnegativeConeT]
-    cone_dims  = [2,]
+    cones = [Clarabel.NonnegativeConeT(2)]
 
-    return (P,c,A,b,cone_types,cone_dims)
+    return (P,c,A,b,cones)
 end
 
 
@@ -44,8 +42,8 @@ end
 
             @testset "feasible" begin
 
-                P,c,A,b,cone_types,cone_dims = basic_QP_data(FloatT)
-                solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims)
+                P,c,A,b,cones = basic_QP_data(FloatT)
+                solver   = Clarabel.Solver(P,c,A,b,cones)
                 Clarabel.solve!(solver)
 
                 @test solver.info.status == Clarabel.SOLVED
@@ -56,11 +54,11 @@ end
 
             @testset "primal infeasible" begin
 
-                P,c,A,b,cone_types,cone_dims = basic_QP_data(FloatT)
+                P,c,A,b,cones = basic_QP_data(FloatT)
                 b[1] = -one(FloatT)
                 b[4] = -one(FloatT)
 
-                solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims)
+                solver   = Clarabel.Solver(P,c,A,b,cones)
                 Clarabel.solve!(solver)
 
                 @test solver.info.status == Clarabel.PRIMAL_INFEASIBLE
@@ -69,8 +67,8 @@ end
 
             @testset "dual infeasible" begin
 
-                P,c,A,b,cone_types,cone_dims = basic_QP_data_dualinf(FloatT)
-                solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims)
+                P,c,A,b,cones = basic_QP_data_dualinf(FloatT)
+                solver   = Clarabel.Solver(P,c,A,b,cones)
                 Clarabel.solve!(solver)
 
                 @test solver.info.status == Clarabel.DUAL_INFEASIBLE
@@ -78,13 +76,12 @@ end
 
             @testset "dual infeasible (non-QSD KKT)" begin
 
-                P,c,A,b,cone_types,cone_dims = basic_QP_data_dualinf(FloatT)
+                P,c,A,b,cones = basic_QP_data_dualinf(FloatT)
                 A = A[1:1,:]
                 b = b[1:1]
-                cone_types = [Clarabel.NonnegativeConeT]
-                cone_dims  = [1,]
+                cones = [Clarabel.NonnegativeConeT(1)]
 
-                solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims)
+                solver   = Clarabel.Solver(P,c,A,b,cones)
                 Clarabel.solve!(solver)
 
                 @test solver.info.status == Clarabel.DUAL_INFEASIBLE
