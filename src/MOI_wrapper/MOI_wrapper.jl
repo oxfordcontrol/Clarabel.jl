@@ -587,8 +587,7 @@ _to_optimizer_conedim(k::Int, ::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) 
 _to_optimizer_conedim(k::Int, ::Type{<:MOI.AbstractSymmetricMatrixSetSquare})   = isqrt(k)
 
 function push_constraint_set!(
-    cone_types::Vector{Clarabel.SupportedCone},
-    cone_dims::Vector{Int},
+    cone_spec::Vector{Clarabel.SupportedCone},
     rows::Union{Int,UnitRange{Int}},
     s::MathOptInterface.AbstractSet
 )

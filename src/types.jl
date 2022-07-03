@@ -328,7 +328,7 @@ Result(args...) = Result{DefaultFloat}(args...)
 	Solver{T <: AbstractFloat}()
 Initializes an empty Clarabel solver that can be filled with problem data using:
 
-    setup!(solver, P, q, A, b, cone_types, cone_dims, [settings]).
+    setup!(solver, P, q, A, b, cones, [settings]).
 
 """
 mutable struct Solver{T <: AbstractFloat}

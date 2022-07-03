@@ -11,7 +11,7 @@ Clarabel.solve!
 ## [Supported Cone Types](@id api-cones)
 
 ```@docs
-Clarabel.SupportedCones
+Clarabel.SupportedCone
 ```
 
 ## [Settings](@id api-settings)

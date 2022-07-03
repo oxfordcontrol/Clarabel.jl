@@ -22,9 +22,9 @@ end
 
 
 """
-	setup!(solver, P, q, A, b, cone_types, [settings])
+	setup!(solver, P, q, A, b, cones, [settings])
 
-Populates a [`Solver`](@ref) with a cost function defined by `P` and `q`, and one or more conic constraints defined by `A`, `b` and a description of a conic constraint composed of cones whose types and dimensions are in `cone_types` and `cone_dims`, respectively.
+Populates a [`Solver`](@ref) with a cost function defined by `P` and `q`, and one or more conic constraints defined by `A`, `b` and a description of a conic constraint composed of cones whose types and dimensions are specified by `cones.`
 
 The solver will be configured to solve the following optimization problem:
 
@@ -35,13 +35,27 @@ s.t.  Ax + s = b, s ∈ K
 
 All data matrices must be sparse.   The matrix `P` is assumed to be symmetric and positive semidefinite, and only the upper triangular part is used.
 
-The cone `K` is a composite cone whose consituent cones are described by
-* cone_types::Vector{Clarabel.SupportedCone}
+The cone `K` is a composite cone.   To define the cone the user should provide a vector of cone specifications along
+with the appropriate dimensional information.   For example, to generate a cone in the nonnegative orthant followed by
+a second order cone, use:
+
+```
+cones = [Clarabel.NonnegativeConeT(dim_1),
+         Clarabel.SecondOrderConeT(dim_2)]
+```
+
+If the argument 'cones' is constructed incrementally, the should should initialize it as an empty array of the supertype for all allowable cones, e.g.
+
+```
+cones = Clarabel.SupportedCone[]
+push!(cones,Clarabel.NonnegativeConeT(dim_1))
+...
+```
 
 The optional argument `settings` can be used to pass custom solver settings:
 ```julia
 settings = Clarabel.Settings(verbose = true)
-setup!(model, P, q, A, b, cone_types, cone_dims, settings)
+setup!(model, P, q, A, b, cones, settings)
 ```
 
 To solve the problem, you must make a subsequent call to [`solve!`](@ref)
