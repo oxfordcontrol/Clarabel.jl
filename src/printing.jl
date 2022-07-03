@@ -142,7 +142,7 @@ function print_conedims_by_type(cones::ConeSet{T}, type) where {T}
         return #don't report if none
     end
 
-    nvars = map(K->Clarabel.numel(K), cones[cones.types .== type])
+    nvars = map(K->Clarabel.numel(K), cones[isa.(cones.cone_specs,type)])
     name  = rpad(string(type)[1:end-5],11)  #drops "ConeT part"
     @printf("    : %s = %i, ", name, count)
 

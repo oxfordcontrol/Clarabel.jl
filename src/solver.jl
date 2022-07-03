@@ -7,13 +7,12 @@ function Solver(
     c::Vector{T},
     A::AbstractMatrix{T},
     b::Vector{T},
-    cone_types::Vector{SupportedCones},
-    cone_dims::Vector{Int};
+    cone_types::Vector{<:SupportedCone},
     kwargs...
 ) where{T <: AbstractFloat}
 
     s = Solver{T}()
-    setup!(s,P,c,A,b,cone_types,cone_dims,kwargs...)
+    setup!(s,P,c,A,b,cone_types,kwargs...)
     return s
 end
 
@@ -23,7 +22,7 @@ end
 
 
 """
-	setup!(solver, P, q, A, b, cone_types, cone_dims, [settings])
+	setup!(solver, P, q, A, b, cone_types, [settings])
 
 Populates a [`Solver`](@ref) with a cost function defined by `P` and `q`, and one or more conic constraints defined by `A`, `b` and a description of a conic constraint composed of cones whose types and dimensions are in `cone_types` and `cone_dims`, respectively.
 
@@ -37,8 +36,7 @@ s.t.  Ax + s = b, s ∈ K
 All data matrices must be sparse.   The matrix `P` is assumed to be symmetric and positive semidefinite, and only the upper triangular part is used.
 
 The cone `K` is a composite cone whose consituent cones are described by
-* cone_types::Vector{Clarabel.SupportedCones}
-* cone_dims::Vector{Int}
+* cone_types::Vector{Clarabel.SupportedCone}
 
 The optional argument `settings` can be used to pass custom solver settings:
 ```julia
@@ -48,16 +46,16 @@ setup!(model, P, q, A, b, cone_types, cone_dims, settings)
 
 To solve the problem, you must make a subsequent call to [`solve!`](@ref)
 """
-function setup!(s,P,c,A,b,cone_types,cone_dims,settings::Settings)
+function setup!(s,P,c,A,b,cone_types,settings::Settings)
     #this allows total override of settings during setup
     s.settings = settings
-    setup!(s,P,c,A,b,cone_types,cone_dims)
+    setup!(s,P,c,A,b,cone_types)
 end
 
-function setup!(s,P,c,A,b,cone_types,cone_dims; kwargs...)
+function setup!(s,P,c,A,b,cone_types; kwargs...)
     #this allows override of individual settings during setup
     settings_populate!(s.settings, Dict(kwargs))
-    setup!(s,P,c,A,b,cone_types,cone_dims)
+    setup!(s,P,c,A,b,cone_types)
 end
 
 # main setup function
@@ -67,8 +65,7 @@ function setup!(
     q::Vector{T},
     A::AbstractMatrix{T},
     b::Vector{T},
-    cone_types::Vector{SupportedCones},
-    cone_dims::Vector{Int}
+    cone_types::Vector{<:SupportedCone},
 ) where{T}
 
     #make this first to create the timers
@@ -76,7 +73,7 @@ function setup!(
 
     @timeit s.info.timer "setup!" begin
 
-        s.cones  = ConeSet{T}(cone_types,cone_dims)
+        s.cones  = ConeSet{T}(cone_types)
         s.data   = DefaultProblemData{T}(P,q,A,b,s.cones)
         s.data.m == s.cones.numel || throw(DimensionMismatch())
 
@@ -137,7 +134,7 @@ function solve!(
     @timeit timer "solve!" begin
 
         #initialize variables to some reasonable starting point
-        #@timeit_debug timer "default start" 
+        #@timeit_debug timer "default start"
         solver_default_start!(s)
 
         @timeit_debug timer "IP iteration" begin
@@ -157,7 +154,7 @@ function solve!(
 
             #convergence check and printing
             #--------------
-            #@timeit_debug timer "check termination" 
+            #@timeit_debug timer "check termination"
             begin
                 info_update!(
                     s.info,s.data,s.variables,
@@ -171,13 +168,13 @@ function solve!(
 
             #update the scalings
             #--------------
-            #@timeit_debug timer "NT scaling" 
+            #@timeit_debug timer "NT scaling"
             scaling_update!(s.cones,s.variables)
 
             #update the KKT system and the constant
             #parts of its solution
             #--------------
-            #@timeit_debug timer "kkt update" 
+            #@timeit_debug timer "kkt update"
             kkt_update!(s.kktsystem,s.data,s.cones)
 
             #calculate the affine step
@@ -187,7 +184,7 @@ function solve!(
                 s.data, s.variables, s.cones
             )
 
-            #@timeit_debug timer "kkt solve" 
+            #@timeit_debug timer "kkt solve"
             begin
                 kkt_solve!(
                     s.kktsystem, s.step_lhs, s.step_rhs,
@@ -208,7 +205,7 @@ function solve!(
                 s.step_lhs, σ, μ
             )
 
-            #@timeit_debug timer "kkt solve" 
+            #@timeit_debug timer "kkt solve"
             begin
                 kkt_solve!(
                     s.kktsystem, s.step_lhs, s.step_rhs,
@@ -218,7 +215,7 @@ function solve!(
 
             #compute final step length and update the current iterate
             #--------------
-            #@timeit_debug timer "step length" 
+            #@timeit_debug timer "step length"
             α = calc_step_length(s.variables,s.step_lhs,s.cones)
             α *= s.settings.max_step_fraction
 

@@ -42,14 +42,13 @@ function SOCP_lasso_data(Type::Type{T}) where {T <: AbstractFloat}
     A = [A1;A2;A3]
     b = [b1;b2;b3]
 
-    cone_types = [Clarabel.NonnegativeConeT,
-    Clarabel.NonnegativeConeT,
-    Clarabel.SecondOrderConeT]
-    cone_dims  = [length(b1),
-    length(b2),
-    length(b3)]
+    cones = [Clarabel.NonnegativeConeT(length(b1)),
+             Clarabel.NonnegativeConeT(length(b2)),
+             Clarabel.SecondOrderConeT(length(b3))]
 
-    return (P,c,A,b,cone_types,cone_dims)
+
+
+    return (P,c,A,b,cones)
 
 end
 
@@ -57,8 +56,8 @@ tol = FloatT(1e-3)
 
 @testset "SOCP - Lasso" begin
 
-    P,c,A,b,cone_types,cone_dims = SOCP_lasso_data(FloatT)
-    solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims)
+    P,c,A,b,cones = SOCP_lasso_data(FloatT)
+    solver   = Clarabel.Solver(P,c,A,b,cones)
     Clarabel.solve!(solver)
 
     @test solver.info.status == Clarabel.SOLVED

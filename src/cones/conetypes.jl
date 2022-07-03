@@ -150,30 +150,15 @@ end
 PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 
 
-# -------------------------------------
-# Enum and dict for user interface
-# -------------------------------------
-"""
-    SupportedCones
-An Enum of supported cone type for passing to [`setup!`](@ref). The currently
-supported types are:
-
-* `ZeroConeT`       : The zero cone.  Used to define equalities.
-* `NonnegativeConeT`: The nonnegative orthant.
-* `SecondOrderConeT`: The second order / Lorentz / ice-cream cone.
-# `PSDTriangleConeT`: The positive semidefinite cone (triangular format).
-"""
-@enum SupportedCones begin
-    ZeroConeT
-    NonnegativeConeT
-    SecondOrderConeT
-    PSDTriangleConeT
-end
+-# -------------------------------------
+-# Dict mapping user API types to internal
+ # cone data types
+-# -------------------------------------
 
 """
     ConeDict
-A Dict that maps the user-facing SupportedCones enum values to
-the types used internally in the solver.   See [SupportedCones](@ref)
+A Dict that maps the user-facing SupportedCone types to
+the types used internally in the solver.   See [SupportedCone](@ref)
 """
 const ConeDict = Dict(
            ZeroConeT => ZeroCone,

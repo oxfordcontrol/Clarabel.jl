@@ -55,15 +55,14 @@ b = [ 1.
      -2.;
      -2.]
 
-cone_types = [Clarabel.SecondOrderConeT]
-cone_dims  = [3]
+cones = [Clarabel.SecondOrderConeT(3)]
 
 nothing  #hide
 
 
 # Finally we can populate the solver with problem data and solve
 
-Clarabel.setup!(solver, P, q, A, b, cone_types, cone_dims, settings)
+Clarabel.setup!(solver, P, q, A, b, cones, settings)
 result = Clarabel.solve!(solver)
 
 # then retrieve our solution
@@ -77,9 +76,9 @@ result.x
 # Clarabel.jl as the backend solver within [JuMP](http://www.juliaopt.org/JuMP.jl/stable/).
 # Here is the same problem again:
 
-using Clarabel, JuMP, ECOS
+using Clarabel, JuMP
 
-model = JuMP.Model(ECOS.Optimizer)
+model = JuMP.Model(Clarabel.Optimizer)
 set_optimizer_attribute(model, "verbose", true)
 
 @variable(model, x[1:2])
