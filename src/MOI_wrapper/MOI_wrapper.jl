@@ -294,7 +294,7 @@ function MOI.copy_to(dest::Optimizer{T}, src::MOI.ModelLike) where {T}
 
     #assemble the constraints data
     assign_constraint_row_ranges!(dest.rowranges, idxmap, src)
-    A, b, cone_types, cone_dims = process_constraints(dest, src, idxmap)
+    A, b, cone_spec, = process_constraints(dest, src, idxmap)
 
     #assemble the objective data
     dest.sense = MOI.get(src, MOI.ObjectiveSense())
@@ -302,7 +302,7 @@ function MOI.copy_to(dest::Optimizer{T}, src::MOI.ModelLike) where {T}
 
     #call setup! again on the solver.   This will flush all
     #internal data but will keep settings intact
-    Clarabel.setup!(dest.inner,P,q,A,b,cone_types,cone_dims)
+    Clarabel.setup!(dest.inner,P,q,A,b,cone_spec)
 
     #model is no longer empty
     dest.is_empty = false
@@ -435,14 +435,12 @@ function process_constraints(
     J = Int[]
     V = T[]
 
-    #these will be used for the Clarabel cone types and dimensions
-    cone_types = Clarabel.SupportedCones[]
-    cone_dims  = Int[]
+    #these will be used for the Clarabel API cone types
+    cone_spec = Clarabel.SupportedCone[]
 
     for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
         push_constraint!(
-            (I, J, V), b,
-            cone_types, cone_dims,
+            (I, J, V), b, cone_spec,
             src, idxmap, rowranges, F, S)
     end
 
@@ -453,15 +451,14 @@ function process_constraints(
     n = MOI.get(src, MOI.NumberOfVariables())
     A = sparse(I, J, V, m, n)
 
-    return (A, b, cone_types, cone_dims)
+    return (A, b, cone_spec)
 
 end
 
 function push_constraint!(
     triplet::SparseTriplet,
     b::Vector{T},
-    cone_types::Vector{Clarabel.SupportedCones},
-    cone_dims::Vector{Int},
+    cone_spec::Vector{Clarabel.SupportedCone},
     src::MOI.ModelLike,
     idxmap,
     rowranges::Dict{Int, UnitRange{Int}},
@@ -476,7 +473,7 @@ function push_constraint!(
         rows = constraint_rows(rowranges, idxmap[ci])
         push_constraint_constant!(b, rows, f, s)
         push_constraint_linear!(triplet, f, rows, idxmap, s)
-        push_constraint_set!(cone_types, cone_dims, rows, s)
+        push_constraint_set!(cone_spec, rows, s)
     end
 
     return nothing
@@ -559,8 +556,7 @@ end
 
 
 function push_constraint_set!(
-    cone_types::Vector{Clarabel.SupportedCones},
-    cone_dims::Vector{Int},
+    cone_spec::Vector{Clarabel.SupportedCone},
     rows::Union{Int,UnitRange{Int}},
     s::OptimizerSupportedMOICones{T},
 ) where {T}
@@ -573,11 +569,11 @@ function push_constraint_set!(
     next_type = MOItoClarabelCones[typeof(s)]
     next_dim  = _to_optimizer_conedim(length(rows),typeof(s))
 
-    if isempty(cone_types) || next_type ∉ OptimizerMergeableTypes || next_type != cone_types[end]
-        push!(cone_types, next_type)
-        push!(cone_dims, next_dim)
+    if isempty(cone_spec) || next_type ∉ OptimizerMergeableTypes || next_type != typeof(cone_spec[end])
+        push!(cone_spec, next_type(next_dim))
     else
-        cone_dims[end] += next_dim
+        #overwrite with a a cone of enlarged dimension
+        cone_spec[end] = next_type(next_dim + cone_spec[end].dim)
     end
 
     return nothing
@@ -591,7 +587,7 @@ _to_optimizer_conedim(k::Int, ::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) 
 _to_optimizer_conedim(k::Int, ::Type{<:MOI.AbstractSymmetricMatrixSetSquare})   = isqrt(k)
 
 function push_constraint_set!(
-    cone_types::Vector{Clarabel.SupportedCones},
+    cone_types::Vector{Clarabel.SupportedCone},
     cone_dims::Vector{Int},
     rows::Union{Int,UnitRange{Int}},
     s::MathOptInterface.AbstractSet
