@@ -2,7 +2,7 @@ using Documenter, DocumenterTools, Clarabel, Literate
 
 # This file borrows heavily from the one in COSMO.jl
 
-@info "Building example problems..."
+@info "Building example problems..." 
 
 # utility function from https://github.com/JuliaOpt/Convex.jl/blob/master/docs/make.jl
 fix_math_md(content) = replace(content, r"\$\$(.*?)\$\$"s => s"```math\1```")
