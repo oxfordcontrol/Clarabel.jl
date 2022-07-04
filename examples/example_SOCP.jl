@@ -55,15 +55,14 @@ b = [ 1.
      -2.;
      -2.]
 
-cone_types = [Clarabel.SecondOrderConeT]
-cone_dims  = [3]
+cones = [Clarabel.SecondOrderConeT(3)]
 
 nothing  #hide
 
 
 # Finally we can populate the solver with problem data and solve
 
-Clarabel.setup!(solver, P, q, A, b, cone_types, cone_dims, settings)
+Clarabel.setup!(solver, P, q, A, b, cones, settings)
 result = Clarabel.solve!(solver)
 
 # then retrieve our solution

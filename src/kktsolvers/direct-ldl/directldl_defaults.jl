@@ -18,8 +18,18 @@ end
 #given index into its CSC representation
 function update_values!(
     ldlsolver::AbstractDirectLDLSolver{T},
-    index::AbstractVector,
+    index::AbstractVector{Int},
     values::AbstractVector{T}
+) where{T}
+    error("function not implemented")
+end
+
+#scale entries in the KKT matrix using the
+#given index into its CSC representation
+function scale_values!(
+    ldlsolver::AbstractDirectLDLSolver{T},
+    index::AbstractVector{Int},
+    scale::T
 ) where{T}
     error("function not implemented")
 end
@@ -30,7 +40,7 @@ end
 #an optional vector of signs
 function offset_values!(
     ldlsolver::AbstractDirectLDLSolver{T},
-    index::AbstractVector,
+    index::AbstractVector{Int},
     offset::Union{T,AbstractVector{T}},
     signs::Union{Integer,AbstractArray{Integer}} = 1
 ) where{T}
@@ -48,8 +58,7 @@ end
 function solve!(
     ldlsolver::AbstractDirectLDLSolver{T},
     x::AbstractVector{T},
-    b::AbstractVector{T},
-    settings
+    b::AbstractVector{T}
 ) where{T}
     error("function not implemented")
 end

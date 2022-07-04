@@ -65,8 +65,7 @@ function get_WtW_block!(
     # we should return here the upper triangular part
     # of the matrix Q* (RR^T) ⨂ (RR^T) * P.  The operator
     # P is a matrix that transforms a packed triangle to
-    # a vectorized full matrix.  Q does the opposite.
-    # This is crazily inefficient and needs a rewrite
+    # a vectorized full matrix.
 
     R   = K.work.R
     kRR = K.work.kronRR
@@ -299,7 +298,7 @@ function _step_length_psd_component(
     M = Symmetric(Λisqrt*Δ*Λisqrt)
 
     γ = eigvals(M,1:1)[1] #minimum eigenvalue
-    α = γ < 0 ? inv(-γ) : inv(eps(T))
+    α = γ < 0 ? inv(-γ) : floatmax(T)
     return α
 
 end

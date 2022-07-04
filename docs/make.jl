@@ -2,7 +2,7 @@ using Documenter, DocumenterTools, Clarabel, Literate
 
 # This file borrows heavily from the one in COSMO.jl
 
-@info "Building example problems..."
+@info "Building example problems..." 
 
 # utility function from https://github.com/JuliaOpt/Convex.jl/blob/master/docs/make.jl
 fix_math_md(content) = replace(content, r"\$\$(.*?)\$\$"s => s"```math\1```")
@@ -13,13 +13,14 @@ function postprocess(cont)
       """ * cont
 end
 
-# force execution of the two basic examples so that
+# force execution of some examples so that
 # their timing in the docs represent execution time,
 # not compilation time
 redirect_stdout(devnull)  #shh!!
 include(joinpath(@__DIR__, "../examples/", "example_QP.jl"))
-include(joinpath(@__DIR__, "../examples/", "example_QP.jl"))
 include(joinpath(@__DIR__, "../examples/", "example_SOCP.jl"))
+include(joinpath(@__DIR__, "./src/literate/", "arbitrary_precision.jl"))
+include(joinpath(@__DIR__, "./src/literate/", "convex_jl.jl"))
 redirect_stdout(stdout)
 
 

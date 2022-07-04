@@ -3,13 +3,19 @@ module Clarabel
     using SparseArrays, LinearAlgebra, Printf
     const DefaultFloat = Float64
     const DefaultInt   = LinearAlgebra.BlasInt
+    const IdentityMatrix = UniformScaling{Bool}
 
     #version / release info
     include("./version.jl")
 
-    #core solver components
+    #API for user cone specifications
+    include("./cones/cone_api.jl")
+
+    #cone type definitions
     include("./cones/conetypes.jl")
     include("./cones/coneset.jl")
+
+    #core solver components
     include("./settings.jl")
     include("./conicvector.jl")
     include("./types.jl")

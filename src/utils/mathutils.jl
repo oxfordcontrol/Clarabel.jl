@@ -36,31 +36,35 @@ function kkt_col_norms!(
     norm_RHS::AbstractVector{T}
 ) where {T}
 
-	col_norms_sym!(norm_LHS, P, reset = true)   #start from zero.  P can be triu
-	col_norms!(norm_LHS, A, reset = false)       #incrementally from P norms
+	col_norms_sym!(norm_LHS, P)   # P can be triu
+	col_norms_no_reset!(norm_LHS, A)       #incrementally from P norms
 	row_norms!(norm_RHS, A)                      #same as column norms of A'
 
 	return nothing
 end
 
-
 function col_norms!(
-    v::AbstractVector{Tf},
-	A::SparseMatrixCSC{Tf,Ti};
-    reset::Bool = true
+    norms::AbstractVector{Tf},
+	A::SparseMatrixCSC{Tf,Ti}
 ) where {Tf <: AbstractFloat, Ti <: Integer}
 
-	if reset
-		fill!(v, 0)
-	end
+	fill!(norms, zero(Tf))
+    col_norms_no_reset!(norms,A)
+    return nothing
+end
 
-	@inbounds for i = eachindex(v)
+function col_norms_no_reset!(
+    norms::AbstractVector{Tf},
+	A::SparseMatrixCSC{Tf,Ti};
+) where {Tf <: AbstractFloat, Ti <: Integer}
+
+	@inbounds for i = eachindex(norms)
 		for j = A.colptr[i]:(A.colptr[i + 1] - 1)
 			tmp = abs(A.nzval[j])
-			v[i] = v[i] > tmp ? v[i] : tmp
+			norms[i] = norms[i] > tmp ? norms[i] : tmp
 		end
 	end
-	return v
+	return nothing
 end
 
 #column norms of a matrix assumed to be symmetric.
@@ -68,47 +72,57 @@ end
 #don't worry about inspecting diagonal elements twice
 #since we are taking inf norms here anyway
 
+
 function col_norms_sym!(
-    v::AbstractVector{Tf},
+    norms::AbstractVector{Tf},
 	A::SparseMatrixCSC{Tf,Ti};
     reset::Bool = true
 ) where {Tf <: AbstractFloat, Ti <: Integer}
 
-	if reset
-		fill!(v, 0)
-	end
+    fill!(norms, zero(Tf))
+    col_norms_sym_no_reset!(norms,A)
+    return nothing
 
-	@inbounds for i = eachindex(v)
+end
+
+function col_norms_sym_no_reset!(
+    norms::AbstractVector{Tf},
+	A::SparseMatrixCSC{Tf,Ti}
+) where {Tf <: AbstractFloat, Ti <: Integer}
+
+	@inbounds for i = eachindex(norms)
 		for j = A.colptr[i]:(A.colptr[i + 1] - 1)
 			tmp = abs(A.nzval[j])
             r   = A.rowval[j]
-			v[i] = v[i] > tmp ? v[i] : tmp
-            v[r] = v[r] > tmp ? v[r] : tmp
+			norms[i] = norms[i] > tmp ? norms[i] : tmp
+            norms[r] = norms[r] > tmp ? norms[r] : tmp
 		end
 	end
-	return v
+	return nothing
 end
 
-
-
-
-
 function row_norms!(
-    v::AbstractVector{Tf},
+    norms::AbstractVector{Tf},
+	A::SparseMatrixCSC{Tf, Ti}
+) where{Tf <: AbstractFloat, Ti <: Integer}
+
+    fill!(norms, zero(Tf))
+    return row_norms_no_reset!(norms,A)
+	return nothing
+end
+
+function row_norms_no_reset!(
+    norms::AbstractVector{Tf},
 	A::SparseMatrixCSC{Tf, Ti};
 	reset::Bool = true
 ) where{Tf <: AbstractFloat, Ti <: Integer}
 
-	if reset
-		fill!(v,zero(Tf))
-	end
-
-	@inbounds for i = 1:(A.colptr[end] - 1)
+    @inbounds for i = 1:(A.colptr[end] - 1)
 		idx = A.rowval[i]
 		tmp = abs(A.nzval[i])
-		v[idx] = v[idx] > tmp ? v[idx] : tmp
+		norms[idx] = norms[idx] > tmp ? norms[idx] : tmp
 	end
-	return v
+	return nothing
 end
 
 
@@ -117,88 +131,53 @@ function scalarmul!(A::SparseMatrixCSC, c::Real)
 end
 
 
-function lrmul!(L::Diagonal{T}, M::SparseMatrixCSC{T}, R::Diagonal{T}) where {T <: AbstractFloat}
+function lrscale!(L::AbstractVector{T}, M::SparseMatrixCSC{T}, R::AbstractVector{T}) where {T <: AbstractFloat}
 
 	m, n = size(M)
 	Mnzval  = M.nzval
 	Mrowval = M.rowval
 	Mcolptr = M.colptr
-	Rd      = R.diag
-	Ld      = L.diag
-	(m == length(Ld) && n == length(Rd)) || throw(DimensionMismatch())
+	(m == length(L) && n == length(R)) || throw(DimensionMismatch())
 
 	@inbounds for i = 1:n
 		for j = Mcolptr[i]:(Mcolptr[i + 1] - 1)
-	 		Mnzval[j] *= Ld[Mrowval[j]] * Rd[i]
+	 		Mnzval[j] *= L[Mrowval[j]] * R[i]
 		end
 	end
 	return M
 end
 
-function lmul!(L::Diagonal{T}, M::SparseMatrixCSC{T}) where {T <: AbstractFloat}
+function lscale!(L::AbstractVector{T}, M::SparseMatrixCSC{T}) where {T <: AbstractFloat}
 
-	#NB : Same as:  @views M.nzval .*= D.diag[M.rowval]
+	#NB : Same as:  @views M.nzval .*= L[M.rowval]
 	#but this way allocates no memory at all and
 	#is marginally faster
 	m, n = size(M)
-	(m == length(L.diag)) || throw(DimensionMismatch())
+	(m == length(L)) || throw(DimensionMismatch())
 
 	@inbounds for i = 1:(M.colptr[end] - 1)
-	 		M.nzval[i] *= L.diag[M.rowval[i]]
+	 		M.nzval[i] *= L[M.rowval[i]]
 	end
 	return M
 end
 
-lmul!(L::IdentityMatrix, M::AbstractMatrix) = L.λ ? M : M .= zero(eltype(M))
-
-function lmul!(L::Diagonal{T}, x::AbstractVector{T}) where {T <: AbstractFloat}
-	(length(L.diag) == length(x)) || throw(DimensionMismatch())
-	@. x = x * L.diag
-	return nothing
-end
-
-lmul!(L::IdentityMatrix, x::AbstractVector{T}) where {T <: AbstractFloat} = L.λ ? x : x .= zero(eltype(x))
-
-
-
-function rmul!(M::SparseMatrixCSC{T}, R::Diagonal{T}) where {T <: AbstractFloat}
+function rscale!(M::SparseMatrixCSC{T}, R::AbstractVector{T}) where {T <: AbstractFloat}
 
 	m, n = size(M)
-	(n == length(R.diag)) || throw(DimensionMismatch())
+	(n == length(R)) || throw(DimensionMismatch())
 
 	@inbounds for i = 1:n, j = M.colptr[i]:(M.colptr[i + 1] - 1)
-		 	M.nzval[j] *= R.diag[i]
+		 	M.nzval[j] *= R[i]
 	end
 	return M
 end
 
-rmul!(M::AbstractMatrix, R::IdentityMatrix) = R.λ ? R : R .= zero(eltype(R))
-
-lrmul!(L::IdentityMatrix,
-	M::AbstractMatrix,
-	R::IdentityMatrix) = (L.λ && R.λ) ? M : M .= zero(eltype(M))
-
-lrmul!(L::Diagonal,
-	M::SparseMatrixCSC,
-	R::IdentityMatrix) = R.λ ? lmul!(L, M) : M .= zero(eltype(M))
-
-lrmul!(L::Diagonal,
-	M::AbstractMatrix,
-	R::Diagonal) = LinearAlgebra.lmul!(L, LinearAlgebra.rmul!(M, R))
-
-lrmul!(L::Diagonal,
-	M::AbstractMatrix,
-	R::IdentityMatrix) = R.λ ? LinearAlgebra.lmul!(L, M) : M .= zero(eltype(M))
-
-
-lrmul!(L::IdentityMatrix,
-	M::AbstractMatrix,
-	R::Diagonal) = L.λ ? LinearAlgebra.rmul!(M, R) : M .= zero(eltype(M))
+lrscale!(L::AbstractVector,M::AbstractMatrix,R::AbstractVector) = lscale!(L, rscale!(M, R))
 
 
 #Julia SparseArrays dot function is very slow for Symmtric
 #matrices.  See https://github.com/JuliaSparse/SparseArrays.jl/issues/83
-function symdot(
+function quad_form(
     x::AbstractArray{Tf},
     A::Symmetric{Tf,SparseMatrixCSC{Tf,Ti}},
     y::AbstractArray{Tf}
@@ -212,7 +191,7 @@ function symdot(
     m, n = size(A)
     (length(x) == m && n == length(y)) || throw(DimensionMismatch())
     if iszero(m) || iszero(n)
-        return dot(zero(eltype(x)), zero(eltype(A)), zero(eltype(y)))
+        return zero(Tf)
     end
 
     Mc = M.colptr

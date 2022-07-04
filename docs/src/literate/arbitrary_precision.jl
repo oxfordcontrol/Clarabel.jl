@@ -34,12 +34,9 @@ b = [zero(BigFloat);    #<-- RHS of equality constraint
      ones(BigFloat,4)   #<-- RHS of inequality constraints
     ]
 
-cone_types =
-    [Clarabel.ZeroConeT,           #<--- for the equality constraint
-     Clarabel.NonnegativeConeT]    #<--- for the inequality constraints
-
-cone_dims = [1,                    #<--- number of equality constraints
-             4]                    #<--- number of inequality constraints
+cones =
+    [Clarabel.ZeroConeT(1),           #<--- for the equality constraint
+     Clarabel.NonnegativeConeT(4)]    #<--- for the inequality constraints
 
 nothing  #hide
 
@@ -49,7 +46,7 @@ nothing  #hide
 
 # Finally we can set up the problem in the usual way and solve
 
-Clarabel.setup!(solver, P, q, A, b, cone_types, cone_dims, settings)
+Clarabel.setup!(solver, P, q, A, b, cones, settings)
 result = Clarabel.solve!(solver)
 
 #then retrieve the solution

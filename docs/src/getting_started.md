@@ -82,15 +82,14 @@ A = sparse([Aeq; Aineq; Asoc])
 b = [beq;bineq;bsoc]
 ```
 
-Clarabel.jl expects to receive a vector of cone types and their respective dimensions.  For the above constraints we  should also define
+Clarabel.jl expects to receive a vector of cone specifications.  For the above constraints we  should also define
 ```julia
 #Clarabel.jl cone specification
-cone_types = [Clarabel.ZeroT, Clarabel.NonnegativeConeT, SecondOrderConeT]
-cone_dims  = [1,2,3]
+cones = [Clarabel.ZeroConeT(1), Clarabel.NonnegativeConeT(2), SecondOrderConeT(3)]
 ```
 
 !!! note
-    The arrays `cone_types` and `cone_dims` must be the same length, and your input vector `b` should be compatible with `cone_dims`, i.e. you must have `sum(cone_dims) == length(b)`
+    The cones `cones' should be of type `Vector{Clarabel.SupportedCone}`, and your input vector `b` should be compatible with the sum of the cone dimensions.
 
 
 
@@ -101,7 +100,7 @@ cone_dims  = [1,2,3]
 ## Adding problem data
 Once the objective function and an array of constraints have been defined, you can provide the solver with problem data using
 ```julia
-Clarabel.setup!(solver, P, q, A, b, cone_types, cone_dims, settings)
+Clarabel.setup!(solver, P, q, A, b, cones, settings)
 ```
 This takes an internal copy of all data parameters and initializes internal variables and other objects in the solver.  The final `settings` argument is optional.
 

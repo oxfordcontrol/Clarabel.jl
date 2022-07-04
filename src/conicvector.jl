@@ -26,8 +26,7 @@ struct ConicVector{T<:AbstractFloat} <: AbstractVector{T}
         for i = eachindex(S)
             first  = last + 1
             last   = last + numel(S[i])
-            rng = first:last
-            views[i] = view(vec, rng)
+            views[i] = view(vec, first:last)
         end
 
         return new(vec, views)

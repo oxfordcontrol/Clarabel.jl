@@ -1,3 +1,29 @@
+using InteractiveUtils  #allows call to subtypes
+
+# -----------------------------------------------------
+# macro for circumventing runtime dynamic dispatch
+# on AbstractCones and trying to force a jumptable
+# structure instead.   Must wrap a call to a function
+# with an argument explicitly named "cone", and constructs
+# a big if/else table testing the type of cone against
+# the subtypes of AbstractCone
+# -----------------------------------------------------
+
+function _conedispatch(type, x, call)
+    thetypes = subtypes(getfield(@__MODULE__, type))
+    foldr((t, tail) -> :(if $x isa $t; $call else $tail end), thetypes, init=Expr(:block))
+end
+
+macro conedispatch(call)
+    esc(_conedispatch(:AbstractCone, :cone, call))
+end
+
+#for debugging.  Replace @conedispatch with @noop
+#to disable the type expansion.
+macro noop(call)
+    esc(call)
+end
+
 # -----------------------------------------------------
 # dispatch operators for multiple cones
 # -----------------------------------------------------
@@ -14,41 +40,38 @@ function cones_rectify_equilibration!(
     #from this function.  default is to do nothing at all
     δ .= 1
 
-    for i = eachindex(cones)
-        any_changed |= rectify_equilibration!(cones[i],δ.views[i],e.views[i])
+    for (cone,δi,ei) in zip(cones,δ.views,e.views)
+        @conedispatch any_changed |= rectify_equilibration!(cone,δi,ei)
     end
 
     return any_changed
 end
 
 
+
 function cones_update_scaling!(
     cones::ConeSet{T},
     s::ConicVector{T},
-    z::ConicVector{T}
+    z::ConicVector{T},
 ) where {T}
 
-    # update cone scalings by passing subview to each of
-    # the appropriate cone types.
-    for i = eachindex(cones)
-        update_scaling!(cones[i],s.views[i],z.views[i])
+    for (cone,si,zi) in zip(cones,s.views,z.views)
+        @conedispatch update_scaling!(cone,si,zi)
     end
 
     return nothing
 end
-
 
 function cones_set_identity_scaling!(
     cones::ConeSet{T}
 ) where {T}
 
-    for i = eachindex(cones)
-        set_identity_scaling!(cones[i])
+    for cone in cones
+        @conedispatch set_identity_scaling!(cone)
     end
 
     return nothing
 end
-
 
 # The WtW block for each cone.
 function cones_get_WtW_blocks!(
@@ -56,8 +79,8 @@ function cones_get_WtW_blocks!(
     WtWblocks::Vector{Vector{T}}
 ) where {T}
 
-    for i = eachindex(cones)
-        get_WtW_block!(cones[i],WtWblocks[i])
+    for (cone, block) in zip(cones,WtWblocks)
+        @conedispatch get_WtW_block!(cone,block)
     end
     return nothing
 end
@@ -68,8 +91,8 @@ function cones_λ_circ_λ!(
     x::ConicVector{T}
 ) where {T}
 
-    for i = eachindex(cones)
-        λ_circ_λ!(cones[i],x.views[i])
+    for (cone,xi) in zip(cones,x.views)
+        @conedispatch λ_circ_λ!(cone,xi)
     end
     return nothing
 end
@@ -82,8 +105,8 @@ function cones_circ_op!(
     z::ConicVector{T}
 ) where {T}
 
-    for i = eachindex(cones)
-        circ_op!(cones[i],x.views[i],y.views[i],z.views[i])
+    for (cone,xi,yi,zi) in zip(cones, x.views, y.views, z.views)
+        @conedispatch circ_op!(cone,xi,yi,zi)
     end
     return nothing
 end
@@ -96,8 +119,8 @@ function cones_λ_inv_circ_op!(
     z::ConicVector{T}
 ) where {T}
 
-    for i = eachindex(cones)
-        λ_inv_circ_op!(cones[i],x.views[i],z.views[i])
+    for (cone,xi,zi) in zip(cones, x.views, z.views)
+        @conedispatch λ_inv_circ_op!(cone,xi,zi)
     end
     return nothing
 end
@@ -110,8 +133,8 @@ function cones_inv_circ_op!(
     z::ConicVector{T}
 ) where {T}
 
-    for i = eachindex(cones)
-        inv_circ_op!(cones[i],x.views[i],y.views[i],z.views[i])
+    for (cone,xi,yi,zi) in zip(cones, x.views, y.views, z.views)
+        @conedispatch inv_circ_op!(cone,xi,yi,zi)
     end
     return nothing
 end
@@ -122,8 +145,8 @@ function cones_shift_to_cone!(
     z::ConicVector{T}
 ) where {T}
 
-    for i = eachindex(cones)
-        shift_to_cone!(cones[i],z.views[i])
+    for (cone,zi) in zip(cones, z.views)
+        @conedispatch shift_to_cone!(cone,zi)
     end
     return nothing
 end
@@ -140,9 +163,8 @@ function cones_gemv_W!(
     β::T
 ) where {T}
 
-    #@assert (x !== y)
-    for i = eachindex(cones)
-        gemv_W!(cones[i],is_transpose,x.views[i],y.views[i],α,β)
+    for (cone,xi,yi) in zip(cones, x.views, y.views)
+        @conedispatch gemv_W!(cone,is_transpose,xi,yi,α,β)
     end
     return nothing
 end
@@ -159,9 +181,8 @@ function cones_gemv_Winv!(
     β::T
 ) where {T}
 
-    #@assert x !== y
-    for i = eachindex(cones)
-        gemv_Winv!(cones[i],is_transpose,x.views[i],y.views[i],α,β)
+    for (cone,xi,yi) in zip(cones, x.views, y.views)
+        @conedispatch gemv_Winv!(cone,is_transpose,xi,yi,α,β)
     end
     return nothing
 end
@@ -173,8 +194,8 @@ function cones_add_scaled_e!(
     α::T
 ) where {T}
 
-    for i = eachindex(cones)
-        add_scaled_e!(cones[i],x.views[i],α)
+    for (cone,xi) in zip(cones, x.views)
+        @conedispatch add_scaled_e!(cone,xi,α)
     end
     return nothing
 end
@@ -188,15 +209,11 @@ function cones_step_length(
      s::ConicVector{T}
 ) where {T}
 
-    dz    = dz.views
-    ds    = ds.views
-    z     = z.views
-    s     = s.views
-
-    huge    = inv(eps(T))
+    huge    = floatmax(T)
     (αz,αs) = (huge, huge)
-    for i = eachindex(cones)
-        (nextαz,nextαs) = step_length(cones[i],dz[i],ds[i],z[i],s[i])
+
+    for (cone,dzi,dsi,zi,si) in zip(cones,dz.views,ds.views,z.views,s.views)
+        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si)
         αz = min(αz, nextαz)
         αs = min(αs, nextαs)
     end

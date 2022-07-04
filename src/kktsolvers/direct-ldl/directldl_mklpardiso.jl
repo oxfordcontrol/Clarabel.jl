@@ -3,7 +3,6 @@ using AMD
 
 struct PardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
 
-    KKT::SparseMatrixCSC{T}
     ps::Pardiso.MKLPardisoSolver
 
     function PardisoDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
@@ -21,9 +20,9 @@ struct PardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
         Pardiso.fix_iparm!(ps, :N)
         Pardiso.set_phase!(ps, Pardiso.ANALYSIS)
         Pardiso.set_perm!(ps, perm)
-        Pardiso.pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSISs
+        Pardiso.pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSIS
 
-        return new(KKT,ps)
+        return new(ps)
     end
 end
 
@@ -34,11 +33,25 @@ required_matrix_shape(::Type{PardisoDirectLDLSolver}) = :tril
 #given index into its CSC representation
 function update_values!(
     ldlsolver::PardisoDirectLDLSolver{T},
-    index::Vector{Int},
+    index::AbstractVector{Int},
     values::Vector{T}
 ) where{T}
 
-    ldlsolver.KKT.nzval[index] .= values
+    #no-op.  Will just use KKT matrix as it as
+    #passed to refactor!
+
+end
+
+#scale entries in the KKT matrix using the
+#given index into its CSC representation
+function scale_values!(
+    ldlsolver::PardisoDirectLDLSolver{T},
+    index::AbstractVector{Int},
+    scale::T
+) where{T}
+
+    #no-op.  Will just use KKT matrix as it as
+    #passed to refactor!
 end
 
 #offset entries in the KKT matrix using the
@@ -46,21 +59,23 @@ end
 #an optional vector of signs
 function offset_values!(
     ldlsolver::PardisoDirectLDLSolver{T},
-    index::Vector{Int},
-    offset::Union{T,Vector{T}},
-    signs::Union{Int,Vector{Int}} = 1
+    index::AbstractVector{Int},
+    offset::T,
+    signs::AbstractVector{<:Integer}
 ) where{T}
 
-    @. ldlsolver.KKT.nzval[index] += offset*signs
+    #no-op.  Will just use KKT matrix as it as
+    #passed to refactor!
+
 end
 
 
 #refactor the linear system
-function refactor!(ldlsolver::PardisoDirectLDLSolver{T}) where{T}
+function refactor!(ldlsolver::PardisoDirectLDLSolver{T},K::SparseMatrixCSC{T}) where{T}
 
     # Recompute the numeric factorization susing fake RHS
     Pardiso.set_phase!(ldlsolver.ps, Pardiso.NUM_FACT)
-    Pardiso.pardiso(ldlsolver.ps, ldlsolver.KKT, [1.])
+    Pardiso.pardiso(ldlsolver.ps, K, [1.])
 end
 
 
@@ -68,13 +83,17 @@ end
 function solve!(
     ldlsolver::PardisoDirectLDLSolver{T},
     x::Vector{T},
-    b::Vector{T},
-    settings
+    b::Vector{T}
 ) where{T}
 
     ps  = ldlsolver.ps
-    KKT = ldlsolver.KKT
+
+    #Bug here: I am not storing a local reference
+    #to KKT, and I don't think I actually need it anyway
+    #since this should be solve phase.   Can I pass a dummy?
+    #KKT = ldlsolver.KKT
+    KKTdummy = sparse([],[],T[],length(x),length(x))
 
     Pardiso.set_phase!(ps, Pardiso.SOLVE_ITERATIVE_REFINE)
-    Pardiso.pardiso(ps, x, KKT, b)
+    Pardiso.pardiso(ps, x, KKTdummy, b)
 end
