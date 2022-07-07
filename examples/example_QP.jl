@@ -25,10 +25,10 @@ solver   = Clarabel.Solver()
 #=
 ### Objective function data
 
-We next put the objective function into the standard Clarabel.jl form $\frac{1}{2}x^\top P x + q\top x$.
+We next put the objective function into the standard Clarabel.jl form $\frac{1}{2}x^\top P x + q^\top x$.
 Define the objective function data as
-$P = \footnotesize\frac{1}{2}\cdot \begin{bmatrix} 3 & 0 \\ 0 & 2\end{bmatrix}$ and
-$q = \footnotesize\begin{bmatrix} -1 \\ -4\end{bmatrix}$.
+$P = 2 \cdot \begin{bmatrix} 3 & 0 \\ 0 & 2\end{bmatrix}$ and
+$q = \begin{bmatrix} -1 \\ -4\end{bmatrix}$.
 =#
 
 P = sparse([3. 0.;0. 2.].*2)

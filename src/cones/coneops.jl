@@ -1,5 +1,3 @@
-using InteractiveUtils  #allows call to subtypes
-
 # -----------------------------------------------------
 # macro for circumventing runtime dynamic dispatch
 # on AbstractCones and trying to force a jumptable
@@ -9,13 +7,13 @@ using InteractiveUtils  #allows call to subtypes
 # the subtypes of AbstractCone
 # -----------------------------------------------------
 
-function _conedispatch(type, x, call)
-    thetypes = subtypes(getfield(@__MODULE__, type))
+function _conedispatch(x, call)
+    thetypes = collect(values(ConeDict))
     foldr((t, tail) -> :(if $x isa $t; $call else $tail end), thetypes, init=Expr(:block))
 end
 
 macro conedispatch(call)
-    esc(_conedispatch(:AbstractCone, :cone, call))
+    esc(_conedispatch(:cone, call))
 end
 
 #for debugging.  Replace @conedispatch with @noop
