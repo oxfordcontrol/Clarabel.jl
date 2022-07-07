@@ -27,7 +27,15 @@ __Clarabel.jl__ is a Julia implementation of an interior point numerical solver 
   <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/problem_format-dark.png#gh-dark-mode-only"   width=30%>
 </p>
 
-with decision variables ``x \in \mathbb{R}^n``, ``s \in \mathbb{R}^m`` and data matrices ``P=P^\top \succeq 0``, ``q \in \mathbb{R}^n``, ``A \in \mathbb{R}^{m \times n}``, and ``b \in \mathbb{R}^m``. The convex set ``\mathcal{K}`` is a composition of convex cones.
+with decision variables 
+$x \in \mathbb{R}^n$,
+$s \in \mathbb{R}^m$
+and data matrices 
+$P=P^\top \succeq 0$,
+$q \in \mathbb{R}^n$, 
+$A \in \mathbb{R}^{m \times n}$, and
+$b \in \mathbb{R}^m$.
+The convex set $\mathcal{K}$ is a composition of convex cones.
 
 
 __For more information see the Clarabel.jl Documentation ([stable](https://oxfordcontrol.github.io/Clarabel.jl/stable) |  [dev](https://oxfordcontrol.github.io/Clarabel.jl/dev)).__
