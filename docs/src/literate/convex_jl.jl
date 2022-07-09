@@ -18,7 +18,7 @@ For problems with quadratic objective functions, JuMP is generally preferred whe
 
 ## Arbitrary Precision Arithmetic
 
-Clarabel.jl supports arbitary precision arithmetic for Convex.jl.   Here is the [Basic QP Example](@ref) implemented using `BigFloat` types.
+Clarabel.jl supports arbitrary precision arithmetic for Convex.jl.   Here is the [Basic QP Example](@ref) implemented using `BigFloat` types.
 
 =#
 
