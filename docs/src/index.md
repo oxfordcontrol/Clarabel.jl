@@ -38,4 +38,4 @@ If this project is useful for your work please consider
 
 
 ## Licence
-Clarabel.jl is licensed under the Apache License 2.0. For more details click [here](https://github.com/oxfordcontrol/Clarabel.jl/blob/master/LICENSE.md).
+Clarabel.jl is licensed under the Apache License 2.0. For more details click [here](https://github.com/oxfordcontrol/Clarabel.jl/blob/main/LICENSE.md).
