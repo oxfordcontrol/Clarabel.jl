@@ -91,7 +91,13 @@ function test_SolverName()
     return
 end
 
+function test_passing_settings()
+    optimizer = Clarabel.Optimizer{T}(; verbose=false)
+    @test optimizer.inner.settings.verbose === false
+    return
+end
+
 end # module TestClarabel
 
-# This line at tne end of the file runs all the tests!
+# This line at the end of the file runs all the tests!
 TestClarabel.runtests()

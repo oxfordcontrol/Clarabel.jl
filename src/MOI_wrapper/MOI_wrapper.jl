@@ -82,11 +82,11 @@ mutable struct Optimizer{T} <: MOI.AbstractOptimizer
         sense = MOI.MIN_SENSE
         objconstant = zero(T)
         rowranges = Dict{Int, UnitRange{Int}}()
-
+        optimizer = new(inner,has_results,is_empty,sense,objconstant,rowranges)
         for (key, value) in user_settings
-            MOI.set(optimizer, MOI.RawOptimizerAttribute(key), value)
+            MOI.set(optimizer, MOI.RawOptimizerAttribute(string(key)), value)
         end
-        new(inner,has_results,is_empty,sense,objconstant,rowranges)
+        return optimizer
     end
 end
 
