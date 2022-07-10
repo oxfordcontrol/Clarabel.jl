@@ -1,4 +1,4 @@
-using Random, Test, Pkg
+using Random, Test
 
 @testset "Clarabel Unit Tests" begin
 
