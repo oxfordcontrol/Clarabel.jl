@@ -237,10 +237,12 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
     H::Matrix{T}       #μ*H for the linear sysmtem
+    Hsym::Symmetric{T, Matrix{T}}
     grad::Vector{T}
 
     # workspace for centrality check
     HBFGS::Matrix{T}
+    HBFGSsym::Symmetric{T, Matrix{T}}
     gradWork::Vector{T}
     vecWork::Vector{T}
     z::Vector{T}            # temporary storage for current z
@@ -249,14 +251,16 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
     function ExponentialCone{T}() where {T}
         dim = 3
         H = Matrix{T}(undef,3,3)
+        Hsym = Symmetric(H)
         grad = Vector{T}(undef,3)
 
         HBFGS = Matrix{T}(undef,3,3)
+        HBFGSsym = Symmetric(HBFGS)
         gradWork = Vector{T}(undef,3)
         vecWork = Vector{T}(undef,3)
         z = Vector{T}(undef,3)
         ws = LuBlasWorkspace{T}(3)
-        return new(dim,H,grad,HBFGS,gradWork,vecWork,z,ws)
+        return new(dim,H,Hsym,grad,HBFGS,HBFGSsym,gradWork,vecWork,z,ws)
     end
 end
 

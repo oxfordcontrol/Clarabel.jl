@@ -23,13 +23,12 @@ function update_scaling!(
     μ::T,
     flag::Bool
 ) where {T}
-    # #update both gradient and Hessian for function f*(z) at the point z
-    # muHessianF(K,z,K.μH,μ)
-    GradF(K,z,K.grad)
-    K.z .= z
-
+    # update both gradient and Hessian for function f*(z) at the point z
+    # NB: the update order can't be switched as we reuse memory in the Hessian computation
     # Hessian update
     update_HBFGS(K,s,z,flag)
+    GradF(K,z,K.grad)
+    K.z .= z
 end
 
 # return μH*(z) for exponetial cone
@@ -232,11 +231,10 @@ end
 
 # Evaluates the Hessian of the dual exponential cone barrier at z and stores the upper triangular part of the matrix μH*(z)
 # NB:could reduce H to an upper triangular matrix later, remove duplicate updates
-function muHessianF(
+function compute_Hessian(
     K::ExponentialCone{T},
     z::AbstractVector{T},
-    H::AbstractMatrix{T},
-    μ::T
+    H::AbstractMatrix{T}
 ) where {T}
     # y = z1; z = z2; x = z3;
     # l = log(-z3/z1);
@@ -259,7 +257,6 @@ function muHessianF(
     H[3,2] = H[2,3]
     H[3,3] = ((r*r-z[1]*r+z[1]*z[1])/(r*r*z[3]*z[3]))
 
-    H .*= μ
 end
 
 function f_sum(
@@ -461,9 +458,12 @@ function update_HBFGS(
     z::AbstractVector{T},
     flag::Bool
 ) where {T}
+    # reuse memory
+    st = K.gradWork
+    zt = K.vecWork
+    δs = K.grad
+    tmp = K.z
 
-    st = Vector{T}(undef,3)
-    zt = Vector{T}(undef,3)
     GradPrim(K,s,zt)
     zt .*= -1
     GradF(K,z,st)
@@ -471,23 +471,50 @@ function update_HBFGS(
 
     H = K.H
     HBFGS = K.HBFGS
+    Hsym = K.Hsym
+    HBFGSsym = K.HBFGSsym
 
     # should compute μ, μt globally
     μ = dot(z,s)/3
     μt = dot(zt,st)/3
 
-    muHessianF(K,z,H,one(T))
+    compute_Hessian(K,z,H)
 
-    δs = s - μ*st
-    δz = z - μ*zt
+    # δs = s - μ*st
+    # δz = z - μ*zt
+    @inbounds for i = 1:3
+        δs[i] = s[i] - μ*st[i]
+    end
 
-    tmp = H*zt - μt*st
     de1 = μ*μt-1
     de2 = dot(zt,H,zt) - 3*μt*μt
+    # if !iszero(dot(zt,Hsym,zt) - dot(zt,H,zt))
+    #     println("difference: ", norm(Hsym - H,Inf))
+    #     println("norm is: ", dot(zt,Hsym,zt)-dot(zt,H,zt))
+    # end
+
+    # tmp = H*zt - μt*st
+    mul!(tmp,H,zt)
+    @inbounds for i = 1:3
+        tmp[i] -= μt*st[i]
+    end
+
+    # HBFGS .= μ*H
+    copyto!(HBFGSsym, Hsym)
+    BLAS.scal!(μ, HBFGS)
+
+    # store (s + μ*st + δs/de1) into zt
+    @inbounds for i = 1:3
+        zt[i] = s[i] + μ*st[i] + δs[i]/de1
+    end
     if (de1 > eps(T) && de2 > eps(T) && flag)
-        HBFGS .= μ*H + 1/(2*μ*3)*δs*(s + μ*st + δs/de1)' + 1/(2*μ*3)*(s + μ*st + δs/de1)*δs' - μ/de2*tmp*tmp'
+        # Hessian HBFGS:= μ*H + 1/(2*μ*3)*δs*(s + μ*st + δs/de1)' + 1/(2*μ*3)*(s + μ*st + δs/de1)*δs' - μ/de2*tmp*tmp'
+        HBFGS .+= 1/(2*μ*3)*δs*zt' + 1/(2*μ*3)*zt*δs' - μ/de2*tmp*tmp'
+
+        # YC: to do but require H to be symmetric with upper triangular parts
+        # syr2k!(uplo, trans, alpha, A, B, beta, C)
     else
-        HBFGS .= μ*H
+        return nothing
     end
 
 end

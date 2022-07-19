@@ -23,13 +23,12 @@ function update_scaling!(
     μ::T,
     flag::Bool
 ) where {T}
-    #update both gradient and Hessian for function f*(z) at the point z
-    # muHessianF(K,z,K.μH,μ)
+    # update both gradient and Hessian for function f*(z) at the point z
+    # NB: the update order can't be switched as we reuse memory in the Hessian computation
+    # Hessian update
+    update_HBFGS(K,s,z,flag)
     GradF(K,z,K.grad)
     K.z .= z
-
-    # # Hessian update
-    update_HBFGS(K,s,z,flag)
 end
 
 # return μH*(z) for power cone
@@ -237,11 +236,10 @@ end
 
 # Evaluates the Hessian of the Power dual cone barrier at z and stores the upper triangular part of the matrix μH*(z)
 # NB:could reduce H to an upper triangular matrix later, remove duplicate updates
-function muHessianF(
+function compute_Hessian(
     K::PowerCone{T},
     z::AbstractVector{T},
     H::AbstractMatrix{T},
-    μ::T
 ) where {T}
 
     α = K.α
@@ -263,7 +261,6 @@ function muHessianF(
     H[3,2] = H[2,3]
     H[3,3] = gψ[3]*gψ[3] + 2/ψ
 
-    H .*= μ
 end
 
 function f_sum(
@@ -466,9 +463,10 @@ function update_HBFGS(
     z::AbstractVector{T},
     flag::Bool
 ) where {T}
+    # reuse memory
+    st = K.gradWork
+    zt = K.vecWork
 
-    st = Vector{T}(undef,3)
-    zt = Vector{T}(undef,3)
     GradPrim(K,s,zt)
     zt .*= -1
     GradF(K,z,st)
@@ -481,10 +479,10 @@ function update_HBFGS(
     μ = dot(z,s)/3
     μt = dot(zt,st)/3
 
-    muHessianF(K,z,H,one(T))
+    compute_Hessian(K,z,H)
 
     δs = s - μ*st
-    δz = z - μ*zt
+    # δz = z - μ*zt
 
     tmp = H*zt - μt*st
     de1 = μ*μt-1
@@ -495,48 +493,4 @@ function update_HBFGS(
         HBFGS .= μ*H
     end
 
-end
-
-
-########################################
-# remove later
-########################################
-# check neighbourhood
-function _check_neighbourhood(
-    K::PowerCone{T},
-    s::AbstractVector{T},
-    z::AbstractVector{T},
-    μ::T,
-    η::T
-) where {T}
-
-    grad = K.gradWork
-    μH = K.μHWork
-    F = K.FWork
-    tmp = K.vecWork
-
-    # compute gradient and Hessian at z
-    GradF(K, z, grad)
-    muHessianF(K, z, μH, μ)
-
-    if F === nothing
-        F = lu(μH, check= false)
-    else
-        F = lu!(μH, check= false)
-    end
-
-    if !issuccess(F)
-        increase_diag!(μH)
-        lu!(F,μH)
-    end
-
-    # grad as a workspace for s + μ*grad
-    axpby!(one(T), s, μ, grad)
-
-    ldiv!(tmp,F,grad)
-    if (dot(tmp,grad)/μ < η)
-        return true
-    end
-
-    return false
 end
