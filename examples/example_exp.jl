@@ -114,7 +114,7 @@ n = 7
 # Clarabel.setup!(solver,BigFloat.(P),BigFloat.(c),BigFloat.(A),BigFloat.(b),cone_types,cone_dims,α,settings)
 # Clarabel.solve!(solver)
 
-settings = Clarabel.Settings{T}(max_iter=50,direct_kkt_solver=true,static_regularization_enable=true,dynamic_regularization_enable=true)
+settings = Clarabel.Settings{T}(max_iter=50,direct_solve_method = :cholmod, static_regularization_enable=true,dynamic_regularization_enable=true)
 solver   = Clarabel.Solver{T}()
 Clarabel.setup!(solver,P,c,A,b,cone_types,cone_dims,α,settings)
 Clarabel.solve!(solver)

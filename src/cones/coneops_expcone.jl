@@ -82,12 +82,13 @@ function combined_ds!(
     step_s::AbstractVector{T},
     σμ::T
 ) where {T}
-    η = K.gradWork      #share the same memory as gψ in higherCorrection!()
+    η = K.gradWork     
     higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
     @inbounds for i = 1:3
         dz[i] = η[i] + K.grad[i]*σμ                 
     end
 
+    # # @. dz = σμ*K.grad                   #dz <- σμ*g(z)
     # @inbounds for i = 1:3
     #     dz[i] = K.grad[i]*σμ                 #dz <- σμ*g(z)
     # end
@@ -267,7 +268,7 @@ function f_sum(
     z::AbstractVector{T}
 ) where {T}
 
-    barrier = T(0)
+    barrier = zero(T)
 
     # Dual barrier
     l = log(-z[3]/z[1])
@@ -286,9 +287,9 @@ end
 # Returns true if s is primal feasible
 function checkExpPrimalFeas(s::AbstractVector{T}) where {T}
 
-    if (s[3] > eps(T) && s[2] > eps(T))   #feasible
+    if (s[3] > 0 && s[2] > 0)   #feasible
         res = s[2]*log(s[3]/s[2]) - s[1]
-        if (res > eps(T))
+        if (res > 0)
             return true
         end
     end
@@ -299,9 +300,9 @@ end
 # Returns true if s is dual feasible
 function checkExpDualFeas(z::AbstractVector{T}) where {T}
 
-    if (z[3] > eps(T) && z[1] < -eps(T))
+    if (z[3] > 0 && z[1] < 0)
         res = z[2] - z[1] - z[1]*log(-z[3]/z[1])
-        if (res > eps(T))
+        if (res > 0)
             return true
         end
     end
@@ -330,16 +331,16 @@ end
 # the equation y+log(y) = z ONLY FOR z real and z>=1.
 # NB::the code is from ECOS solver, which comes from Santiago's thesis, "Algorithms for Unsymmetric Cone Optimization and an Implementation for Problems with the Exponential Cone"
 function WrightOmega(z::T) where {T}
-    w  = T(0);
-    r  = T(0);
-    q  = T(0);
-    zi = T(0);
+    w  = zero(T);
+    r  = zero(T);
+    q  = zero(T);
+    zi = zero(T);
 
-	if(z< T(0))
+	if(z< zero(T))
         throw(error("β not in supported range", z)); #Fail if the input is not supported
     end
 
-	if(z<T(1)+π)      #If z is between 0 and 1+π
+	if(z<one(T)+π)      #If z is between 0 and 1+π
         q = z-1;
         r = q;
         w = 1+0.5*r;
@@ -385,12 +386,6 @@ function WrightOmega(z::T) where {T}
     return w;
 end
 
-
-######################################
-# May need to be removed later
-######################################
-
-
 # 3rd-order correction at the point z, w.r.t. directions u,v and then save it to η
 # NB: not so effective at present
 function higherCorrection!(
@@ -419,15 +414,12 @@ function higherCorrection!(
     ψ = -z[1]*l-z[1]+z[2]
 
     # memory allocation
-    gψ = K.gradWork
-    # Hψ = K.μHWork
+    η[1] = -l
+    η[2] = 1
+    η[3] = -z[1]/z[3]    # gradient of ψ
 
-    gψ[1] = -l
-    gψ[2] = 1
-    gψ[3] = -z[1]/z[3]    # gradient of ψ
-
-    dotψu = dot(gψ,u)
-    dotψv = dot(gψ,v)
+    dotψu = dot(η,u)
+    dotψv = dot(η,v)
 
     # 3rd order correction: η = -0.5*[(dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv]
     # where :
@@ -438,14 +430,15 @@ function higherCorrection!(
     # dothuv = [-2*u[1]*v[1]/(z[1]*z[1]*z[1]) ; 0; -2*u[3]*v[3]/(z[3]*z[3]*z[3])]
     # Hψv = Hψ*v
     # Hψu = Hψ*u
+    #gψ is used inside η
 
-    gψ .*= ((u[1]*(v[1]/z[1] - v[3]/z[3]) + u[3]*(z[1]*v[3]/z[3] - v[1])/z[3])*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)
+    η .*= ((u[1]*(v[1]/z[1] - v[3]/z[3]) + u[3]*(z[1]*v[3]/z[3] - v[1])/z[3])*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)
     inv_ψ2 = 1/ψ/ψ
 
-    gψ[1] += (1/ψ - 2/z[1])*u[1]*v[1]/(z[1]*z[1]) - u[3]*v[3]/(z[3]*z[3])/ψ + dotψu*inv_ψ2*(v[1]/z[1] - v[3]/z[3]) + dotψv*inv_ψ2*(u[1]/z[1] - u[3]/z[3])
-    gψ[3] += 2*(z[1]/ψ-1)*u[3]*v[3]/(z[3]*z[3]*z[3]) - (u[3]*v[1]+u[1]*v[3])/(z[3]*z[3])/ψ + dotψu*inv_ψ2*(z[1]*v[3]/(z[3]*z[3]) - v[1]/z[3]) + dotψv*inv_ψ2*(z[1]*u[3]/(z[3]*z[3]) - u[1]/z[3])
+    η[1] += (1/ψ - 2/z[1])*u[1]*v[1]/(z[1]*z[1]) - u[3]*v[3]/(z[3]*z[3])/ψ + dotψu*inv_ψ2*(v[1]/z[1] - v[3]/z[3]) + dotψv*inv_ψ2*(u[1]/z[1] - u[3]/z[3])
+    η[3] += 2*(z[1]/ψ-1)*u[3]*v[3]/(z[3]*z[3]*z[3]) - (u[3]*v[1]+u[1]*v[3])/(z[3]*z[3])/ψ + dotψu*inv_ψ2*(z[1]*v[3]/(z[3]*z[3]) - v[1]/z[3]) + dotψv*inv_ψ2*(z[1]*u[3]/(z[3]*z[3]) - u[1]/z[3])
 
-    gψ ./= -2
+    η ./= -2
     
 end
 
@@ -469,8 +462,8 @@ function update_HBFGS(
     flag::Bool
 ) where {T}
 
-    st = rand(T,3)
-    zt = rand(T,3)
+    st = Vector{T}(undef,3)
+    zt = Vector{T}(undef,3)
     GradPrim(K,s,zt)
     zt .*= -1
     GradF(K,z,st)
@@ -497,88 +490,4 @@ function update_HBFGS(
         HBFGS .= μ*H
     end
 
-end
-
-############################################
-# Remove later 
-############################################
-# check neighbourhood
-function _check_neighbourhood(
-    K::ExponentialCone{T},
-    s::AbstractVector{T},
-    z::AbstractVector{T},
-    μ::T,
-    η::T
-) where {T}
-
-    # to = TimerOutput()
-
-    grad = K.gradWork
-    H = K.μHWork
-
-    # compute gradient at z
-    l = log(-z[3]/z[1])
-    r = -z[1]*l-z[1]+z[2]
-
-    grad[1] = r*l - 1/z[1]
-    grad[2] = -r
-    grad[3] = (r*z[1]-1)/z[3]
-
-    # compute inverse Hessian 
-    H[1,1] = z[1]^2*(z[1]-r)
-    H[1,2] = z[1]^2*(z[1] - l*r + l*z[1])
-    H[2,1] = H[1,2]
-    H[2,2] = -l^2*r*z[1]^2 + (l+2)*l*z[1]^3 - r^3 + 2*r^2*z[1] - r*z[1]^2 + z[1]^3
-    H[1,3] = z[1]^2*z[3]
-    H[3,1] = H[1,3]
-    H[2,3] = z[1]*z[3]*(z[1] - r + l*z[1])
-    H[3,2] = H[2,3]
-    H[3,3] = z[3]^2*(z[1] - r)
-    H ./= (2*z[1] - r)
-
-    # grad as a workspace for s/μ + grad
-    axpy!(1/μ, s, grad)
-    if (dot(grad,H,grad) < η)
-        return true
-    end
-
-    # NB::Currently, direct Hinv is horrible due to potential numerical errors,
-    # YC:: 1) it implies that we'd better to use only first-order information for centrality check
-    #      2) also, we should allow larger neighbourhood for a shorter iteration number
-
-    # # grad as a workspace for s + μ*grad
-    # axpby!(one(T), s, μ, grad)
-    # if (dot(grad,H,grad)/μ^2 < η)
-        # return true
-    # end
-
-    # println("away from central path due to cone with ", dot(grad,H,grad))
-
-    # # compute gradient and Hessian at z
-    # GradF(K, z, grad)
-    # muHessianF(K, z, H, μ)
-
-    # if F === nothing
-    #     F = lu(H, check= false)
-    # else
-    #     F = lu!(H, check= false)
-    # end
-
-    # if !issuccess(F)
-    #     increase_diag!(H)
-    #     F = lu!(H)
-    # end
-
-    # # grad as a workspace for s + μ*grad
-    # axpby!(one(T), s, μ, grad)
-
-    # ldiv!(tmp,F,grad)
-    # if (dot(tmp,grad)/μ < η)
-    #     println("away from central path due to cone with ", norm(dot(tmp,grad)/μ))
-    #     return true
-    # end
-
-    # println("away from central path due to cone with ", norm(dot(tmp,grad)/μ))
-
-    return false
 end
