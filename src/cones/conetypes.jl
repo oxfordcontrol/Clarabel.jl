@@ -150,57 +150,83 @@ end
 PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 
 
-# ----------------------------------------------------
-# Exponential Cone
-# ----------------------------------------------------
-#
-# #   YC: contain both primal & dual variables at present
-# mutable struct ExponentialCone{T} <: AbstractCone{T}
-#
-#     dim::DefaultInt
-#
-#     #internal working variables for W: s, δ, z, r, t
-#     #In Mosek, W = [s/sqrt(<x,s>); δs/sqrt(<δx,δs>); sqrt(t)*z]⊤, W^{-1} = [x/sqrt(<x,s>); δx/sqrt(<δx,δs>); r/sqrt(t)]⊤
-#
-#     Hs::Matrix{T}       #Hessian workspace
-#
-#     st::Vector{T}
-#     δs::Vector{T}
-#     zt::Vector{T}
-#     δz::Vector{T}
-#     q::Vector{T}
-#     r::Vector{T}
-#     t::T
-#     v::Vector{T}        #x
-#     vt::Vector{T}
-#
-#
-#     function ExponentialCone{T}() where {T}
-#         dim = 3
-#
-#         #explicit initialzation of x,s as Mosek
-#         # s = [1.290928; 0.805102; -0.827838]
-#         # z = [1.290928; 0.805102; -0.827838]
-#         st = zeros(T,3)
-#         zt = zeros(T,3)
-#         δs = zeros(T,3)
-#         δz = zeros(T,3)
-#         q = zeros(T,3)
-#         r = zeros(T,3)
-#         t = T(1)
-#
-#         W = zeros(T,3,3)
-#         invW = zeros(T,3,3)
-#         Hs = zeros(T,3,3)
-#
-#         v = W*z
-#         vt = W*zt
-#
-#         return new(dim,W,invW,Hs,s,st,δs,z,zt,δz,q,r,t,v,vt)
-#     end
-#
-# end
+#####################################
+# LAPACK Implementation
+#####################################
+import ..LinearAlgebra.BLAS
+import ..LinearAlgebra.BLAS.@blasfunc
+using Base: iszero, require_one_based_indexing
+using LinearAlgebra: chkstride1, checksquare
+# For LU decomposition
+const DGETRF_ = (BLAS.@blasfunc(dgetrf_),Base.liblapack_name)
+const DGETRS_ = (BLAS.@blasfunc(dgetrs_),Base.liblapack_name)
 
+mutable struct LuBlasWorkspace{T}
+    dim::Int64
+    ipiv::Vector{BLAS.BlasInt}
+    info::Base.RefValue{BLAS.BlasInt}
+
+    function LuBlasWorkspace{T}(n::Int64) where {T <: AbstractFloat}
+
+        #workspace data for BLAS
+        dim = n
+        ipiv = Vector{BLAS.BlasInt}(undef,n)
+        info  = Ref{BLAS.BlasInt}()
+
+        new(dim,ipiv,info)
+    end
+end
+
+(getrf, getrs, elty) = (:DGETRF_, :DGETRS_, :Float64)
+
+@eval begin
+    # SUBROUTINE DGETRF( M, N, A, LDA, IPIV, INFO )
+    # *     .. Scalar Arguments ..
+    #       INTEGER            INFO, LDA, M, N
+    # *     .. Array Arguments ..
+    #       INTEGER            IPIV( * )
+    #       DOUBLE PRECISION   A( LDA, * )
+
+    function getrf!(A::AbstractMatrix{$elty},ws::LuBlasWorkspace{$elty})
+        require_one_based_indexing(A)
+        chkstride1(A)
+        n = ws.dim
+        lda  = max(1,stride(A, 2))
+        ipiv = ws.ipiv
+        info = ws.info
+        ccall($getrf, Cvoid,
+                (Ref{BLAS.BlasInt}, Ref{BLAS.BlasInt}, Ptr{$elty},
+                Ref{BLAS.BlasInt}, Ptr{BLAS.BlasInt}, Ptr{BLAS.BlasInt}),
+                n, n, A, lda, ipiv, info)
+        LAPACK.chkargsok(info[])
+        
+    end
+
+    ########################################
+    #compute the inverse of a LU factorization
+    ########################################
+
+    #     SUBROUTINE DGETRS( TRANS, N, NRHS, A, LDA, IPIV, B, LDB, INFO )
+    #*     .. Scalar Arguments ..
+    #      CHARACTER          TRANS
+    #      INTEGER            INFO, LDA, LDB, N, NRHS
+    #     .. Array Arguments ..
+    #      INTEGER            IPIV( * )
+    #      DOUBLE PRECISION   A( LDA, * ), B( LDB, * )
+    function getrs!(A::AbstractMatrix{$elty}, ws::LuBlasWorkspace{$elty}, B::AbstractVecOrMat{$elty})
+        trans = 'N'
+        ipiv = ws.ipiv
+        require_one_based_indexing(A, ipiv, B)
+        chkstride1(A, B, ipiv)
+        n = ws.dim
+        info = ws.info
+        ccall($getrs, Cvoid,
+                (Ref{UInt8}, Ref{BLAS.BlasInt}, Ref{BLAS.BlasInt}, Ptr{$elty}, Ref{BLAS.BlasInt},
+                Ptr{BLAS.BlasInt}, Ptr{$elty}, Ref{BLAS.BlasInt}, Ptr{BLAS.BlasInt}, Clong),
+                trans, n, size(B,2), A, max(1,stride(A,2)), ipiv, B, max(1,stride(B,2)), info, 1)
+        LAPACK.chklapackerror(info[])
+    end
+end
 
 # ------------------------------------
 # Exponential Cone
@@ -217,8 +243,8 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
     HBFGS::Matrix{T}
     gradWork::Vector{T}
     vecWork::Vector{T}
-    FWork::Union{SuiteSparse.UMFPACK.UmfpackLU,Nothing}
     z::Vector{T}            # temporary storage for current z
+    ws::LuBlasWorkspace{T}
 
     function ExponentialCone{T}() where {T}
         dim = 3
@@ -228,9 +254,9 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
         HBFGS = Matrix{T}(undef,3,3)
         gradWork = Vector{T}(undef,3)
         vecWork = Vector{T}(undef,3)
-        FWork = nothing
         z = Vector{T}(undef,3)
-        return new(dim,H,grad,HBFGS,gradWork,vecWork,FWork,z)
+        ws = LuBlasWorkspace{T}(3)
+        return new(dim,H,grad,HBFGS,gradWork,vecWork,z,ws)
     end
 end
 
