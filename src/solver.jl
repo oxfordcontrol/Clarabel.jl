@@ -195,7 +195,7 @@ function solve!(
             #--------------
             calc_affine_step_rhs!(
                 s.step_rhs, s.residuals,
-                s.data, s.variables, s.cones
+                s.variables, s.cones
             )
 
             #@timeit_debug timer "kkt solve"
@@ -215,7 +215,7 @@ function solve!(
             #--------------
             calc_combined_step_rhs!(
                 s.step_rhs, s.residuals,
-                s.data, s.variables, s.cones,
+                s.variables, s.cones,
                 s.step_lhs, σ, μ
             )
 

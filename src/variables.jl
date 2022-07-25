@@ -74,7 +74,6 @@ end
 function calc_affine_step_rhs!(
     d::DefaultVariables{T},
     r::DefaultResiduals{T},
-    data::DefaultProblemData{T},
     variables::DefaultVariables{T},
     cones::ConeSet{T}
 ) where{T}
@@ -92,7 +91,6 @@ end
 function calc_combined_step_rhs!(
     d::DefaultVariables{T},
     r::DefaultResiduals{T},
-    data::DefaultProblemData{T},
     variables::DefaultVariables{T},
     cones::ConeSet{T},
     step::DefaultVariables{T},
