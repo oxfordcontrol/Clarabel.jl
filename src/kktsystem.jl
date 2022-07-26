@@ -151,7 +151,10 @@ function kkt_solve!(
     #-----------
     # Numerator first
     ξ   = workx
-    ξ  .= variables.x / variables.τ
+    # ξ  .= variables.x / variables.τ
+    copyto!(ξ,variables.x)
+    BLAS.scal!(variables.τ,ξ)
+
     P   = Symmetric(data.P)
 
     tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,x1) + dot(data.b,z1) + 2*quad_form(ξ,P,x1)

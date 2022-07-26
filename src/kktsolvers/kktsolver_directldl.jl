@@ -403,7 +403,7 @@ function iterative_refinement(kktsolver::DirectLDLKKTSolver{T}) where{T}
             #insufficient improvement.  Exit
             return nothing
         else
-            @. x .= ξ  #PJG: pointer swap might be faster
+            @. x = ξ  #PJG: pointer swap might be faster
         end
     end
 
@@ -416,7 +416,7 @@ end
 
 function _get_refine_error!(e,b,KKTsym,D,ϵ,ξ)
 
-    e .= b
+    @. e = b
     mul!(e,KKTsym,ξ,-1.,1.)   # e = b - Kξ
 
     if(!iszero(ϵ))

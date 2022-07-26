@@ -96,7 +96,7 @@ function solve!(
 
     #make an initial solve (solves in place)
     x .= b
-    QDLDL.solve!(ldlsolver.factors,x)
+    @timev QDLDL.solve!(ldlsolver.factors,x)
 
     return nothing
 end

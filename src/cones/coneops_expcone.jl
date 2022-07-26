@@ -28,7 +28,10 @@ function update_scaling!(
     # Hessian update
     update_HBFGS(K,s,z,flag)
     GradF(K,z,K.grad)
-    K.z .= z
+    # K.z .= z
+    @inbounds for i = 1:3
+        K.z[i] = z[i]                
+    end
 end
 
 # return μH*(z) for exponetial cone
@@ -84,7 +87,7 @@ function combined_ds!(
     η = K.gradWork     
     higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
     @inbounds for i = 1:3
-        dz[i] = η[i] + K.grad[i]*σμ                 
+        dz[i] = K.grad[i]*σμ - η[i]     
     end
 
     # # @. dz = σμ*K.grad                   #dz <- σμ*g(z)
@@ -400,10 +403,10 @@ function higherCorrection!(
     # lu factorization
     getrf!(H,K.ws)
     if K.ws.info[] == 0     # lu decomposition is successful
-        u .= ds
+        @. u = ds
         getrs!(H,K.ws,u)    # solve H*u = ds
     else
-        η .= T(0)
+        @. η = T(0)
         return nothing
     end
 
@@ -412,7 +415,7 @@ function higherCorrection!(
 
     # memory allocation
     η[1] = -l
-    η[2] = 1
+    η[2] = one(T)
     η[3] = -z[1]/z[3]    # gradient of ψ
 
     dotψu = dot(η,u)
@@ -429,13 +432,20 @@ function higherCorrection!(
     # Hψu = Hψ*u
     #gψ is used inside η
 
-    η .*= ((u[1]*(v[1]/z[1] - v[3]/z[3]) + u[3]*(z[1]*v[3]/z[3] - v[1])/z[3])*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)
+    coef = ((u[1]*(v[1]/z[1] - v[3]/z[3]) + u[3]*(z[1]*v[3]/z[3] - v[1])/z[3])*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)
+    @inbounds for i = 1:3
+        η[i] *= coef
+    end
+    
     inv_ψ2 = 1/ψ/ψ
 
     η[1] += (1/ψ - 2/z[1])*u[1]*v[1]/(z[1]*z[1]) - u[3]*v[3]/(z[3]*z[3])/ψ + dotψu*inv_ψ2*(v[1]/z[1] - v[3]/z[3]) + dotψv*inv_ψ2*(u[1]/z[1] - u[3]/z[3])
     η[3] += 2*(z[1]/ψ-1)*u[3]*v[3]/(z[3]*z[3]*z[3]) - (u[3]*v[1]+u[1]*v[3])/(z[3]*z[3])/ψ + dotψu*inv_ψ2*(z[1]*v[3]/(z[3]*z[3]) - v[1]/z[3]) + dotψv*inv_ψ2*(z[1]*u[3]/(z[3]*z[3]) - u[1]/z[3])
 
-    η ./= -2
+    invTwo = one(T)/2
+    @inbounds for i = 1:3
+        η[i] *= invTwo
+    end
     
 end
 
@@ -471,8 +481,6 @@ function update_HBFGS(
 
     H = K.H
     HBFGS = K.HBFGS
-    Hsym = K.Hsym
-    HBFGSsym = K.HBFGSsym
 
     # should compute μ, μt globally
     μ = dot(z,s)/3
@@ -500,7 +508,7 @@ function update_HBFGS(
     end
 
     # HBFGS .= μ*H
-    copyto!(HBFGSsym, Hsym)
+    copyto!(HBFGS, H)
     BLAS.scal!(μ, HBFGS)
 
     # store (s + μ*st + δs/de1) into zt
@@ -509,8 +517,14 @@ function update_HBFGS(
     end
     if (de1 > eps(T) && de2 > eps(T) && flag)
         # Hessian HBFGS:= μ*H + 1/(2*μ*3)*δs*(s + μ*st + δs/de1)' + 1/(2*μ*3)*(s + μ*st + δs/de1)*δs' - μ/de2*tmp*tmp'
-        HBFGS .+= 1/(2*μ*3)*δs*zt' + 1/(2*μ*3)*zt*δs' - μ/de2*tmp*tmp'
-
+        coef1 = 1/(2*μ*3)
+        coef2 = μ/de2
+        # HBFGS .+= coef1*δs*zt' + coef1*zt*δs' - coef2*tmp*tmp'
+        @inbounds for i = 1:3
+            @inbounds for j = 1:3
+                HBFGS[i,j] += coef1*δs[i]*zt[j] + coef1*zt[i]*δs[j] - coef2*tmp[i]*tmp[j]
+            end
+        end
         # YC: to do but require H to be symmetric with upper triangular parts
         # syr2k!(uplo, trans, alpha, A, B, beta, C)
     else
