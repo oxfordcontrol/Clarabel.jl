@@ -51,7 +51,7 @@ end
             @testset "dual infeasible" begin
 
                 P,c,A,b,cones = basic_LP_data(FloatT)
-                A[4,1] = 1   #swap lower bound on first variable to redundant upper
+                A[4,1] = 1.  #swap lower bound on first variable to redundant upper bound
                 c .= FloatT[1.;0;0]
 
                 solver   = Clarabel.Solver(P,c,A,b,cones)
@@ -62,20 +62,6 @@ end
             end
 
             @testset "dual infeasible (ill conditioned)" begin
-
-                P,c,A,b,cones = basic_LP_data(FloatT)
-                A[1,1] = eps(FloatT)
-                A[4,1] = -eps(FloatT)
-                c .= FloatT[1.;0;0]
-
-                solver   = Clarabel.Solver(P,c,A,b,cones)
-                Clarabel.solve!(solver)
-
-                @test solver.solution.status == Clarabel.DUAL_INFEASIBLE
-
-            end
-
-            @testset "dual infeasible (rank deficient KKT)" begin
 
                 P,c,A,b,cones = basic_LP_data(FloatT)
                 A[1,1] = eps(FloatT)
