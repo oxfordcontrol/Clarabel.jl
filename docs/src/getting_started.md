@@ -113,7 +113,7 @@ result = Clarabel.solve!(solver)
 
 ## Results
 
-Once the solver algorithm terminates you can inspect the solution using the `result` object and the `result.info` fields.   The primal solution will be in `result.x` and the dual solution in `result.z`. The outcome of the solve is specified in `result.status` and will be one of the following :
+Once the solver algorithm terminates you can inspect the solution using the `solution` object.   The primal solution will be in `solution.x` and the dual solution in `solution.z`. The outcome of the solve is specified in `solution.status` and will be one of the following :
 
 ### Status Codes
 
@@ -127,10 +127,10 @@ DUAL_INFEASIBLE     |  Problem is dual infeasible
 MAX_ITERATIONS      |  Solver halted after reaching iteration limit
 MAX_TIME            |  Solver halted after reaching time limit
 
-The total solution time (include combined `setup!` and `solve!` times) is given in `result.info.solve_time`.   Detailed information about the solve time and memory allocation can be found in `result.info.timer`.
+The total solution time (include combined `setup!` and `solve!` times) is given in `solution.solve_time`.   Detailed information about the solve time and memory allocation can be found in the solver's `timer` field.
 
 !!! warning
-    Be careful to retrieve solver solutions from the `result` that is returned by the solver, or directly from a `solver` object from the `solver.result` field.   Do *not* use the `solver.variables`, since these have both homogenization and equilibration scaling applied and therefore do *not* solve the optimization problem posed to the solver.
+    Be careful to retrieve solver solutions from the `solution` that is returned by the solver, or directly from a `solver` object from the `solver.solution` field.   Do *not* use the `solver.variables`, since these have both homogenization and equilibration scaling applied and therefore do *not* solve the optimization problem posed to the solver.
 
 ### Settings
 

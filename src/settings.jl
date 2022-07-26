@@ -15,7 +15,7 @@ Argument | Default Value | Description
 __Main Algorithm Settings__||
 ||
 max_iter                                | 50        | maximum number of iterations
-time_limit                              | 0         | maximum run time (seconds)
+time_limit                              | Inf       | maximum run time (seconds)
 verbose                                 | true      | verbose printing
 tol\\_gap\\_abs                         | 1e-8      | absolute residual tolerance
 tol\\_gap\\_rel                         | 1e-8      | relative residual tolerance
@@ -50,7 +50,7 @@ iterative\\_refinement\\_stop\\_ratio   | 2.0       | iterative refinement stall
 Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     max_iter::DefaultInt    = 50
-    time_limit::T           = 0.   #unbounded if = 0
+    time_limit::T           = Inf   
     verbose::Bool           = true
     tol_gap_abs::T          = 1e-8
     tol_gap_rel::T          = 1e-8

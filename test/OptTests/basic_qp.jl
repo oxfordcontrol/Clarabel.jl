@@ -47,7 +47,7 @@ end
                 Clarabel.solve!(solver)
 
                 @test solver.info.status == Clarabel.SOLVED
-                @test isapprox(norm(solver.result.x - FloatT[0.3; 0.7]), zero(FloatT), atol=tol)
+                @test isapprox(norm(solver.solution.x - FloatT[0.3; 0.7]), zero(FloatT), atol=tol)
                 @test isapprox(solver.info.cost_primal, FloatT(1.8800000298331538), atol=tol)
 
             end

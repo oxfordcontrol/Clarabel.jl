@@ -44,9 +44,9 @@ vars.κ /= scale
 end
 
 
-function scaling_update!(
-    cones::ConeSet{T},
+function variables_scale_cones!(
     variables::DefaultVariables{T},
+    cones::ConeSet{T},
 ) where {T}
 
     cones_update_scaling!(cones,variables.s,variables.z)
