@@ -29,9 +29,9 @@ end
                 solver   = Clarabel.Solver(P,c,A,b,cones)
                 Clarabel.solve!(solver)
 
-                @test solver.info.status == Clarabel.SOLVED
+                @test solver.solution.status == Clarabel.SOLVED
                 @test isapprox(norm(solver.solution.x - FloatT[-0.5; 0.5; -0.5]), zero(FloatT), atol=tol)
-                @test isapprox(solver.info.cost_primal, FloatT(-3.), atol=tol)
+                @test isapprox(solver.solution.obj_val, FloatT(-3.), atol=tol)
 
             end
 
@@ -44,7 +44,7 @@ end
                 solver   = Clarabel.Solver(P,c,A,b,cones)
                 Clarabel.solve!(solver)
 
-                @test solver.info.status == Clarabel.PRIMAL_INFEASIBLE
+                @test solver.solution.status == Clarabel.PRIMAL_INFEASIBLE
 
             end
 
@@ -57,7 +57,7 @@ end
                 solver   = Clarabel.Solver(P,c,A,b,cones)
                 Clarabel.solve!(solver)
 
-                @test solver.info.status == Clarabel.DUAL_INFEASIBLE
+                @test solver.solution.status == Clarabel.DUAL_INFEASIBLE
 
             end
 
@@ -71,7 +71,7 @@ end
                 solver   = Clarabel.Solver(P,c,A,b,cones)
                 Clarabel.solve!(solver)
 
-                @test solver.info.status == Clarabel.DUAL_INFEASIBLE
+                @test solver.solution.status == Clarabel.DUAL_INFEASIBLE
 
             end
 
@@ -85,7 +85,7 @@ end
                 solver   = Clarabel.Solver(P,c,A,b,cones)
                 Clarabel.solve!(solver)
 
-                @test solver.info.status == Clarabel.DUAL_INFEASIBLE
+                @test solver.solution.status == Clarabel.DUAL_INFEASIBLE
 
             end
 

@@ -41,12 +41,12 @@ end
                 solver   = Clarabel.Solver(P,c,A,b,cones)
                 Clarabel.solve!(solver)
 
-                @test solver.info.status == Clarabel.SOLVED
+                @test solver.solution.status == Clarabel.SOLVED
                 @test isapprox(
                 norm(solver.solution.x -
                 FloatT[ -0.5 ; 0.435603 ;  -0.245459]),
                 zero(FloatT), atol=tol)
-                @test isapprox(solver.info.cost_primal, FloatT(-8.4590e-01), atol=tol)
+                @test isapprox(solver.solution.obj_val, FloatT(-8.4590e-01), atol=tol)
 
             end
 
@@ -56,12 +56,12 @@ end
                 solver   = Clarabel.Solver(P,c,A,b,cones)
                 Clarabel.solve!(solver)
 
-                @test solver.info.status == Clarabel.SOLVED
+                @test solver.solution.status == Clarabel.SOLVED
                 @test isapprox(
                 norm(solver.solution.x -
                 FloatT[ -0.5 ; 0.435603 ;  -0.245459]),
                 zero(FloatT), atol=tol)
-                @test isapprox(solver.info.cost_primal, FloatT(-8.4590e-01), atol=tol)
+                @test isapprox(solver.solution.obj_val, FloatT(-8.4590e-01), atol=tol)
 
             end
 
