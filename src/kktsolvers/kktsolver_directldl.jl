@@ -202,7 +202,9 @@ function _offset_values_KKT!(
 ) where{T,Ti}
 
     #Update values in the KKT matrix K
-    @. KKT.nzval[index] += offset*signs
+    # @. KKT.nzval[index] += offset*signs
+    cur_vec = @view KKT.nzval[index]
+    axpy!(offset,signs,cur_vec)
 
 end
 
@@ -239,7 +241,7 @@ function _kktsolver_update_inner!(
 
     for (index, values) in zip(map.WtWblocks,kktsolver.WtWblocks)
         #change signs to get -W^TW
-        values .= -values
+        BLAS.scal!(-one(T),values) # values .= -values
         _update_values!(ldlsolver,KKT,index,values)
     end
 
@@ -283,6 +285,7 @@ function _kktsolver_update_inner!(
         (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
         @views _offset_values!(ldlsolver,KKT, map.diag_full, ϵ, kktsolver.Dsigns)
     end
+
 
     KKTdiag = abs.(diag(KKTsym))    # different from the previous one after diagonal perturbation
     maxdiag = maximum(KKTdiag)
