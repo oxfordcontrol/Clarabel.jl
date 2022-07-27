@@ -10,7 +10,7 @@ Interior Point Conic Optimization for Julia
   <a href="https://codecov.io/gh/oxfordcontrol/Clarabel.jl"><img src="https://codecov.io/gh/oxfordcontrol/Clarabel.jl/branch/master/graph/badge.svg"></a>
   <a href="https://oxfordcontrol.github.io/Clarabel.jl/stable"><img src="https://img.shields.io/badge/Documentation-stable-purple.svg"></a>
   <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg"></a>
-  <a href="https://github.com/oxfordcontrol/Clarabel.jl/releases"><img src="https://img.shields.io/badge/Release-v0.1.1-blue.svg"></a>
+  <a href="https://github.com/oxfordcontrol/Clarabel.jl/releases"><img src="https://img.shields.io/badge/Release-v0.1.2-blue.svg"></a>
 </p>
 
 <p align="center">
@@ -27,12 +27,12 @@ __Clarabel.jl__ is a Julia implementation of an interior point numerical solver 
   <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/problem_format-dark.png#gh-dark-mode-only"   width=30%>
 </p>
 
-with decision variables 
+with decision variables
 $x \in \mathbb{R}^n$,
 $s \in \mathbb{R}^m$
-and data matrices 
+and data matrices
 $P=P^\top \succeq 0$,
-$q \in \mathbb{R}^n$, 
+$q \in \mathbb{R}^n$,
 $A \in \mathbb{R}^{m \times n}$, and
 $b \in \mathbb{R}^m$.
 The convex set $\mathcal{K}$ is a composition of convex cones.
