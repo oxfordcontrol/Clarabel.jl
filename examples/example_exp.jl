@@ -52,7 +52,8 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
     Clarabel.NonnegativeConeT,
     Clarabel.SecondOrderConeT,
     # Clarabel.PSDTriangleConeT,
-    Clarabel.ExponentialConeT,
+    # Clarabel.ExponentialConeT,
+    Clarabel.PowerConeT,
     Clarabel.PowerConeT,
     ]
 
@@ -70,7 +71,8 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
         nothing; 
         nothing;
         # nothing;
-        nothing;
+        # nothing;
+        3.0/4;
         1.0/3;
         ])
 

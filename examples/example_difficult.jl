@@ -64,10 +64,10 @@ n = length(c)
 
 #solve in JuMP
 using JuMP
-using Mosek, MosekTools, OSQP, ECOS, SCS, Hypatia
+using Mosek, MosekTools, OSQP, ECOS, SCS, COPT
 
 @printf("\n\nJuMP\n-------------------------\n\n")
-model = Model(Hypatia.Optimizer)
+model = Model(Mosek.Optimizer)
 @variable(model, x[1:n])
 @constraint(model, c1, A1*x .<= b1)
 @constraint(model, c2, A2*x .<= b2)

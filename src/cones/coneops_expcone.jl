@@ -403,10 +403,16 @@ function higherCorrection!(
     # lu factorization
     getrf!(H,K.ws)
     if K.ws.info[] == 0     # lu decomposition is successful
-        @. u = ds
+        # @. u = ds
+        @inbounds for i = 1:3
+            u[i] = ds[i]
+        end
         getrs!(H,K.ws,u)    # solve H*u = ds
     else
-        @. η = T(0)
+        # @. η = zero(T)
+        @inbounds for i = 1:3
+            η[i] = zero(T)
+        end
         return nothing
     end
 

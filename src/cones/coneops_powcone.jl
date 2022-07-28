@@ -26,9 +26,14 @@ function update_scaling!(
     # update both gradient and Hessian for function f*(z) at the point z
     # NB: the update order can't be switched as we reuse memory in the Hessian computation
     # Hessian update
-    update_HBFGS(K,s,z,flag)
+    # update_HBFGS(K,s,z,flag)
+    update_Hessian(K,s,z,μ)
+
     GradF(K,z,K.grad)
-    K.z .= z
+    # K.z .= z
+    @inbounds for i = 1:3
+        K.z[i] = z[i]                
+    end
 end
 
 # return μH*(z) for power cone
@@ -83,16 +88,18 @@ function combined_ds!(
     step_s::AbstractVector{T},
     σμ::T
 ) where {T}
-    η = K.gradWork      #share the same memory as gψ in higherCorrection!()
-    higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
-    @inbounds for i = 1:3
-        dz[i] = η[i] + K.grad[i]*σμ                 
-    end
+    # NB: The higher-order correction is under development
 
-    # # @. dz = σμ*K.grad                   #dz <- σμ*g(z)
+    # η = K.gradWork      #share the same memory as gψ in higherCorrection!()
+    # higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
     # @inbounds for i = 1:3
-    #     dz[i] = σμ*K.grad[i]                
+    #     dz[i] = η[i] + K.grad[i]*σμ                 
     # end
+
+    # @. dz = σμ*K.grad                   #dz <- σμ*g(z)
+    @inbounds for i = 1:3
+        dz[i] = σμ*K.grad[i]                
+    end
 
     return nothing
 end
@@ -398,10 +405,16 @@ function higherCorrection!(
     # lu factorization
     getrf!(H,K.ws)
     if K.ws.info[] == 0     # lu decomposition is successful
-        u .= ds
+        # @. u = ds
+        @inbounds for i = 1:3
+            u[i] = ds[i]
+        end
         getrs!(H,K.ws,u)    # solve H*u = ds
     else
-        η .= T(0)
+        # @. η = zero(T)
+        @inbounds for i = 1:3
+            η[i] = zero(T)
+        end
         return nothing
     end
 
@@ -456,7 +469,24 @@ end
 
 # NB: better to create two matrix spaces, one for the Hessian at z, H*(z), and another one for BFGS (primal-dual scaling) matrix, H-BFGS(z,s)
 
+# YC: This is the temporary implementation for the dual scaling strategy
+function update_Hessian(
+    K::PowerCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T},
+    μ::T
+) where {T}
+    H = K.H
+    HBFGS = K.HBFGS
+    μ = dot(z,s)/3
 
+    compute_Hessian(K,z,H)
+
+    copyto!(HBFGS,H)
+    BLAS.scal!(μ,HBFGS)
+end
+
+# YC: 
 function update_HBFGS(
     K::PowerCone{T},
     s::AbstractVector{T},
@@ -466,6 +496,8 @@ function update_HBFGS(
     # reuse memory
     st = K.gradWork
     zt = K.vecWork
+    δs = K.grad
+    tmp = K.z
 
     GradPrim(K,s,zt)
     zt .*= -1
@@ -481,16 +513,47 @@ function update_HBFGS(
 
     compute_Hessian(K,z,H)
 
-    δs = s - μ*st
+    # δs = s - μ*st
     # δz = z - μ*zt
+    @inbounds for i = 1:3
+        δs[i] = s[i] - μ*st[i]
+    end
 
-    tmp = H*zt - μt*st
     de1 = μ*μt-1
     de2 = dot(zt,H,zt) - 3*μt*μt
+    # if !iszero(dot(zt,Hsym,zt) - dot(zt,H,zt))
+    #     println("difference: ", norm(Hsym - H,Inf))
+    #     println("norm is: ", dot(zt,Hsym,zt)-dot(zt,H,zt))
+    # end
+
+    # tmp = H*zt - μt*st
+    mul!(tmp,H,zt)
+    @inbounds for i = 1:3
+        tmp[i] -= μt*st[i]
+    end
+
+    # HBFGS .= μ*H
+    copyto!(HBFGS, H)
+    BLAS.scal!(μ, HBFGS)
+
+    # store (s + μ*st + δs/de1) into zt
+    @inbounds for i = 1:3
+        zt[i] = s[i] + μ*st[i] + δs[i]/de1
+    end
     if (de1 > eps(T) && de2 > eps(T) && flag)
-        HBFGS .= μ*H + 1/(2*μ*3)*δs*(s + μ*st + δs/de1)' + 1/(2*μ*3)*(s + μ*st + δs/de1)*δs' - μ/de2*tmp*tmp'
+        # Hessian HBFGS:= μ*H + 1/(2*μ*3)*δs*(s + μ*st + δs/de1)' + 1/(2*μ*3)*(s + μ*st + δs/de1)*δs' - μ/de2*tmp*tmp'
+        coef1 = 1/(2*μ*3)
+        coef2 = μ/de2
+        # HBFGS .+= coef1*δs*zt' + coef1*zt*δs' - coef2*tmp*tmp'
+        @inbounds for i = 1:3
+            @inbounds for j = 1:3
+                HBFGS[i,j] += coef1*δs[i]*zt[j] + coef1*zt[i]*δs[j] - coef2*tmp[i]*tmp[j]
+            end
+        end
+        # YC: to do but require H to be symmetric with upper triangular parts
+        # syr2k!(uplo, trans, alpha, A, B, beta, C)
     else
-        HBFGS .= μ*H
+        return nothing
     end
 
 end
