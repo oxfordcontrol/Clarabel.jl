@@ -1,6 +1,6 @@
 # Linear System Solvers
 
-The primary numerical operation inside Clarabel.jl is the solution of a symmetric quasidefinite linear system at each iteration.  The solver currently supports two different solvers to perform factorization and forward/backward substitution on this system.
+The primary numerical operation inside Clarabel.jl is the solution of a symmetric quasidefinite linear system at each iteration.  The solver currently supports three different solvers to perform factorization and forward/backward substitution on this system.
 
 The linear solver can be configured in Settings using the `direct_solve_method` field, e.g.
 

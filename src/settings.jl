@@ -20,8 +20,8 @@ verbose                                 | true      | verbose printing
 tol\\_gap\\_abs                         | 1e-8      | absolute residual tolerance
 tol\\_gap\\_rel                         | 1e-8      | relative residual tolerance
 tol\\_feas                              | 1e-5      | feasibility check tolerance
-tol_\\infeas\\_abs						| 1e-8		| absolute infeasibility tolerance
-tol_\\infeas\\_rel						| 1e-8		| relative infeasibility tolerance
+tol\\_infeas\\_abs						| 1e-8		| absolute infeasibility tolerance
+tol\\_infeas\\_rel						| 1e-8		| relative infeasibility tolerance
 max\\_step\\_fraction                   | 0.99      | maximum interior point step length
 ||
 __Data Equilibration Settings__||
@@ -50,7 +50,7 @@ iterative\\_refinement\\_stop\\_ratio   | 2.0       | iterative refinement stall
 Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     max_iter::DefaultInt    = 50
-    time_limit::T           = Inf   
+    time_limit::T           = Inf
     verbose::Bool           = true
     tol_gap_abs::T          = 1e-8
     tol_gap_rel::T          = 1e-8
