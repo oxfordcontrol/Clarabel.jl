@@ -23,8 +23,8 @@ Interior Point Conic Optimization for Julia
 __Clarabel.jl__ is a Julia implementation of an interior point numerical solver for convex optimization problems using a novel homogeneous embedding.  Clarabel.jl solves the following problem:
 
 <p align="center">
-  <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/problem_format-light.png#gh-light-mode-only" width=30%>
-  <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/problem_format-dark.png#gh-dark-mode-only"   width=30%>
+  <img src="https://github.com/oxfordcontrol/ClarabelDocs/blob/main/docs/src/assets/problem_format-light.png#gh-light-mode-only" width=30%>
+  <img src="https://github.com/oxfordcontrol/ClarabelDocs/blob/main/docs/src/assets/problem_format-dark.png#gh-dark-mode-only"   width=30%>
 </p>
 
 with decision variables
