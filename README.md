@@ -1,7 +1,7 @@
 
 <h1 align="center" margin=0px>
-  <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/logo-banner-light.png#gh-light-mode-only" width=60%>
-  <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/logo-banner-dark.png#gh-dark-mode-only"   width=60%>
+  <img src="https://github.com/oxfordcontrol/ClarabelDocs/blob/main/docs/src/assets/logo-banner-light-jl.png#gh-light-mode-only" width=60%>
+  <img src="https://github.com/oxfordcontrol/ClarabelDocs/blob/main/docs/src/assets/logo-banner-dark-jl.png#gh-dark-mode-only"   width=60%>
   <br>
 Interior Point Conic Optimization for Julia
 </h1>
@@ -17,7 +17,7 @@ Interior Point Conic Optimization for Julia
   <a href="#features">Features</a> •
   <a href="#installation">Installation</a> •
   <a href="#license-">License</a> •
-  <a href="https://oxfordcontrol.github.io/Clarabel.jl/stable">Documentation</a>
+  <a href="https://oxfordcontrol.github.io/ClarabelDocs/stable">Documentation</a>
 </p>
 
 __Clarabel.jl__ is a Julia implementation of an interior point numerical solver for convex optimization problems using a novel homogeneous embedding.  Clarabel.jl solves the following problem:
@@ -38,7 +38,7 @@ $b \in \mathbb{R}^m$.
 The convex set $\mathcal{K}$ is a composition of convex cones.
 
 
-__For more information see the Clarabel.jl Documentation ([stable](https://oxfordcontrol.github.io/Clarabel.jl/stable) |  [dev](https://oxfordcontrol.github.io/Clarabel.jl/dev)).__
+__For more information see the Clarabel Documentation ([stable](https://oxfordcontrol.github.io/ClarabelDocs/stable) |  [dev](https://oxfordcontrol.github.io/ClarabelDocs/dev)).__
 
 ## Features
 
