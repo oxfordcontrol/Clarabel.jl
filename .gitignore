@@ -4,6 +4,7 @@ _*.jl
 *.mem
 *.cov
 .DS_Store*
+.vscode
 
 # doc gen files
 /docs/build
