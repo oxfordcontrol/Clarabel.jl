@@ -15,7 +15,7 @@ mutable struct DefaultKKTSystem{T} <: AbstractKKTSystem{T}
     x2::Vector{T}
     z2::Vector{T}
 
-    #work vectors for assembling/dissambling vectors
+    #work vectors for assembling/disassembling vectors
     workx::Vector{T}
     workz::ConicVector{T}
     work_conic::ConicVector{T}

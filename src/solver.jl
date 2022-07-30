@@ -85,7 +85,7 @@ function setup!(
     #make this first to create the timers
     s.info    = DefaultInfo{T}()
 
-    @timeit s.info.timer "setup!" begin
+    @timeit s.timers "setup!" begin
 
         s.cones  = ConeSet{T}(cone_types)
         s.data   = DefaultProblemData{T}(P,q,A,b,s.cones)
@@ -97,11 +97,11 @@ function setup!(
         #equilibrate problem data immediately on setup.
         #this prevents multiple equlibrations if solve!
         #is called more than once.
-        @timeit_debug s.info.timer "equilibrate" begin
+        @timeit s.timers "equilibration" begin
             data_equilibrate!(s.data,s.cones,s.settings)
         end
 
-        @timeit_debug s.info.timer "kkt init" begin
+        @timeit s.timers "kkt init" begin
             s.kktsystem = DefaultKKTSystem{T}(s.data,s.cones,s.settings)
         end
 
@@ -110,7 +110,7 @@ function setup!(
         s.step_lhs  = DefaultVariables{T}(s.data.n,s.cones)
 
         # user facing results go here
-        s.result    = Result{T}(s.data.m,s.data.n,s.info.timer)
+        s.solution    = DefaultSolution{T}(s.data.m,s.data.n)
 
     end
 
@@ -132,10 +132,8 @@ function solve!(
 ) where{T}
 
     #various initializations
-    info_reset!(s.info)
     iter   = 0
     isdone = false
-    timer  = s.info.timer
 
     #initial residuals and duality gap
     gap       = T(0)
@@ -143,15 +141,21 @@ function solve!(
 
     #solver release info, solver config
     #problem dimensions, cone type etc
-    @notimeit print_header(s.info,s.settings,s.data,s.cones)
+    @notimeit begin
+        print_banner(s.settings.verbose)
+        info_print_configuration(s.info,s.settings,s.data,s.cones)
+        info_print_status_header(s.info,s.settings)
+    end
 
-    @timeit timer "solve!" begin
+    info_reset!(s.info,s.timers)
+
+    @timeit s.timers "solve!" begin
 
         #initialize variables to some reasonable starting point
-        #@timeit_debug timer "default start"
-        solver_default_start!(s)
+        #@timeit_debug timers "default start"
+        @timeit s.timers "default start" solver_default_start!(s)
 
-        @timeit_debug timer "IP iteration" begin
+        @timeit s.timers "IP iteration" begin
 
         #----------
         # main loop
@@ -168,38 +172,34 @@ function solve!(
 
             #convergence check and printing
             #--------------
-            #@timeit_debug timer "check termination"
             begin
                 info_update!(
                     s.info,s.data,s.variables,
-                    s.residuals,s.settings
+                    s.residuals,s.settings,s.timers
                 )
                 isdone = info_check_termination!(s.info,s.residuals,s.settings)
             end
             iter += 1
-            @notimeit print_status(s.info,s.settings)
+            @notimeit info_print_status(s.info,s.settings)
             isdone && break
 
             #update the scalings
             #--------------
-            #@timeit_debug timer "NT scaling"
-            scaling_update!(s.cones,s.variables)
+            variables_scale_cones!(s.variables,s.cones)
 
             #update the KKT system and the constant
             #parts of its solution
             #--------------
-            #@timeit_debug timer "kkt update"
-            kkt_update!(s.kktsystem,s.data,s.cones)
+            @timeit s.timers "kkt update" kkt_update!(s.kktsystem,s.data,s.cones)
 
             #calculate the affine step
             #--------------
             calc_affine_step_rhs!(
                 s.step_rhs, s.residuals,
-                s.data, s.variables, s.cones
+                s.variables, s.cones
             )
 
-            #@timeit_debug timer "kkt solve"
-            begin
+            @timeit s.timers "kkt solve" begin
                 kkt_solve!(
                     s.kktsystem, s.step_lhs, s.step_rhs,
                     s.data, s.variables, s.cones, :affine
@@ -215,12 +215,11 @@ function solve!(
             #--------------
             calc_combined_step_rhs!(
                 s.step_rhs, s.residuals,
-                s.data, s.variables, s.cones,
+                s.variables, s.cones,
                 s.step_lhs, σ, μ
             )
 
-            #@timeit_debug timer "kkt solve"
-            begin
+            @timeit s.timers "kkt solve" begin
                 kkt_solve!(
                     s.kktsystem, s.step_lhs, s.step_rhs,
                     s.data, s.variables, s.cones, :combined
@@ -229,7 +228,6 @@ function solve!(
 
             #compute final step length and update the current iterate
             #--------------
-            #@timeit_debug timer "step length"
             α = calc_step_length(s.variables,s.step_lhs,s.cones)
             α *= s.settings.max_step_fraction
 
@@ -246,12 +244,12 @@ function solve!(
 
     end #end solve! timer
 
-    info_finalize!(s.info)  #halts timers
-    result_finalize!(s.result,s.data,s.variables,s.info)
+    info_finalize!(s.info,s.timers)  #halts timers
+    solution_finalize!(s.solution,s.data,s.variables,s.info)
 
-    @notimeit print_footer(s.info,s.settings)
+    @notimeit info_print_footer(s.info,s.settings)
 
-    return s.result
+    return s.solution
 end
 
 

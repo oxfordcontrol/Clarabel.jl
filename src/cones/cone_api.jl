@@ -9,7 +9,7 @@ supported concrete types are:
 * `ZeroConeT`       : The zero cone.  Used to define equalities.
 * `NonnegativeConeT`: The nonnegative orthant.
 * `SecondOrderConeT`: The second order / Lorentz / ice-cream cone.
-# `PSDTriangleConeT`: The positive semidefinite cone (triangular format).
+* `PSDTriangleConeT`: The positive semidefinite cone (triangular format).
 
 """
 abstract type SupportedCone end

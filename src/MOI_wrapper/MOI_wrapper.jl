@@ -203,7 +203,7 @@ MOI.set(opt::Optimizer, param::MOI.RawOptimizerAttribute, value) =
 MOI.supports(::Optimizer, ::MOI.VariablePrimal) = true
 function MOI.get(opt::Optimizer, a::MOI.VariablePrimal, vi::MOI.VariableIndex)
     MOI.check_result_index_bounds(opt, a)
-    return opt.inner.result.x[vi.value]
+    return opt.inner.solution.x[vi.value]
 end
 
 MOI.supports(::Optimizer, ::MOI.ConstraintPrimal) = true
@@ -215,7 +215,7 @@ function MOI.get(
 
     MOI.check_result_index_bounds(opt, a)
     rows = constraint_rows(opt.rowranges, ci)
-    sout = unscalecoef(opt.inner.result.s[rows],S)
+    sout = unscalecoef(opt.inner.solution.s[rows],S)
     return sout
 end
 
@@ -228,7 +228,7 @@ function MOI.get(
 
     MOI.check_result_index_bounds(opt, a)
     rows = constraint_rows(opt.rowranges, ci)
-    zout = unscalecoef(opt.inner.result.z[rows],S)
+    zout = unscalecoef(opt.inner.solution.z[rows],S)
     return zout
 end
 
@@ -240,7 +240,7 @@ function MOI.set(opt::Optimizer{T}, ::MOI.TimeLimitSec, value::Real) where {T}
     MOI.set(opt, MOI.RawOptimizerAttribute("time_limit"), T(value))
 end
 function MOI.set(opt::Optimizer{T}, attr::MOI.TimeLimitSec, ::Nothing) where {T}
-    MOI.set(opt, MOI.RawOptimizerAttribute("time_limit"), zero(T))
+    MOI.set(opt, MOI.RawOptimizerAttribute("time_limit"), T(Inf))
 end
 
 

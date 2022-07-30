@@ -10,6 +10,7 @@ abstract type AbstractProblemData{T <: AbstractFloat} end
 abstract type AbstractKKTSystem{T <: AbstractFloat} end
 abstract type AbstractKKTSolver{T <: AbstractFloat} end
 abstract type AbstractInfo{T <: AbstractFloat} end
+abstract type AbstractSolution{T <: AbstractFloat} end
 
 # -------------------------------------
 # default solver subcomponent implementations
@@ -231,21 +232,11 @@ mutable struct DefaultInfo{T} <: AbstractInfo{T}
     gap_rel::T
     ktratio::T
     solve_time::T
-    timer::TimerOutput
     status::SolverStatus
 
     function DefaultInfo{T}() where {T}
 
-        to = TimerOutput()
-        #setup the main timer sections here and
-        #zero them.   This ensures that the sections
-        #exists if we try to clear them later
-        @timeit to "setup!" begin (nothing) end
-        @timeit to "solve!" begin (nothing) end
-        reset_timer!(to["setup!"])
-        reset_timer!(to["solve!"])
-
-        new( (ntuple(x->0, fieldcount(DefaultInfo)-2)...,to,UNSOLVED)...)
+        new( (ntuple(x->0, fieldcount(DefaultInfo)-1)...,UNSOLVED)...)
     end
 
 end
@@ -258,34 +249,7 @@ DefaultInfo(args...) = DefaultInfo{DefaultFloat}(args...)
 # ---------------
 
 """
-    ResultInfo{T <: AbstractFloat}
-Object that contains further information about the primal and dual residuals, solver iterations and solve time.
-
-Field | Description
-:--- | :---
-iter         | number of interior point iterations
-r_prim       | primal residual at termination
-r_dual       | dual residual at termination
-solve_time   | total solve time (includes setup! and solve!)
-timer        | more detailed timing and allocation information
-
-"""
-mutable struct ResultInfo{T <: AbstractFloat}
-    iter::Int
-    r_prim::T
-    r_dual::T
-    solve_time::T
-    timer::TimerOutput
-end
-
-function ResultInfo{T}(timer::TimerOutput) where {T <: AbstractFloat}
-  return ResultInfo{T}(0,0.,0.,0.,timer)
-end
-
-ResultInfo(args...) = ResultInfo{DefaultFloat}(args...)
-
-"""
-    Result{T <: AbstractFloat}
+    DefaultSolution{T <: AbstractFloat}
 Object returned by the Clarabel solver after calling `optimize!(model)`.
 
 Fieldname | Description
@@ -293,31 +257,48 @@ Fieldname | Description
 x | Vector{T}| Primal variable
 z | Vector{T}| Dual variable
 s | Vector{T}| (Primal) set variable
-obj_val | T | Objective value
 status | Symbol | Solution status
+obj_val | T | Objective value
+solve_time | T | Solver run time
+iterations | Int | Number of solver iterations
+r_prim       | primal residual at termination
+r_dual       | dual residual at termination
 
 If the status field indicates that the problem is solved then (x,z,s) are the calculated solution, or a best guess if the solver has terminated early due to time or iterations limits.
 
 If the status indicates either primal or dual infeasibility, then (x,z,s) provide instead an infeasibility certificate.
 """
-mutable struct Result{T <: AbstractFloat}
+mutable struct DefaultSolution{T} <: AbstractSolution{T}
     x::Vector{T}
     z::Vector{T}
     s::Vector{T}
-    obj_val::T
     status::SolverStatus
-    info::ResultInfo
+    obj_val::T
+    solve_time::T
+    iterations::Int
+    r_prim::T
+    r_dual::T
 
-    function Result{T}(m,n,timer) where {T <: AbstractFloat}
+    function DefaultSolution{T}(m,n) where {T <: AbstractFloat}
+
         x = Vector{T}(undef,n)
         z = Vector{T}(undef,m)
         s = Vector{T}(undef,m)
-      return new(x,z,s,NaN,UNSOLVED,ResultInfo(timer))
+
+        # seemingly reasonable defaults
+        status  = UNSOLVED
+        obj_val = T(NaN)
+        solve_time = zero(T)
+        iterations = 0
+        r_prim     = T(NaN)
+        r_dual     = T(NaN)
+
+      return new(x,z,s,status,obj_val,solve_time,iterations,r_prim,r_dual)
     end
 
 end
 
-Result(args...) = Result{DefaultFloat}(args...)
+DefaultSolution(args...) = DefaultSolution{DefaultFloat}(args...)
 
 
 # -------------------------------------
@@ -341,14 +322,25 @@ mutable struct Solver{T <: AbstractFloat}
     info::Union{AbstractInfo{T},Nothing}
     step_lhs::Union{AbstractVariables{T},Nothing}
     step_rhs::Union{AbstractVariables{T},Nothing}
-    result::Union{Result{T},Nothing}
+    solution::Union{AbstractSolution{T},Nothing}
     settings::Settings{T}
+    timers::TimerOutput
 
 end
 
 #initializes all fields except settings to nothing
 function Solver{T}(settings::Settings{T}) where {T}
-    Solver{T}(ntuple(x->nothing, fieldcount(Solver)-1)...,settings)
+
+    to = TimerOutput()
+    #setup the main timer sections here and
+    #zero them.   This ensures that the sections
+    #exists if we try to clear them later
+    @timeit to "setup!" begin (nothing) end
+    @timeit to "solve!" begin (nothing) end
+    reset_timer!(to["setup!"])
+    reset_timer!(to["solve!"])
+
+    Solver{T}(ntuple(x->nothing, fieldcount(Solver)-2)...,settings,to)
 end
 
 function Solver{T}() where {T}
