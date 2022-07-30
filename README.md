@@ -1,14 +1,14 @@
 
 <h1 align="center" margin=0px>
-  <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/logo-banner-light.png#gh-light-mode-only" width=60%>
-  <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/logo-banner-dark.png#gh-dark-mode-only"   width=60%>
+  <img src="https://github.com/oxfordcontrol/ClarabelDocs/blob/main/docs/src/assets/logo-banner-light-jl.png#gh-light-mode-only" width=60%>
+  <img src="https://github.com/oxfordcontrol/ClarabelDocs/blob/main/docs/src/assets/logo-banner-dark-jl.png#gh-dark-mode-only"   width=60%>
   <br>
 Interior Point Conic Optimization for Julia
 </h1>
 <p align="center">
    <a href="https://github.com/oxfordcontrol/Clarabel.jl/actions"><img src="https://github.com/oxfordcontrol/Clarabel.jl/workflows/ci/badge.svg?branch=main"></a>
   <a href="https://codecov.io/gh/oxfordcontrol/Clarabel.jl"><img src="https://codecov.io/gh/oxfordcontrol/Clarabel.jl/branch/master/graph/badge.svg"></a>
-  <a href="https://oxfordcontrol.github.io/Clarabel.jl/stable"><img src="https://img.shields.io/badge/Documentation-stable-purple.svg"></a>
+  <a href="https://oxfordcontrol.github.io/ClarabelDocs/stable"><img src="https://img.shields.io/badge/Documentation-stable-purple.svg"></a>
   <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg"></a>
   <a href="https://github.com/oxfordcontrol/Clarabel.jl/releases"><img src="https://img.shields.io/badge/Release-v0.1.2-blue.svg"></a>
 </p>
@@ -17,15 +17,18 @@ Interior Point Conic Optimization for Julia
   <a href="#features">Features</a> •
   <a href="#installation">Installation</a> •
   <a href="#license-">License</a> •
-  <a href="https://oxfordcontrol.github.io/Clarabel.jl/stable">Documentation</a>
+  <a href="https://oxfordcontrol.github.io/ClarabelDocs/stable">Documentation</a>
 </p>
 
 __Clarabel.jl__ is a Julia implementation of an interior point numerical solver for convex optimization problems using a novel homogeneous embedding.  Clarabel.jl solves the following problem:
 
-<p align="center">
-  <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/problem_format-light.png#gh-light-mode-only" width=30%>
-  <img src="https://github.com/oxfordcontrol/Clarabel.jl/blob/main/docs/src/assets/problem_format-dark.png#gh-dark-mode-only"   width=30%>
-</p>
+$$
+\begin{array}{r}
+\text{minimize} & \frac{1}{2}x^T P x + q^T x\\\\[2ex]
+ \text{subject to} & Ax + s = b \\\\[1ex]
+        & s \in \mathcal{K}
+ \end{array}
+$$
 
 with decision variables
 $x \in \mathbb{R}^n$,
@@ -38,7 +41,9 @@ $b \in \mathbb{R}^m$.
 The convex set $\mathcal{K}$ is a composition of convex cones.
 
 
-__For more information see the Clarabel.jl Documentation ([stable](https://oxfordcontrol.github.io/Clarabel.jl/stable) |  [dev](https://oxfordcontrol.github.io/Clarabel.jl/dev)).__
+__For more information see the Clarabel Documentation ([stable](https://oxfordcontrol.github.io/ClarabelDocs/stable) |  [dev](https://oxfordcontrol.github.io/ClarabelDocs/dev)).__
+
+Clarabel is also available in a Rust / Python implementation.  See [here](https://github.com/oxfordcontrol/Clarabel.rs).
 
 ## Features
 

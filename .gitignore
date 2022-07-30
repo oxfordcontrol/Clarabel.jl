@@ -4,11 +4,7 @@ _*.jl
 *.mem
 *.cov
 .DS_Store*
-
-# doc gen files
-/docs/build
-/docs/src/literate/build/
-/docs/src/examples/*.md
+.vscode
 
 # Pkg generated files
 Manifest.toml
