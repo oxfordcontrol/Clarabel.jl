@@ -1,5 +1,5 @@
 const SOLVER_NAME    = "Clarabel"
-const SOLVER_VERSION = "0.1.1"
+const SOLVER_VERSION = "0.1.2"
 const MOI_VERSION    = "0.10.5"
 
 solver_name() = SOLVER_NAME
