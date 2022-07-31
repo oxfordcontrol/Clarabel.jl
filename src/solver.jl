@@ -82,6 +82,9 @@ function setup!(
     cone_types::Vector{<:SupportedCone},
 ) where{T}
 
+    #sanity check problem dimensions
+    _check_dimensions(P,q,A,b,cone_types)
+
     #make this first to create the timers
     s.info    = DefaultInfo{T}()
 
@@ -115,6 +118,22 @@ function setup!(
     end
 
     return s
+end
+
+# sanity check problem dimensions passed by user 
+
+function _check_dimensions(P,q,A,b,cone_types)
+
+    n = length(q)
+    m = length(b)
+    p = sum(cone -> nvars(cone), cone_types; init = 0)
+
+    m == size(A)[1] || throw(DimensionMismatch("A and b incompatible dimensions."))
+    p == m          || throw(DimensionMismatch("Constraint dimensions inconsistent with size of cones."))
+    n == size(A)[2] || throw(DimensionMismatch("A and q incompatible dimensions."))
+    n == size(P)[1] || throw(DimensionMismatch("P and q incompatible dimensions."))
+    size(P)[1] == size(P)[2] || throw(DimensionMismatch("P not square."))
+
 end
 
 

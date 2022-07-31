@@ -131,8 +131,8 @@ end
 
 struct PSDTriangleCone{T} <: AbstractCone{T}
 
-        n::DefaultInt  #this is the matrix dimension, i.e. representing n /times n
-    numel::DefaultInt  #this is the total number of elements in the matrix
+        n::DefaultInt  #this is the matrix dimension, i.e. matrix is n /times n
+    numel::DefaultInt  #this is the total number of elements (lower triangle of) the matrix
      work::PSDConeWork{T}
 
     function PSDTriangleCone{T}(n) where {T}

@@ -154,13 +154,9 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
         cones::ConeSet{T}
     ) where {T}
 
-        n = length(q)
-        m = length(b)
-
-        m == size(A)[1] || throw(DimensionMismatch("A and b incompatible dimensions."))
-        n == size(A)[2] || throw(DimensionMismatch("A and q incompatible dimensions."))
-        n == size(P)[1] || throw(DimensionMismatch("P and q incompatible dimensions."))
-        size(P)[1] == size(P)[2] || throw(DimensionMismatch("P not square."))
+        # dimension checks will have already been
+        # performed during problem setup, so skip here
+        (m,n) = size(A)
 
         #take an internal copy of all problem
         #data, since we are going to scale it
