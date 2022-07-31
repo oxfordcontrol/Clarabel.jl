@@ -120,7 +120,7 @@ function setup!(
     return s
 end
 
-# sanity check problem dimensions passed by user 
+# sanity check problem dimensions passed by user
 
 function _check_dimensions(P,q,A,b,cone_types)
 
