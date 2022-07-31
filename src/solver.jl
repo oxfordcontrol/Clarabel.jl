@@ -121,6 +121,7 @@ function setup!(
         # work variables for assembling step direction LHS/RHS
         s.step_rhs  = DefaultVariables{T}(s.data.n,s.cones)
         s.step_lhs  = DefaultVariables{T}(s.data.n,s.cones)
+        s.workVar   = DefaultVariables{T}(s.data.n,s.cones)
 
         # user facing results go here
         s.result    = Result{T}(s.data.m,s.data.n,s.info.timer)
@@ -160,7 +161,7 @@ function solve!(
 
     #NB: temporary allocation
     #PJG: This should be removed.
-    workVar = DefaultVariables{T}(s.data.n,s.cones)
+    # workVar = DefaultVariables{T}(s.data.n,s.cones)
 
     @timeit timer "solve!" begin
 
@@ -231,7 +232,7 @@ function solve!(
             #calculate step length and centering parameter
             #--------------
             @timeit_debug timer "step length affine" begin
-                α = calc_step_length(s.variables,s.step_lhs,workVar,s.cones,:affine)
+                α = calc_step_length(s.variables,s.step_lhs,s.workVar,s.cones,:affine)
                 σ = calc_centering_parameter(α)
             end
             # println("σ is: ", σ)
@@ -256,7 +257,23 @@ function solve!(
             #compute final step length and update the current iterate
             #--------------
             @timeit_debug timer "step length" begin
-                α = calc_step_length(s.variables,s.step_lhs,workVar,s.cones,:combined)
+                α = calc_step_length(s.variables,s.step_lhs,s.workVar,s.cones,:combined)
+            end
+
+            while (α < 0.1 && σ < one(T))
+                println("step size too small!! with σ is ", σ)
+                σ *= 10
+                calc_combined_step_rhs!(
+                    s.step_rhs, s.residuals,
+                    s.variables, s.cones,
+                    s.step_lhs, σ, μ
+                )
+                kkt_solve!(
+                    s.kktsystem, s.step_lhs, s.step_rhs,
+                    s.data, s.variables, s.cones, :combined
+                )
+                α = calc_step_length(s.variables,s.step_lhs,s.workVar,s.cones,:combined)
+                println("update α ", α)
             end
 
             @timeit_debug timer "alpha scale " α *= s.settings.max_step_fraction
@@ -313,7 +330,7 @@ end
 
 #     #NB: temporary allocation
 #     #PJG: This should be removed.
-#     workVar = DefaultVariables{T}(s.data.n,s.cones)
+#     # workVar = DefaultVariables{T}(s.data.n,s.cones)
 
 #     @timeit timer "solve!" begin
 
@@ -384,7 +401,7 @@ end
 #             #calculate step length and centering parameter
 #             #--------------
 #             @timeit to "step length affine" begin
-#                 α = calc_step_length(s.variables,s.step_lhs,workVar,s.cones,:affine)
+#                 α = calc_step_length(s.variables,s.step_lhs,s.workVar,s.cones,:affine)
 #                 σ = calc_centering_parameter(α)
 #             end
 #             # println("σ is: ", σ)
@@ -409,7 +426,7 @@ end
 #             #compute final step length and update the current iterate
 #             #--------------
 #             @timeit to "step length" begin
-#                 α = calc_step_length(s.variables,s.step_lhs,workVar,s.cones,:combined)
+#                 α = calc_step_length(s.variables,s.step_lhs,s.workVar,s.cones,:combined)
 #             end
 
 #             @timeit to "alpha scale " α *= s.settings.max_step_fraction
@@ -522,7 +539,7 @@ function offset_P_diag(
 
     if(settings.static_regularization_enable)
         (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
-        @views _offset_values!(kktsolver.ldlsolver,KKT, map.diag_full[1:n], -ϵ, kktsolver.Dsigns[1:n])
+        _offset_values!(kktsolver.ldlsolver,KKT, map.diag_full[1:n], -ϵ, kktsolver.Dsigns[1:n])
     end
 end
 
@@ -538,6 +555,6 @@ function offset_KKT_diag(
 
     if(settings.static_regularization_enable)
         (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
-        @views _offset_values!(kktsolver.ldlsolver,KKT, map.diag_full, -ϵ, kktsolver.Dsigns)
+        _offset_values!(kktsolver.ldlsolver,KKT, map.diag_full, -ϵ, kktsolver.Dsigns)
     end
 end

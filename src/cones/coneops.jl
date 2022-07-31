@@ -323,12 +323,7 @@ function check_μ_and_centrality(
     #       but we must need it. Otherwise, there would be numerical issues for barrier computation
     α *= T(0.995)
 
-    length_exp = cones.type_counts[ExponentialConeT]
-    ind_exp = cones.ind_exp
-    length_pow = cones.type_counts[PowerConeT]
-    ind_pow = cones.ind_pow
-    scaling = cones.scaling
-    η = cones.η
+    scaling = cones.scaling 
 
     for j = 1:50
         # current z,s

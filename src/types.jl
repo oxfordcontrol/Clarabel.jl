@@ -341,6 +341,7 @@ mutable struct Solver{T <: AbstractFloat}
     info::Union{AbstractInfo{T},Nothing}
     step_lhs::Union{AbstractVariables{T},Nothing}
     step_rhs::Union{AbstractVariables{T},Nothing}
+    workVar::Union{AbstractVariables{T},Nothing}
     result::Union{Result{T},Nothing}
     settings::Settings{T}
 

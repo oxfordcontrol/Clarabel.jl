@@ -35,7 +35,8 @@ function calc_step_length(
         α = check_μ_and_centrality(cones,step,variables,workVar,α)
 
         if (steptype == :combined && α < 1e-4)
-            error("get stalled with step size ", α)
+            # error("get stalled with step size ", α)
+            return α
         end
     end
 

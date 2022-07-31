@@ -30,6 +30,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
     #symmetric view for residual calcs
     KKTsym::Symmetric{T, SparseMatrixCSC{T,Int}}
+    absKKTdiag::Vector{T}
 
     #settings just points back to the main solver settings.
     #Required since there is no separate LDL settings container
@@ -77,12 +78,15 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         #the following to allow products like KKT*x
         KKTsym = Symmetric(KKT)
 
+        KKTdiag = @view KKT[map.diag_full]
+        absKKTdiag = abs.(KKTdiag)
+
         #the LDL linear solver engine
         ldlsolver = ldlsolverT{T}(KKT,Dsigns,settings)
 
         corFlag = true
 
-        return new(m,n,p,x,b,work_e,work_dx,map,Dsigns,WtWblocks,KKT,KKTsym,settings,ldlsolver,corFlag)
+        return new(m,n,p,x,b,work_e,work_dx,map,Dsigns,WtWblocks,KKT,KKTsym,absKKTdiag,settings,ldlsolver,corFlag)
     end
 
 end
@@ -273,32 +277,32 @@ function _kktsolver_update_inner!(
     #with static regularizers.  Note that we don't want to shift
     #elements in the ULHS (corresponding to P) since we already
     #shifted them at initialization and haven't overwritten that block
-    KKTsym = kktsolver.KKTsym
-    KKTdiag = abs.(diag(KKTsym))
+    KKTdiag = @view KKT.nzval[map.diag_full]
+    absKKTdiag = kktsolver.absKKTdiag
+    ϵ = settings.static_regularization_eps
 
-    if(settings.static_regularization_enable)
-        ϵ = settings.static_regularization_eps
-        ξ = settings.proportional_eps
-        ϵ += ξ*maximum(KKTdiag)
-        kktsolver.ϵ = ϵ
+    @. absKKTdiag = abs(KKTdiag)
+    maxdiag = maximum(absKKTdiag)
+    mindiag = minimum(absKKTdiag)
+    mindiag += ϵ
+    # println("ratio is: ", maxdiag/mindiag)
 
-        (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
-        @views _offset_values!(ldlsolver,KKT, map.diag_full, ϵ, kktsolver.Dsigns)
-    end
-
-
-    KKTdiag = abs.(diag(KKTsym))    # different from the previous one after diagonal perturbation
-    maxdiag = maximum(KKTdiag)
-    mindiag = minimum(KKTdiag)
-    println("ratio is: ", maxdiag/mindiag)
-    #refactor with new data
-    refactor!(ldlsolver,kktsolver.KKT)
-
-    # switch from primal-dual scaling to the pure dual scaling
-    if  mindiag/maxdiag < eps(T) #&& kktsolver.corFlag == true
+    # switch from the primal-dual scaling to the pure dual scaling when the conditioning number is larger than 1/eps(T)
+    if  mindiag/maxdiag < eps(T) # && kktsolver.corFlag == true
         kktsolver.corFlag = false
         println("Switch off correction!!!")
     end
+
+    if(settings.static_regularization_enable)
+        ξ = settings.proportional_eps        
+        kktsolver.ϵ = ϵ + ξ*maxdiag
+
+        (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
+        @views _offset_values!(ldlsolver,KKT, map.diag_full, kktsolver.ϵ, kktsolver.Dsigns)
+    end
+
+    #refactor with new data
+    refactor!(ldlsolver,kktsolver.KKT)
 
     return nothing
 end

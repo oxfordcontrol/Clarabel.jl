@@ -79,8 +79,8 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     dynamic_regularization_eps::T       = 1e-13
     dynamic_regularization_delta::T     = 2e-7
 
-    # proportional regularization parameter as in mosek
-    proportional_eps = T(0)
+    # proportional regularization w.r.t. the maximum diagonal term
+    proportional_eps = eps(T)
 
     #iterative refinement (for QDLDL)
     iterative_refinement_enable::Bool   = true
