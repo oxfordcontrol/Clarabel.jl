@@ -486,9 +486,8 @@ function update_Hessian(
     BLAS.scal!(μ,HBFGS)
 end
 
-# YC: 
 function update_HBFGS(
-    K::PowerCone{T},
+    K::ExponentialCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
     flag::Bool
@@ -498,20 +497,30 @@ function update_HBFGS(
     zt = K.vecWork
     δs = K.grad
     tmp = K.z
+    H = K.H
+    HBFGS = K.HBFGS
 
+    # Hessian computation, compute μ locally
+    compute_Hessian(K,z,H)
+    μ = dot(z,s)/3
+    # HBFGS .= μ*H
+    @inbounds for i = 1:3
+        @inbounds for j = 1:3
+            HBFGS[i,j] = μ*H[i,j]
+        end
+    end
+
+    # use the dual scaling
+    if !flag
+        return nothing
+    end
+
+    # compute zt,st,μt locally
     GradPrim(K,s,zt)
     zt .*= -1
     GradF(K,z,st)
     st .*= -1
-
-    H = K.H
-    HBFGS = K.HBFGS
-
-    # should compute μ, μt globally
-    μ = dot(z,s)/3
     μt = dot(zt,st)/3
-
-    compute_Hessian(K,z,H)
 
     # δs = s - μ*st
     # δz = z - μ*zt
@@ -521,26 +530,19 @@ function update_HBFGS(
 
     de1 = μ*μt-1
     de2 = dot(zt,H,zt) - 3*μt*μt
-    # if !iszero(dot(zt,Hsym,zt) - dot(zt,H,zt))
-    #     println("difference: ", norm(Hsym - H,Inf))
-    #     println("norm is: ", dot(zt,Hsym,zt)-dot(zt,H,zt))
-    # end
 
-    # tmp = H*zt - μt*st
-    mul!(tmp,H,zt)
-    @inbounds for i = 1:3
-        tmp[i] -= μt*st[i]
-    end
+    if (de1 > eps(T) && de2 > eps(T))
+        # tmp = H*zt - μt*st
+        mul!(tmp,H,zt)
+        @inbounds for i = 1:3
+            tmp[i] -= μt*st[i]
+        end
 
-    # HBFGS .= μ*H
-    copyto!(HBFGS, H)
-    BLAS.scal!(μ, HBFGS)
-
-    # store (s + μ*st + δs/de1) into zt
-    @inbounds for i = 1:3
-        zt[i] = s[i] + μ*st[i] + δs[i]/de1
-    end
-    if (de1 > eps(T) && de2 > eps(T) && flag)
+        # store (s + μ*st + δs/de1) into zt
+        @inbounds for i = 1:3
+            zt[i] = s[i] + μ*st[i] + δs[i]/de1
+        end
+    
         # Hessian HBFGS:= μ*H + 1/(2*μ*3)*δs*(s + μ*st + δs/de1)' + 1/(2*μ*3)*(s + μ*st + δs/de1)*δs' - μ/de2*tmp*tmp'
         coef1 = 1/(2*μ*3)
         coef2 = μ/de2

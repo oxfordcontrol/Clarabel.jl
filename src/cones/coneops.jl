@@ -334,7 +334,7 @@ function check_μ_and_centrality(
 
         # compute current μ
         μ = (dot(cur_s,cur_z) + cur_τ*cur_κ)/central_coef
-        upper = cones.minDist*μ     #bound for boundary distance
+        upper = cones.minDist*μ     #upper bound for the distance to boundaries
 
         # #boundary check from ECOS and centrality check from Hypatia
         # # NB:   1) the update x+α*dx is inefficient right now and need to be rewritten later
