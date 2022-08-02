@@ -12,6 +12,7 @@ struct ConeSet{T}
 
     #API type specs and count of each cone type
     cone_specs::Vector{SupportedCone}
+    types::Vector{DataType}
     type_counts::Dict{DataType,Int}
 
     #overall size of the composite cone
@@ -32,9 +33,6 @@ struct ConeSet{T}
     # the flag for symmetric cone check
     symFlag::Bool
 
-    # function ConeSet{T}(types,dims,α) where {T}
-
-    #     length(types) == length(dims) || throw(DimensionMismatch())
     function ConeSet{T}(cone_specs::Vector{<:SupportedCone}) where {T}
 
         #make copy to protect from user interference after setup,
@@ -45,11 +43,7 @@ struct ConeSet{T}
 
         ncones = length(cone_specs)
         cones  = Vector{AbstractCone{T}}(undef,ncones)
-
-        #create cones with the given dims
-        for i in eachindex(cone_specs)
-            cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].dim)
-        end
+        types = Vector{DataType}(undef,ncones)
 
         #count the number of each cone type
         type_counts = Dict{DataType,Int}()
@@ -68,17 +62,20 @@ struct ConeSet{T}
         cur_pow = 0
         # create cones with the given dims
         # store indexing of exponential and power cones
-        for i in eachindex(dims)
-            if types[i] == PowerConeT
-                cur_pow += 1
-                ind_pow[cur_pow] = i
-                cones[i] = ConeDict[types[i]]{T}(α[i])
-            elseif types[i] == ExponentialConeT
+
+        #create cones with the given dims
+        for i in eachindex(cone_specs)
+            types[i] = typeof(cone_specs[i])
+            if types[i] == ExponentialConeT
                 cur_exp += 1
                 ind_exp[cur_exp] = i
-                cones[i] = ConeDict[types[i]]{T}()
+                cones[i] = ConeDict[typeof(cone_specs[i])]{T}()
+            elseif types[i] == PowerConeT
+                cur_pow += 1
+                ind_pow[cur_pow] = i
+                cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].α)
             else
-                cones[i] = ConeDict[types[i]]{T}(dims[i])
+                cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].dim)
             end
         end
 
@@ -99,7 +96,7 @@ struct ConeSet{T}
             symFlag = false
         end
 
-        return new(cones,types,type_counts,numel,degree,headidx,scaling,minDist,ind_exp,ind_pow,η,symFlag)
+        return new(cones,cone_specs,types,type_counts,numel,degree,headidx,scaling,minDist,ind_exp,ind_pow,η,symFlag)
     end
 end
 

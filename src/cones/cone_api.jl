@@ -29,3 +29,11 @@ end
 struct PSDTriangleConeT <: SupportedCone
     dim::DefaultInt
 end
+
+struct ExponentialConeT <: SupportedCone
+    dim::DefaultInt
+end
+
+struct PowerConeT <: SupportedCone
+    α::DefaultFloat
+end

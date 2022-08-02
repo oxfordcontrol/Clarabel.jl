@@ -403,7 +403,7 @@ function iterative_refinement(kktsolver::DirectLDLKKTSolver{T}) where{T}
 
     for i = 1:IR_maxiter
 
-        println(i,"-th IR error: ", norme)
+        # println(i,"-th IR error: ", norme)
         
         if(norme <= IR_abstol + IR_reltol*normb)
             # within tolerance.  Exit
