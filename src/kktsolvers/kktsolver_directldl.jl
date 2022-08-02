@@ -305,7 +305,7 @@ function _kktsolver_update_inner!(
     # switch from the primal-dual scaling to the pure dual scaling when the conditioning number is larger than 1/eps(T)
     if  mindiag/maxdiag < eps(T) # && kktsolver.corFlag == true
         kktsolver.corFlag = false
-        println("Switch off correction!!!")
+        # println("Switch off correction!!!")
     end
 
     if(settings.static_regularization_enable)

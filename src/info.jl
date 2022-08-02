@@ -55,7 +55,7 @@ function info_check_termination!(
     #optimality
     #---------------------
     info.status = UNSOLVED  #ensure default state
-    println("current gap: ", min(info.gap_abs, info.gap_rel))
+    # println("current gap: ", min(info.gap_abs, info.gap_rel))
     if( ((info.gap_abs < settings.tol_gap_abs) || (info.gap_rel < settings.tol_gap_rel))
         && (info.res_primal < settings.tol_feas)
         && (info.res_dual   < settings.tol_feas)
