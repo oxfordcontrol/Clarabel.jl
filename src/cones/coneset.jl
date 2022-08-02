@@ -46,14 +46,11 @@ struct ConeSet{T}
         ncones = length(cone_specs)
         cones  = Vector{AbstractCone{T}}(undef,ncones)
 
-<<<<<<< HEAD
-=======
         #create cones with the given dims
         for i in eachindex(cone_specs)
             cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].dim)
         end
 
->>>>>>> main-copy
         #count the number of each cone type
         type_counts = Dict{DataType,Int}()
         for coneT in subtypes(SupportedCone)
@@ -94,7 +91,6 @@ struct ConeSet{T}
         headidx = Vector{Int}(undef,length(cones))
         _coneset_make_headidx!(headidx,cones)
 
-<<<<<<< HEAD
         #check whether the problem only contains symmetric cones
         if (type_counts[ZeroConeT] + type_counts[NonnegativeConeT] +
             type_counts[SecondOrderConeT] + type_counts[PSDTriangleConeT] == ncones)
@@ -104,9 +100,6 @@ struct ConeSet{T}
         end
 
         return new(cones,types,type_counts,numel,degree,headidx,scaling,minDist,ind_exp,ind_pow,η,symFlag)
-=======
-        return new(cones,cone_specs,type_counts,numel,degree,headidx)
->>>>>>> main-copy
     end
 end
 
