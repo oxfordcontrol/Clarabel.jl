@@ -13,18 +13,17 @@ function basic_SOCP_data(Type::Type{T}) where {T <: AbstractFloat}
     A1 = [A;-A]*2
     c = T[0.1;-2.;1.]
     b1 = ones(T,6)
-    cone_types = [Clarabel.NonnegativeConeT, Clarabel.NonnegativeConeT]
-    cone_dims  = [3,3]
+    cones = Clarabel.SupportedCone[Clarabel.NonnegativeConeT(3), Clarabel.NonnegativeConeT(3)]
+
 
     #add a SOC constraint
     A2 = SparseMatrixCSC{T}(I(n)*one(T))
     b2 = [0;0;0]
     A = [A1; A2]
     b = [b1; b2]
-    push!(cone_dims,3)
-    push!(cone_types,Clarabel.SecondOrderConeT)
+    push!(cones,Clarabel.SecondOrderConeT(3))
 
-    return (P,c,A,b,cone_types,cone_dims)
+    return (P,c,A,b,cones)
 end
 
 
@@ -38,8 +37,8 @@ end
 
             @testset "feasible" begin
 
-                P,c,A,b,cone_types,cone_dims = basic_SOCP_data(FloatT)
-                solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims)
+                P,c,A,b,cones = basic_SOCP_data(FloatT)
+                solver   = Clarabel.Solver(P,c,A,b,cones)
                 Clarabel.solve!(solver)
 
                 @test solver.info.status == Clarabel.SOLVED
@@ -53,8 +52,8 @@ end
 
             @testset "feasible" begin
 
-                P,c,A,b,cone_types,cone_dims = basic_SOCP_data(FloatT)
-                solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims)
+                P,c,A,b,cones = basic_SOCP_data(FloatT)
+                solver   = Clarabel.Solver(P,c,A,b,cones)
                 Clarabel.solve!(solver)
 
                 @test solver.info.status == Clarabel.SOLVED

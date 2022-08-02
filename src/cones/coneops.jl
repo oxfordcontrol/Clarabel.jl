@@ -52,6 +52,7 @@ function cones_rectify_equilibration!(
 end
 
 
+
 function cones_update_scaling!(
     cones::ConeSet{T},
     s::ConicVector{T},
@@ -69,7 +70,6 @@ function cones_update_scaling!(
     return nothing
 end
 
-
 function cones_set_identity_scaling!(
     cones::ConeSet{T}
 ) where {T}
@@ -80,7 +80,6 @@ function cones_set_identity_scaling!(
 
     return nothing
 end
-
 
 # The WtW block for each cone.
 function cones_get_WtW_blocks!(

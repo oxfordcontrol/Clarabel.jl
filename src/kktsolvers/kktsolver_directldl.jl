@@ -212,10 +212,25 @@ function _offset_values_KKT!(
 
 end
 
-
-
 function kktsolver_update!(
     kktsolver::DirectLDLKKTSolver{T},
+    cones::ConeSet{T}
+) where {T}
+
+    # the kkt update function is slow if we apply repeated
+    # dynamic dispatch on the abstract ldlsolver.  We
+    # therefore make an inner function that will compile
+    # to a conrete implemention for whatever ldlsolver we have
+    # here
+    ldlsolver = kktsolver.ldlsolver
+    _kktsolver_update_inner!(kktsolver,ldlsolver,cones)
+end
+
+
+
+function _kktsolver_update_inner!(
+    kktsolver::DirectLDLKKTSolver{T},
+    ldlsolver::AbstractDirectLDLSolver{T},
     cones::ConeSet{T}
     ) where {T}
 
@@ -253,7 +268,7 @@ function _kktsolver_update_inner!(
     cidx = 1        #which of the SOCs are we working on?
 
     for (i,K) = enumerate(cones)
-        if(cones.types[i] == SecondOrderConeT)
+        if isa(cones.cone_specs[i],SecondOrderConeT)
 
             η2 = K.η^2
 
