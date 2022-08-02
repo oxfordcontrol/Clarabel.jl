@@ -84,6 +84,13 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         #the LDL linear solver engine
         ldlsolver = ldlsolverT{T}(KKT,Dsigns,settings)
 
+        # PJG: This should not be hard coded deep with the KKT solver.
+        # I don't think it necessarily even has anything to do with the
+        # KKT solver.  I think it should be part of the settings, which
+        # also makes its retrieval with the high level solver (or wherever)
+        # it gets used, much more reasonable.
+        #
+        # Name needs to be changed to reflect conventions elsewhere.
         corFlag = true
 
         return new(m,n,p,x,b,work_e,work_dx,map,Dsigns,WtWblocks,KKT,KKTsym,absKKTdiag,settings,ldlsolver,corFlag)
@@ -217,30 +224,14 @@ function kktsolver_update!(
     cones::ConeSet{T}
 ) where {T}
 
-    # the kkt update function is slow if we apply repeated
-    # dynamic dispatch on the abstract ldlsolver.  We
-    # therefore make an inner function that will compile
-    # to a conrete implemention for whatever ldlsolver we have
-    # here
-    ldlsolver = kktsolver.ldlsolver
-    _kktsolver_update_inner!(kktsolver,ldlsolver,cones)
-end
-
-
-
-function _kktsolver_update_inner!(
-    kktsolver::DirectLDLKKTSolver{T},
-    ldlsolver::AbstractDirectLDLSolver{T},
-    cones::ConeSet{T}
-    ) where {T}
-
     # the internal ldlsolver is type unstable, so multiple
     # calls to the ldlsolvers will be very slow if called
     # directly.   Grab it here and then call an inner function
     # so that the ldlsolver has concrete type
-    ldlsolver = kktsolver.ldlsolver;
-    _kktsolver_update_inner!(kktsolver,ldlsolver,cones);
+    ldlsolver = kktsolver.ldlsolver
+    _kktsolver_update_inner!(kktsolver,ldlsolver,cones)
 end
+
 
 function _kktsolver_update_inner!(
     kktsolver::DirectLDLKKTSolver{T},
@@ -309,7 +300,7 @@ function _kktsolver_update_inner!(
     end
 
     if(settings.static_regularization_enable)
-        ξ = settings.proportional_eps        
+        ξ = settings.proportional_eps
         kktsolver.ϵ = ϵ + ξ*maxdiag
 
         (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
@@ -404,7 +395,7 @@ function iterative_refinement(kktsolver::DirectLDLKKTSolver{T}) where{T}
     for i = 1:IR_maxiter
 
         # println(i,"-th IR error: ", norme)
-        
+
         if(norme <= IR_abstol + IR_reltol*normb)
             # within tolerance.  Exit
             return nothing

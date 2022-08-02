@@ -1,4 +1,4 @@
-using Random, Test, Pkg
+using Random, Test
 using Clarabel
 
 @testset "Clarabel Native Optimizer Testset" begin

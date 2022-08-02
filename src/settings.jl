@@ -1,4 +1,4 @@
-using DataFrames
+using PrettyTables
 
 # -------------------------------------
 # User definable settings
@@ -15,13 +15,13 @@ Argument | Default Value | Description
 __Main Algorithm Settings__||
 ||
 max_iter                                | 50        | maximum number of iterations
-time_limit                              | 0         | maximum run time (seconds)
+time_limit                              | Inf       | maximum run time (seconds)
 verbose                                 | true      | verbose printing
 tol\\_gap\\_abs                         | 1e-8      | absolute residual tolerance
 tol\\_gap\\_rel                         | 1e-8      | relative residual tolerance
 tol\\_feas                              | 1e-5      | feasibility check tolerance
-tol_\\infeas\\_abs						| 1e-8		| absolute infeasibility tolerance
-tol_\\infeas\\_rel						| 1e-8		| relative infeasibility tolerance
+tol\\_infeas\\_abs						| 1e-8		| absolute infeasibility tolerance
+tol\\_infeas\\_rel						| 1e-8		| relative infeasibility tolerance
 max\\_step\\_fraction                   | 0.99      | maximum interior point step length
 ||
 __Data Equilibration Settings__||
@@ -50,7 +50,7 @@ iterative\\_refinement\\_stop\\_ratio   | 2.0       | iterative refinement stall
 Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     max_iter::DefaultInt    = 50
-    time_limit::T           = 0.   #unbounded if = 0
+    time_limit::T           = Inf
     verbose::Bool           = true
     tol_gap_abs::T          = 1e-8
     tol_gap_rel::T          = 1e-8
@@ -110,43 +110,45 @@ function settings_populate!(settings::Settings, d::Dict)
 end
 
 
-# Inspired by method in https://discourse.julialang.org/t/how-to-align-output-in-columns/3938/2
-
 function Base.show(io::IO, settings::Clarabel.Settings{T}) where {T}
 
     s = get_precision_string(T)
     println("Clarabel settings with Float precision: $s\n")
 
-    df = DataFrame(Setting = Symbol[], DataType = DataType[], Value = String[])
-
-    for name in fieldnames(Clarabel.Settings)
+	names   = fieldnames(Clarabel.Settings)
+	valstrs = []
+	types   = []
+    for name in names
         value  = getfield(settings,name)
-        type   = typeof(value)
-        valstr = type == BigFloat ? @sprintf("%g",value) : string(value)
-        push!(df, [name, type, valstr])
+		type = typeof(value)
+        push!(types, type)
+        push!(valstrs,type == BigFloat ? @sprintf("%g",value) : string(value))
     end
+	table = hcat(collect(names), types, valstrs)
 
-    strwidths = [maximum(textwidth.(string.([df[:, i]; names(df)[i]]))) for i in 1:size(df, 2)]
-    io = IOBuffer()
+	#NB: same as tf_compact, but with bolded row separator
+	tf = TextFormat(
+    up_right_corner     = ' ',
+    up_left_corner      = ' ',
+    bottom_left_corner  = ' ',
+    bottom_right_corner = ' ',
+    up_intersection     = ' ',
+    left_intersection   = ' ',
+    right_intersection  = ' ',
+    middle_intersection = ' ',
+    bottom_intersection  = ' ',
+    column              = ' ',
+    row                 = '='
+   )
 
-    # Print headers
-    for (i, header) in enumerate(names(df))
-        print(io, rpad(header, strwidths[i]), "   ")
-    end
-    println(io)
+	header = ["Setting", "DataType", "Value"]
 
-    # Print separator
-    for (i, header) in enumerate(names(df))
-        print(io, "="^strwidths[i], "   ")
-    end
-    println(io)
+    pretty_table(table,
+		header=header,
+		compact_printing=true,
+		alignment = :l,
+		backend = Val(:text),
+		tf = tf,
+		hlines = [1])
 
-    for j in 1:size(df, 1)
-        for i in 1:size(df, 2)
-            print(io, rpad(df[j,i], strwidths[i]), "   ")
-        end
-        println(io)
-    end
-
-    print(String(take!(io)))
 end

@@ -90,9 +90,9 @@ end
 
 #populate a partial column with zeros using the K.colptr as indicator of
 #next fill location in each row.
-function _csc_fill_colvec(K,vtoKKT,initrow,initcol,vlength)
+function _csc_fill_colvec(K,vtoKKT,initrow,initcol)
 
-    for i = 1:vlength
+    for i = 1:length(vtoKKT)
         dest               = K.colptr[initcol]
         K.rowval[dest]     = initrow + i - 1
         K.nzval[dest]      = 0.
@@ -104,9 +104,9 @@ end
 
 #populate a partial row with zeros using the K.colptr as indicator of
 #next fill location in each row.
-function _csc_fill_rowvec(K,vtoKKT,initrow,initcol,vlength)
+function _csc_fill_rowvec(K,vtoKKT,initrow,initcol)
 
-    for i = 1:vlength
+    for i = 1:length(vtoKKT)
         col            = initcol + i - 1
         dest           = K.colptr[col]
         K.rowval[dest] = initrow

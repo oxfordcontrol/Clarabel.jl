@@ -242,11 +242,11 @@ function _kkt_assemble_fill(
             #fill structural zeros for u and v columns for this cone
             #note v is the first extra row/column, u is second
             if shape == :triu
-                _csc_fill_colvec(K, maps.SOC_v[socidx], headidx + n, col,     nvars) #u
-                _csc_fill_colvec(K, maps.SOC_u[socidx], headidx + n, col + 1, nvars) #v
+                _csc_fill_colvec(K, maps.SOC_v[socidx], headidx + n, col    ) #u
+                _csc_fill_colvec(K, maps.SOC_u[socidx], headidx + n, col + 1) #v
             else #:tril
-                _csc_fill_rowvec(K, maps.SOC_v[socidx], col    , headidx + n,nvars) #u
-                _csc_fill_rowvec(K, maps.SOC_u[socidx], col + 1, headidx + n,nvars) #v
+                _csc_fill_rowvec(K, maps.SOC_v[socidx], col    , headidx + n) #u
+                _csc_fill_rowvec(K, maps.SOC_u[socidx], col + 1, headidx + n) #v
             end
 
             socidx += 1

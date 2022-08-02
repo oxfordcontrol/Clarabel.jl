@@ -3,7 +3,8 @@ function info_update!(
     data::DefaultProblemData{T},
     variables::DefaultVariables{T},
     residuals::DefaultResiduals{T},
-    settings::Settings{T}
+    settings::Settings{T},
+    timers::TimerOutput
 ) where {T}
 
     #optimality termination check should be computed w.r.t
@@ -42,7 +43,7 @@ function info_update!(
     info.ktratio = variables.κ / variables.τ
 
     #solve time so far (includes setup!)
-    info_get_solve_time!(info)
+    info_get_solve_time!(info,timers)
 
 end
 
@@ -84,7 +85,7 @@ function info_check_termination!(
         if settings.max_iter  == info.iterations
             info.status = MAX_ITERATIONS
 
-        elseif settings.time_limit > zero(T) && info.solve_time > settings.time_limit
+        elseif info.solve_time > settings.time_limit
             info.status = MAX_TIME
 
         end
@@ -106,29 +107,29 @@ function info_save_scalars(info,μ,α,σ,iter)
 end
 
 
-function info_reset!(info)
+function info_reset!(info,timers)
 
     info.status     = UNSOLVED
     info.iterations = 0
     info.solve_time = 0
 
     #reset the solve! timer, but keep the setup!
-    reset_timer!(info.timer["solve!"])
+    reset_timer!(timers["solve!"])
 
     return nothing
 end
 
 
-function info_get_solve_time!(info)
+function info_get_solve_time!(info,timers)
 
     #TimerOutputs reports in nanoseconds
-    info.solve_time = TimerOutputs.tottime(info.timer)*1e-9
+    info.solve_time = TimerOutputs.tottime(timers)*1e-9
     return nothing
 end
 
 
-function info_finalize!(info)
+function info_finalize!(info,timers)
 
-    info_get_solve_time!(info)
+    info_get_solve_time!(info,timers)
     return nothing
 end

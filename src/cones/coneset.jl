@@ -1,5 +1,3 @@
-using InteractiveUtils:subtypes
-
 # -------------------------------------
 # collection of cones for composite
 # operations on a compound set, including
@@ -47,7 +45,7 @@ struct ConeSet{T}
 
         #count the number of each cone type
         type_counts = Dict{DataType,Int}()
-        for coneT in subtypes(SupportedCone)
+        for coneT in keys(ConeDict)
             type_counts[coneT] = count(C->isa(C,coneT), cone_specs)
         end
 

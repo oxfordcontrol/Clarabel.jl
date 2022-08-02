@@ -1,5 +1,63 @@
 
-function print_status(
+function print_banner(verbose::Bool)
+
+    if !verbose return; end
+    println("-------------------------------------------------------------")
+    @printf("           Clarabel.jl v%s  -  Clever Acronym              \n", version())
+    println("                   (c) Paul Goulart                          ")
+    println("                University of Oxford, 2022                   ")
+    println("-------------------------------------------------------------")
+end
+function info_print_configuration(
+    info::DefaultInfo{T},
+    settings::Settings,
+    data::DefaultProblemData{T},
+    cones::ConeSet{T}
+) where {T}
+
+    if(settings.verbose == false) return end
+
+    @printf("\nproblem:\n")
+    @printf("  variables     = %i\n", data.n)
+    @printf("  constraints   = %i\n", data.m)
+    @printf("  nnz(P)        = %i\n", nnz(data.P))
+    @printf("  nnz(A)        = %i\n", nnz(data.A))
+    @printf("  cones (total) = %i\n", length(cones))
+    print_conedims_by_type(cones, ZeroConeT)
+    print_conedims_by_type(cones, NonnegativeConeT)
+    print_conedims_by_type(cones, SecondOrderConeT)
+    print_conedims_by_type(cones, PSDTriangleConeT)
+    print_conedims_by_type(cones, PowerConeT)
+    print_conedims_by_type(cones, ExponentialConeT)
+    print_settings(settings, T)
+    @printf("\n")
+
+    return nothing
+end
+
+function info_print_status_header(
+    info::DefaultInfo{T},
+    settings::Settings,
+) where {T}
+
+    if(settings.verbose == false) return end
+
+    #print a subheader for the iterations info
+    @printf("%s", "iter    ")
+    @printf("%s", "pcost        ")
+    @printf("%s", "dcost       ")
+    @printf("%s", "pres      ")
+    @printf("%s", "dres      ")
+    @printf("%s", "k/t       ")
+    @printf("%s", " μ       ")
+    @printf("%s", "step      ")
+    @printf("\n")
+    println("-----------------------------------------------------------------------------------")
+
+    return nothing
+end
+
+function info_print_status(
     info::DefaultInfo{T},
     settings::Settings
 ) where {T}
@@ -25,46 +83,16 @@ function print_status(
 end
 
 
-function print_header(
+function info_print_footer(
     info::DefaultInfo{T},
-    settings::Settings,
-    data::DefaultProblemData{T},
-    cones::ConeSet{T}
+    settings::Settings
 ) where {T}
 
     if(settings.verbose == false) return end
 
-    println("-------------------------------------------------------------")
-    @printf("           Clarabel.jl v%s  -  Clever Acronym              \n", version())
-    println("                   (c) Paul Goulart                          ")
-    println("                University of Oxford, 2022                   ")
-    println("-------------------------------------------------------------")
-    @printf("problem: \n")
-    @printf("  variables     = %i\n", data.n)
-    @printf("  constraints   = %i\n", data.m)
-    @printf("  nnz(P)        = %i\n", nnz(data.P))
-    @printf("  nnz(A)        = %i\n", nnz(data.A))
-    @printf("  cones (total) = %i\n", length(cones))
-    print_conedims_by_type(cones, ZeroConeT)
-    print_conedims_by_type(cones, NonnegativeConeT)
-    print_conedims_by_type(cones, SecondOrderConeT)
-    print_conedims_by_type(cones, PSDTriangleConeT)
-    print_conedims_by_type(cones, PowerConeT)
-    print_conedims_by_type(cones, ExponentialConeT)
-    print_settings(settings, T)
-    @printf("\n")
-
-    #print a subheader for the iterations info
-    @printf("%s", "iter    ")
-    @printf("%s", "pcost        ")
-    @printf("%s", "dcost       ")
-    @printf("%s", "pres      ")
-    @printf("%s", "dres      ")
-    @printf("%s", "k/t       ")
-    @printf("%s", " μ       ")
-    @printf("%s", "step      ")
-    @printf("\n")
     println("-----------------------------------------------------------------------------------")
+    @printf("Terminated with status = %s\n",SolverStatusDict[info.status])
+    @printf("solve time = %s\n",TimerOutputs.prettytime(info.solve_time*1e9))
 
     return nothing
 end
@@ -79,7 +107,7 @@ end
 function print_settings(settings::Settings, T::DataType)
 
     set = settings
-    @printf("settings:\n")
+    @printf("\nsettings:\n")
 
     if(set.direct_kkt_solver)
         @printf("  linear algebra: direct / %s, precision: %s\n", set.direct_solve_method, get_precision_string(T))
@@ -87,7 +115,7 @@ function print_settings(settings::Settings, T::DataType)
 
     @printf("  max iter = %i, time limit = %f,  max step = %.3f\n",
         set.max_iter,
-        set.time_limit == 0 ? Inf : set.time_limit,
+        set.time_limit,
         set.max_step_fraction,
     )
     #
@@ -167,18 +195,4 @@ function print_conedims_by_type(cones::ConeSet{T}, type) where {T}
     @printf("\n")
 
 
-end
-
-function print_footer(
-    info::DefaultInfo{T},
-    settings::Settings
-) where {T}
-
-    if(settings.verbose == false) return end
-
-    println("-----------------------------------------------------------------------------------")
-    @printf("Terminated with status = %s\n",SolverStatusDict[info.status])
-    @printf("solve time = %s\n",TimerOutputs.prettytime(info.solve_time*1e9))
-
-    return nothing
 end

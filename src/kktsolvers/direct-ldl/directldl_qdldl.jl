@@ -55,10 +55,6 @@ function scale_values!(
     scale::T
 ) where{T}
 
-    #Updating values in both the KKT matrix and
-    #in the reordered copy held internally by QDLDL.
-    #The former is needed for iterative refinement since
-    #QDLDL does not have internal iterative refinement
     QDLDL.scale_values!(ldlsolver.factors,index,scale)
 
 end

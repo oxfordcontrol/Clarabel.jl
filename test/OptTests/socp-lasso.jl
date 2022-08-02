@@ -60,8 +60,8 @@ tol = FloatT(1e-3)
     solver   = Clarabel.Solver(P,c,A,b,cones)
     Clarabel.solve!(solver)
 
-    @test solver.info.status == Clarabel.SOLVED
-    @test isapprox(solver.info.cost_primal, -5.0233e+00, atol=tol)
+    @test solver.solution.status == Clarabel.SOLVED
+    @test isapprox(solver.solution.obj_val, -5.0233e+00, atol=tol)
 
 end
 

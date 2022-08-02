@@ -1,5 +1,3 @@
-using InteractiveUtils  #allows call to subtypes
-
 # -----------------------------------------------------
 # macro for circumventing runtime dynamic dispatch
 # on AbstractCones and trying to force a jumptable
@@ -9,19 +7,13 @@ using InteractiveUtils  #allows call to subtypes
 # the subtypes of AbstractCone
 # -----------------------------------------------------
 
-function _conedispatch(type, x, call)
-    thetypes = subtypes(getfield(@__MODULE__, type))
+function _conedispatch(x, call)
+    thetypes = collect(values(ConeDict))
     foldr((t, tail) -> :(if $x isa $t; $call else $tail end), thetypes, init=Expr(:block))
 end
 
 macro conedispatch(call)
-    esc(_conedispatch(:AbstractCone, :cone, call))
-end
-
-#for debugging.  Replace @conedispatch with @noop
-#to disable the type expansion.
-macro noop(call)
-    esc(call)
+    esc(_conedispatch(:cone, call))
 end
 
 # -----------------------------------------------------
@@ -52,6 +44,8 @@ function cones_rectify_equilibration!(
 end
 
 
+
+# PJG: it's not clear to me what "flag" is.   Needs a more descriptive name
 
 function cones_update_scaling!(
     cones::ConeSet{T},
@@ -93,7 +87,8 @@ function cones_get_WtW_blocks!(
     return nothing
 end
 
-# YC:x = λ ∘ λ for symmetric cone and x = s for unsymmetric cones
+# YC: x = λ ∘ λ for symmetric cone and x = s for unsymmetric cones
+
 function cones_affine_ds!(
     cones::ConeSet{T},
     x::ConicVector{T},
@@ -109,6 +104,7 @@ end
 # YC:   x = y ∘ z for symmetric cones
 #       x = 3rd-correction for unsymmetric cones
 # NB: could merge with 3rd-functions later
+
 function cones_circ_op!(
     cones::ConeSet{T},
     x::ConicVector{T},
@@ -117,7 +113,12 @@ function cones_circ_op!(
 ) where {T}
 
     for (cone,xi,yi,zi) in zip(cones,x.views,y.views,z.views)
-        # don't implement it for unsymmetric cones
+
+        #PJG: It would be better to hav an "is_symmetric" method
+        #defined on all cones and to use that here.   IT would
+        #then work exactly the same as on ConeSet
+
+        #YC: don't implement it for unsymmetric cones
         if !(cone in NonsymmetricCones)
             @conedispatch circ_op!(cone,xi,yi,zi)
         end
@@ -134,6 +135,14 @@ function cones_λ_inv_circ_op!(
 ) where {T}
 
     for (cone,xi,zi) in zip(cones,x.views,z.views)
+
+        #PJG: Maybe there is a better way.   I don't really
+        #understand the logic flow here, since we call the
+        #function as a no-op for nonsymmetric cones.   What
+        #happens instead in the nonsymmetric case?
+        #
+        # Same comment applies below in the function cones_inv_circ_op!
+
         # don't implement it for unsymmetric cones
         if !(cone in NonsymmetricCones)
             @conedispatch λ_inv_circ_op!(cone,xi,zi)
@@ -161,6 +170,10 @@ end
 
 # place a vector to some nearby point in the cone
 # YC: only when there is no unsymmetric cone
+#
+# PJG: This is implemented as a no-op.  What happens
+# instead in the non-symmetric case?
+
 function cones_shift_to_cone!(
     cones::ConeSet{T},
     z::ConicVector{T}
@@ -218,7 +231,11 @@ function cones_combined_ds!(
 ) where {T}
 
     for (cone,dzi,zi,si) in zip(cones,dz.views,step_z.views,step_s.views)
-        #We compute the centering and the higher order correction parts in ds and save it in dz
+
+        #PJG: This comment does not appear to be consisten with what is actually
+        # happening in the function.
+
+        # compute the centering and the higher order correction parts in ds and save it in dz
         @conedispatch combined_ds!(cone,dzi,zi,si,σμ)
     end
 
@@ -278,6 +295,13 @@ function cones_step_length(
     z     = z.views
     s     = s.views
 
+    #PJG: I don't really like the calling syntax here because the
+    #symmetric and unsymmetric cones have a different function signature,
+    #and the names are different.   This will make it difficult / impossible
+    #to implement in Rust because the symmetric and unsymmetric cones
+    #won't be able to implement a common trait.   It's also a problem
+    #because ConeSet (CompositeCone in Rust) should also really be
+    #implementing exactly the same interface, which won't work like this
 
     # YC: implement step search for symmetric cones first
     # NB: split the step search for symmetric and unsymmtric cones due to the complexity of the latter
@@ -314,15 +338,27 @@ function check_μ_and_centrality(
     cur_z = work.z
     cur_s = work.s
 
+    #PJG: I don't understand what is going on in this function at all,
+    #and there are loads of things commented out.   This needs to be
+    #cleaned up and better documented.    Also "check" is not a good
+    #method name since it's not clear what it is returning
+
     central_coef = cones.degree + 1
 
     # YC: scaling parameter to avoid reaching the boundary of cones
-        # when we compute barrier functions
+    # when we compute barrier functions
     # NB: different choice of α yields different performance, don't know how to explain it,
-    #       but we must need it. Otherwise, there would be numerical issues for barrier computation
+    # but we must need it. Otherwise, there would be numerical issues for barrier computation
+
+    #If this is just a check then why is α being modified?   Also this
+    #is modifying by value, not modifying the caller since T is most likely
+    #to be a primitive.   (Could this do something weird for BigFloat if
+    #it doesn't update by value?)
     α *= T(0.995)
 
-    scaling = cones.scaling 
+    # PJG:  What does this do?   Is it just some constant parameter
+    # for use in a backtracking line search?
+    scaling = cones.scaling
 
     for j = 1:50
         # current z,s
@@ -352,14 +388,22 @@ function check_μ_and_centrality(
         # end
         barrier = central_coef*log(μ) - log(cur_τ) - log(cur_κ)
 
+        #"f_sum" is not a good function name.   I can't tell what
+        #it does from the name.
+
         for (cone,cur_si,cur_zi) in zip(cones,cur_s.views, cur_z.views)
             @conedispatch barrier += f_sum(cone, cur_si, cur_zi)
         end
 
-        # println("current barrier is: ", barrier)
         if barrier < 1.
             return α
         else
+
+            # PJG: This seems crazy inefficient.   Shouldn't we
+            #implement some much smarter method, or at least
+            #some kind of bisection method?   We can do a lot
+            #better here I think.
+
             α *= scaling    #backtrack line search
         end
 
@@ -373,6 +417,7 @@ function boundary_check!(z,s,ind_cone,length_cone,upper)
     for i = 1:length_cone
         μi = dot(z.views[ind_cone[i]],s.views[ind_cone[i]])/3
 
+        # PJG: What is this doing?  What is "upper"
         # ECOS: if too close to boundary
         if μi < upper
             println("var too close to boundary")
@@ -384,6 +429,12 @@ function boundary_check!(z,s,ind_cone,length_cone,upper)
 end
 
 function check_centrality!(cones,s,z,μ,η)
+
+    # PJG: function names should agree between the ConeSet
+    # and the constituent cones, i.e. should dispatch to
+    # cone_check_neighbourhood.
+    #
+    # PJG: Add types to function definition above.
 
     for (cone,si,zi) = zip(cones,s.views,z.views)
         @conedispatch _chk = _check_neighbourhood(cone,si,zi,μ,η)

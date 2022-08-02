@@ -1,5 +1,4 @@
-include("../src\\Clarabel.jl")
-# using Clarabel
+using Clarabel
 using LinearAlgebra, SparseArrays
 using JuMP, Mosek, MosekTools, ECOS
 import MathOptInterface
@@ -67,8 +66,8 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
     ]
 
     α = Vector{Union{T,Nothing}}([
-        nothing; 
-        nothing; 
+        nothing;
+        nothing;
         nothing;
         # nothing;
         # nothing;
@@ -106,8 +105,8 @@ n = 7
 # settings = Clarabel.Settings{BigFloat}(max_iter=50,direct_kkt_solver=true, equilibrate_enable = true)
 # solver   = Clarabel.Solver{BigFloat}()
 # α =  Vector{Union{BigFloat,Nothing}}([
-#         nothing; 
-#         nothing; 
+#         nothing;
+#         nothing;
 #         nothing;
 #         # nothing;
 #         nothing;

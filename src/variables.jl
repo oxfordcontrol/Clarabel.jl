@@ -14,7 +14,7 @@ end
 function calc_step_length(
     variables::DefaultVariables{T},
     step::DefaultVariables{T},
-    workVar::DefaultVariables{T},
+    workvars::DefaultVariables{T},
     cones::ConeSet{T},
     steptype::Symbol
 ) where {T}
@@ -32,7 +32,7 @@ function calc_step_length(
     #   balance global μ and local μ_i of each nonsymmetric cone;
     #   check centrality, ensure the update is close to the central path
     if (!cones.symFlag && steptype == :combined)
-        α = check_μ_and_centrality(cones,step,variables,workVar,α)
+        α = check_μ_and_centrality(cones,step,variables,workvars,α)
 
         if (steptype == :combined && α < 1e-4)
             # error("get stalled with step size ", α)
@@ -59,9 +59,9 @@ vars.κ /= scale
 end
 
 
-function scaling_update!(
-    cones::ConeSet{T},
+function variables_scale_cones!(
     variables::DefaultVariables{T},
+    cones::ConeSet{T},
 	μ::T,
     corFlag::Bool
 ) where {T}
@@ -69,8 +69,6 @@ function scaling_update!(
     cones_update_scaling!(cones,variables.s,variables.z,μ,corFlag)
     return nothing
 end
-
-
 
 
 function variables_add_step!(

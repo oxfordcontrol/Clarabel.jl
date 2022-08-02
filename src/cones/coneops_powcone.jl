@@ -32,7 +32,7 @@ function update_scaling!(
     GradF(K,z,K.grad)
     # K.z .= z
     @inbounds for i = 1:3
-        K.z[i] = z[i]                
+        K.z[i] = z[i]
     end
 end
 
@@ -57,7 +57,7 @@ function affine_ds!(
 
     # @. x = y
     @inbounds for i = 1:3
-        x[i] = y[i]                
+        x[i] = y[i]
     end
 
 end
@@ -90,15 +90,17 @@ function combined_ds!(
 ) where {T}
     # NB: The higher-order correction is under development
 
+    # PJG: remove dead code in comments here
+
     # η = K.gradWork      #share the same memory as gψ in higherCorrection!()
     # higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
     # @inbounds for i = 1:3
-    #     dz[i] = η[i] + K.grad[i]*σμ                 
+    #     dz[i] = η[i] + K.grad[i]*σμ
     # end
 
     # @. dz = σμ*K.grad                   #dz <- σμ*g(z)
     @inbounds for i = 1:3
-        dz[i] = σμ*K.grad[i]                
+        dz[i] = σμ*K.grad[i]
     end
 
     return nothing
@@ -115,7 +117,7 @@ function Wt_λ_inv_circ_ds!(
 
     # @. Wtlinvds = rs    #Wᵀ(λ \ ds) <- ds
     @inbounds for i = 1:3
-        Wtlinvds[i] = rs[i]                
+        Wtlinvds[i] = rs[i]
     end
 
     return nothing
@@ -129,7 +131,7 @@ function WtW_Δz!(
     workz::AbstractVector{T}
 ) where {T}
 
-    mul!(ls,K.HBFGS,lz,-one(T),zero(T))
+    mul!(ls,K.FGS,lz,-one(T),zero(T))
 
 end
 
@@ -171,7 +173,7 @@ function _step_length_power_primal(
 
     # @. ws = s + α*ds
     @inbounds for i = 1:3
-        ws[i] = s[i] + α*ds[i]                
+        ws[i] = s[i] + α*ds[i]
     end
 
     while !checkPowerPrimalFeas(ws,αExp)
@@ -181,7 +183,7 @@ function _step_length_power_primal(
         α *= scaling    #backtrack line search
         # @. ws = s + α*ds
         @inbounds for i = 1:3
-            ws[i] = s[i] + α*ds[i]                
+            ws[i] = s[i] + α*ds[i]
         end
     end
 
@@ -199,7 +201,7 @@ function _step_length_power_dual(
 
     # @. ws = z + α*dz
     @inbounds for i = 1:3
-        ws[i] = z[i] + α*dz[i]                
+        ws[i] = z[i] + α*dz[i]
     end
 
     while !checkPowerDualFeas(ws,αExp)
@@ -209,7 +211,7 @@ function _step_length_power_dual(
         α *= scaling    #backtrack line search
         # @. ws = z + α*dz
         @inbounds for i = 1:3
-            ws[i] = z[i] + α*dz[i]                
+            ws[i] = z[i] + α*dz[i]
         end
     end
 
@@ -283,7 +285,7 @@ function f_sum(
     barrier += -log((z[1]/α)^(2*α) * (z[2]/(1-α))^(2-2*α) - z[3]*z[3]) - (1-α)*log(z[1]) - α*log(z[2])
 
     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
-    # NB: ⟨s,g(s)⟩ = -3 = - ν 
+    # NB: ⟨s,g(s)⟩ = -3 = - ν
 
     g = K.vecWork
     GradPrim(K,s,g)     #compute g(s)
@@ -331,16 +333,16 @@ function GradPrim(
 
     α = K.α
 
-    # unscaled ϕ 
+    # unscaled ϕ
     ϕ = (s[1])^(2*α)*(s[2])^(2-2*α)
 
     # obtain g3 from the Newton-Raphson method
     abs_s = abs(s[3])
     if abs_s > eps(T)
-        g[3] = NewtonRaphson(abs_s,ϕ,α)    
+        g[3] = NewtonRaphson(abs_s,ϕ,α)
         if s[3] < zero(T)
             g[3] = -g[3]
-        end  
+        end
         g[1] = -(α*g[3]*s[3] + 1 + α)/s[1]
         g[2] = -((1-α)*g[3]*s[3] + 2 - α)/s[2]
     else
@@ -351,7 +353,7 @@ function GradPrim(
 
 end
 
-# Newton-Raphson method 
+# Newton-Raphson method
 # solve an one-dimensional equation f(x) = 0
 # x(k+1) = x(k) - f(x(k))/f'(x(k))
 # When we initialize x0 such that 0 < x0 < x*, the Newton-Raphson method converges quadratically
@@ -360,18 +362,18 @@ function NewtonRaphson(
     ϕ::T,
     α::T
 ) where {T}
-    # init point x0: since our dual barrier has an additional shift -2α*log(α) - 2(1-α)*log(1-α) > 0 in f(x), 
-    # the previous selection from Hypatia is still feasible, i.e. f(x0) > 0 
+    # init point x0: since our dual barrier has an additional shift -2α*log(α) - 2(1-α)*log(1-α) > 0 in f(x),
+    # the previous selection from Hypatia is still feasible, i.e. f(x0) > 0
     x = -one(T)/s3 + 2*(s3 + sqrt(4*ϕ*ϕ/s3/s3 + 3*ϕ))/(4*ϕ - s3*s3)
 
     t0 = - 2*α*log(α) - 2*(1-α)*log(1-α)    # additional shift due to the choice of dual barrier
     t1 = x*x
     t2 = x*2/s3
 
-    f0 = 2*α*log(2*α*t1 + (1+α)*t2) + 2*(1-α)*log(2*(1-α)*t1 + (2-α)*t2) - log(ϕ) - log(t1+t2) - 2*log(t2) + t0  
+    f0 = 2*α*log(2*α*t1 + (1+α)*t2) + 2*(1-α)*log(2*(1-α)*t1 + (2-α)*t2) - log(ϕ) - log(t1+t2) - 2*log(t2) + t0
     f1 = 2*α*α/(α*x + (1+α)/s3) + 2*(1-α)*(1-α)/((1-α)*x + (2-α)/s3) - 2*(x + 1/s3)/(t1 + t2)
 
-    xnew = x - f0/f1 
+    xnew = x - f0/f1
 
     # terminate when abs(xnew - x) <= eps(T)
     while (xnew - x) > eps(T)
@@ -380,9 +382,9 @@ function NewtonRaphson(
 
         t1 = x*x
         t2 = x*2/s3
-        f0 = 2*α*log(2*α*t1 + (1+α)*t2) + 2*(1-α)*log(2*(1-α)*t1 + (2-α)*t2) - log(ϕ) - log(t1+t2) - 2*log(t2) + t0  
+        f0 = 2*α*log(2*α*t1 + (1+α)*t2) + 2*(1-α)*log(2*(1-α)*t1 + (2-α)*t2) - log(ϕ) - log(t1+t2) - 2*log(t2) + t0
         f1 = 2*α*α/(α*x + (1+α)/s3) + 2*(1-α)*(1-α)/((1-α)*x + (2-α)/s3) - 2*(x + 1/s3)/(t1 + t2)
-        xnew = x - f0/f1 
+        xnew = x - f0/f1
     end
 
     return xnew
@@ -459,11 +461,11 @@ end
 
 
 ######################################
-# primal-dual scaling 
+# primal-dual scaling
 ######################################
 
 # Implementation sketch
-# 1) only need to replace μH by W⊤W, 
+# 1) only need to replace μH by W⊤W,
 #   where W⊤W is the primal-dual scaling matrix generated by BFGS, i.e. W⊤W*[z,̃z] = [s,̃s]
 #   ̃z = -f'(s), ̃s = - f*'(z)
 
@@ -486,8 +488,13 @@ function update_Hessian(
     BLAS.scal!(μ,HBFGS)
 end
 
+#PJG: There was a type error in the function below, where
+#the first argument was K::ExponentalCone.   I don't understand
+#how the code could possibly have worked like that, unless This
+#function was never called at all.
+
 function update_HBFGS(
-    K::ExponentialCone{T},
+    K::PowerCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
     flag::Bool
@@ -542,7 +549,7 @@ function update_HBFGS(
         @inbounds for i = 1:3
             zt[i] = s[i] + μ*st[i] + δs[i]/de1
         end
-    
+
         # Hessian HBFGS:= μ*H + 1/(2*μ*3)*δs*(s + μ*st + δs/de1)' + 1/(2*μ*3)*(s + μ*st + δs/de1)*δs' - μ/de2*tmp*tmp'
         coef1 = 1/(2*μ*3)
         coef2 = μ/de2
