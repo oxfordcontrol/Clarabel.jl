@@ -146,6 +146,9 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     m::DefaultInt
     equilibration::DefaultEquilibration{T}
 
+    normq::T
+    normb::T
+
     function DefaultProblemData{T}(
         P::AbstractMatrix{T},
         q::AbstractVector{T},
@@ -167,7 +170,10 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
 
         equilibration = DefaultEquilibration{T}(n,cones)
 
-        new(P,q,A,b,n,m,equilibration)
+        normq = norm(q, Inf)
+        normb = norm(b, Inf)
+
+        new(P,q,A,b,n,m,equilibration,normq,normb)
 
     end
 
