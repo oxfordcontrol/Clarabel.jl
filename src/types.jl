@@ -322,7 +322,7 @@ mutable struct Solver{T <: AbstractFloat}
     settings::Settings{T}
     timers::TimerOutput
 
-    # PJG: Ddo we need work_vars here, or can it be made
+    # PJG: Do we need work_vars here, or can it be made
     # data member one of the other fields?  It doesn't
     # seem obvious that it is required for all possible
     # interior point implementions or generic algorithms

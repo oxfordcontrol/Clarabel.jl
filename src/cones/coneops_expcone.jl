@@ -147,6 +147,8 @@ function unsymmetric_step_length(
     αz = _step_length_exp_dual(K.vecWork,dz,z,α,scaling)
     αs = _step_length_exp_primal(K.vecWork,ds,s,α,scaling)
 
+    #PJG: prevfloat is probably not portable 
+    # and I don't understand why it is being used
     return prevfloat(min(αz,αs))
 end
 
@@ -301,7 +303,7 @@ function checkExpPrimalFeas(s::AbstractVector{T}) where {T}
     return false
 end
 
-# Returns true if s is dual feasible
+# Returns true if z is dual feasible
 function checkExpDualFeas(z::AbstractVector{T}) where {T}
 
     if (z[3] > 0 && z[1] < 0)
