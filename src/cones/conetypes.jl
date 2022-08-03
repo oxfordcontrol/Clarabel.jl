@@ -251,6 +251,7 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
 
         # PJG: If the dim is hard coded to 3
         # then there should not be a dim field.
+        # YC: need to be modified.
 
         H = Matrix{T}(undef,3,3)
         Hsym = Symmetric(H)

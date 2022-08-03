@@ -58,6 +58,7 @@ Base.length(s::ConicVector{T}) where{T} = length(s.vec)
 Base.IndexStyle(s::ConicVector{T}) where{T} = IndexStyle(s.vec)
 
 # PJG: fix the .vec access when setting the ConicVector as a subvector of a larger vector
+# YC: What does this means? Do we need further improvement for it?
 
 #For maximum speed, it seems we need to explicitly define
 #a bunch of functions that use the vec field directly, which
@@ -65,6 +66,8 @@ Base.IndexStyle(s::ConicVector{T}) where{T} = IndexStyle(s.vec)
 #Alternatively, we could subtype DenseArray{T}, but that
 #seems less general and still fails to capture high
 #performance sparse matrix vector multiply
+
+
 
 #need this if we want to make calls directly to the BLAS functions
 Base.unsafe_convert(::Type{Ptr{T}}, s::ConicVector{T}) where {T} =

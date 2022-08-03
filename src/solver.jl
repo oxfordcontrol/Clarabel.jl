@@ -183,6 +183,7 @@ function solve!(
 
         # PJG: come back to this to ensure that timer sections
         # and tabs remain consistent with the Rust labels
+        # YC: Why we have some parts that are not timed?
 
         while true
             #update the residuals
@@ -214,6 +215,7 @@ function solve!(
             # being fed down to the cones here is coming from deep
             # within the kkt system itself.   This is not easily made
             # generic across solvers or problem domains.
+            # YC: The flag is to determine when we switch from primal-dual scaling to the dual scaling depending on the conditioning number of the KKT matrix. 
 
             variables_scale_cones!(s.variables,s.cones,μ,s.kktsystem.kktsolver.corFlag)
 
@@ -272,6 +274,8 @@ function solve!(
             # PJG: I don't know what's going on in the loop below,
             # but it might be better to pull this into its own
             # function.   Also need to remove the print statements
+            # YC: This is a premature test for the multi-correction step, but it seems to be unnecessary 
+            #     if we update the KKT by the dual scaling as soon as the flag turns off.
 
             while (α < 0.1 && σ < one(T))
                 println("step size too small!! with σ is ", σ)

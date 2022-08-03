@@ -4,6 +4,7 @@
 
 # degree of the cone
 #PJG: shouldn't this just be hardcoded to 3 with no dim field?
+#YC: Yes, we should remove it later.
 dim(K::ExponentialCone{T}) where {T} = 3
 degree(K::ExponentialCone{T}) where {T} = dim(K)
 numel(K::ExponentialCone{T}) where {T} = dim(K)
@@ -146,7 +147,7 @@ function unsymmetric_step_length(
     αz = _step_length_exp_dual(K.vecWork,dz,z,α,scaling)
     αs = _step_length_exp_primal(K.vecWork,ds,s,α,scaling)
 
-    return min(αz,αs)
+    return prevfloat(min(αz,αs))
 end
 
 

@@ -8,6 +8,8 @@
 # it's always possible to combine a 3d power cone
 # with a bigger SOC or something to get the same
 # behaviour
+# YC: We should remove it at present and add it back
+# when it is extended to the generalized power cone.
 dim(K::PowerCone{T}) where {T} = 3
 degree(K::PowerCone{T}) where {T} = dim(K)
 numel(K::PowerCone{T}) where {T} = dim(K)
@@ -96,6 +98,8 @@ function combined_ds!(
     # NB: The higher-order correction is under development
 
     # PJG: remove dead code in comments here
+    # YC: I need to test whether higherorder correction 
+    # is effective for the power cone
 
     # η = K.gradWork      #share the same memory as gψ in higherCorrection!()
     # higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
@@ -161,7 +165,7 @@ function unsymmetric_step_length(
     αz = _step_length_power_dual(K.vecWork,dz,z,α,scaling,αExp)
     αs = _step_length_power_primal(K.vecWork,ds,s,α,scaling,αExp)
 
-    return min(αz,αs)
+    return prevfloat(min(αz,αs))
 end
 
 
@@ -497,6 +501,9 @@ end
 #the first argument was K::ExponentalCone.   I don't understand
 #how the code could possibly have worked like that, unless This
 #function was never called at all.
+
+# YC: I'm testing the primal-dual scaling with 
+#     higher order correction and the function is for that purpose
 
 function update_HBFGS(
     K::PowerCone{T},

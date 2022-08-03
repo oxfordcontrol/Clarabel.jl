@@ -87,7 +87,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     iterative_refinement_reltol::T      = 1e-10
     iterative_refinement_abstol::T      = 1e-10
     iterative_refinement_max_iter::Int  = 10
-    iterative_refinement_stop_ratio::T  = 1.01
+    iterative_refinement_stop_ratio::T  = 2.
 
 end
 

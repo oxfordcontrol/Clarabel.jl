@@ -1,7 +1,7 @@
 using LinearAlgebra, SparseArrays, Random, JuMP, Test
 using Mosek, MosekTools
-using Clarabel
-#include("../src\\Clarabel.jl")
+# using Clarabel
+include("../src\\Clarabel.jl")
 
 ## generate the data
 rng = Random.MersenneTwister(1)
@@ -37,6 +37,7 @@ set_optimizer_attribute(model, "tol_gap_abs", 1e-8)
 set_optimizer_attribute(model, "tol_gap_rel", 1e-8)
 
 #PJG: there were no variables defined. I guess this is right
+#YC: Yes, I forgot defining them.
 @variable(model, x[1:n])
 @variable(model, y[1:n])   #this is never used in the model?
 @variable(model, s[1:n])

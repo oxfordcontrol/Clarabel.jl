@@ -25,7 +25,7 @@ function calc_step_length(
     α = min(ατ,ακ,one(T))
 
     # Find a feasible step size for all cones
-    α = cones_step_length(cones, step.z, step.s, step.τ, step.κ, variables.z, variables.s, variables.τ, variables.κ, α)
+    α = cones_step_length(cones, step.z, step.s, variables.z, variables.s, α)
 
 
     #   Centrality check for unsymmetric cones

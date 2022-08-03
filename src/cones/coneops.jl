@@ -46,6 +46,8 @@ end
 
 
 # PJG: it's not clear to me what "flag" is.   Needs a more descriptive name
+# YC: The flag is used to determine when we change from the primal-dual scaling
+# to the dual scaling strategy
 
 function cones_update_scaling!(
     cones::ConeSet{T},
@@ -101,78 +103,15 @@ function cones_affine_ds!(
     return nothing
 end
 
-# YC:   x = y ∘ z for symmetric cones
-#       x = 3rd-correction for unsymmetric cones
-# NB: could merge with 3rd-functions later
-
-function cones_circ_op!(
-    cones::ConeSet{T},
-    x::ConicVector{T},
-    y::ConicVector{T},
-    z::ConicVector{T}
-) where {T}
-
-    for (cone,xi,yi,zi) in zip(cones,x.views,y.views,z.views)
-
-        #PJG: It would be better to hav an "is_symmetric" method
-        #defined on all cones and to use that here.   IT would
-        #then work exactly the same as on ConeSet
-
-        #YC: don't implement it for unsymmetric cones
-        if !(cone in NonsymmetricCones)
-            @conedispatch circ_op!(cone,xi,yi,zi)
-        end
-    end
-    return nothing
-end
-
-# x = λ \ z,  where λ is scaled internal
-# variable for each cone
-function cones_λ_inv_circ_op!(
-    cones::ConeSet{T},
-    x::ConicVector{T},
-    z::ConicVector{T}
-) where {T}
-
-    for (cone,xi,zi) in zip(cones,x.views,z.views)
-
-        #PJG: Maybe there is a better way.   I don't really
-        #understand the logic flow here, since we call the
-        #function as a no-op for nonsymmetric cones.   What
-        #happens instead in the nonsymmetric case?
-        #
-        # Same comment applies below in the function cones_inv_circ_op!
-
-        # don't implement it for unsymmetric cones
-        if !(cone in NonsymmetricCones)
-            @conedispatch λ_inv_circ_op!(cone,xi,zi)
-        end
-    end
-    return nothing
-end
-
-# x = y \ z
-function cones_inv_circ_op!(
-    cones::ConeSet{T},
-    x::ConicVector{T},
-    y::ConicVector{T},
-    z::ConicVector{T}
-) where {T}
-
-    for cone in zip(cones,x.views,y.views,z.views)
-        # don't implement it for unsymmetric cones
-        if !(cone in NonsymmetricCones)
-            @conedispatch inv_circ_op!(cone,xi,yi,zi)
-        end
-    end
-    return nothing
-end
 
 # place a vector to some nearby point in the cone
 # YC: only when there is no unsymmetric cone
 #
 # PJG: This is implemented as a no-op.  What happens
 # instead in the non-symmetric case?
+# YC: This is used only when all cones are symmetric cones.
+# We would switch to unit_initialization when there exists 
+# unsymmetric cones and the function is no longer used.
 
 function cones_shift_to_cone!(
     cones::ConeSet{T},
@@ -234,6 +173,8 @@ function cones_combined_ds!(
 
         #PJG: This comment does not appear to be consisten with what is actually
         # happening in the function.
+        # YC: The higher order correction applies to exponential cones only at present.
+        # The counterpart for power cones is under development.
 
         # compute the centering and the higher order correction parts in ds and save it in dz
         @conedispatch combined_ds!(cone,dzi,zi,si,σμ)
@@ -281,12 +222,8 @@ function cones_step_length(
     cones::ConeSet{T},
     dz::ConicVector{T},
     ds::ConicVector{T},
-    dτ::T,
-    dκ::T,
      z::ConicVector{T},
      s::ConicVector{T},
-     τ::T,
-     κ::T,
     α::T
 ) where {T}
 
@@ -302,6 +239,9 @@ function cones_step_length(
     #won't be able to implement a common trait.   It's also a problem
     #because ConeSet (CompositeCone in Rust) should also really be
     #implementing exactly the same interface, which won't work like this
+
+    # YC: Current step size α and the backtracking parameter are needed for
+    # unsymmetric cones. I could add two dummy inputs for symmetric cones.
 
     # YC: implement step search for symmetric cones first
     # NB: split the step search for symmetric and unsymmtric cones due to the complexity of the latter
@@ -345,19 +285,10 @@ function check_μ_and_centrality(
 
     central_coef = cones.degree + 1
 
-    # YC: scaling parameter to avoid reaching the boundary of cones
-    # when we compute barrier functions
-    # NB: different choice of α yields different performance, don't know how to explain it,
-    # but we must need it. Otherwise, there would be numerical issues for barrier computation
-
-    #If this is just a check then why is α being modified?   Also this
-    #is modifying by value, not modifying the caller since T is most likely
-    #to be a primitive.   (Could this do something weird for BigFloat if
-    #it doesn't update by value?)
-    α *= T(0.995)
-
     # PJG:  What does this do?   Is it just some constant parameter
     # for use in a backtracking line search?
+    # YC: Yes, it is for a backtracking line search.
+
     scaling = cones.scaling
 
     for j = 1:50
@@ -403,8 +334,10 @@ function check_μ_and_centrality(
             #implement some much smarter method, or at least
             #some kind of bisection method?   We can do a lot
             #better here I think.
+            # YC: Right now I just follow the same strategy in ECOS
+            # and it could be improved by some smarter methods.
 
-            α *= scaling    #backtrack line search
+            α = prevfloat(scaling*α)    #backtrack line search
         end
 
     end
@@ -412,13 +345,17 @@ function check_μ_and_centrality(
     return α
 end
 
+###############################################################
+# Unused functions that may be removed later
+###############################################################
 function boundary_check!(z,s,ind_cone,length_cone,upper)
 
     for i = 1:length_cone
         μi = dot(z.views[ind_cone[i]],s.views[ind_cone[i]])/3
 
         # PJG: What is this doing?  What is "upper"
-        # ECOS: if too close to boundary
+        # YC: check whether a point is too close to a boundary given current global μ
+        # but it is used at present
         if μi < upper
             println("var too close to boundary")
             return false
@@ -435,6 +372,7 @@ function check_centrality!(cones,s,z,μ,η)
     # cone_check_neighbourhood.
     #
     # PJG: Add types to function definition above.
+    # YC: not used at present and may be removed later on
 
     for (cone,si,zi) = zip(cones,s.views,z.views)
         @conedispatch _chk = _check_neighbourhood(cone,si,zi,μ,η)

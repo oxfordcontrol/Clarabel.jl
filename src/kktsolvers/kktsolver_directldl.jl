@@ -91,6 +91,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         # it gets used, much more reasonable.
         #
         # Name needs to be changed to reflect conventions elsewhere.
+        # YC: The flag is for determining the scaling strategy and is better to be stored i the solver struct.
         corFlag = true
 
         return new(m,n,p,x,b,work_e,work_dx,map,Dsigns,WtWblocks,KKT,KKTsym,absKKTdiag,settings,ldlsolver,corFlag)
@@ -416,7 +417,7 @@ function iterative_refinement(kktsolver::DirectLDLKKTSolver{T}) where{T}
             #insufficient improvement.  Exit
             return nothing
         else
-            @. x = ξ  #PJG: pointer swap might be faster
+            @. x = ξ  #PJG: pointer swap might be faster    #YC: How to implement it?
         end
     end
 

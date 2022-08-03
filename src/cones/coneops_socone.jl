@@ -344,7 +344,7 @@ function _step_length_soc_component(
         #return the minimum positive root
         r1 = r1 < 0 ? floatmax(T) : r1
         r2 = r2 < 0 ? floatmax(T) : r2
-        return min(r1,r2)
+        return prevfloat(min(r1,r2))
     end
 
 end
@@ -354,10 +354,16 @@ function f_sum(
     s::AbstractVector{T},
     z::AbstractVector{T}
 ) where {T}
+    
     barrier_s = s[1]^2 - dot(s[2:end],s[2:end])
     barrier_z = z[1]^2 - dot(z[2:end],z[2:end])
 
-    return (- log(barrier_s) - log(barrier_z))/2
+    # avoid numerical issue that barrier_s <= 0 or barrier_z <= 0
+    if barrier_s > 0 && barrier_z > 0
+        return (- log(barrier_s) - log(barrier_z))/2
+    else
+        return Inf
+    end
 end
 
 # check neighbourhood
