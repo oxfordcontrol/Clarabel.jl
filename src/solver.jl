@@ -169,7 +169,7 @@ function solve!(
 
     info_reset!(s.info,s.timers)
 
-    @timeit s.timer "solve!" begin
+    @timeit s.timers "solve!" begin
 
         #initialize variables to some reasonable starting point
         #@timeit_debug timers "default start"
@@ -181,10 +181,13 @@ function solve!(
         # main loop
         #----------
 
+        # PJG: come back to this to ensure that timer sections
+        # and tabs remain consistent with the Rust labels
+
         while true
             #update the residuals
             #--------------
-            @timeit_debug timer "residuals_update" residuals_update!(s.residuals,s.variables,s.data)
+            @timeit_debug s.timers "residuals_update" residuals_update!(s.residuals,s.variables,s.data)
 
             #calculate duality gap (scaled)
             #--------------
@@ -210,7 +213,7 @@ function solve!(
             # PJG: This not a good general structure, since the flag
             # being fed down to the cones here is coming from deep
             # within the kkt system itself.   This is not easily made
-            # generic across solvers or problem domains. 
+            # generic across solvers or problem domains.
 
             variables_scale_cones!(s.variables,s.cones,μ,s.kktsystem.kktsolver.corFlag)
 
@@ -266,6 +269,10 @@ function solve!(
                 α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:combined)
             end
 
+            # PJG: I don't know what's going on in the loop below,
+            # but it might be better to pull this into its own
+            # function.   Also need to remove the print statements
+
             while (α < 0.1 && σ < one(T))
                 println("step size too small!! with σ is ", σ)
                 σ *= 10
@@ -278,7 +285,7 @@ function solve!(
                     s.kktsystem, s.step_lhs, s.step_rhs,
                     s.data, s.variables, s.cones, :combined
                 )
-                α = calc_step_length(s.variables,s.step_lhs,s.workVar,s.cones,:combined)
+                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:combined)
                 println("update α ", α)
             end
 

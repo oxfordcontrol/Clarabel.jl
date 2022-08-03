@@ -21,9 +21,7 @@ const OptimizerSupportedMOICones{T} = Union{
     MOI.SecondOrderCone,
     MOI.PositiveSemidefiniteConeTriangle,
     MOI.ExponentialCone,
-    _DummyConeType{T},    #<-placeholder until PowerCone{T} is added
-    # MOI.PowerCone{T},
-    # MOI.DualPowerCone{T},
+    MOI.PowerCone{T},
 } where {T}
 
 #Optimizer will consolidate cones of these types if possible
@@ -36,8 +34,9 @@ const MOItoClarabelCones = Dict([
     MOI.Zeros           => Clarabel.ZeroConeT,
     MOI.Nonnegatives    => Clarabel.NonnegativeConeT,
     MOI.SecondOrderCone => Clarabel.SecondOrderConeT,
+    MOI.PositiveSemidefiniteConeTriangle => Clarabel.PSDTriangleConeT,
     MOI.ExponentialCone => Clarabel.ExponentialConeT,
-    MOI.PositiveSemidefiniteConeTriangle => Clarabel.PSDTriangleConeT
+    MOI.PowerCone       => Clarabel.PowerConeT,
 ])
 
 const ClarabeltoMOITerminationStatus = Dict([
@@ -562,13 +561,32 @@ function push_constraint_set!(
     s::OptimizerSupportedMOICones{T},
 ) where {T}
 
+    #we need to handle PowerCones differently here because
+    # 1) they have a power and not a a dimension (always 3),
+    # 2) we can't use [typeof(s)] as a key into MOItoClarabelCones
+    # because typeof(s) = MOI.PowerCone{T} and the dictionary
+    # has keys with the *unparametrized* types
+    if isa(s,MOI.PowerCone)
+        pow_cone_type = MOItoClarabelCones[MOI.PowerCone]
+        push!(cone_spec, pow_cone_type(s.exponent))
+        return nothing
+    end
+
+    # handle ExponentialCone differently because it
+    # doesn't take dimension as a parameter (always 3)
+    if isa(s,MOI.ExponentialCone)
+        pow_cone_type = MOItoClarabelCones[MOI.ExponentialCone]
+        push!(cone_spec, pow_cone_type())
+        return nothing
+    end
+
+    next_type = MOItoClarabelCones[typeof(s)]
+    next_dim  = _to_optimizer_conedim(length(rows),typeof(s))
+
     # merge cones together where :
     # 1) cones of the same type appear consecutively and
     # 2) those cones are 1-D.
     # This is just the zero and nonnegative cones
-
-    next_type = MOItoClarabelCones[typeof(s)]
-    next_dim  = _to_optimizer_conedim(length(rows),typeof(s))
 
     if isempty(cone_spec) || next_type ∉ OptimizerMergeableTypes || next_type != typeof(cone_spec[end])
         push!(cone_spec, next_type(next_dim))

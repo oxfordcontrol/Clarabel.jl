@@ -199,7 +199,7 @@ end
                 Ref{BLAS.BlasInt}, Ptr{BLAS.BlasInt}, Ptr{BLAS.BlasInt}),
                 n, n, A, lda, ipiv, info)
         LAPACK.chkargsok(info[])
-        
+
     end
 
     ########################################
@@ -235,7 +235,6 @@ end
 # gradient and Hessian for the dual barrier function
 mutable struct ExponentialCone{T} <: AbstractCone{T}
 
-    dim::DefaultInt
     H::Matrix{T}       #μ*H for the linear sysmtem
     Hsym::Symmetric{T, Matrix{T}}
     grad::Vector{T}
@@ -249,7 +248,10 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
     ws::LuBlasWorkspace{T}
 
     function ExponentialCone{T}() where {T}
-        dim = 3
+
+        # PJG: If the dim is hard coded to 3
+        # then there should not be a dim field.
+
         H = Matrix{T}(undef,3,3)
         Hsym = Symmetric(H)
         grad = Vector{T}(undef,3)
@@ -260,7 +262,7 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
         vecWork = Vector{T}(undef,3)
         z = Vector{T}(undef,3)
         ws = LuBlasWorkspace{T}(3)
-        return new(dim,H,Hsym,grad,HBFGS,HBFGSsym,gradWork,vecWork,z,ws)
+        return new(H,Hsym,grad,HBFGS,HBFGSsym,gradWork,vecWork,z,ws)
     end
 end
 
@@ -273,10 +275,12 @@ ExponentialCone(args...) = ExponentialCone{DefaultFloat}(args...)
 # gradient and Hessian for the dual barrier function
 mutable struct PowerCone{T} <: AbstractCone{T}
 
-    dim::DefaultInt
     α::T
     H::Matrix{T}       #μ*H for the linear sysmtem
     grad::Vector{T}
+
+    # PJG: internal variables not following
+    # variable naming conventions
 
     # workspace for centrality check
     HBFGS::Matrix{T}
@@ -286,16 +290,21 @@ mutable struct PowerCone{T} <: AbstractCone{T}
     ws::LuBlasWorkspace{T}
 
     function PowerCone{T}(α::T) where {T}
-        dim = 3
+
+        # PJG: If the dim is hard coded to 3 (should it be?),
+        # then there should not be a dim field.
+
         H = Matrix{T}(undef,3,3)
         grad = Vector{T}(undef,3)
+
+
 
         HBFGS = Matrix{T}(undef,3,3)
         gradWork = Vector{T}(undef,3)
         vecWork = Vector{T}(undef,3)
         z = Vector{T}(undef,3)
         ws = LuBlasWorkspace{T}(3)
-        return new(dim,α,H,grad,HBFGS,gradWork,vecWork,z,ws)
+        return new(α,H,grad,HBFGS,gradWork,vecWork,z,ws)
     end
 end
 

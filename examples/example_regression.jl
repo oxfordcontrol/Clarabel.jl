@@ -1,7 +1,7 @@
 using LinearAlgebra, SparseArrays, ECOS,JuMP
 using Mosek, MosekTools
-# using Clarabel
-include("../src\\Clarabel.jl")
+using Clarabel
+#include("../src\\Clarabel.jl")
 
 # load example data
 f = open(joinpath(@__DIR__, "chip_data.txt"))
@@ -27,7 +27,7 @@ function map_feature(x1, x2)
     end
     return x_new
   end
-  
+
 X = map_feature(x1, x2);
 size(X)
 

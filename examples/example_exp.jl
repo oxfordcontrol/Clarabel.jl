@@ -1,3 +1,4 @@
+#include("../src\\Clarabel.jl")
 using Clarabel
 using LinearAlgebra, SparseArrays
 using JuMP, Mosek, MosekTools, ECOS
@@ -46,24 +47,17 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
     # A = sparse([A5;A6])
     # b = [b5;b6]
 
-    cone_types = [
-    Clarabel.ZeroConeT,
-    Clarabel.NonnegativeConeT,
-    Clarabel.SecondOrderConeT,
+    cones = [
+    Clarabel.ZeroConeT(length(b1)),
+    Clarabel.NonnegativeConeT(length(b2)),
+    Clarabel.SecondOrderConeT(length(b3)),
     # Clarabel.PSDTriangleConeT,
-    # Clarabel.ExponentialConeT,
-    Clarabel.PowerConeT,
-    Clarabel.PowerConeT,
+    # Clarabel.ExponentialConeT(Int(floor(sqrt(2*length(b4))))),  #???
+    Clarabel.PowerConeT(length(b5)),
+    Clarabel.PowerConeT(length(b6)),
     ]
 
-    cone_dims  = [
-    length(b1),
-    length(b2),
-    length(b3),
-    # Int(floor(sqrt(2*length(b4)))),
-    length(b5),
-    length(b6)
-    ]
+
 
     α = Vector{Union{T,Nothing}}([
         nothing;
@@ -75,14 +69,14 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
         1.0/3;
         ])
 
-    return (P,c,A,b,cone_types,cone_dims,A1,A2,A3,A4,A5,A6,b1,b2,b3,b4,b5,b6,α)
+    return (P,c,A,b,cones,A1,A2,A3,A4,A5,A6,b1,b2,b3,b4,b5,b6,α)
 
 end
 
 # set data type first
 T = Float64
 # T = BigFloat
-P,c,A,b,cone_types,cone_dims,A1,A2,A3,A4,A5,A6,b1,b2,b3,b4,b5,b6,α = expconeData(T)
+P,c,A,b,cones,A1,A2,A3,A4,A5,A6,b1,b2,b3,b4,b5,b6,α = expconeData(T)
 n = 7
 
 # using Hypatia
@@ -115,7 +109,7 @@ n = 7
 # Clarabel.setup!(solver,BigFloat.(P),BigFloat.(c),BigFloat.(A),BigFloat.(b),cone_types,cone_dims,α,settings)
 # Clarabel.solve!(solver)
 
-settings = Clarabel.Settings{T}(max_iter=50,direct_solve_method = :cholmod, static_regularization_enable=true,dynamic_regularization_enable=true)
-solver   = Clarabel.Solver{T}()
-Clarabel.setup!(solver,P,c,A,b,cone_types,cone_dims,α,settings)
+settings = Clarabel.Settings{Float64}(max_iter=50,direct_solve_method = :cholmod, static_regularization_enable=true,dynamic_regularization_enable=true)
+solver   = Clarabel.Solver{Float64}()
+Clarabel.setup!(solver,P,c,A,b,cones,settings)
 Clarabel.solve!(solver)

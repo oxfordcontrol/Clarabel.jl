@@ -3,7 +3,12 @@
 # ----------------------------------------------------
 
 # degree of the cone
-dim(K::PowerCone{T}) where {T} = K.dim
+# PJG: hardcoded 3 unless it can be different
+# MOSEK seems to allow n-dimensional, but maybe
+# it's always possible to combine a 3d power cone
+# with a bigger SOC or something to get the same
+# behaviour
+dim(K::PowerCone{T}) where {T} = 3
 degree(K::PowerCone{T}) where {T} = dim(K)
 numel(K::PowerCone{T}) where {T} = dim(K)
 
@@ -131,7 +136,7 @@ function WtW_Δz!(
     workz::AbstractVector{T}
 ) where {T}
 
-    mul!(ls,K.FGS,lz,-one(T),zero(T))
+    mul!(ls,K.HBFGS,lz,-one(T),zero(T))
 
 end
 

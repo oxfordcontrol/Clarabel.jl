@@ -350,7 +350,7 @@ function Solver{T}(settings::Settings{T}) where {T}
     reset_timer!(to["setup!"])
     reset_timer!(to["solve!"])
 
-    Solver{T}(ntuple(x->nothing, fieldcount(Solver)-2)...,settings,to)
+    Solver{T}(ntuple(x->nothing, fieldcount(Solver)-3)...,settings,to,nothing)
 end
 
 function Solver{T}() where {T}
