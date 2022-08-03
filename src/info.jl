@@ -24,8 +24,8 @@ function info_update!(
     info.cost_dual   =  (-residuals.dot_bz*τinv - xPx_τinvsq_over2)/cscale
 
     #primal and dual residuals.   Need to invert the equilibration
-    info.res_primal  = scaled_norm(einv,residuals.rz) * τinv
-    info.res_dual    = scaled_norm(dinv,residuals.rx) * τinv
+    info.res_primal  = scaled_norm(einv,residuals.rz) * τinv / (one(T) + data.normb)
+    info.res_dual    = scaled_norm(dinv,residuals.rx) * τinv / (one(T) + data.normq)
 
     #primal and dual infeasibility residuals.   Need to invert the equilibration
     info.res_primal_inf = scaled_norm(dinv,residuals.rx_inf)
@@ -36,7 +36,7 @@ function info_update!(
     if(info.cost_primal > 0 && info.cost_dual < 0)
         info.gap_rel = 1/eps()
     else
-        info.gap_rel = info.gap_abs / min(abs(info.cost_primal),abs(info.cost_dual))
+        info.gap_rel = info.gap_abs / max(one(T),min(abs(info.cost_primal),abs(info.cost_dual)))
     end
 
     #κ/τ
