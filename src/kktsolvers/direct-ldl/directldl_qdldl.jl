@@ -96,3 +96,16 @@ function solve!(
 
     return nothing
 end
+
+# check whether the factorization is successful
+function kktsolver_checkfact!(
+    kktsolver::QDLDLDirectLDLSolver{T}
+) where{T}
+    Dinv = kktsolver.factors.Dinv 
+
+    if all(isfinite,Dinv)
+        return true
+    else
+        return false
+    end
+end

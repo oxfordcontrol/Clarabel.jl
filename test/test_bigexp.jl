@@ -15,17 +15,11 @@ coneMap = Dict(:Zero => MOI.Zeros, :Free => :Free,
                      :SOC => MOI.SecondOrderCone, :SOCRotated => MOI.RotatedSecondOrderCone,
                      :ExpPrimal => MOI.ExponentialCone, :ExpDual => MOI.DualExponentialCone)
 
-# filelist = readdir(pwd()*"./primal_exp_cbf")
+function exp_model(exInd::Int)
+    filelist = readdir(pwd()*"./primal_exp_cbf")
 
-# dat = readcbfdata("./exp_cbf/car.cbf.gz") # .cbf.gz extension also accepted
-
-for j = 1:32    #length(filelist)
-    # println("Current file is ", j)
-    # datadir = filelist[j]   #"gp_dave_1.cbf.gz"
-    datadir = "demb781.cbf.gz"
-    dat = readcbfdata("/"*datadir) # .cbf.gz extension also accepted
-
-    println("Current file is: ", datadir)
+    datadir = filelist[exInd]   #"gp_dave_1.cbf.gz"
+    dat = readcbfdata("./primal_exp_cbf/"*datadir) # .cbf.gz extension also accepted
 
     # In MathProgBase format:
     c, A, b, con_cones, var_cones, vartypes, sense, objoffset = cbftompb(dat)
@@ -40,21 +34,8 @@ for j = 1:32    #length(filelist)
 
     model = Model(Clarabel.Optimizer)
     set_optimizer_attribute(model, "direct_solve_method", :qdldl)
-    # set_optimizer_attribute(model, "static_regularization_eps", 1e-7)
-    set_optimizer_attribute(model, "tol_gap_abs", 1e-8)
-    set_optimizer_attribute(model, "tol_gap_rel", 1e-8)
-    set_optimizer_attribute(model, "tol_infeas_abs", 1e-8)
-    set_optimizer_attribute(model, "tol_infeas_rel", 1e-8)
-    # set_optimizer_attribute(model, "proportional_eps", Float64(1e-16))
-    
-    # model = Model(Hypatia.Optimizer)
+
     # model = Model(ECOS.Optimizer)
-    
-    # model = Model(Mosek.Optimizer)
-    # set_optimizer_attribute(model, "MSK_IPAR_PRESOLVE_USE", MSK_PRESOLVE_MODE_OFF)
-
-    # TimerOutputs.enable_debug_timings(Clarabel)
-
     @variable(model, x[1:num_var])
 
     #Tackling constraint
@@ -89,6 +70,12 @@ for j = 1:32    #length(filelist)
     end
 
     @objective(model, Min, sum(c.*x))
-    
-    optimize!(model)
+
+    return model
 end
+
+# the input number i corresponds to the i-th example in CBLIB. Example 7,8,32
+model = exp_model(7) 
+Profile.clear()
+Profile.init()
+@profilehtml optimize!(model)

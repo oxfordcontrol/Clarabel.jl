@@ -39,6 +39,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     #the direct linear LDL solver
     ldlsolver::AbstractDirectLDLSolver{T}
 
+    # PJG: need to reset corFlag after each solving
     corFlag::Bool           # higher order correction enabled
     ϵ::T                    # current dynamic regularization
 

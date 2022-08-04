@@ -23,3 +23,10 @@ function kktsolver_solve!(
 ) where{T}
     error("function not implemented")
 end
+
+# check whether the factorization is successful
+function kktsolver_checkfact!(
+    kktsolver::AbstractKKTSolver{T}
+) where{T}
+    error("function not implemented")
+end
