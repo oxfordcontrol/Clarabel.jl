@@ -28,21 +28,6 @@ function calc_step_length(
     return min(ατ,ακ,αz,αs,one(T))
 end
 
-function variables_rescale!(variables)
-
-vars = variables
-τ     = vars.τ
-κ     = vars.κ
-scale = max(τ,κ)
-
-vars.x ./= scale
-vars.z.vec ./= scale
-vars.s.vec ./= scale
-vars.τ /= scale
-vars.κ /= scale
-
-end
-
 
 function variables_scale_cones!(
     variables::DefaultVariables{T},
@@ -138,36 +123,4 @@ function variables_shift_to_cone!(
     variables.κ = 1
 end
 
-function variables_finalize!(
-    variables::DefaultVariables{T},
-    equil::DefaultEquilibration{T},
-    status::SolverStatus
-) where {T}
 
-    #undo the homogenization
-    #
-    #if we have an infeasible problem, normalize
-    #using κ to get an infeasibility certificate.
-    #Otherwise use τ to get a solution.
-    if(status == PRIMAL_INFEASIBLE || status == DUAL_INFEASIBLE)
-        scaleinv = one(T) / variables.κ
-    else
-        scaleinv = one(T) / variables.τ
-    end
-
-    @. variables.x *= scaleinv
-    @. variables.z *= scaleinv
-    @. variables.s *= scaleinv
-       variables.τ *= scaleinv
-       variables.κ *= scaleinv
-
-    #undo the equilibration
-    d = equil.d; dinv = equil.dinv
-    e = equil.e; einv = equil.einv
-    cscale = equil.c[]
-
-    @. variables.x *=  d
-    @. variables.z *=  e ./ cscale
-    @. variables.s *=  einv
-
-end

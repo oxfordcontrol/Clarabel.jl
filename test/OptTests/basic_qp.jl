@@ -40,6 +40,25 @@ end
 
         @testset "Basic QP Tests (T = $(FloatT))" begin
 
+
+            @testset "univariate" begin 
+                using Clarabel, LinearAlgebra, SparseArrays
+
+                P = sparse(I(1).*one(FloatT))
+                q = zeros(FloatT,1)
+
+                A = sparse(I(1).*one(FloatT))
+                b = ones(FloatT,1)
+
+                cones = [Clarabel.NonnegativeConeT(1)]
+
+                solver   = Clarabel.Solver(P,q,A,b,cones)
+                Clarabel.solve!(solver)
+                @test isapprox(norm(solver.solution.x - FloatT[0.]), zero(FloatT), atol=tol)
+                @test isapprox(solver.solution.obj_val, FloatT(0.), atol=tol)
+
+            end
+
             @testset "feasible" begin
 
                 P,c,A,b,cones = basic_QP_data(FloatT)
