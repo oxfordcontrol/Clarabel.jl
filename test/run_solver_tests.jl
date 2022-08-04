@@ -6,6 +6,8 @@ using Clarabel
     @testset "Basic Tests" begin
 
         #tests on small scale problems
+        include("./OptTests/basic_unconstrained.jl")
+        include("./OptTests/basic_eq_constrained.jl")
         include("./OptTests/basic_lp.jl")
         include("./OptTests/basic_qp.jl")
         include("./OptTests/basic_socp.jl")
