@@ -31,7 +31,7 @@ using Test, LinearAlgebra, SparseArrays
 
                 P = sparse(I(3).*one(FloatT))
                 P[1,1] = zero(FloatT)
-                c = [1.,0.,0.]
+                c = FloatT[1.,0.,0.]
                 A = sparse(zeros(FloatT,0,3)) #no constraints 
                 b = FloatT[]
                 cones = Clarabel.SupportedCone[]
