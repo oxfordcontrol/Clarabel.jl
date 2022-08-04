@@ -9,6 +9,7 @@ using Clarabel
         include("./OptTests/basic_lp.jl")
         include("./OptTests/basic_qp.jl")
         include("./OptTests/basic_socp.jl")
+        include("./OptTests/basic_sdp.jl")
 
     end
 
@@ -16,6 +17,13 @@ using Clarabel
 
         #tests on various cone problem types
         include("./OptTests/socp-lasso.jl")
+
+    end
+
+    @testset "Linear Solver Tests" begin
+
+        #exercise different linear solverss
+        include("./OptTests/linear_solvers.jl")
 
     end
 
