@@ -60,8 +60,8 @@ function info_check_termination!(
     # println("current gap: ", min(info.gap_abs, info.gap_rel))
 
     # check whether residuals diverges or not
-    if (((info.res_dual > 2*info.res_dual) || (info.res_primal > 2*info.prev_res_primal)) 
-        && (iter > 0) && (info.ktratio < one(T))
+    if (((info.res_dual > 0.99*info.prev_res_dual) || (info.res_primal > 0.99*info.prev_res_primal)) 
+        && (iter > 0) && (info.ktratio < 1e-8)
     )
             info.status = EARLY_TERMINATED
     else
@@ -123,7 +123,13 @@ function info_save_prev_iterates(
     prev_variables.κ     = variables.κ
 end
 
-function info_save_scalars(info,μ,α,σ,iter)
+function info_save_scalars(
+    info::DefaultInfo{T},
+    μ::T,
+    α::T,
+    σ::T,
+    iter::Int
+) where {T}
 
     info.μ = μ
     info.step_length = α
@@ -134,7 +140,10 @@ function info_save_scalars(info,μ,α,σ,iter)
 end
 
 
-function info_reset!(info,timers)
+function info_reset!(
+    info::DefaultInfo{T},
+    timers::TimerOutput
+) where {T}
 
     info.status     = UNSOLVED
     info.iterations = 0
@@ -147,16 +156,20 @@ function info_reset!(info,timers)
 end
 
 
-function info_get_solve_time!(info,timers)
-
+function info_get_solve_time!(
+    info::DefaultInfo{T},
+    timers::TimerOutput
+) where {T}
     #TimerOutputs reports in nanoseconds
     info.solve_time = TimerOutputs.tottime(timers)*1e-9
     return nothing
 end
 
 
-function info_finalize!(info,timers)
-
+function info_finalize!(
+    info::DefaultInfo{T},
+    timers::TimerOutput
+) where {T}
     info_get_solve_time!(info,timers)
     return nothing
 end

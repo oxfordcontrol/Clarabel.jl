@@ -63,10 +63,10 @@ function variables_scale_cones!(
     variables::DefaultVariables{T},
     cones::ConeSet{T},
 	μ::T,
-    corFlag::Bool
+    scaleFlag::Bool
 ) where {T}
 
-    cones_update_scaling!(cones,variables.s,variables.z,μ,corFlag)
+    cones_update_scaling!(cones,variables.s,variables.z,μ,scaleFlag)
     return nothing
 end
 
@@ -110,7 +110,8 @@ function calc_combined_step_rhs!(
     cones::ConeSet{T},
     step::DefaultVariables{T},
     σ::T,
-    μ::T
+    μ::T,
+    scale_flag::Bool
 ) where {T}
 
     dotσμ = σ*μ
@@ -130,7 +131,7 @@ function calc_combined_step_rhs!(
     # ds is different for symmetric and unsymmetric cones:
     # Symmetric cones: d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
     # Unsymmetric cones: d.s = s + σμ*g(z)
-    cones_combined_ds!(cones,d.z,d.s,step.z,step.s,dotσμ)
+    cones_combined_ds!(cones,d.z,d.s,step.z,step.s,dotσμ,scale_flag)
 
     # now we copy the scaled res for rz and d.z is no longer work
     @. d.z .= (1 - σ)*r.rz

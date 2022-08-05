@@ -101,17 +101,26 @@ function combined_ds!(
     dz::AbstractVector{T},
     step_z::AbstractVector{T},
     step_s::AbstractVector{T},
-    σμ::T
+    σμ::T,
+    scale_flag::Bool
 ) where {T}
+
     η = K.gradWork
     higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
     @inbounds for i = 1:3
         dz[i] = K.grad[i]*σμ - η[i]
     end
-
-    # # @. dz = σμ*K.grad                   #dz <- σμ*g(z)
-    # @inbounds for i = 1:3
-    #     dz[i] = K.grad[i]*σμ                 #dz <- σμ*g(z)
+    # if scale_flag
+    #     η = K.gradWork
+    #     higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
+    #     @inbounds for i = 1:3
+    #         dz[i] = K.grad[i]*σμ - η[i]
+    #     end
+    # else
+    #     # @. dz = σμ*K.grad                   #dz <- σμ*g(z)
+    #     @inbounds for i = 1:3
+    #         dz[i] = K.grad[i]*σμ                 #dz <- σμ*g(z)
+    #     end
     # end
 
     return nothing

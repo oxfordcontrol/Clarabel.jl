@@ -223,7 +223,7 @@ function solve!(
             # generic across solvers or problem domains.
             # YC: The flag is to determine when we switch from primal-dual scaling to the dual scaling depending on the conditioning number of the KKT matrix. 
 
-            variables_scale_cones!(s.variables,s.cones,μ,s.kktsystem.kktsolver.corFlag)
+            variables_scale_cones!(s.variables,s.cones,μ,s.scale_flag)
 
             #update the KKT system and the constant
             #parts of its solution
@@ -267,7 +267,7 @@ function solve!(
             calc_combined_step_rhs!(
                 s.step_rhs, s.residuals,
                 s.variables, s.cones,
-                s.step_lhs, σ, μ
+                s.step_lhs, σ, μ, s.scale_flag
             )
 
             @timeit s.timers "kkt solve" begin
@@ -319,7 +319,9 @@ function solve!(
                 info_save_scalars(s.info,μ,α,σ,iter)
             end
 
+            # PJG: need to reset (solver.scale_flag = true) after solving a problem
             # YC:: offset_KKT_diag directly
+            s.scale_flag = choose_scaling(s.kktsystem.kktsolver)
             offset_KKT_diag(s.kktsystem.kktsolver)
 
             # #update the scalings

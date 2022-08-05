@@ -39,8 +39,6 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     #the direct linear LDL solver
     ldlsolver::AbstractDirectLDLSolver{T}
 
-    # PJG: need to reset corFlag after each solving
-    corFlag::Bool           # higher order correction enabled
     ϵ::T                    # current dynamic regularization
 
     function DirectLDLKKTSolver{T}(P,A,cones,m,n,settings) where {T}
@@ -85,17 +83,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         #the LDL linear solver engine
         ldlsolver = ldlsolverT{T}(KKT,Dsigns,settings)
 
-        # PJG: This should not be hard coded deep with the KKT solver.
-        # I don't think it necessarily even has anything to do with the
-        # KKT solver.  I think it should be part of the settings, which
-        # also makes its retrieval with the high level solver (or wherever)
-        # it gets used, much more reasonable.
-        #
-        # Name needs to be changed to reflect conventions elsewhere.
-        # YC: The flag is for determining the scaling strategy and is better to be stored i the solver struct.
-        corFlag = true
-
-        return new(m,n,p,x,b,work_e,work_dx,map,Dsigns,WtWblocks,KKT,KKTsym,absKKTdiag,settings,ldlsolver,corFlag)
+        return new(m,n,p,x,b,work_e,work_dx,map,Dsigns,WtWblocks,KKT,KKTsym,absKKTdiag,settings,ldlsolver)
     end
 
 end
@@ -285,24 +273,17 @@ function _kktsolver_update_inner!(
     #with static regularizers.  Note that we don't want to shift
     #elements in the ULHS (corresponding to P) since we already
     #shifted them at initialization and haven't overwritten that block
+
+    # YC:: To add a dynamic regularization w.r.t. the maximum absolute value of diagonal terms,
+    #      we also modify the regularization of P at each iteration 
     KKTdiag = @view KKT.nzval[map.diag_full]
     absKKTdiag = kktsolver.absKKTdiag
-    ϵ = settings.static_regularization_eps
 
     @. absKKTdiag = abs(KKTdiag)
     maxdiag = maximum(absKKTdiag)
-    mindiag = minimum(absKKTdiag)
-    mindiag += ϵ
-    # println("ratio is: ", maxdiag/mindiag)
-
-    # switch from the primal-dual scaling to the pure dual scaling when the conditioning number is larger than 1/eps(T)
-    if  mindiag/maxdiag < eps(T) # && kktsolver.corFlag == true
-        kktsolver.corFlag = false
-        # kktsolver_reset_WtW!(kktsolver,ldlsolver,cones)
-        # println("Switch off correction!!!")
-    end
 
     if(settings.static_regularization_enable)
+        ϵ = settings.static_regularization_eps
         ξ = settings.proportional_eps
         kktsolver.ϵ = ϵ + ξ*maxdiag
 
@@ -314,6 +295,32 @@ function _kktsolver_update_inner!(
     refactor!(ldlsolver,kktsolver.KKT)
 
     return nothing
+end
+
+# determine the scaling strategy for exponential cones. 
+# True for the primal-dual scaling and false for the dual scaling.
+function choose_scaling(
+    kktsolver::DirectLDLKKTSolver{T}
+) where {T}
+    settings = kktsolver.settings
+    absKKTdiag = kktsolver.absKKTdiag
+
+    # YC: This step could be improved by finding the minimum and the maximum simultaneously
+    maxdiag = maximum(absKKTdiag)
+    mindiag = minimum(absKKTdiag)
+
+    if(settings.static_regularization_enable)
+        ϵ = settings.static_regularization_eps
+        mindiag += ϵ
+        maxdiag += ϵ
+    end
+
+    # switch from the primal-dual scaling to the pure dual scaling when the conditioning number is larger than 1/eps(T)
+    if  mindiag/maxdiag < eps(T)
+        return false
+    else 
+        return true
+    end
 end
 
 # function kktsolver_reset_WtW!(
@@ -452,7 +459,14 @@ end
 # computes e = b - (K+ϵD)ξ + ϵDξ, overwriting the first argument
 # and returning its norm
 
-function _get_refine_error!(e,b,KKTsym,D,ϵ,ξ)
+function _get_refine_error!(
+    e::Vector{T},
+    b::Vector{T},
+    KKTsym::Symmetric{T, SparseMatrixCSC{T,Int}},
+    D::Vector{Int},
+    ϵ::T,
+    ξ::Vector{T}
+) where {T}
 
     @. e = b
     mul!(e,KKTsym,ξ,-1.,1.)   # e = b - Kξ

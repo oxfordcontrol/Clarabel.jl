@@ -166,7 +166,8 @@ function cones_combined_ds!(
     ds::ConicVector{T},
     step_z::ConicVector{T},
     step_s::ConicVector{T},
-    σμ::T
+    σμ::T,
+    scale_flag::Bool
 ) where {T}
 
     for (cone,dzi,zi,si) in zip(cones,dz.views,step_z.views,step_s.views)
@@ -177,7 +178,7 @@ function cones_combined_ds!(
         # The counterpart for power cones is under development.
 
         # compute the centering and the higher order correction parts in ds and save it in dz
-        @conedispatch combined_ds!(cone,dzi,zi,si,σμ)
+        @conedispatch combined_ds!(cone,dzi,zi,si,σμ,scale_flag)
     end
 
     #We are relying on d.s = λ ◦ λ (symmetric) or d.s = s (unsymmetric) already from the affine step here
