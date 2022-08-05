@@ -369,7 +369,7 @@ function _step_length_psd_component(
 
 end
 
-# function f_sum(
+# function compute_centrality(
 #     K::PSDTriangleCone{T},
 #     s::AbstractVector{T},
 #     z::AbstractVector{T}

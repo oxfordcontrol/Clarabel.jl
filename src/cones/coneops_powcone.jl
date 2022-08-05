@@ -281,7 +281,7 @@ function compute_Hessian(
 
 end
 
-function f_sum(
+function compute_centrality(
     K::PowerCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T}

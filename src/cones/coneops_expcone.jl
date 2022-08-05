@@ -48,6 +48,23 @@ function get_WtW_block!(
 
 end
 
+function reset_WtW_block!(
+    K::ExponentialCone{T},
+    WtWblock::AbstractVector{T}
+) where {T}
+    HBFGS = K.HBFGS
+    H = K.H
+
+    @inbounds for i = 1:3
+        @inbounds for j = 1:3
+            HBFGS[i,j] = K.μ*H[i,j]
+        end
+    end
+
+    _pack_triu(WtWblock,HBFGS)
+
+end
+
 # return x = y for unsymmetric cones
 function affine_ds!(
     K::ExponentialCone{T},
@@ -268,7 +285,7 @@ function compute_Hessian(
 
 end
 
-function f_sum(
+function compute_centrality(
     K::ExponentialCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T}
@@ -491,6 +508,7 @@ function update_HBFGS(
     # Hessian computation, compute μ locally
     compute_Hessian(K,z,H)
     μ = dot(z,s)/3
+    K.μ = μ
     # HBFGS .= μ*H
     @inbounds for i = 1:3
         @inbounds for j = 1:3

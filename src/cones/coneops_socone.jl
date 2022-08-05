@@ -349,7 +349,7 @@ function _step_length_soc_component(
 
 end
 
-function f_sum(
+function compute_centrality(
     K::SecondOrderCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T}

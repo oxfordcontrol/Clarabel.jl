@@ -229,8 +229,8 @@ function step_length(
     return (huge,huge)
 end
 
-# no f_sum for Zerocone
-function f_sum(
+# no compute_centrality for Zerocone
+function compute_centrality(
     K::ZeroCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T}

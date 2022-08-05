@@ -252,7 +252,7 @@ function step_length(
 end
 
 # Computes f(s) + f*(z) for each cone as in Section 8.3 in Santiago's thesis
-function f_sum(
+function compute_centrality(
     K::AbstractCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T}

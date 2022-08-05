@@ -249,7 +249,7 @@ function step_length(
     return (αz,αs)
 end
 
-function f_sum(
+function compute_centrality(
     K::NonnegativeCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T}

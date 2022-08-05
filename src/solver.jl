@@ -201,7 +201,13 @@ function solve!(
                     s.info,s.data,s.variables,
                     s.residuals,s.settings,s.timers
                 )
-                isdone = info_check_termination!(s.info,s.residuals,s.settings)
+                isdone = info_check_termination!(s.info,s.residuals,s.settings,iter)
+            end
+
+            # use the previous iterate as the final solution
+            if isdone && s.info.status == EARLY_TERMINATED
+                info_save_prev_iterates(s.info,s.work_vars,s.variables)
+                break
             end
 
             iter += 1
@@ -222,7 +228,13 @@ function solve!(
             #update the KKT system and the constant
             #parts of its solution
             #--------------
-            @timeit s.timers "kkt update" kkt_update!(s.kktsystem,s.data,s.cones)
+            @timeit s.timers "kkt update" numerical_check = kkt_update!(s.kktsystem,s.data,s.cones)
+
+            # YC: if kkt_solve fails due to numerical issues
+            if numerical_check
+                s.info.status = NUMERICALLY_HARD
+                break
+            end
 
             #calculate the affine step
             #--------------
@@ -277,23 +289,26 @@ function solve!(
             # YC: This is a premature test for the multi-correction step, but it seems to be unnecessary 
             #     if we update the KKT by the dual scaling as soon as the flag turns off.
 
-            while (α < 0.1 && σ < one(T))
-                println("step size too small!! with σ is ", σ)
-                σ *= 10
-                calc_combined_step_rhs!(
-                    s.step_rhs, s.residuals,
-                    s.variables, s.cones,
-                    s.step_lhs, σ, μ
-                )
-                kkt_solve!(
-                    s.kktsystem, s.step_lhs, s.step_rhs,
-                    s.data, s.variables, s.cones, :combined
-                )
-                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:combined)
-                println("update α ", α)
-            end
+            # while (α < 0.1 && σ < one(T))
+            #     println("step size too small!! with σ is ", σ)
+            #     σ *= 10
+            #     calc_combined_step_rhs!(
+            #         s.step_rhs, s.residuals,
+            #         s.variables, s.cones,
+            #         s.step_lhs, σ, μ
+            #     )
+            #     kkt_solve!(
+            #         s.kktsystem, s.step_lhs, s.step_rhs,
+            #         s.data, s.variables, s.cones, :combined
+            #     )
+            #     α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:combined)
+            #     println("update α ", α)
+            # end
 
             @timeit_debug timer "alpha scale " α *= s.settings.max_step_fraction
+
+            # YC: Store information of the previous iterate
+            @timeit_debug timer info_save_prev_iterates(s.info,s.variables,s.work_vars)
 
             @timeit_debug timer "variables_add_step" begin
                 variables_add_step!(s.variables,s.step_lhs,α)

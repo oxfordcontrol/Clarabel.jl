@@ -319,11 +319,11 @@ function check_μ_and_centrality(
         # end
         barrier = central_coef*log(μ) - log(cur_τ) - log(cur_κ)
 
-        #"f_sum" is not a good function name.   I can't tell what
+        #"compute_centrality" is not a good function name.   I can't tell what
         #it does from the name.
 
         for (cone,cur_si,cur_zi) in zip(cones,cur_s.views, cur_z.views)
-            @conedispatch barrier += f_sum(cone, cur_si, cur_zi)
+            @conedispatch barrier += compute_centrality(cone, cur_si, cur_zi)
         end
 
         if barrier < 1.

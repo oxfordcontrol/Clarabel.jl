@@ -238,6 +238,7 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
     H::Matrix{T}       #μ*H for the linear sysmtem
     Hsym::Symmetric{T, Matrix{T}}
     grad::Vector{T}
+    μ::T
 
     # workspace for centrality check
     HBFGS::Matrix{T}
@@ -256,6 +257,7 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
         H = Matrix{T}(undef,3,3)
         Hsym = Symmetric(H)
         grad = Vector{T}(undef,3)
+        μ = T(Inf)
 
         HBFGS = Matrix{T}(undef,3,3)
         HBFGSsym = Symmetric(HBFGS)
@@ -263,7 +265,7 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
         vecWork = Vector{T}(undef,3)
         z = Vector{T}(undef,3)
         ws = LuBlasWorkspace{T}(3)
-        return new(H,Hsym,grad,HBFGS,HBFGSsym,gradWork,vecWork,z,ws)
+        return new(H,Hsym,grad,μ,HBFGS,HBFGSsym,gradWork,vecWork,z,ws)
     end
 end
 

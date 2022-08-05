@@ -50,31 +50,40 @@ end
 function info_check_termination!(
     info::DefaultInfo{T},
     residuals::DefaultResiduals{T},
-    settings::Settings{T}
+    settings::Settings{T},
+    iter::Int
 ) where {T}
 
     #optimality
     #---------------------
     info.status = UNSOLVED  #ensure default state
     # println("current gap: ", min(info.gap_abs, info.gap_rel))
-    if( ((info.gap_abs < settings.tol_gap_abs) || (info.gap_rel < settings.tol_gap_rel))
-        && (info.res_primal < settings.tol_feas)
-        && (info.res_dual   < settings.tol_feas)
+
+    # check whether residuals diverges or not
+    if (((info.res_dual > 2*info.res_dual) || (info.res_primal > 2*info.prev_res_primal)) 
+        && (iter > 0) && (info.ktratio < one(T))
     )
-        info.status = SOLVED
-
-    elseif info.ktratio > one(T)
-
-        if (residuals.dot_bz < -settings.tol_infeas_rel) &&
-           (info.res_primal_inf < -settings.tol_infeas_abs*residuals.dot_bz)
-
-            info.status = PRIMAL_INFEASIBLE
-
-        elseif (residuals.dot_qx < -settings.tol_infeas_rel) &&
-               (info.res_dual_inf < -settings.tol_infeas_abs*residuals.dot_qx)
-
-            info.status = DUAL_INFEASIBLE
-
+            info.status = EARLY_TERMINATED
+    else
+        if( ((info.gap_abs < settings.tol_gap_abs) || (info.gap_rel < settings.tol_gap_rel))
+            && (info.res_primal < settings.tol_feas)
+            && (info.res_dual   < settings.tol_feas)
+        )
+            info.status = SOLVED
+    
+        elseif info.ktratio > one(T)
+    
+            if (residuals.dot_bz < -settings.tol_infeas_rel) &&
+               (info.res_primal_inf < -settings.tol_infeas_abs*residuals.dot_bz)
+    
+                info.status = PRIMAL_INFEASIBLE
+    
+            elseif (residuals.dot_qx < -settings.tol_infeas_rel) &&
+                   (info.res_dual_inf < -settings.tol_infeas_abs*residuals.dot_qx)
+    
+                info.status = DUAL_INFEASIBLE
+    
+            end
         end
     end
 
@@ -95,6 +104,24 @@ function info_check_termination!(
     return is_done = info.status != UNSOLVED
 end
 
+function info_save_prev_iterates(
+    info::DefaultInfo{T},
+    variables::DefaultVariables{T},
+    prev_variables::DefaultVariables{T}
+) where {T}
+    info.prev_cost_primal    = info.cost_primal
+    info.prev_cost_dual      = info.cost_dual
+    info.prev_res_primal     = info.res_primal
+    info.prev_res_dual       = info.res_dual
+    info.prev_gap_abs        = info.gap_abs
+    info.prev_gap_rel        = info.gap_rel
+
+    prev_variables.x    .= variables.x
+    prev_variables.s    .= variables.s
+    prev_variables.z    .= variables.z
+    prev_variables.τ     = variables.τ
+    prev_variables.κ     = variables.κ
+end
 
 function info_save_scalars(info,μ,α,σ,iter)
 

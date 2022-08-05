@@ -55,7 +55,7 @@ end
 
 DefaultKKTSystem(args...) = DefaultKKTSystem{DefaultFloat}(args...)
 
-    function kkt_update!(
+function kkt_update!(
     kktsystem::DefaultKKTSystem{T},
     data::DefaultProblemData{T},
     cones::ConeSet{T}
@@ -65,9 +65,10 @@ DefaultKKTSystem(args...) = DefaultKKTSystem{DefaultFloat}(args...)
     kktsolver_update!(kktsystem.kktsolver,cones)
 
     #calculate KKT solution for constant terms
-    _kkt_solve_constant_rhs!(kktsystem,data)
+    # YC: kkt_constant_status for checking numerical stability
+    kkt_constant_status = _kkt_solve_constant_rhs!(kktsystem,data)
 
-    return nothing
+    return kkt_constant_status
 end
 
 function _kkt_solve_constant_rhs!(
@@ -79,7 +80,7 @@ function _kkt_solve_constant_rhs!(
     kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, data.b)
     kktsolver_solve!(kktsystem.kktsolver, kktsystem.x2, kktsystem.z2)
 
-    return nothing
+    return any(isnan,kktsystem.x2) || any(isnan, kktsystem.z2)
 end
 
 

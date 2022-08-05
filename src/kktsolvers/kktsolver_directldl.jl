@@ -298,6 +298,7 @@ function _kktsolver_update_inner!(
     # switch from the primal-dual scaling to the pure dual scaling when the conditioning number is larger than 1/eps(T)
     if  mindiag/maxdiag < eps(T) # && kktsolver.corFlag == true
         kktsolver.corFlag = false
+        # kktsolver_reset_WtW!(kktsolver,ldlsolver,cones)
         # println("Switch off correction!!!")
     end
 
@@ -315,6 +316,28 @@ function _kktsolver_update_inner!(
     return nothing
 end
 
+# function kktsolver_reset_WtW!(
+#     kktsolver::DirectLDLKKTSolver{T},
+#     ldlsolver::AbstractDirectLDLSolver{T},
+#     cones::ConeSet{T}
+# ) where {T}
+#     settings  = kktsolver.settings
+#     map       = kktsolver.map
+#     KKT       = kktsolver.KKT
+
+#     #Reset the elements of the W^tW blocks of exponetial cones in the KKT matrix.
+#     for (i,K) = enumerate(cones)
+#         if isa(cones.cone_specs[i],ExponentialConeT)
+#             reset_WtW_block!(K,kktsolver.WtWblocks[i])
+#         end
+#     end
+
+#     for (index, values) in zip(map.WtWblocks,kktsolver.WtWblocks)
+#         #change signs to get -W^TW
+#         BLAS.scal!(-one(T),values) # values .= -values
+#         _update_values!(ldlsolver,KKT,index,values)
+#     end
+# end
 
 function kktsolver_setrhs!(
     kktsolver::DirectLDLKKTSolver{T},
