@@ -30,7 +30,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
     #symmetric view for residual calcs
     KKTsym::Symmetric{T, SparseMatrixCSC{T,Int}}
-    absKKTdiag::Vector{T}
+    abs_kkt_diag::Vector{T}
 
     #settings just points back to the main solver settings.
     #Required since there is no separate LDL settings container
@@ -39,8 +39,8 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     #the direct linear LDL solver
     ldlsolver::AbstractDirectLDLSolver{T}
 
-    # PJG: need to reset corFlag after each solving
-    corFlag::Bool           # higher order correction enabled
+    # PJG: need to reset scale_flag after each solving
+    scale_flag::Bool           # higher order correction enabled
     ϵ::T                    # current dynamic regularization
 
     function DirectLDLKKTSolver{T}(P,A,cones,m,n,settings) where {T}
@@ -79,8 +79,8 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         #the following to allow products like KKT*x
         KKTsym = Symmetric(KKT)
 
-        KKTdiag = @view KKT[map.diag_full]
-        absKKTdiag = abs.(KKTdiag)
+        kkt_diag = @view KKT[map.diag_full]
+        abs_kkt_diag = abs.(kkt_diag)
 
         #the LDL linear solver engine
         ldlsolver = ldlsolverT{T}(KKT,Dsigns,settings)
@@ -93,9 +93,9 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         #
         # Name needs to be changed to reflect conventions elsewhere.
         # YC: The flag is for determining the scaling strategy and is better to be stored i the solver struct.
-        corFlag = true
+        scale_flag = true
 
-        return new(m,n,p,x,b,work_e,work_dx,map,Dsigns,WtWblocks,KKT,KKTsym,absKKTdiag,settings,ldlsolver,corFlag)
+        return new(m,n,p,x,b,work_e,work_dx,map,Dsigns,WtWblocks,KKT,KKTsym,abs_kkt_diag,settings,ldlsolver,scale_flag)
     end
 
 end
@@ -285,19 +285,19 @@ function _kktsolver_update_inner!(
     #with static regularizers.  Note that we don't want to shift
     #elements in the ULHS (corresponding to P) since we already
     #shifted them at initialization and haven't overwritten that block
-    KKTdiag = @view KKT.nzval[map.diag_full]
-    absKKTdiag = kktsolver.absKKTdiag
+    kkt_diag = @view KKT.nzval[map.diag_full]
+    abs_kkt_diag = kktsolver.abs_kkt_diag
     ϵ = settings.static_regularization_eps
 
-    @. absKKTdiag = abs(KKTdiag)
-    maxdiag = maximum(absKKTdiag)
-    mindiag = minimum(absKKTdiag)
+    @. abs_kkt_diag = abs(kkt_diag)
+    maxdiag = maximum(abs_kkt_diag)
+    mindiag = minimum(abs_kkt_diag)
     mindiag += ϵ
     # println("ratio is: ", maxdiag/mindiag)
 
     # switch from the primal-dual scaling to the pure dual scaling when the conditioning number is larger than 1/eps(T)
-    if  mindiag/maxdiag < eps(T) # && kktsolver.corFlag == true
-        kktsolver.corFlag = false
+    if  mindiag/maxdiag < eps(T) # && kktsolver.scale_flag == true
+        kktsolver.scale_flag = false
         # println("Switch off correction!!!")
     end
 

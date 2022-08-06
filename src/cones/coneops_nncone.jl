@@ -236,6 +236,8 @@ function step_length(
     ds::AbstractVector{T},
      z::AbstractVector{T},
      s::AbstractVector{T},
+     α::T,
+     backtrack::T
 ) where {T}
 
     αz = floatmax(T)
@@ -249,7 +251,7 @@ function step_length(
     return (αz,αs)
 end
 
-function f_sum(
+function compute_centrality(
     K::NonnegativeCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T}
@@ -261,31 +263,4 @@ function f_sum(
     end
 
     return barrier
-end
-
-# check neighbourhood
-function _check_neighbourhood(
-    K::NonnegativeCone{T},
-    s::AbstractVector{T},
-    z::AbstractVector{T},
-    μ::T,
-    η::T
-) where {T}
-
-    # # NB: need to optimize memory later
-    # tmp = zeros(T,length(s))
-
-    # # ||si*zi/μ  - 1|| < η for ∀i
-    # @. tmp = s*z
-    # @. tmp /= μ 
-    # @. tmp -= 1
-
-    # if norm(tmp, Inf) < η
-    #     return true
-    # end
-
-    # # NB: should keep ||si*zi/μ  - 1|| < C*η where C is a constant, but it seems to be fine when there are no centrality check for nonnegative cones.
-    # println("nonnegative cone is away from central path by ",norm(tmp, Inf) < η)
-    return true
-
 end

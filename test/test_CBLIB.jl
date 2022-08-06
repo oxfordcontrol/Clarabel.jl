@@ -6,8 +6,8 @@ using ConicBenchmarkUtilities
 
 using Profile,StatProfilerHTML, TimerOutputs
 
-#include("../src\\Clarabel.jl")
-using Clarabel
+include("../src\\Clarabel.jl")
+# using Clarabel
 # using Hypatia
 
 coneMap = Dict(:Zero => MOI.Zeros, :Free => :Free,

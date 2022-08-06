@@ -14,7 +14,7 @@ end
 function calc_step_length(
     variables::DefaultVariables{T},
     step::DefaultVariables{T},
-    workvars::DefaultVariables{T},
+    work_vars::DefaultVariables{T},
     cones::ConeSet{T},
     steptype::Symbol
 ) where {T}
@@ -31,8 +31,8 @@ function calc_step_length(
     #   Centrality check for unsymmetric cones
     #   balance global μ and local μ_i of each nonsymmetric cone;
     #   check centrality, ensure the update is close to the central path
-    if (!cones.symFlag && steptype == :combined)
-        α = check_μ_and_centrality(cones,step,variables,workvars,α)
+    if (!cones.sym_flag && steptype == :combined)
+        α = check_μ_and_centrality(cones,step,variables,work_vars,α)
 
         if (steptype == :combined && α < 1e-4)
             # error("get stalled with step size ", α)
@@ -63,10 +63,10 @@ function variables_scale_cones!(
     variables::DefaultVariables{T},
     cones::ConeSet{T},
 	μ::T,
-    corFlag::Bool
+    scale_flag::Bool
 ) where {T}
 
-    cones_update_scaling!(cones,variables.s,variables.z,μ,corFlag)
+    cones_update_scaling!(cones,variables.s,variables.z,μ,scale_flag)
     return nothing
 end
 
@@ -159,7 +159,7 @@ end
 # for the nonnegative cones, e is the vector of all ones;
 # for the second-order cones, e = (1; 0; ... ; 0) where the 1 corresponds to the first variable;
 # for semidefinite cones, e is the identity matrix.
-function unsymmetricInit(
+function unsymmetric_init!(
     variables::DefaultVariables{T},
     cones::ConeSet{T}
 ) where {T}
