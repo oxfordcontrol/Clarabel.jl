@@ -159,7 +159,7 @@ end
 # for the nonnegative cones, e is the vector of all ones;
 # for the second-order cones, e = (1; 0; ... ; 0) where the 1 corresponds to the first variable;
 # for semidefinite cones, e is the identity matrix.
-function unsymmetricInit(
+function unsymmetric_init!(
     variables::DefaultVariables{T},
     cones::ConeSet{T}
 ) where {T}

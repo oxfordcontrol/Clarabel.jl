@@ -29,7 +29,7 @@ function update_scaling!(
     # NB: the update order can't be switched as we reuse memory in the Hessian computation
     # Hessian update
     update_HBFGS(K,s,z,scale_flag)
-    GradF(K,z,K.grad)
+    gradient_f(K,z,K.grad)
     # K.z .= z
     @inbounds for i = 1:3
         K.z[i] = z[i]
@@ -86,8 +86,8 @@ function combined_ds!(
     step_s::AbstractVector{T},
     σμ::T
 ) where {T}
-    η = K.gradWork
-    higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
+    η = K.grad_work
+    higher_correction!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
     @inbounds for i = 1:3
         dz[i] = K.grad[i]*σμ - η[i]
     end
@@ -144,8 +144,8 @@ function step_length(
         error("numerical error")
     end
 
-    αz = _step_length_exp_dual(K.vecWork,dz,z,α,backtrack)
-    αs = _step_length_exp_primal(K.vecWork,ds,s,α,backtrack)
+    αz = _step_length_exp_dual(K.vec_work,dz,z,α,backtrack)
+    αs = _step_length_exp_primal(K.vec_work,ds,s,α,backtrack)
 
     #PJG: prevfloat is probably not portable 
     # and I don't understand why it is being used
@@ -168,7 +168,7 @@ function _step_length_exp_primal(
         ws[i] = s[i] + α*ds[i]
     end
 
-    while !checkExpPrimalFeas(ws)
+    while !check_exp_primal_feas(ws)
         # NB: need to be tackled in a smarter way
         # println("current α is ", α)
         if (α < 1e-4)
@@ -199,7 +199,7 @@ function _step_length_exp_dual(
         ws[i] = z[i] + α*dz[i]
     end
 
-    while !checkExpDualFeas(ws)
+    while !check_exp_dual_feas(ws)
         # println("current α is ", α)
         if (α < 1e-4)
             # error("Expcone's step size fails in dual feasibility check!")
@@ -223,7 +223,7 @@ end
 # Dual exponential cone: z3 ≥ -z1*e^(z2/z1 - 1), z3 > 0, z1 < 0
 # As in ECOS, we use the dual barrier function: f*(z) = -log(z2 - z1 - z1*log(z3/-z1)) - log(-z1) - log(z3):
 # Evaluates the gradient of the dual exponential cone ∇f*(z) at z, and stores the result at g
-function GradF(
+function gradient_f(
     K::ExponentialCone{T},
     z::AbstractVector{T},
     g::AbstractVector{T}
@@ -283,7 +283,7 @@ function compute_centrality(
     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
     # f(s) = -2*log(s2) - log(s3) - log((1-barω)^2/barω) - 3, where barω = ω(1 - s1/s2 - log(s2) - log(s3))
     # NB: ⟨s,g(s)⟩ = -3 = - ν
-    o = WrightOmega(1-s[1]/s[2]-log(s[2]/s[3]))
+    o = wright_omega(1-s[1]/s[2]-log(s[2]/s[3]))
     o = (o-1)*(o-1)/o
     barrier += -log(o)-2*log(s[2])-log(s[3]) - 3
 
@@ -291,7 +291,7 @@ function compute_centrality(
 end
 
 # Returns true if s is primal feasible
-function checkExpPrimalFeas(s::AbstractVector{T}) where {T}
+function check_exp_primal_feas(s::AbstractVector{T}) where {T}
 
     if (s[3] > 0 && s[2] > 0)   #feasible
         res = s[2]*log(s[3]/s[2]) - s[1]
@@ -304,7 +304,7 @@ function checkExpPrimalFeas(s::AbstractVector{T}) where {T}
 end
 
 # Returns true if z is dual feasible
-function checkExpDualFeas(z::AbstractVector{T}) where {T}
+function check_exp_dual_feas(z::AbstractVector{T}) where {T}
 
     if (z[3] > 0 && z[1] < 0)
         res = z[2] - z[1] - z[1]*log(-z[3]/z[1])
@@ -318,13 +318,13 @@ end
 
 # Compute the primal gradient of f(s) at s
 # solve it by the Newton-Raphson method
-function GradPrim(
+function gradient_primal(
     K::ExponentialCone{T},
     s::AbstractVector{T},
     g::AbstractVector{T}
 ) where {T}
 
-    o = WrightOmega(1-s[1]/s[2]-log(s[2]/s[3]))
+    o = wright_omega(1-s[1]/s[2]-log(s[2]/s[3]))
 
     g[1] = one(T)/((o-1)*s[2])
     g[2] = g[1] + g[1]*log(o*s[2]/s[3]) - one(T)/s[2]
@@ -336,7 +336,7 @@ end
 # Computes the value ω(z) defined as the solution y to
 # the equation y+log(y) = z ONLY FOR z real and z>=1.
 # NB::the code is from ECOS solver, which comes from Santiago's thesis, "Algorithms for Unsymmetric Cone Optimization and an Implementation for Problems with the Exponential Cone"
-function WrightOmega(z::T) where {T}
+function wright_omega(z::T) where {T}
     w  = zero(T);
     r  = zero(T);
     q  = zero(T);
@@ -394,7 +394,7 @@ end
 
 # 3rd-order correction at the point z, w.r.t. directions u,v and then save it to η
 # NB: not so effective at present
-function higherCorrection!(
+function higher_correction!(
     K::ExponentialCone{T},
     η::AbstractVector{T},
     ds::AbstractVector{T},
@@ -403,7 +403,7 @@ function higherCorrection!(
 
     # u for H^{-1}*Δs
     H = K.H
-    u = K.vecWork
+    u = K.vec_work
     z = K.z
 
     # lu factorization
@@ -481,8 +481,8 @@ function update_HBFGS(
     scale_flag::Bool
 ) where {T}
     # reuse memory
-    st = K.gradWork
-    zt = K.vecWork
+    st = K.grad_work
+    zt = K.vec_work
     δs = K.grad
     tmp = K.z
     H = K.H
@@ -504,9 +504,9 @@ function update_HBFGS(
     end
 
     # compute zt,st,μt locally
-    GradPrim(K,s,zt)
+    gradient_primal(K,s,zt)
     zt .*= -1
-    GradF(K,z,st)
+    gradient_f(K,z,st)
     st .*= -1
     μt = dot(zt,st)/3
 
