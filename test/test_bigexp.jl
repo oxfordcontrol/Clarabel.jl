@@ -15,11 +15,13 @@ coneMap = Dict(:Zero => MOI.Zeros, :Free => :Free,
                      :SOC => MOI.SecondOrderCone, :SOCRotated => MOI.RotatedSecondOrderCone,
                      :ExpPrimal => MOI.ExponentialCone, :ExpDual => MOI.DualExponentialCone)
 
-function exp_model(exInd::Int)
-    filelist = readdir(pwd()*"./primal_exp_cbf")
+function exp_model(exInd::Int; optimizer = Clarabel.Optimizer)
+
+    cbfpath  = joinpath(@__DIR__,"primal_exp_cbf")
+    filelist = readdir(cbfpath)
 
     datadir = filelist[exInd]   #"gp_dave_1.cbf.gz"
-    dat = readcbfdata("./primal_exp_cbf/"*datadir) # .cbf.gz extension also accepted
+    dat = readcbfdata(joinpath(cbfpath,datadir)) # .cbf.gz extension also accepted
 
     # In MathProgBase format:
     c, A, b, con_cones, var_cones, vartypes, sense, objoffset = cbftompb(dat)
@@ -32,7 +34,7 @@ function exp_model(exInd::Int)
     num_con = size(A,1)
     num_var = size(A,2)
 
-    model = Model(Clarabel.Optimizer)
+    model = Model(optimizer)
     set_optimizer_attribute(model, "direct_solve_method", :qdldl)
 
     # model = Model(ECOS.Optimizer)
@@ -75,7 +77,15 @@ function exp_model(exInd::Int)
 end
 
 # the input number i corresponds to the i-th example in CBLIB. Example 7,8,32
-model = exp_model(7) 
+
 Profile.clear()
 Profile.init()
-@profilehtml optimize!(model)
+
+index = 7
+
+model_clarabel = exp_model(index; optimizer = Clarabel.Optimizer) 
+model_ecos = exp_model(index; optimizer = ECOS.Optimizer) 
+set_optimizer_attribute(model_clarabel, "verbose", true)
+set_optimizer_attribute(model_ecos, "verbose", true)
+optimize!(model_clarabel) 
+optimize!(model_ecos) 

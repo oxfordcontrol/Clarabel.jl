@@ -400,7 +400,7 @@ function offset_P_diag(
 
     if(settings.static_regularization_enable)
         (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
-        _offset_values!(kktsolver.ldlsolver,KKT, map.diag_full[1:n], -ϵ, kktsolver.Dsigns[1:n])
+        @views _offset_values!(kktsolver.ldlsolver,KKT, map.diag_full[1:n], -ϵ, kktsolver.Dsigns[1:n])
     end
 end
 
@@ -416,6 +416,6 @@ function offset_KKT_diag(
 
     if(settings.static_regularization_enable)
         (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
-        _offset_values!(kktsolver.ldlsolver,KKT, map.diag_full, -ϵ, kktsolver.Dsigns)
+        @views _offset_values!(kktsolver.ldlsolver,KKT, map.diag_full, -ϵ, kktsolver.Dsigns)
     end
 end

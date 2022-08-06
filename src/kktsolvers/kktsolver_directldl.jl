@@ -359,7 +359,7 @@ function kktsolver_solve!(
     solve!(kktsolver.ldlsolver,x,b)
 
     if(kktsolver.settings.iterative_refinement_enable)
-        iterative_refinement(kktsolver)
+        iterative_refinement(kktsolver,kktsolver.ldlsolver)
     end
 
     kktsolver_getlhs!(kktsolver,lhsx,lhsz)
@@ -367,7 +367,10 @@ function kktsolver_solve!(
     return nothing
 end
 
-function iterative_refinement(kktsolver::DirectLDLKKTSolver{T}) where{T}
+function iterative_refinement(
+    kktsolver::DirectLDLKKTSolver{T},
+    ldlsolver::AbstractDirectLDLSolver{T}
+) where{T}
 
     (x,b)   = (kktsolver.x,kktsolver.b)
     (e,dx)  = (kktsolver.work_e, kktsolver.work_dx)
@@ -396,8 +399,6 @@ function iterative_refinement(kktsolver::DirectLDLKKTSolver{T}) where{T}
 
     for i = 1:IR_maxiter
 
-        # println(i,"-th IR error: ", norme)
-
         if(norme <= IR_abstol + IR_reltol*normb)
             # within tolerance.  Exit
             return nothing
@@ -406,7 +407,7 @@ function iterative_refinement(kktsolver::DirectLDLKKTSolver{T}) where{T}
         lastnorme = norme
 
         #make a refinement and continue
-        solve!(kktsolver.ldlsolver,dx,e)
+        solve!(ldlsolver,dx,e)
 
         #prospective solution is x + dx.   Use dx space to
         #hold it for a check before applying to x

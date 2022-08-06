@@ -331,6 +331,8 @@ end
 
 ##################################
 # add regularization for Hessian as in Hypatia
+# PJG: I don't understand what this is for, and 
+# it will need a separate implementation for CSC
 function increase_diag!(A::Matrix{T}) where {T <: Real}
     diag_pert = 1 + T(1e-5)
     diag_min = 1000 * eps(T)

@@ -82,12 +82,12 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     # proportional regularization w.r.t. the maximum diagonal term
     proportional_eps = eps(T)
 
-    #iterative refinement (for QDLDL)
+    #iterative refinement
     iterative_refinement_enable::Bool   = true
     iterative_refinement_reltol::T      = 1e-10
     iterative_refinement_abstol::T      = 1e-10
     iterative_refinement_max_iter::Int  = 10
-    iterative_refinement_stop_ratio::T  = 2.
+    iterative_refinement_stop_ratio::T  = 2
 
 end
 
