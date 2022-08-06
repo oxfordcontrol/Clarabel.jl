@@ -222,7 +222,9 @@ function step_length(
     dz::AbstractVector{T},
     ds::AbstractVector{T},
      z::AbstractVector{T},
-     s::AbstractVector{T}
+     s::AbstractVector{T},
+     α::T,
+     backtrack::T
 ) where {T}
 
     #equality constraints allow arbitrary step length
@@ -241,15 +243,3 @@ function compute_centrality(
 
 end
 
-# no need to check Zerocone 
-function _check_neighbourhood(
-    K::ZeroCone{T},
-    s::AbstractVector{T},
-    z::AbstractVector{T},
-    μ::T,
-    η::T
-) where {T}
-
-    return true
-
-end

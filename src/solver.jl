@@ -250,17 +250,12 @@ function solve!(
                 )
             end
 
-            # check_KKT_system!(
-            #     s.kktsystem, s.step_lhs, s.step_rhs,
-            #     s.data, s.variables, s.cones)
-
             #calculate step length and centering parameter
             #--------------
             @timeit_debug timer "step length affine" begin
                 α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:affine)
                 σ = calc_centering_parameter(α)
             end
-            # println("σ is: ", σ)
 
             #calculate the combined step and length
             #--------------
@@ -324,10 +319,6 @@ function solve!(
             s.scale_flag = choose_scaling(s.kktsystem.kktsolver)
             offset_KKT_diag(s.kktsystem.kktsolver)
 
-            # #update the scalings
-            # #--------------
-            # @timeit_debug timer "NT scaling" scaling_update!(s.cones,s.variables,μ)
-
         end  #end while
         #----------
         #----------
@@ -355,7 +346,7 @@ end
 function solver_default_start!(s::Solver{T}) where {T}
     # YC:If there are only smmetric cones, use Mehrotra initialization strategy as ECOS and CVXOPT
     # Otherwise, initialize it along central rays
-    if (s.cones.symFlag)
+    if (s.cones.sym_flag)
         #set all scalings to identity (or zero for the zero cone)
         cones_set_identity_scaling!(s.cones)
         #Refactor
@@ -366,7 +357,7 @@ function solver_default_start!(s::Solver{T}) where {T}
         variables_shift_to_cone!(s.variables, s.cones)
     else
         #Unit initialization when there are unsymmetric cones
-        unsymmetricInit(s.variables, s.cones)
+        unsymmetric_init!(s.variables, s.cones)
     end
 
     # YC:: offset_P_diag directly
@@ -376,32 +367,6 @@ end
 
 function Base.show(io::IO, solver::Clarabel.Solver{T}) where {T}
     println(io, "Clarabel model with Float precision: $(T)")
-end
-
-# YC:need to be removed later
-function check_KKT_system!(
-    kktsystem::DefaultKKTSystem{T},
-    lhs::DefaultVariables{T},
-    rhs::DefaultVariables{T},
-    data::DefaultProblemData{T},
-    variables::DefaultVariables{T},
-    cones::ConeSet{T},
-) where {T}
-    m,n = size(data.A)
-    ξ = variables.x/variables.τ
-    K = [data.P data.A' data.q; -data.A spzeros(T,m,m) data.b; -(2*data.P*ξ + data.q)' -data.b' dot(ξ,data.P,ξ)]
-    v1 = [zeros(T,n,1); lhs.s.vec; lhs.κ]
-    v2 = [lhs.x; lhs.z.vec; lhs.τ]
-    v3 = [rhs.x; rhs.z.vec; rhs.τ]
-    res = v1 - K*v2+v3
-
-    # Q = [kktsystem.kktsolver.ldlsolver.KKTsym vcat(data.q, -data.b); -(2*data.Psym*ξ + data.q)' -data.b' (dot(ξ,data.Psym,ξ)+variables.κ/variables.τ)]
-    # w1 = [lhs.x; lhs.z.vec; lhs.τ]
-    # w2 = [rhs.x; kktsystem.work_conic.vec-rhs.z.vec; rhs.τ - rhs.κ/variables.τ]
-    # res = Q*w1 - w2
-
-    println("KKT residual is: ", norm(res,Inf))
-
 end
 
 # offset diagonal static regularization directly

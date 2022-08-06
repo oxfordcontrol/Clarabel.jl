@@ -22,14 +22,10 @@ struct ConeSet{T}
     headidx::Vector{Int}
 
     # the scaling for unsymmetric backtrack
-    scaling::T              #backtracking parameter
-    minDist::T
-    ind_exp::Vector{Int}    #index for exponential cones
-    ind_pow::Vector{Int}    #index for power cones
-    η::T                    #upper centrality parameter
+    backtrack::T              #backtracking parameter
 
     # the flag for symmetric cone check
-    symFlag::Bool
+    sym_flag::Bool
 
     function ConeSet{T}(cone_specs::Vector{<:SupportedCone}) where {T}
 
@@ -50,27 +46,14 @@ struct ConeSet{T}
         end
 
         # parameter for unsymmetric cones
-        scaling = T(0.8)
-        minDist = T(0.1)
-        ind_exp = Vector{Int}(undef,type_counts[ExponentialConeT])
-        ind_pow = Vector{Int}(undef,type_counts[PowerConeT])
-        η = T(1)     #should be less than 1 theoretically; but we could set it larger empirically
-
-        cur_exp = 0
-        cur_pow = 0
-        # create cones with the given dims
-        # store indexing of exponential and power cones
+        backtrack = T(0.8)
 
         #create cones with the given dims
         for i in eachindex(cone_specs)
             types[i] = typeof(cone_specs[i])
             if types[i] == ExponentialConeT
-                cur_exp += 1
-                ind_exp[cur_exp] = i
                 cones[i] = ConeDict[typeof(cone_specs[i])]{T}()
             elseif types[i] == PowerConeT
-                cur_pow += 1
-                ind_pow[cur_pow] = i
                 cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].α)
             else
                 cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].dim)
@@ -89,12 +72,12 @@ struct ConeSet{T}
         #check whether the problem only contains symmetric cones
         if (type_counts[ZeroConeT] + type_counts[NonnegativeConeT] +
             type_counts[SecondOrderConeT] + type_counts[PSDTriangleConeT] == ncones)
-            symFlag = true
+            sym_flag = true
         else
-            symFlag = false
+            sym_flag = false
         end
 
-        return new(cones,cone_specs,types,type_counts,numel,degree,headidx,scaling,minDist,ind_exp,ind_pow,η,symFlag)
+        return new(cones,cone_specs,types,type_counts,numel,degree,headidx,backtrack,sym_flag)
     end
 end
 

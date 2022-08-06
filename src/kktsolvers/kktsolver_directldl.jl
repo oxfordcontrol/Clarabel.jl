@@ -30,7 +30,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
     #symmetric view for residual calcs
     KKTsym::Symmetric{T, SparseMatrixCSC{T,Int}}
-    absKKTdiag::Vector{T}
+    abs_kkt_diag::Vector{T}
 
     #settings just points back to the main solver settings.
     #Required since there is no separate LDL settings container
@@ -77,13 +77,13 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         #the following to allow products like KKT*x
         KKTsym = Symmetric(KKT)
 
-        KKTdiag = @view KKT[map.diag_full]
-        absKKTdiag = abs.(KKTdiag)
+        kkt_diag = @view KKT[map.diag_full]
+        abs_kkt_diag = abs.(kkt_diag)
 
         #the LDL linear solver engine
         ldlsolver = ldlsolverT{T}(KKT,Dsigns,settings)
 
-        return new(m,n,p,x,b,work_e,work_dx,map,Dsigns,WtWblocks,KKT,KKTsym,absKKTdiag,settings,ldlsolver)
+        return new(m,n,p,x,b,work_e,work_dx,map,Dsigns,WtWblocks,KKT,KKTsym,abs_kkt_diag,settings,ldlsolver)
     end
 
 end
@@ -277,10 +277,10 @@ function _kktsolver_update_inner!(
     # YC:: To add a dynamic regularization w.r.t. the maximum absolute value of diagonal terms,
     #      we also modify the regularization of P at each iteration 
     KKTdiag = @view KKT.nzval[map.diag_full]
-    absKKTdiag = kktsolver.absKKTdiag
+    abs_kkt_diag = kktsolver.abs_kkt_diag
 
-    @. absKKTdiag = abs(KKTdiag)
-    maxdiag = maximum(absKKTdiag)
+    @. abs_kkt_diag = abs(KKTdiag)
+    maxdiag = maximum(abs_kkt_diag)
 
     if(settings.static_regularization_enable)
         ϵ = settings.static_regularization_eps
@@ -303,11 +303,11 @@ function choose_scaling(
     kktsolver::DirectLDLKKTSolver{T}
 ) where {T}
     settings = kktsolver.settings
-    absKKTdiag = kktsolver.absKKTdiag
+    abs_kkt_diag = kktsolver.abs_kkt_diag
 
     # YC: This step could be improved by finding the minimum and the maximum simultaneously
-    maxdiag = maximum(absKKTdiag)
-    mindiag = minimum(absKKTdiag)
+    maxdiag = maximum(abs_kkt_diag)
+    mindiag = minimum(abs_kkt_diag)
 
     if(settings.static_regularization_enable)
         ϵ = settings.static_regularization_eps
