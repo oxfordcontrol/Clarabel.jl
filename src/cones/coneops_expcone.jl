@@ -23,12 +23,12 @@ function update_scaling!(
     s::AbstractVector{T},
     z::AbstractVector{T},
     μ::T,
-    flag::Bool
+    scale_flag::Bool
 ) where {T}
     # update both gradient and Hessian for function f*(z) at the point z
     # NB: the update order can't be switched as we reuse memory in the Hessian computation
     # Hessian update
-    update_HBFGS(K,s,z,flag)
+    update_HBFGS(K,s,z,scale_flag)
     GradF(K,z,K.grad)
     # K.z .= z
     @inbounds for i = 1:3
@@ -130,26 +130,26 @@ function WtW_Δz!(
 end
 
 #return maximum allowable step length while remaining in the exponential cone
-function unsymmetric_step_length(
+function step_length(
     K::ExponentialCone{T},
     dz::AbstractVector{T},
     ds::AbstractVector{T},
      z::AbstractVector{T},
      s::AbstractVector{T},
      α::T,
-     scaling::T
+     backtrack::T
 ) where {T}
 
     if isnan(α)
         error("numerical error")
     end
 
-    αz = _step_length_exp_dual(K.vecWork,dz,z,α,scaling)
-    αs = _step_length_exp_primal(K.vecWork,ds,s,α,scaling)
+    αz = _step_length_exp_dual(K.vecWork,dz,z,α,backtrack)
+    αs = _step_length_exp_primal(K.vecWork,ds,s,α,backtrack)
 
     #PJG: prevfloat is probably not portable 
     # and I don't understand why it is being used
-    return prevfloat(min(αz,αs))
+    return (αz,αs)
 end
 
 
@@ -160,7 +160,7 @@ function _step_length_exp_primal(
     ds::AbstractVector{T},
     s::AbstractVector{T},
     α::T,
-    scaling::T
+    backtrack::T
 ) where {T}
 
     # @. ws = s + α*ds
@@ -175,7 +175,7 @@ function _step_length_exp_primal(
             # error("Expcone's step size fails in primal feasibility check!")
             return zero(T)
         end
-        α *= scaling    #backtrack line search
+        α *= backtrack    #backtrack line search
         # @. ws = s + α*ds
         @inbounds for i = 1:3
             ws[i] = s[i] + α*ds[i]
@@ -190,7 +190,7 @@ function _step_length_exp_dual(
     dz::AbstractVector{T},
     z::AbstractVector{T},
     α::T,
-    scaling::T
+    backtrack::T
 ) where {T}
 
     # NB: additional memory, may need to remove it later
@@ -205,7 +205,7 @@ function _step_length_exp_dual(
             # error("Expcone's step size fails in dual feasibility check!")
             return zero(T)
         end
-        α *= scaling    #backtrack line search
+        α *= backtrack    #backtrack line search
         # @. ws = z + α*dz
         @inbounds for i = 1:3
             ws[i] = z[i] + α*dz[i]
@@ -268,7 +268,7 @@ function compute_Hessian(
 
 end
 
-function f_sum(
+function compute_centrality(
     K::ExponentialCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T}
@@ -478,7 +478,7 @@ function update_HBFGS(
     K::ExponentialCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
-    flag::Bool
+    scale_flag::Bool
 ) where {T}
     # reuse memory
     st = K.gradWork
@@ -499,7 +499,7 @@ function update_HBFGS(
     end
 
     # use the dual scaling
-    if !flag
+    if !scale_flag
         return nothing
     end
 

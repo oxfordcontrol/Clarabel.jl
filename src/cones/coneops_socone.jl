@@ -302,7 +302,9 @@ function step_length(
     dz::AbstractVector{T},
     ds::AbstractVector{T},
      z::AbstractVector{T},
-     s::AbstractVector{T}
+     s::AbstractVector{T},
+     α::T,
+     backtrack::T
 ) where {T}
 
     αz   = _step_length_soc_component(dz,z)
@@ -349,7 +351,7 @@ function _step_length_soc_component(
 
 end
 
-function f_sum(
+function compute_centrality(
     K::SecondOrderCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T}
@@ -364,28 +366,4 @@ function f_sum(
     else
         return Inf
     end
-end
-
-# check neighbourhood
-function _check_neighbourhood(
-    K::SecondOrderCone{T},
-    s::AbstractVector{T},
-    z::AbstractVector{T},
-    μ::T,
-    η::T
-) where {T}
-    # # NB: need to avoid redundant memory later
-    # tmp = zeros(T,length(s))
-
-    # circ_op!(K,tmp,s,z)
-    # add_scaled_e!(K,tmp,-μ)
-
-    # if norm(tmp) < η
-    #     return true
-    # end
-
-    # return false
-
-    return true
-
 end

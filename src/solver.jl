@@ -217,7 +217,7 @@ function solve!(
             # generic across solvers or problem domains.
             # YC: The flag is to determine when we switch from primal-dual scaling to the dual scaling depending on the conditioning number of the KKT matrix. 
 
-            variables_scale_cones!(s.variables,s.cones,μ,s.kktsystem.kktsolver.corFlag)
+            variables_scale_cones!(s.variables,s.cones,μ,s.kktsystem.kktsolver.scale_flag)
 
             #update the KKT system and the constant
             #parts of its solution
@@ -238,17 +238,12 @@ function solve!(
                 )
             end
 
-            # check_KKT_system!(
-            #     s.kktsystem, s.step_lhs, s.step_rhs,
-            #     s.data, s.variables, s.cones)
-
             #calculate step length and centering parameter
             #--------------
             @timeit_debug timer "step length affine" begin
                 α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:affine)
                 σ = calc_centering_parameter(α)
             end
-            # println("σ is: ", σ)
 
             #calculate the combined step and length
             #--------------
@@ -271,28 +266,6 @@ function solve!(
                 α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:combined)
             end
 
-            # PJG: I don't know what's going on in the loop below,
-            # but it might be better to pull this into its own
-            # function.   Also need to remove the print statements
-            # YC: This is a premature test for the multi-correction step, but it seems to be unnecessary 
-            #     if we update the KKT by the dual scaling as soon as the flag turns off.
-
-            while (α < 0.1 && σ < one(T))
-                println("step size too small!! with σ is ", σ)
-                σ *= 10
-                calc_combined_step_rhs!(
-                    s.step_rhs, s.residuals,
-                    s.variables, s.cones,
-                    s.step_lhs, σ, μ
-                )
-                kkt_solve!(
-                    s.kktsystem, s.step_lhs, s.step_rhs,
-                    s.data, s.variables, s.cones, :combined
-                )
-                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:combined)
-                println("update α ", α)
-            end
-
             @timeit_debug timer "alpha scale " α *= s.settings.max_step_fraction
 
             @timeit_debug timer "variables_add_step" begin
@@ -306,10 +279,6 @@ function solve!(
 
             # YC:: offset_KKT_diag directly
             offset_KKT_diag(s.kktsystem.kktsolver)
-
-            # #update the scalings
-            # #--------------
-            # @timeit_debug timer "NT scaling" scaling_update!(s.cones,s.variables,μ)
 
         end  #end while
         #----------
@@ -338,7 +307,7 @@ end
 function solver_default_start!(s::Solver{T}) where {T}
     # YC:If there are only smmetric cones, use Mehrotra initialization strategy as ECOS and CVXOPT
     # Otherwise, initialize it along central rays
-    if (s.cones.symFlag)
+    if (s.cones.sym_flag)
         #set all scalings to identity (or zero for the zero cone)
         cones_set_identity_scaling!(s.cones)
         #Refactor
@@ -359,32 +328,6 @@ end
 
 function Base.show(io::IO, solver::Clarabel.Solver{T}) where {T}
     println(io, "Clarabel model with Float precision: $(T)")
-end
-
-# YC:need to be removed later
-function check_KKT_system!(
-    kktsystem::DefaultKKTSystem{T},
-    lhs::DefaultVariables{T},
-    rhs::DefaultVariables{T},
-    data::DefaultProblemData{T},
-    variables::DefaultVariables{T},
-    cones::ConeSet{T},
-) where {T}
-    m,n = size(data.A)
-    ξ = variables.x/variables.τ
-    K = [data.P data.A' data.q; -data.A spzeros(T,m,m) data.b; -(2*data.P*ξ + data.q)' -data.b' dot(ξ,data.P,ξ)]
-    v1 = [zeros(T,n,1); lhs.s.vec; lhs.κ]
-    v2 = [lhs.x; lhs.z.vec; lhs.τ]
-    v3 = [rhs.x; rhs.z.vec; rhs.τ]
-    res = v1 - K*v2+v3
-
-    # Q = [kktsystem.kktsolver.ldlsolver.KKTsym vcat(data.q, -data.b); -(2*data.Psym*ξ + data.q)' -data.b' (dot(ξ,data.Psym,ξ)+variables.κ/variables.τ)]
-    # w1 = [lhs.x; lhs.z.vec; lhs.τ]
-    # w2 = [rhs.x; kktsystem.work_conic.vec-rhs.z.vec; rhs.τ - rhs.κ/variables.τ]
-    # res = Q*w1 - w2
-
-    println("KKT residual is: ", norm(res,Inf))
-
 end
 
 # offset diagonal static regularization directly

@@ -145,7 +145,7 @@ function WtW_Δz!(
 end
 
 #return maximum allowable step length while remaining in the Power cone
-function unsymmetric_step_length(
+function step_length(
     K::PowerCone{T},
     dz::AbstractVector{T},
     ds::AbstractVector{T},
@@ -165,7 +165,7 @@ function unsymmetric_step_length(
     αz = _step_length_power_dual(K.vecWork,dz,z,α,scaling,αExp)
     αs = _step_length_power_primal(K.vecWork,ds,s,α,scaling,αExp)
 
-    return prevfloat(min(αz,αs))
+    return (αz,αs)
 end
 
 
@@ -281,7 +281,7 @@ function compute_Hessian(
 
 end
 
-function f_sum(
+function compute_centrality(
     K::PowerCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T}

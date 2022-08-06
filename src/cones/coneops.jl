@@ -137,28 +137,6 @@ function unit_initialization!(
     return nothing
 end
 
-# computes y = αWx + βy, or y = αWᵀx + βy, i.e.
-# similar to the BLAS gemv interface.
-#Warning: x must not alias y.
-function cones_gemv_W!(
-    cones::ConeSet{T},
-    is_transpose::Symbol,
-    x::ConicVector{T},
-    y::ConicVector{T},
-    α::T,
-    β::T
-) where {T}
-
-    #@assert (x !== y)
-    for (cone,xi,yi) in zip(cones,x.views,y.views)
-        # don't implement it for unsymmetric cones
-        if !(cone in NonsymmetricCones)
-            @conedispatch gemv_W!(cone,is_transpose,xi,yi,α,β)
-        end
-    end
-    return nothing
-end
-
 # compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - ds
 function cones_combined_ds!(
     cones::ConeSet{T},
@@ -246,13 +224,8 @@ function cones_step_length(
     # YC: implement step search for symmetric cones first
     # NB: split the step search for symmetric and unsymmtric cones due to the complexity of the latter
     for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
-        if (type in NonsymmetricCones)
-            @conedispatch αzs = unsymmetric_step_length(cone,dzi,dsi,zi,si,α,cones.scaling)
-            α = min(α,αzs)
-        else
-            @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si)
-            α = min(α,nextαz,nextαs)
-        end
+        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,α,cones.backtrack)
+        α = prevfloat(min(α,nextαz,nextαs))
     end
 
     return α
@@ -289,7 +262,7 @@ function check_μ_and_centrality(
     # for use in a backtracking line search?
     # YC: Yes, it is for a backtracking line search.
 
-    scaling = cones.scaling
+    backtrack = cones.backtrack
 
     for j = 1:50
         # current z,s
@@ -300,30 +273,15 @@ function check_μ_and_centrality(
 
         # compute current μ
         μ = (dot(cur_s,cur_z) + cur_τ*cur_κ)/central_coef
-        upper = cones.minDist*μ     #upper bound for the distance to boundaries
 
-        # #boundary check from ECOS and centrality check from Hypatia
-        # # NB:   1) the update x+α*dx is inefficient right now and need to be rewritten later
-        # #       2) symmetric cones use the central path as in CVXOPT
-        # if boundary_check!(cur_z,cur_s,ind_exp,length_exp,upper) && boundary_check!(cur_z,cur_s,ind_pow,length_pow,upper) && check_centrality!(cones,cur_s,cur_z,μ,η)
-        #     return α
-        # else
-        #     α *= scaling
-        # end
-
-
-        # check centrality, functional proximity measure like ECOS
-        # if !(boundary_check!(cur_z,cur_s,ind_exp,length_exp,upper) && boundary_check!(cur_z,cur_s,ind_pow,length_pow,upper))
-        #     α *= scaling
-        #     continue
-        # end
+        # check centrality
         barrier = central_coef*log(μ) - log(cur_τ) - log(cur_κ)
 
-        #"f_sum" is not a good function name.   I can't tell what
+        #"compute_centrality" is not a good function name.   I can't tell what
         #it does from the name.
 
         for (cone,cur_si,cur_zi) in zip(cones,cur_s.views, cur_z.views)
-            @conedispatch barrier += f_sum(cone, cur_si, cur_zi)
+            @conedispatch barrier += compute_centrality(cone, cur_si, cur_zi)
         end
 
         if barrier < 1.
@@ -337,7 +295,7 @@ function check_μ_and_centrality(
             # YC: Right now I just follow the same strategy in ECOS
             # and it could be improved by some smarter methods.
 
-            α = prevfloat(scaling*α)    #backtrack line search
+            α = prevfloat(backtrack*α)    #backtrack line search
         end
 
     end
@@ -345,41 +303,3 @@ function check_μ_and_centrality(
     return α
 end
 
-###############################################################
-# Unused functions that may be removed later
-###############################################################
-function boundary_check!(z,s,ind_cone,length_cone,upper)
-
-    for i = 1:length_cone
-        μi = dot(z.views[ind_cone[i]],s.views[ind_cone[i]])/3
-
-        # PJG: What is this doing?  What is "upper"
-        # YC: check whether a point is too close to a boundary given current global μ
-        # but it is used at present
-        if μi < upper
-            println("var too close to boundary")
-            return false
-        end
-    end
-
-    return true
-end
-
-function check_centrality!(cones,s,z,μ,η)
-
-    # PJG: function names should agree between the ConeSet
-    # and the constituent cones, i.e. should dispatch to
-    # cone_check_neighbourhood.
-    #
-    # PJG: Add types to function definition above.
-    # YC: not used at present and may be removed later on
-
-    for (cone,si,zi) = zip(cones,s.views,z.views)
-        @conedispatch _chk = _check_neighbourhood(cone,si,zi,μ,η)
-        if !_chk
-            return false
-        end
-    end
-
-    return true
-end
