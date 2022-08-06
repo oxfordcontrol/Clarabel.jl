@@ -333,7 +333,9 @@ function step_length(
     dz::AbstractVector{T},
     ds::AbstractVector{T},
      z::AbstractVector{T},
-     s::AbstractVector{T}
+     s::AbstractVector{T},
+     α::T,
+     backtrack::T
 ) where {T}
 
     Λisqrt = K.work.Λisqrt
@@ -369,7 +371,7 @@ function _step_length_psd_component(
 
 end
 
-# function f_sum(
+# function compute_centrality(
 #     K::PSDTriangleCone{T},
 #     s::AbstractVector{T},
 #     z::AbstractVector{T}
@@ -377,27 +379,3 @@ end
 #     error("sdp barrier is computationally expensive")
 #     # return -log(det(s)) - log(det(z))
 # end
-
-# check neighbourhood
-function _check_neighbourhood(
-    K::PSDTriangleCone{T},
-    s::AbstractVector{T},
-    z::AbstractVector{T},
-    μ::T,
-    η::T
-) where {T}
-
-    # # NB: need to avoid redundant memory later
-    # tmp = zeros(T,length(s))
-
-    # circ_op!(K,tmp,s,z)
-    # add_scaled_e!(K,tmp,-μ)
-
-    # if norm(tmp, Inf) < η
-    #     return true
-    # end
-
-    # return false
-
-    return true
-end

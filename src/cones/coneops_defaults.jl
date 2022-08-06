@@ -244,7 +244,9 @@ function step_length(
     dz::AbstractVector{T},
     ds::AbstractVector{T},
      z::AbstractVector{T},
-     s::AbstractVector{T}
+     s::AbstractVector{T},
+     α::T,
+     backtrack::T
 ) where {T}
 
      error("Incomplete cone operation specification: ",typeof(K))
@@ -252,26 +254,10 @@ function step_length(
 end
 
 # Computes f(s) + f*(z) for each cone as in Section 8.3 in Santiago's thesis
-function f_sum(
+function compute_centrality(
     K::AbstractCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T}
-) where {T}
-
-    error("Incomplete cone operation specification: ",typeof(K))
-
-end
-
-# check the neighbourhood
-#   1) nonsymmetric cones: ||ψ(z,s,μ)||_z^* ≤ η, where ψ(z,s,μ) = s + μg*(z) = s - H*(z)[z] and norm ||⋅||_z^* w.r.t H*^{-1}(z)
-#   2) symmetric cones: ||s∘z - μe|| ≤ η,
-#   Here, we choose norm_inf instead of norm2
-function _check_neighbourhood(
-    K::AbstractCone{T},
-    s::AbstractVector{T},
-    z::AbstractVector{T},
-    μ::T,
-    η::T
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
