@@ -60,10 +60,13 @@ function info_check_termination!(
     # println("current gap: ", min(info.gap_abs, info.gap_rel))
 
     # check whether residuals diverges or not
-    if (((info.res_dual > 0.99*info.prev_res_dual) || (info.res_primal > 0.99*info.prev_res_primal)) 
+    if (((info.res_dual > info.prev_res_dual) || (info.res_primal > info.prev_res_primal)) 
         && (iter > 0) && (info.ktratio < 1e-8)
     )
-            info.status = EARLY_TERMINATED
+            # YC: Terminate early when the gap is small enough
+            if (info.gap_abs < settings.tol_gap_abs) || (info.gap_rel < settings.tol_gap_rel)
+                info.status = EARLY_TERMINATED
+            end
     else
         if( ((info.gap_abs < settings.tol_gap_abs) || (info.gap_rel < settings.tol_gap_rel))
             && (info.res_primal < settings.tol_feas)
@@ -121,6 +124,25 @@ function info_save_prev_iterates(
     prev_variables.z    .= variables.z
     prev_variables.τ     = variables.τ
     prev_variables.κ     = variables.κ
+end
+
+function info_reset_to_prev_iterates(
+    info::DefaultInfo{T},
+    variables::DefaultVariables{T},
+    prev_variables::DefaultVariables{T}
+) where {T}
+    info.cost_primal    = info.prev_cost_primal
+    info.cost_dual      = info.prev_cost_dual
+    info.res_primal     = info.prev_res_primal
+    info.res_dual       = info.prev_res_dual
+    info.gap_abs        = info.prev_gap_abs
+    info.gap_rel        = info.prev_gap_rel
+
+    variables.x    .= prev_variables.x
+    variables.s    .= prev_variables.s
+    variables.z    .= prev_variables.z
+    variables.τ     = prev_variables.τ
+    variables.κ     = prev_variables.κ
 end
 
 function info_save_scalars(

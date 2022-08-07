@@ -22,7 +22,7 @@ filelist = readdir(pwd()*"./primal_exp_cbf")
 for j = 1:32    #length(filelist)
     println("Current file is ", j)
     datadir = filelist[j]   #"gp_dave_1.cbf.gz"
-    # datadir = "demb781.cbf.gz"
+    # datadir = "rijc785.cbf.gz"
     dat = readcbfdata("./primal_exp_cbf/"*datadir) # .cbf.gz extension also accepted
 
     println("Current file is: ", datadir)
@@ -39,14 +39,14 @@ for j = 1:32    #length(filelist)
     num_var = size(A,2)
 
     model = Model(Clarabel.Optimizer)
-    set_optimizer_attribute(model, "direct_solve_method", :qdldl)
+    set_optimizer_attribute(model, "direct_solve_method", :cholmod)
     # set_optimizer_attribute(model, "static_regularization_eps", 1e-7)
     set_optimizer_attribute(model, "tol_gap_abs", 1e-8)
     set_optimizer_attribute(model, "tol_gap_rel", 1e-8)
-    # set_optimizer_attribute(model, "tol_feas", 1e-8)
+    set_optimizer_attribute(model, "tol_feas", 1e-8)
     set_optimizer_attribute(model, "tol_infeas_abs", 1e-8)
     set_optimizer_attribute(model, "tol_infeas_rel", 1e-8)
-    # set_optimizer_attribute(model, "proportional_eps", Float64(1e-16))
+    # set_optimizer_attribute(model, "dynamic_proportional_eps", Float64(1e-16))
     
     # model = Model(Hypatia.Optimizer)
     # model = Model(ECOS.Optimizer)

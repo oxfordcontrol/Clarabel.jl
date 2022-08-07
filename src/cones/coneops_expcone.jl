@@ -110,8 +110,8 @@ function combined_ds!(
         dz[i] = K.grad[i]*σμ - η[i]
     end
     # if scale_flag
-    #     η = K.gradWork
-    #     higherCorrection!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
+    #     η = K.grad_work
+    #     higher_correction!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
     #     @inbounds for i = 1:3
     #         dz[i] = K.grad[i]*σμ - η[i]
     #     end

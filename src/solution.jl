@@ -3,7 +3,8 @@ function solution_finalize!(
 	solution::DefaultSolution{T},
 	data::DefaultProblemData{T},
 	variables::DefaultVariables{T},
-	info::DefaultInfo{T}
+	info::DefaultInfo{T},
+	settings::Settings{T}
 ) where {T}
 
 	solution.status  = info.status
@@ -14,10 +15,20 @@ function solution_finalize!(
 	solution.z .= variables.z
 	solution.s .= variables.s
 
+	# YC: determine the final status if the solver terminates early due to a numerical issue
+	if (info.status == EARLY_TERMINATED || info.status == NUMERICALLY_HARD)
+		if( ((info.gap_abs < settings.reduced_tol_gap_abs) || (info.gap_rel < settings.reduced_tol_gap_rel))
+            && (info.res_primal < settings.reduced_tol_feas)
+            && (info.res_dual   < settings.reduced_tol_feas)
+        )
+			info.status = APPROX_SOLVED
+		end
+	end
+
     #if we have an infeasible problem, normalize
     #using κ to get an infeasibility certificate.
     #Otherwise use τ to get a solution.
-    if(info.status == PRIMAL_INFEASIBLE || info.status == DUAL_INFEASIBLE)
+    if (info.status == PRIMAL_INFEASIBLE || info.status == DUAL_INFEASIBLE)
         scaleinv = one(T) / variables.κ
 		solution.obj_val = NaN
     else

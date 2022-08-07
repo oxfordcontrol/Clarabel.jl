@@ -204,9 +204,20 @@ function solve!(
                 isdone = info_check_termination!(s.info,s.residuals,s.settings,iter)
             end
 
-            # use the previous iterate as the final solution
+            
+            # YC: check if the step size is too small
+            if s.info.step_length < 1e-4
+                if s.scale_flag
+                    s.scale_flag = false
+                else
+                    isdone = true
+                    s.info.status = EARLY_TERMINATED
+                end
+            end
+
+            # YC: use the previous iterate as the final solution
             if isdone && s.info.status == EARLY_TERMINATED
-                info_save_prev_iterates(s.info,s.work_vars,s.variables)
+                # info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
                 break
             end
 
@@ -230,8 +241,15 @@ function solve!(
             #--------------
             @timeit s.timers "kkt update" numerical_check = kkt_update!(s.kktsystem,s.data,s.cones)
 
-            # YC: if kkt_solve fails due to numerical issues
-            if numerical_check
+            if numerical_check && s.scale_flag
+                # reset to the dual scaling strategy firstly
+                s.scale_flag = false
+                variables_scale_cones!(s.variables,s.cones,μ,s.scale_flag)
+                numerical_check = kkt_update!(s.kktsystem,s.data,s.cones)
+            end
+            
+            if numerical_check && !(s.scale_flag)
+                # YC: if kkt_solve fails due to numerical issues
                 s.info.status = NUMERICALLY_HARD
                 break
             end
@@ -314,9 +332,13 @@ function solve!(
                 info_save_scalars(s.info,μ,α,σ,iter)
             end
 
+            # YC: switch from the primal-dual scaling to the dual scaling
+            if s.scale_flag == true && switch_scaling(s.kktsystem.kktsolver)
+                s.scale_flag = false
+            end
+
             # PJG: need to reset (solver.scale_flag = true) after solving a problem
             # YC:: offset_KKT_diag directly
-            s.scale_flag = choose_scaling(s.kktsystem.kktsolver)
             offset_KKT_diag(s.kktsystem.kktsolver)
 
         end  #end while
@@ -328,7 +350,7 @@ function solve!(
     end #end solve! timer
 
     info_finalize!(s.info,s.timers)  #halts timers
-    solution_finalize!(s.solution,s.data,s.variables,s.info)
+    solution_finalize!(s.solution,s.data,s.variables,s.info,s.settings)
 
     @notimeit info_print_footer(s.info,s.settings)
 

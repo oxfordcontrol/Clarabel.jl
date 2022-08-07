@@ -19,10 +19,15 @@ time_limit                              | Inf       | maximum run time (seconds)
 verbose                                 | true      | verbose printing
 tol\\_gap\\_abs                         | 1e-8      | absolute residual tolerance
 tol\\_gap\\_rel                         | 1e-8      | relative residual tolerance
-tol\\_feas                              | 1e-5      | feasibility check tolerance
+tol\\_feas                              | 1e-6      | feasibility check tolerance
 tol\\_infeas\\_abs						| 1e-8		| absolute infeasibility tolerance
 tol\\_infeas\\_rel						| 1e-8		| relative infeasibility tolerance
 max\\_step\\_fraction                   | 0.99      | maximum interior point step length
+||
+__Reduced Accuracy Settings__||
+reduced\\_tol\\_gap\\_abs::T            | 1e-6      | reduced absolute residual tolerance
+reduced\\_tol\\_gap\\_rel::T            | 1e-6      | reduced relative residual tolerance
+reduced\\_tol\\_feas::T                 | 1e-5      | reduced feasibility check tolerance
 ||
 __Data Equilibration Settings__||
 ||
@@ -40,6 +45,7 @@ static\\_regularization\\_eps           | 1e-8      | KKT static regularization 
 dynamic\\_regularization\\_enable       | true      | enable KKT dynamic regularization
 dynamic\\_regularization\\_eps          | 1e-13     | KKT dynamic regularization threshold
 dynamic\\_regularization\\_delta        | 2e-7      | KKT dynamic regularization shift
+dynamic\\_proportional\\_eps            | eps(T)    | KKT proportionally dynamic regularization 
 iterative\\_refinement\\_enable         | true      | KKT solve with iterative refinement
 iterative\\_refinement\\_reltol         | 1e-10     | iterative refinement relative tolerance
 iterative\\_refinement\\_abstol         | 1e-10     | iterative refinement absolute tolerance
@@ -54,10 +60,15 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     verbose::Bool           = true
     tol_gap_abs::T          = 1e-8
     tol_gap_rel::T          = 1e-8
-    tol_feas::T             = 1e-5
+    tol_feas::T             = 1e-8
 	tol_infeas_abs::T		= 1e-8
 	tol_infeas_rel::T		= 1e-8
     max_step_fraction::T    = 0.99
+
+    # YC: reduced accuracy
+    reduced_tol_gap_abs::T          = 5e-5
+    reduced_tol_gap_rel::T          = 5e-5
+    reduced_tol_feas::T             = 1e-4
 
 	#data equilibration
 	equilibrate_enable::Bool            = true
@@ -80,7 +91,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     dynamic_regularization_delta::T     = 2e-7
 
     # proportional regularization w.r.t. the maximum diagonal term
-    proportional_eps = eps(T)
+    dynamic_proportional_eps = eps(T)
 
     #iterative refinement (for QDLDL)
     iterative_refinement_enable::Bool   = true

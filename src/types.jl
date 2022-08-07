@@ -203,6 +203,7 @@ Otherwise:
 @enum SolverStatus begin
     UNSOLVED           = 0
     SOLVED
+    APPROX_SOLVED
     PRIMAL_INFEASIBLE
     DUAL_INFEASIBLE
     MAX_ITERATIONS
@@ -214,6 +215,7 @@ end
 const SolverStatusDict = Dict(
     UNSOLVED            =>  "unsolved",
     SOLVED              =>  "solved",
+    APPROX_SOLVED       =>  "approximately solved",
     PRIMAL_INFEASIBLE   =>  "primal infeasible",
     DUAL_INFEASIBLE     =>  "dual infeasible",
     MAX_ITERATIONS      =>  "iteration limit",

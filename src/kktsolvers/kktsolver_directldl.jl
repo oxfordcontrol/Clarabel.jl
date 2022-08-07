@@ -284,7 +284,7 @@ function _kktsolver_update_inner!(
 
     if(settings.static_regularization_enable)
         ϵ = settings.static_regularization_eps
-        ξ = settings.proportional_eps
+        ξ = settings.dynamic_proportional_eps
         kktsolver.ϵ = ϵ + ξ*maxdiag
 
         (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
@@ -299,7 +299,7 @@ end
 
 # determine the scaling strategy for exponential cones. 
 # True for the primal-dual scaling and false for the dual scaling.
-function choose_scaling(
+function switch_scaling(
     kktsolver::DirectLDLKKTSolver{T}
 ) where {T}
     settings = kktsolver.settings
@@ -317,8 +317,6 @@ function choose_scaling(
 
     # switch from the primal-dual scaling to the pure dual scaling when the conditioning number is larger than 1/eps(T)
     if  mindiag/maxdiag < eps(T)
-        return false
-    else 
         return true
     end
 end
