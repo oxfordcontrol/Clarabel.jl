@@ -32,7 +32,6 @@ model = JuMP.Model(Clarabel.Optimizer)
 
 set_optimizer_attribute(model, "direct_solve_method", :qdldl)
 set_optimizer_attribute(model, "static_regularization_eps", 1e-8)
-set_optimizer_attribute(model, "proportional_eps", Float64(1e-16))
 set_optimizer_attribute(model, "tol_gap_abs", 1e-8)
 set_optimizer_attribute(model, "tol_gap_rel", 1e-8)
 set_optimizer_attribute(model, "verbose", true)

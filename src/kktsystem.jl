@@ -154,7 +154,7 @@ function kkt_solve!(
     ξ   = workx
     # ξ  .= variables.x / variables.τ
     copyto!(ξ,variables.x)
-    BLAS.scal!(variables.τ,ξ)
+    @. ξ /= variables.τ
 
     P   = Symmetric(data.P)
 

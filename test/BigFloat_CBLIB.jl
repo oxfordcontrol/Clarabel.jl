@@ -1,6 +1,6 @@
 using LinearAlgebra, SparseArrays
-# include("../src\\Clarabel.jl")
-using Clarabel
+include("../src\\Clarabel.jl")
+# using Clarabel
 using ConicBenchmarkUtilities
 
 coneMap = Dict(:Zero => Clarabel.ZeroConeT, :Free => :Free,
@@ -8,13 +8,14 @@ coneMap = Dict(:Zero => Clarabel.ZeroConeT, :Free => :Free,
                      :SOC => Clarabel.SecondOrderConeT,
                      :ExpPrimal => Clarabel.ExponentialConeT)
 
-filelist = readdir(pwd()*"./primal_exp_cbf")
+# filelist = readdir(pwd()*"./primal_exp_cbf")
 
 # dat = readcbfdata("./exp_cbf/car.cbf.gz") # .cbf.gz extension also accepted
 
 for j = 1:32    #length(filelist)
     println("Current file is ", j)
-    datadir = filelist[j]   #"gp_dave_1.cbf.gz"
+    datadir = filelist[j]   
+    # datadir = "gp_dave_1.cbf.gz"
     dat = readcbfdata("./primal_exp_cbf/"*datadir) # .cbf.gz extension also accepted
 
     println("Current file is: ", datadir)
@@ -37,8 +38,7 @@ for j = 1:32    #length(filelist)
 
     P = spzeros(T,num_var,num_var)
 
-    cone_types = Vector{Clarabel.SupportedCones}(undef, 0)
-    cone_dims  = Vector{Int}(undef, 0)
+    cones = Vector{Clarabel.SupportedCone}(undef, 0)
     Anew = Array{T}(undef, 0, num_var)
     bnew = Vector{T}(undef, 0)
 
@@ -55,14 +55,17 @@ for j = 1:32    #length(filelist)
             Anew = vcat(Anew, - Imatrix[cur_var[2],:])
             bnew = vcat(bnew, zeros(length(cur_var[2])))
 
-            cone_types = vcat(cone_types, [Clarabel.NonnegativeConeT])
-            cone_dims  = vcat(cone_dims, length(cur_var[2]))            
+            cones = vcat(cones, [Clarabel.NonnegativeConeT(length(cur_var[2]))])        
+        elseif coneMap[cur_var[1]] == Clarabel.ExponentialConeT
+            Anew = vcat(Anew, Imatrix[cur_var[2],:])
+            bnew = vcat(bnew, zeros(length(cur_var[2])))
+
+            cones = vcat(cones, coneMap[cur_var[1]]())
         else 
             Anew = vcat(Anew, Imatrix[cur_var[2],:])
             bnew = vcat(bnew, zeros(length(cur_var[2])))
 
-            cone_types = vcat(cone_types, coneMap[cur_var[1]])
-            cone_dims  = vcat(cone_dims, length(cur_var[2]))
+            cones = vcat(cones, coneMap[cur_var[1]](length(cur_var[2])))
         end
     end
 
@@ -78,25 +81,25 @@ for j = 1:32    #length(filelist)
             Anew = vcat(Anew, - A[cur_cone[2],:])
             bnew = vcat(bnew, -b[cur_cone[2]])
 
-            cone_types = vcat(cone_types, [Clarabel.NonnegativeConeT])
-            cone_dims  = vcat(cone_dims, length(cur_cone[2]))               
+            cones = vcat(cones, [Clarabel.NonnegativeConeT(length(cur_cone[2]))])   
+        elseif coneMap[cur_cone[1]] == Clarabel.ExponentialConeT
+            Anew = vcat(Anew, A[cur_cone[2],:])
+            bnew = vcat(bnew, b[cur_cone[2]])
+
+            cones = vcat(cones, coneMap[cur_cone[1]]())
         else 
             Anew = vcat(Anew, A[cur_cone[2],:])
             bnew = vcat(bnew, b[cur_cone[2]])
 
-            cone_types = vcat(cone_types, coneMap[cur_cone[1]])
-            cone_dims  = vcat(cone_dims, length(cur_cone[2]))
+            cones = vcat(cones, coneMap[cur_cone[1]](length(cur_cone[2])))
         end
     end
-
-    α = Vector{Union{T,Nothing}}(undef, length(cone_dims))
-    fill!(α, nothing)
 
     Anew = sparse(Anew)
 
     settings = Clarabel.Settings{T}(max_iter=50, direct_solve_method=:qdldl)
     solver   = Clarabel.Solver{T}()
-    Clarabel.setup!(solver,P,c,Anew,bnew,cone_types,cone_dims,α,settings)
+    Clarabel.setup!(solver,P,c,Anew,bnew,cones,settings)
     Clarabel.solve!(solver)
 
     GC.gc()

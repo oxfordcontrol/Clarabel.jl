@@ -7,12 +7,12 @@ function Solver(
     c::Vector{T},
     A::AbstractMatrix{T},
     b::Vector{T},
-    cone_types::Vector{<:SupportedCone},
+    cones::Vector{<:SupportedCone},
     kwargs...
 ) where{T <: AbstractFloat}
 
     s = Solver{T}()
-    setup!(s,P,c,A,b,cone_types,kwargs...)
+    setup!(s,P,c,A,b,cones,kwargs...)
     return s
 end
 
@@ -60,16 +60,16 @@ setup!(model, P, q, A, b, cones, settings)
 
 To solve the problem, you must make a subsequent call to [`solve!`](@ref)
 """
-function setup!(s,P,c,A,b,cone_types,settings::Settings)
+function setup!(s,P,c,A,b,cones,settings::Settings)
     #this allows total override of settings during setup
     s.settings = settings
-    setup!(s,P,c,A,b,cone_types)
+    setup!(s,P,c,A,b,cones)
 end
 
-function setup!(s,P,c,A,b,cone_types; kwargs...)
+function setup!(s,P,c,A,b,cones; kwargs...)
     #this allows override of individual settings during setup
     settings_populate!(s.settings, Dict(kwargs))
-    setup!(s,P,c,A,b,cone_types)
+    setup!(s,P,c,A,b,cones)
 end
 
 # main setup function
@@ -79,18 +79,18 @@ function setup!(
     q::Vector{T},
     A::AbstractMatrix{T},
     b::Vector{T},
-    cone_types::Vector{<:SupportedCone},
+    cones::Vector{<:SupportedCone},
 ) where{T}
 
     #sanity check problem dimensions
-    _check_dimensions(P,q,A,b,cone_types)
+    _check_dimensions(P,q,A,b,cones)
 
     #make this first to create the timers
     s.info    = DefaultInfo{T}()
 
     @timeit s.timers "setup!" begin
 
-        s.cones  = ConeSet{T}(cone_types)
+        s.cones  = ConeSet{T}(cones)
         s.data   = DefaultProblemData{T}(P,q,A,b,s.cones)
         s.data.m == s.cones.numel || throw(DimensionMismatch())
 
@@ -123,11 +123,11 @@ end
 
 # sanity check problem dimensions passed by user
 
-function _check_dimensions(P,q,A,b,cone_types)
+function _check_dimensions(P,q,A,b,cones)
 
     n = length(q)
     m = length(b)
-    p = sum(cone -> nvars(cone), cone_types; init = 0)
+    p = sum(cone -> nvars(cone), cones; init = 0)
 
     m == size(A)[1] || throw(DimensionMismatch("A and b incompatible dimensions."))
     p == m          || throw(DimensionMismatch("Constraint dimensions inconsistent with size of cones."))

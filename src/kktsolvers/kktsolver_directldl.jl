@@ -241,7 +241,8 @@ function _kktsolver_update_inner!(
 
     for (index, values) in zip(map.WtWblocks,kktsolver.WtWblocks)
         #change signs to get -W^TW
-        BLAS.scal!(-one(T),values) # values .= -values
+        # values .= -values
+        @. values *= -one(T)
         _update_values!(ldlsolver,KKT,index,values)
     end
 

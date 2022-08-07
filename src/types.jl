@@ -360,6 +360,7 @@ mutable struct Solver{T <: AbstractFloat}
     #     and some vector sapces in the struct of ExponentialCone can be utilized instead of 
     #     this work_vars variable.
     #     2) Meanwhile, we use work_vars to store the previous iterates
+    #     3) scale_flag needs to be be reset after each solve
     work_vars::Union{AbstractVariables{T},Nothing}
     scale_flag::Bool     # true for the primal-dual scaling,
                         # false for the dual scaling
