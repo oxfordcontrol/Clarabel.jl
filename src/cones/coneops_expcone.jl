@@ -165,10 +165,6 @@ function step_length(
      backtrack::T
 ) where {T}
 
-    if isnan(α)
-        error("numerical error")
-    end
-
     αz = _step_length_exp_dual(K.vec_work,dz,z,α,backtrack)
     αs = _step_length_exp_primal(K.vec_work,ds,s,α,backtrack)
 
@@ -209,6 +205,7 @@ function _step_length_exp_primal(
 
     return α
 end
+
 # z + α*dz stays in the dual exponential cone
 function _step_length_exp_dual(
     ws::AbstractVector{T},
@@ -240,7 +237,122 @@ function _step_length_exp_dual(
     return α
 end
 
+# # YC: line search based on the Newton method
+# function _step_length_exp_primal(
+#     ws::AbstractVector{T},
+#     ds::AbstractVector{T},
+#     s::AbstractVector{T},
+#     α0::T,
+#     backtrack::T
+# ) where {T}
+#     # println("s is ", s[3], "  ", s[2])
+#     # println("ds is ", ds[3], "  ", ds[2])
+#     # println("α0 is ", α0)
+#     α2 = ds[2] < 0 ? min(α0, -s[2]/ds[2]) : α0
+#     α3 = ds[3] < 0 ? min(α0, -s[3]/ds[3]) : α0
 
+#     # println("αk is ", α3, "  ", α2)
+#     αprev = min(α2,α3)     # init step size
+#     # println("α_prim is ", αprev)
+#     @inbounds for j = 1:3
+#         ws[j] = s[j] + αprev*ds[j] #update to current
+#     end
+
+#     # println("divide ", ws[3], "  ", ws[2])
+#     l = log(ws[3]/ws[2])
+#     f0 = ws[2]*l - ws[1]
+
+#     if f0 > 0
+#         return 0.999*αprev
+#     else
+#         αnew = αprev
+
+#         @inbounds for iter in 1:50
+#             @inbounds for j = 1:3
+#                 ws[j] = s[j] + αprev*ds[j] #update to current
+#             end
+
+#             l = log(ws[3]/ws[2])
+#             f0 = ws[2]*l - ws[1]                                # f0 < 0
+#             f1 = ds[2]*l + ws[2]/ws[3]*ds[3] - ds[2] - ds[1]    # f1 < 0
+
+#             if abs(f1) < eps(T)     # Stop if the denominator is too small
+#                 break
+#                 println("failed denominator")
+#             end
+
+#             αnew = αprev - f0 / f1
+
+#             if αprev - αnew < eps(T)   # α1 - αnew >=0, Stop when the result is within the desired tolerance
+#                 return 0.999*αnew             
+#             end
+
+#             αprev = αnew                         # Update x0 to start the process again
+
+#         end
+
+#         return zero(T)
+#     end
+
+#     return zero(T)
+# end
+
+# # YC: line search based on the Newton method
+# function _step_length_exp_dual(
+#     ws::AbstractVector{T},
+#     dz::AbstractVector{T},
+#     z::AbstractVector{T},
+#     α0::T,
+#     backtrack::T
+# ) where {T}
+#     # println("α0 is ", α0)
+    
+#     α1 = dz[1] > 0 ? min(α0, (- eps(T) - z[1])/dz[1]) : α0
+#     α3 = dz[3] < 0 ? min(α0, (eps(T) - z[3])/dz[3]) : α0
+
+#     αprev = min(α1,α3)     # init step size
+#     # println("α_dual is ", αprev)
+#     @inbounds for j = 1:3
+#         ws[j] = z[j] + αprev*dz[j] #update to current
+#     end
+
+#     l = log(-ws[3]/ws[1])
+#     f0 = ws[2] - ws[1] - ws[1]*l
+
+#     if f0 > 0
+#         return 0.999*αprev
+#     else
+#         αnew = αprev
+
+#         @inbounds for iter in 1:50
+#             @inbounds for j = 1:3
+#                 ws[j] = z[j] + αprev*dz[j] #update to current
+#             end
+
+#             l = log(-ws[3]/ws[1])
+#             f0 = ws[2] - ws[1] - ws[1]*l                        # f0 < 0
+#             f1 = dz[2] - dz[1]*l - dz[3]*ws[1]/ws[3]   # f1 < 0
+
+#             if abs(f1) < eps(T)     # Stop if the denominator is too small
+#                 break
+#                 println("failed denominator")
+#             end
+
+#             αnew = αprev - f0 / f1
+
+#             if αprev - αnew < eps(T)   # α1 - αnew >=0, Stop when the result is within the desired tolerance
+#                 return 0.999*αnew               
+#             end
+
+#             αprev = αnew                         # Update x0 to start the process again
+
+#         end
+
+#         return zero(T)
+#     end
+
+#     return zero(T)
+# end
 
 ###############################################
 # Basic operations for exponential Cones

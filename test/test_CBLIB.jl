@@ -22,7 +22,7 @@ filelist = readdir(pwd()*"./primal_exp_cbf")
 for j = 1:32    #length(filelist)
     println("Current file is ", j)
     datadir = filelist[j]   #"gp_dave_1.cbf.gz"
-    # datadir = "rijc785.cbf.gz"
+    # datadir = "beck751.cbf.gz"
     dat = readcbfdata("./primal_exp_cbf/"*datadir) # .cbf.gz extension also accepted
 
     println("Current file is: ", datadir)

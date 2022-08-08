@@ -204,20 +204,9 @@ function solve!(
                 isdone = info_check_termination!(s.info,s.residuals,s.settings,iter)
             end
 
-            
-            # YC: check if the step size is too small
-            if s.info.step_length < 1e-4
-                if s.scale_flag
-                    s.scale_flag = false
-                else
-                    isdone = true
-                    s.info.status = EARLY_TERMINATED
-                end
-            end
-
             # YC: use the previous iterate as the final solution
             if isdone && s.info.status == EARLY_TERMINATED
-                # info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
+                info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
                 break
             end
 
@@ -308,7 +297,7 @@ function solve!(
             #     calc_combined_step_rhs!(
             #         s.step_rhs, s.residuals,
             #         s.variables, s.cones,
-            #         s.step_lhs, σ, μ
+            #         s.step_lhs, σ, μ, s.scale_flag
             #     )
             #     kkt_solve!(
             #         s.kktsystem, s.step_lhs, s.step_rhs,
@@ -330,6 +319,17 @@ function solve!(
             #record scalar values from this iteration
             @timeit_debug timer "save scalars" begin
                 info_save_scalars(s.info,μ,α,σ,iter)
+            end
+
+            # YC: check if the step size is too small
+            if α < 1e-4
+                if s.scale_flag
+                    s.scale_flag = false
+                else
+                    isdone = true
+                    s.info.status = EARLY_TERMINATED
+                    break
+                end
             end
 
             # YC: switch from the primal-dual scaling to the dual scaling

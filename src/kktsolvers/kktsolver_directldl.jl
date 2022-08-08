@@ -320,6 +320,8 @@ function switch_scaling(
     if  mindiag/maxdiag < eps(T)
         return true
     end
+
+    return false
 end
 
 # function kktsolver_reset_WtW!(
