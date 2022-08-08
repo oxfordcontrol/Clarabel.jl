@@ -217,7 +217,7 @@ mutable struct DefaultInfo{T} <: AbstractInfo{T}
     μ::T
     sigma::T
     step_length::T
-    iterations::DefaultInt
+    iterations::UInt32
     cost_primal::T
     cost_dual::T
     res_primal::T
@@ -227,7 +227,7 @@ mutable struct DefaultInfo{T} <: AbstractInfo{T}
     gap_abs::T
     gap_rel::T
     ktratio::T
-    solve_time::T
+    solve_time::Float64
     status::SolverStatus
 
     function DefaultInfo{T}() where {T}
@@ -271,27 +271,27 @@ mutable struct DefaultSolution{T} <: AbstractSolution{T}
     status::SolverStatus
     obj_val::T
     solve_time::T
-    iterations::Int
+    iterations::UInt32
     r_prim::T
     r_dual::T
 
-    function DefaultSolution{T}(m,n) where {T <: AbstractFloat}
+end
 
-        x = Vector{T}(undef,n)
-        z = Vector{T}(undef,m)
-        s = Vector{T}(undef,m)
+function DefaultSolution{T}(m,n) where {T <: AbstractFloat}
 
-        # seemingly reasonable defaults
-        status  = UNSOLVED
-        obj_val = T(NaN)
-        solve_time = zero(T)
-        iterations = 0
-        r_prim     = T(NaN)
-        r_dual     = T(NaN)
+    x = Vector{T}(undef,n)
+    z = Vector{T}(undef,m)
+    s = Vector{T}(undef,m)
 
-      return new(x,z,s,status,obj_val,solve_time,iterations,r_prim,r_dual)
-    end
+    # seemingly reasonable defaults
+    status  = UNSOLVED
+    obj_val = T(NaN)
+    solve_time = zero(T)
+    iterations = 0
+    r_prim     = T(NaN)
+    r_dual     = T(NaN)
 
+  return DefaultSolution{T}(x,z,s,status,obj_val,solve_time,iterations,r_prim,r_dual)
 end
 
 DefaultSolution(args...) = DefaultSolution{DefaultFloat}(args...)

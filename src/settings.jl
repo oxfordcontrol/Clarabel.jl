@@ -49,8 +49,8 @@ iterative\\_refinement\\_stop\\_ratio   | 2.0       | iterative refinement stall
 """
 Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
-    max_iter::DefaultInt    = 50
-    time_limit::T           = Inf
+    max_iter::UInt32    	= 50
+    time_limit::Float64     = Inf
     verbose::Bool           = true
     tol_gap_abs::T          = 1e-8
     tol_gap_rel::T          = 1e-8
@@ -61,7 +61,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
 	#data equilibration
 	equilibrate_enable::Bool            = true
-	equilibrate_max_iter::Integer       = 10
+	equilibrate_max_iter::UInt32        = 10
 	equilibrate_min_scaling::T          = 1e-4
 	equilibrate_max_scaling::T          = 1e+4
 
@@ -80,11 +80,11 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     dynamic_regularization_delta::T     = 2e-7
 
     #iterative refinement (for QDLDL)
-    iterative_refinement_enable::Bool   = true
-    iterative_refinement_reltol::T      = 1e-10
-    iterative_refinement_abstol::T      = 1e-10
-    iterative_refinement_max_iter::Int  = 10
-    iterative_refinement_stop_ratio::T  = 2.
+    iterative_refinement_enable::Bool      = true
+    iterative_refinement_reltol::T         = 1e-10
+    iterative_refinement_abstol::T         = 1e-10
+    iterative_refinement_max_iter::UInt32  = 10
+    iterative_refinement_stop_ratio::T     = 2.
 
 end
 
