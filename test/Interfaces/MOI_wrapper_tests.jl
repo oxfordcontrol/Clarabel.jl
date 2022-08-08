@@ -93,7 +93,7 @@ end
 
 function test_passing_settings()
     optimizer = Clarabel.Optimizer{T}(; verbose=false)
-    @test optimizer.inner.settings.verbose === false
+    @test optimizer.solver_settings.verbose === false
     return
 end
 
