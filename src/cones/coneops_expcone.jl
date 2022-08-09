@@ -232,7 +232,7 @@ function _step_length_exp_dual(
     α::T,
     backtrack::T
 ) where {T}
-
+    αmax = α
     # NB: additional memory, may need to remove it later
     # @. ws = z + α*dz
     @inbounds for i = 1:3
@@ -251,6 +251,10 @@ function _step_length_exp_dual(
             ws[i] = z[i] + α*dz[i]
         end
     end
+
+    # if α < αmax
+    #     α = newton_step_length_exp_dual(ws,dz,z,α)
+    # end
 
     return α
 end
@@ -315,66 +319,61 @@ end
 #     return zero(T)
 # end
 
-# # YC: line search based on the Newton method
-# function _step_length_exp_dual(
-#     ws::AbstractVector{T},
-#     dz::AbstractVector{T},
-#     z::AbstractVector{T},
-#     α0::T,
-#     backtrack::T
-# ) where {T}
-#     # println("α0 is ", α0)
-    
-#     α1 = dz[1] > 0 ? min(α0, (- eps(T) - z[1])/dz[1]) : α0
-#     α3 = dz[3] < 0 ? min(α0, (eps(T) - z[3])/dz[3]) : α0
+# YC: line search based on the Newton method
+# search from f(α) > 0, f'(α) < 0
+function newton_step_length_exp_dual(
+    ws::AbstractVector{T},
+    dz::AbstractVector{T},
+    z::AbstractVector{T},
+    αprev::T
+) where {T}
+    #assume αprev is feasible
 
-#     αprev = min(α1,α3)     # init step size
-#     # println("α_dual is ", αprev)
-#     @inbounds for j = 1:3
-#         ws[j] = z[j] + αprev*dz[j] #update to current
-#     end
+    # feasibility for other two conditions
+    # α1 = dz[1] > 0 ? (- z[1]/dz[1]) : floatmax(T)
+    # α3 = dz[3] < 0 ? (- z[3]/dz[3]) : floatmax(T)
+    # αmax = min(α1,α3)
 
-#     l = log(-ws[3]/ws[1])
-#     f0 = ws[2] - ws[1] - ws[1]*l
+    l = log(-ws[3]/ws[1])
+    f0 = ws[2] - ws[1] - ws[1]*l
+    f1 = dz[2] - dz[1]*l - dz[3]*ws[1]/ws[3]
+    αnew = αprev
 
-#     if f0 > 0
-#         return 0.999*αprev
-#     else
-#         αnew = αprev
+    if f1 < 0
+        
+        # run 20 iterations at maximum
+        @inbounds for iter = 1:20
+            αnew = αprev - f0 / f1
 
-#         @inbounds for iter in 1:50
-#             @inbounds for j = 1:3
-#                 ws[j] = z[j] + αprev*dz[j] #update to current
-#             end
+            if αnew > one(T)    #step size too large
+                return αprev
+            end
 
-#             l = log(-ws[3]/ws[1])
-#             f0 = ws[2] - ws[1] - ws[1]*l                        # f0 < 0
-#             f1 = dz[2] - dz[1]*l - dz[3]*ws[1]/ws[3]   # f1 < 0
+            @inbounds for j = 1:3
+                ws[j] = z[j] + αnew*dz[j] #update to current
+            end
 
-#             if f0 > -eps(T)   # α1 - αnew >=0, Stop when the result is within the desired tolerance
-#                 return 0.999*αnew             
-#             end
+            f0 = ws[2] - ws[1] - ws[1]*l
 
-#             if abs(f1) < eps(T)     # Stop if the denominator is too small
-#                 break
-#                 println("failed denominator")
-#             end
+            if f0 > 0 && ws[1] < 0 && ws[3] > 0
+                f1 = dz[2] - dz[1]*l - dz[3]*ws[1]/ws[3]
 
-#             αnew = αprev - f0 / f1
+                if abs(αnew - αprev) < eps(T)
+                    return αnew
+                end
 
-#             # if αprev - αnew < eps(T)   # α1 - αnew >=0, Stop when the result is within the desired tolerance
-#             #     return 0.999*αnew               
-#             # end
+                αprev = αnew
+            else
+                return αprev
+            end
 
-#             αprev = αnew                         # Update x0 to start the process again
-
-#         end
-
-#         error("Newton method fails")
-#     end
-
-#     return zero(T)
-# end
+        end
+        # return current one
+        return αnew
+    else
+        return αprev
+    end
+end
 
 ###############################################
 # Basic operations for exponential Cones
