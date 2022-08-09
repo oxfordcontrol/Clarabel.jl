@@ -11,6 +11,7 @@ abstract type AbstractKKTSystem{T <: AbstractFloat} end
 abstract type AbstractKKTSolver{T <: AbstractFloat} end
 abstract type AbstractInfo{T <: AbstractFloat} end
 abstract type AbstractSolution{T <: AbstractFloat} end
+abstract type AbstractSolver{T <: AbstractFloat}   end
 
 # -------------------------------------
 # default solver subcomponent implementations
@@ -308,7 +309,7 @@ Initializes an empty Clarabel solver that can be filled with problem data using:
     setup!(solver, P, q, A, b, cones, [settings]).
 
 """
-mutable struct Solver{T <: AbstractFloat}
+mutable struct Solver{T <: AbstractFloat} <: AbstractSolver{T}
 
     data::Union{AbstractProblemData{T},Nothing}
     variables::Union{AbstractVariables{T},Nothing}

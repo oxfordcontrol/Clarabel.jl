@@ -52,7 +52,7 @@ module Clarabel
 
     #MathOptInterface for JuMP/Convex.jl
     module MOImodule
-        include("./MOI_wrapper/MOI_wrapper.jl")
+         include("./MOI_wrapper/MOI_wrapper.jl")
     end
     const Optimizer{T} = Clarabel.MOImodule.Optimizer{T}
 

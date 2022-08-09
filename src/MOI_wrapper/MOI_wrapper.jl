@@ -1,4 +1,4 @@
-using MathOptInterface
+using MathOptInterface, SparseArrays
 using ..Clarabel
 export Optimizer
 
@@ -69,7 +69,8 @@ const ClarabeltoMOIDualStatus = Dict([
 #-----------------------------
 
 mutable struct Optimizer{T} <: MOI.AbstractOptimizer
-    solver::Union{Nothing,Clarabel.Solver{T}}
+    solver_module::Module
+    solver::Union{Nothing,Clarabel.AbstractSolver{T}}
     solver_settings::Clarabel.Settings{T}
     solver_info::Union{Nothing,Clarabel.DefaultInfo{T}}
     solver_solution::Union{Nothing,Clarabel.DefaultSolution{T}}
@@ -78,7 +79,8 @@ mutable struct Optimizer{T} <: MOI.AbstractOptimizer
     objconstant::T
     rowranges::Dict{Int, UnitRange{Int}}
 
-    function Optimizer{T}(; user_settings...) where {T}
+    function Optimizer{T}(; solver_module = Clarabel, user_settings...) where {T}
+        solver_module   = solver_module
         solver          = nothing
         solver_settings = Clarabel.Settings{T}()
         solver_info     = nothing
@@ -87,7 +89,7 @@ mutable struct Optimizer{T} <: MOI.AbstractOptimizer
         sense = MOI.MIN_SENSE
         objconstant = zero(T)
         rowranges = Dict{Int, UnitRange{Int}}()
-        optimizer = new(solver,solver_settings,solver_info,solver_solution,solver_nvars,sense,objconstant,rowranges)
+        optimizer = new(solver_module,solver,solver_settings,solver_info,solver_solution,solver_nvars,sense,objconstant,rowranges)
         for (key, value) in user_settings
             MOI.set(optimizer, MOI.RawOptimizerAttribute(string(key)), value)
         end
@@ -95,7 +97,7 @@ mutable struct Optimizer{T} <: MOI.AbstractOptimizer
     end
 end
 
-Optimizer(args...; kwargs...) = Optimizer{DefaultFloat}(args...; kwargs...)
+Optimizer(args...; kwargs...) = Optimizer{Clarabel.DefaultFloat}(args...; kwargs...)
 
 
 #-----------------------------
@@ -104,7 +106,7 @@ Optimizer(args...; kwargs...) = Optimizer{DefaultFloat}(args...; kwargs...)
 
 # reset the optimizer
 function MOI.empty!(optimizer::Optimizer{T}) where {T}
-    #just make a new solveropt, keeping current settings
+    #flush everything, keeping the currently configured settings
     optimizer.solver          = nothing
     optimizer.solver_settings = optimizer.solver_settings #preserve settings / no change
     optimizer.solver_info     = nothing
@@ -118,9 +120,9 @@ end
 MOI.is_empty(optimizer::Optimizer) = isnothing(optimizer.solver)
 
 function MOI.optimize!(optimizer::Optimizer)
-    Clarabel.solve!(optimizer.solver)
-    optimizer.solver_solution = optimizer.solver.solution
-    optimizer.solver_info     = optimizer.solver.info
+    solution = optimizer.solver_module.solve!(optimizer.solver)
+    optimizer.solver_solution = solution
+    optimizer.solver_info     = optimizer.solver_module.get_info(optimizer.solver)
     nothing
 end
 
@@ -153,7 +155,7 @@ end
 # Solver Attributes, get/set
 #-----------------------------
 
-MOI.get(opt::Optimizer, ::MOI.SolverName)        = Clarabel.solver_name()
+MOI.get(opt::Optimizer, ::MOI.SolverName)        = string(opt.solver_module)
 MOI.get(opt::Optimizer, ::MOI.SolverVersion)     = Clarabel.version()
 MOI.get(opt::Optimizer, ::MOI.RawSolver)         = opt.solver
 MOI.get(opt::Optimizer, ::MOI.ResultCount)       = Int(!isnothing(opt.solver_solution))
@@ -308,9 +310,11 @@ function MOI.copy_to(dest::Optimizer{T}, src::MOI.ModelLike) where {T}
     dest.sense = MOI.get(src, MOI.ObjectiveSense())
     P, q, dest.objconstant = process_objective(dest, src, idxmap)
 
-    #Just make a fresh solver with this data
+    #Just make a fresh solver with this data, using whatever
+    #solver module is configured.   The module will be either
+    #Clarabel or ClarabelRs
     dest.solver_nvars = length(q)
-    dest.solver = Clarabel.Solver(P,q,A,b,cone_spec,dest.solver_settings)
+    dest.solver = dest.solver_module.Solver(P,q,A,b,cone_spec,dest.solver_settings)
 
     return idxmap
 end
