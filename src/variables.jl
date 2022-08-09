@@ -16,7 +16,8 @@ function calc_step_length(
     step::DefaultVariables{T},
     work_vars::DefaultVariables{T},
     cones::ConeSet{T},
-    steptype::Symbol
+    steptype::Symbol,
+    scale_flag::Bool
 ) where {T}
 
     ατ    = step.τ < 0 ? -variables.τ / step.τ : floatmax(T)
@@ -28,13 +29,15 @@ function calc_step_length(
     α = cones_step_length(cones, step.z, step.s, variables.z, variables.s, α)
 
 
-    #   Centrality check for unsymmetric cones
-    #   balance global μ and local μ_i of each nonsymmetric cone;
-    #   check centrality, ensure the update is close to the central path
-    if (!cones.sym_flag && steptype == :combined)
+    #   YC: Centrality check for unsymmetric cones
+    #       1) balance global μ and local μ_i of each nonsymmetric cone, 
+    #          ensure the update is close to the central path;
+    #       2) check only when there are some unsymmetric cones and we are using the dual scaling.
+    
+    if (!cones.sym_flag && steptype == :combined && !scale_flag)
         α = check_μ_and_centrality(cones,step,variables,work_vars,α)
 
-        if (steptype == :combined && α < 1e-4)
+        if (α < 1e-4)
             # error("get stalled with step size ", α)
             return α
         end

@@ -150,7 +150,11 @@ function WtW_Δz!(
     workz::AbstractVector{T}
 ) where {T}
 
-    mul!(ls,K.HBFGS,lz,-one(T),zero(T))
+    # mul!(ls,K.HBFGS,lz,-one(T),zero(T))
+    H = K.HBFGS
+    @inbounds for i = 1:3
+        ls[i] = - H[i,1]*lz[1] - H[i,2]*lz[2] - H[i,3]*lz[3]
+    end
 
 end
 
@@ -166,7 +170,21 @@ function step_length(
 ) where {T}
 
     αz = _step_length_exp_dual(K.vec_work,dz,z,α,backtrack)
+
+    # ws = K.vec_work
+    # l = log(-ws[3]/ws[1])
+    # f0 = ws[2] - ws[1] - ws[1]*l
+    # if f0 < 0
+    #     error("step size needs improvement")
+    # end
+
     αs = _step_length_exp_primal(K.vec_work,ds,s,α,backtrack)
+
+    # l = log(ws[3]/ws[2])
+    # f0 = ws[2]*l - ws[1]
+    # if f0 < 0
+    #     error("step size needs improvement")
+    # end
 
     #PJG: prevfloat is probably not portable 
     # and I don't understand why it is being used
@@ -276,6 +294,10 @@ end
 #             f0 = ws[2]*l - ws[1]                                # f0 < 0
 #             f1 = ds[2]*l + ws[2]/ws[3]*ds[3] - ds[2] - ds[1]    # f1 < 0
 
+#             if f0 > -eps(T)   # α1 - αnew >=0, Stop when the result is within the desired tolerance
+#                 return 0.999*αnew             
+#             end
+
 #             if abs(f1) < eps(T)     # Stop if the denominator is too small
 #                 break
 #                 println("failed denominator")
@@ -283,15 +305,11 @@ end
 
 #             αnew = αprev - f0 / f1
 
-#             if αprev - αnew < eps(T)   # α1 - αnew >=0, Stop when the result is within the desired tolerance
-#                 return 0.999*αnew             
-#             end
-
 #             αprev = αnew                         # Update x0 to start the process again
 
 #         end
 
-#         return zero(T)
+#         error("Newton method fails")
 #     end
 
 #     return zero(T)
@@ -333,6 +351,10 @@ end
 #             f0 = ws[2] - ws[1] - ws[1]*l                        # f0 < 0
 #             f1 = dz[2] - dz[1]*l - dz[3]*ws[1]/ws[3]   # f1 < 0
 
+#             if f0 > -eps(T)   # α1 - αnew >=0, Stop when the result is within the desired tolerance
+#                 return 0.999*αnew             
+#             end
+
 #             if abs(f1) < eps(T)     # Stop if the denominator is too small
 #                 break
 #                 println("failed denominator")
@@ -340,15 +362,15 @@ end
 
 #             αnew = αprev - f0 / f1
 
-#             if αprev - αnew < eps(T)   # α1 - αnew >=0, Stop when the result is within the desired tolerance
-#                 return 0.999*αnew               
-#             end
+#             # if αprev - αnew < eps(T)   # α1 - αnew >=0, Stop when the result is within the desired tolerance
+#             #     return 0.999*αnew               
+#             # end
 
 #             αprev = αnew                         # Update x0 to start the process again
 
 #         end
 
-#         return zero(T)
+#         error("Newton method fails")
 #     end
 
 #     return zero(T)
@@ -643,9 +665,12 @@ function update_HBFGS(
 
     # compute zt,st,μt locally
     gradient_primal(K,s,zt)
-    zt .*= -1
     gradient_f(K,z,st)
-    st .*= -1
+    @inbounds for i = 1:3
+        zt[i] = -zt[i]
+        st[i] = -st[i]
+    end  
+    
     μt = dot(zt,st)/3
 
     # δs = s - μ*st
@@ -659,9 +684,8 @@ function update_HBFGS(
 
     if (de1 > eps(T) && de2 > eps(T))
         # tmp = H*zt - μt*st
-        mul!(tmp,H,zt)
         @inbounds for i = 1:3
-            tmp[i] -= μt*st[i]
+            tmp[i] = H[i,1]*zt[1] + H[i,2]*zt[2] + H[i,3]*zt[3] - μt*st[i]
         end
 
         # store (s + μ*st + δs/de1) into zt

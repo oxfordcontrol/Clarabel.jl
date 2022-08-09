@@ -76,7 +76,8 @@ function _kkt_solve_constant_rhs!(
     data::DefaultProblemData{T}
 ) where {T}
 
-    kktsystem.workx .= -data.q;
+    @. kktsystem.workx = -data.q;
+
     kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, data.b)
     kktsolver_solve!(kktsystem.kktsolver, kktsystem.x2, kktsystem.z2)
 
@@ -99,7 +100,7 @@ function kkt_solve_initial_point!(
 
     # solve with [-q;0] as a RHS to get z initializer
     # zero out any sparse cone variables at end
-    kktsystem.workx .= -data.q
+    @. kktsystem.workx = -data.q
     kktsystem.workz .=  zero(T)
 
     kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
@@ -152,9 +153,7 @@ function kkt_solve!(
     #-----------
     # Numerator first
     ξ   = workx
-    # ξ  .= variables.x / variables.τ
-    copyto!(ξ,variables.x)
-    @. ξ /= variables.τ
+    @. ξ = variables.x / variables.τ
 
     P   = Symmetric(data.P)
 

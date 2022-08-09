@@ -260,7 +260,7 @@ function solve!(
             #calculate step length and centering parameter
             #--------------
             @timeit_debug timer "step length affine" begin
-                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:affine)
+                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:affine,s.scale_flag)
                 σ = calc_centering_parameter(α)
             end
 
@@ -282,7 +282,7 @@ function solve!(
             #compute final step length and update the current iterate
             #--------------
             @timeit_debug timer "step length final" begin
-                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:combined)
+                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:combined, s.scale_flag)
             end
 
             # PJG: I don't know what's going on in the loop below,
