@@ -83,7 +83,7 @@ function get_WtW_block!(
 
 end
 
-# returns x = λ∘λ for symmetric cones and x = s for unsymmetric cones
+# returns x = λ∘λ for symmetric cones and x = s for asymmetric cones
 # The cone must have an internal mechanism
 # for storing the scaled variable λ internally.  This variable
 # should be updated at the call to update_scaling!
@@ -149,8 +149,8 @@ function shift_to_cone!(
 
 end
 
-# unsymmetric initialization
-function unsymmetric_init!(
+# asymmetric initialization
+function asymmetric_init!(
     K::AbstractCone{T},
 	s::AbstractVector{T},
     z::AbstractVector{T}

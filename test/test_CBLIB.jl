@@ -6,8 +6,8 @@ using ConicBenchmarkUtilities
 
 using Profile,StatProfilerHTML, TimerOutputs
 
-include("../src\\Clarabel.jl")
-# using Clarabel
+using Clarabel 
+
 # using Hypatia
 
 coneMap = Dict(:Zero => MOI.Zeros, :Free => :Free,
@@ -57,7 +57,7 @@ for j = 1:32    #length(filelist)
     @variable(model, x[1:num_var])
 
     #Tackling constraint
-    for i = 1:length(con_cones)
+    for i in eachindex(con_cones)
         cur_cone = con_cones[i]
         # println(coneMap[cur_cone[1]])
 
@@ -72,7 +72,7 @@ for j = 1:32    #length(filelist)
         end
     end
 
-    for i = 1:length(var_cones)
+    for i in eachindex(var_cones)
         cur_var = var_cones[i]
         # println(coneMap[cur_var[1]])
 

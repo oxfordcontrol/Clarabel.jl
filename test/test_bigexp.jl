@@ -3,8 +3,8 @@ using JuMP, MathOptInterface
 # const MOI = MathOptInterface
 using LinearAlgebra
 using ConicBenchmarkUtilities
-
-using Profile,StatProfilerHTML, TimerOutputs
+using Profile
+using TimerOutputs
 
 #include("../src\\Clarabel.jl")
 using Clarabel
@@ -41,7 +41,7 @@ function exp_model(exInd::Int; optimizer = Clarabel.Optimizer)
     @variable(model, x[1:num_var])
 
     #Tackling constraint
-    for i = 1:length(con_cones)
+    for i in eachindex(con_cones)
         cur_cone = con_cones[i]
         # println(coneMap[cur_cone[1]])
 
@@ -56,7 +56,7 @@ function exp_model(exInd::Int; optimizer = Clarabel.Optimizer)
         end
     end
 
-    for i = 1:length(var_cones)
+    for i in eachindex(var_cones)
         cur_var = var_cones[i]
         # println(coneMap[cur_var[1]])
 
@@ -78,14 +78,20 @@ end
 
 # the input number i corresponds to the i-th example in CBLIB. Example 7,8,32
 
-Profile.clear()
-Profile.init()
-
 index = 7
 
 model_clarabel = exp_model(index; optimizer = Clarabel.Optimizer) 
 model_ecos = exp_model(index; optimizer = ECOS.Optimizer) 
 set_optimizer_attribute(model_clarabel, "verbose", true)
-set_optimizer_attribute(model_ecos, "verbose", true)
+set_optimizer_attribute(model_ecos, "verbose", false)
 optimize!(model_clarabel) 
 optimize!(model_ecos) 
+
+#println(solution_summary(model_clarabel))
+#println(solution_summary(model_ecos))
+
+solver = model_clarabel.moi_backend.optimizer.model.optimizer.inner
+
+#@profile Clarabel.solve!(solver)
+
+#pprof()

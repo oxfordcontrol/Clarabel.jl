@@ -21,7 +21,7 @@ struct ConeSet{T}
     #first element in each cone.  For convenience
     headidx::Vector{Int}
 
-    # the scaling for unsymmetric backtrack
+    # the scaling for asymmetric backtrack
     backtrack::T              #backtracking parameter
 
     # the flag for symmetric cone check
@@ -45,7 +45,7 @@ struct ConeSet{T}
             type_counts[coneT] = count(C->isa(C,coneT), cone_specs)
         end
 
-        # parameter for unsymmetric cones
+        # parameter for asymmetric cones
         backtrack = T(0.8)
 
         #create cones with the given dims

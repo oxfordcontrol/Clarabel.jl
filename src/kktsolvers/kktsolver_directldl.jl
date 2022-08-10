@@ -30,7 +30,6 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
     #symmetric view for residual calcs
     KKTsym::Symmetric{T, SparseMatrixCSC{T,Int}}
-    abs_kkt_diag::Vector{T}
 
     #settings just points back to the main solver settings.
     #Required since there is no separate LDL settings container
@@ -39,9 +38,13 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     #the direct linear LDL solver
     ldlsolver::AbstractDirectLDLSolver{T}
 
-    # PJG: need to reset scale_flag after each solving
-    scale_flag::Bool           # higher order correction enabled
-    ϵ::T                    # current dynamic regularization
+    #the diagonal regularizer currently applied
+    diagonal_regularizer::T
+
+    #marker indicating ill conditioning 
+    # PJG: need to reset scale_flag after each solve
+    is_ill_conditioned::Bool
+
 
     function DirectLDLKKTSolver{T}(P,A,cones,m,n,settings) where {T}
 
@@ -70,32 +73,27 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         kktshape = required_matrix_shape(ldlsolverT)
         KKT, map = _assemble_kkt_matrix(P,A,cones,kktshape)
 
+        diagonal_regularizer = zero(T)
+
         if(settings.static_regularization_enable)
-            ϵ = settings.static_regularization_eps
-            @views _offset_values_KKT!(KKT, map.diag_full[1:n], ϵ, Dsigns[1:n])
+            diagonal_regularizer = settings.static_regularization_constant
+            @views _offset_values_KKT!(KKT, map.diag_full[1:n], diagonal_regularizer, Dsigns[1:n])
         end
 
         #KKT will be triu data only, but we will want
         #the following to allow products like KKT*x
         KKTsym = Symmetric(KKT)
 
-        kkt_diag = @view KKT[map.diag_full]
-        abs_kkt_diag = abs.(kkt_diag)
-
         #the LDL linear solver engine
         ldlsolver = ldlsolverT{T}(KKT,Dsigns,settings)
 
-        # PJG: This should not be hard coded deep with the KKT solver.
-        # I don't think it necessarily even has anything to do with the
-        # KKT solver.  I think it should be part of the settings, which
-        # also makes its retrieval with the high level solver (or wherever)
-        # it gets used, much more reasonable.
-        #
-        # Name needs to be changed to reflect conventions elsewhere.
-        # YC: The flag is for determining the scaling strategy and is better to be stored i the solver struct.
-        scale_flag = true
+        #assume reasonable conditioning to start
+        is_ill_conditioned = false
 
-        return new(m,n,p,x,b,work_e,work_dx,map,Dsigns,WtWblocks,KKT,KKTsym,abs_kkt_diag,settings,ldlsolver,scale_flag)
+        return new(m,n,p,x,b,
+                   work_e,work_dx,map,Dsigns,WtWblocks,
+                   KKT,KKTsym,settings,ldlsolver,
+                   diagonal_regularizer, is_ill_conditioned)
     end
 
 end
@@ -278,41 +276,62 @@ function _kktsolver_update_inner!(
 
             cidx += 1
         end
-
-    end
-
-    #Perturb the diagonal terms WtW that we have just overwritten
-    #with static regularizers.  Note that we don't want to shift
-    #elements in the ULHS (corresponding to P) since we already
-    #shifted them at initialization and haven't overwritten that block
-    kkt_diag = @view KKT.nzval[map.diag_full]
-    abs_kkt_diag = kktsolver.abs_kkt_diag
-    ϵ = settings.static_regularization_eps
-
-    @. abs_kkt_diag = abs(kkt_diag)
-    maxdiag = maximum(abs_kkt_diag)
-    mindiag = minimum(abs_kkt_diag)
-    mindiag += ϵ
-    # println("ratio is: ", maxdiag/mindiag)
-
-    # switch from the primal-dual scaling to the pure dual scaling when the conditioning number is larger than 1/eps(T)
-    if  mindiag/maxdiag < eps(T) # && kktsolver.scale_flag == true
-        kktsolver.scale_flag = false
-        # println("Switch off correction!!!")
     end
 
     if(settings.static_regularization_enable)
-        ξ = settings.proportional_eps
-        kktsolver.ϵ = ϵ + ξ*maxdiag
-
-        (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
-        @views _offset_values!(ldlsolver,KKT, map.diag_full, kktsolver.ϵ, kktsolver.Dsigns)
+        _update_regularizer(kktsolver, ldlsolver)
     end
 
     #refactor with new data
     refactor!(ldlsolver,kktsolver.KKT)
 
     return nothing
+end
+
+function _update_regularizer(
+    kktsolver::DirectLDLKKTSolver{T},
+    ldlsolver::AbstractDirectLDLSolver{T}
+) where {T}
+
+    settings  = kktsolver.settings
+    map       = kktsolver.map
+    KKT       = kktsolver.KKT
+    (m,n,p)   = (kktsolver.m,kktsolver.n,kktsolver.p)
+    
+    # first we subtract the old regularization from the 
+    # upper left hand block.   No need to do this for the 
+    # lower right since it should have been overwitten with 
+    # new values already
+
+    @views _offset_values!(
+        ldlsolver,KKT, 
+        map.diag_full[1:n], 
+        -kktsolver.diagonal_regularizer,
+        kktsolver.Dsigns[1:n]);
+
+    # interrogate the KKT diagonal and find its min and max
+    # absolute values and their ratio 
+
+    kkt_diag = @view KKT.nzval[map.diag_full]
+    (mindiag,maxdiag)  = absextrema(kkt_diag);
+
+    # used to switch from primal-dual scaling to the pure dual scaling 
+    # when the approximate conditioning number is larger than 1/eps(T)
+    if  maxdiag*eps(T) > (mindiag + settings.static_regularization_constant)
+        kktsolver.is_ill_conditioned = true
+    end
+
+    # Compute and apply a new regularizer 
+    kktsolver.diagonal_regularizer = 
+        settings.static_regularization_constant + 
+        settings.static_regularization_proportional * maxdiag;
+
+    @views _offset_values!(
+        ldlsolver,KKT, 
+        map.diag_full, 
+        kktsolver.diagonal_regularizer,
+        kktsolver.Dsigns);
+    
 end
 
 
@@ -382,11 +401,7 @@ function iterative_refinement(
     IR_maxiter   = settings.iterative_refinement_max_iter
     IR_stopratio = settings.iterative_refinement_stop_ratio
 
-    if(settings.static_regularization_enable)
-        ϵ = settings.static_regularization_eps
-    else
-        ϵ = zero(settings.static_regularization_eps)
-    end
+    ϵ = kktsolver.diagonal_regularizer
 
     #Note that K is only triu data, so need to
     #be careful when computing the residual
@@ -419,7 +434,7 @@ function iterative_refinement(
             #insufficient improvement.  Exit
             return nothing
         else
-            @. x = ξ  #PJG: pointer swap might be faster    #YC: How to implement it?
+            @. x = ξ  #PJG: pointer swap might be faster   
         end
     end
 
@@ -430,13 +445,25 @@ end
 # computes e = b - (K+ϵD)ξ + ϵDξ, overwriting the first argument
 # and returning its norm
 
-function _get_refine_error!(e,b,KKTsym,D,ϵ,ξ)
+function _get_refine_error!(
+    e::AbstractVector{T},
+    b::AbstractVector{T},
+    KKTsym::Symmetric{T},
+    D::Vector{Int},
+    ϵ::T,
+    ξ::AbstractVector{T}) where {T}
 
     @. e = b
     mul!(e,KKTsym,ξ,-1.,1.)   # e = b - Kξ
 
     if(!iszero(ϵ))
-        @. e += ϵ * D * ξ
+        @inbounds for i in eachindex(D)
+            if(D[i] == 1)
+                e[i] += ϵ * ξ[i]
+            else 
+                e[i] -= ϵ * ξ[i]
+            end
+        end
     end
 
     return norm(e,Inf)

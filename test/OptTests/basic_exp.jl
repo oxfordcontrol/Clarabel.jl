@@ -24,17 +24,13 @@ function basic_exp_data(Type::Type{T}) where {T <: AbstractFloat}
     A = sparse([A1;A2;A3])
     b = [b1;b2;b3]
 
-    cone_types = [Clarabel.ZeroConeT,
-    Clarabel.NonnegativeConeT,
-    Clarabel.ExponentialConeT,
+    cones = [
+        Clarabel.ZeroConeT(length(b1)),
+        Clarabel.NonnegativeConeT(length(b2)),
+        Clarabel.ExponentialConeT(),
     ]
 
-    cone_dims  = [length(b1),
-    length(b2),
-    length(b3),
-    ]
-
-    return (P,c,A,b,cone_types,cone_dims)
+    return (P,c,A,b,cones)
 end
 
 
@@ -48,20 +44,20 @@ end
 
             @testset "feasible" begin
 
-                P,c,A,b,cone_types,cone_dims = basic_exp_data(FloatT)
-                solver   = Clarabel.Solver(P,c,A,b,cone_types,cone_dims)
+                P,c,A,b,cones = basic_exp_data(FloatT)
+                solver   = Clarabel.Solver(P,c,A,b,cones)
                 Clarabel.solve!(solver)
 
                 @test solver.info.status == Clarabel.SOLVED
                 @test isapprox(
-                norm(solver.result.x -
-                FloatT[   -9.425995201329599
-                            4.828561507482018
+                norm(solver.solution.x -
+                FloatT[ -9.425995201329599
+                         4.828561507482018
                         14.59743362204262
-                            1.0000012112102774
-                            7.65314081561849
-                        -29.99999978458479
-                        -0.0]),
+                         1.0000012112102774
+                         7.65314081561849
+                         -29.99999978458479
+                         -0.0]),
                 zero(FloatT), atol=tol)
                 @test isapprox(solver.info.cost_primal, FloatT(-54.41243965302268), atol=tol)
 

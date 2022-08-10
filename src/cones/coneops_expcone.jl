@@ -48,7 +48,7 @@ function get_WtW_block!(
 
 end
 
-# return x = y for unsymmetric cones
+# return x = y for asymmetric cones
 function affine_ds!(
     K::ExponentialCone{T},
     x::AbstractVector{T},
@@ -62,8 +62,8 @@ function affine_ds!(
 
 end
 
-#  unsymmetric initialization
-function unsymmetric_init!(
+#  asymmetric initialization
+function asymmetric_init!(
    K::ExponentialCone{T},
    s::AbstractVector{T},
    z::AbstractVector{T}
@@ -163,10 +163,7 @@ function _step_length_exp_primal(
     backtrack::T
 ) where {T}
 
-    # @. ws = s + α*ds
-    @inbounds for i = 1:3
-        ws[i] = s[i] + α*ds[i]
-    end
+    @. ws = s + α*ds
 
     while !check_exp_primal_feas(ws)
         # NB: need to be tackled in a smarter way
@@ -176,10 +173,7 @@ function _step_length_exp_primal(
             return zero(T)
         end
         α *= backtrack    #backtrack line search
-        # @. ws = s + α*ds
-        @inbounds for i = 1:3
-            ws[i] = s[i] + α*ds[i]
-        end
+        @. ws = s + α*ds
     end
 
     return α
@@ -194,10 +188,7 @@ function _step_length_exp_dual(
 ) where {T}
 
     # NB: additional memory, may need to remove it later
-    # @. ws = z + α*dz
-    @inbounds for i = 1:3
-        ws[i] = z[i] + α*dz[i]
-    end
+    @. ws = z + α*dz
 
     while !check_exp_dual_feas(ws)
         # println("current α is ", α)
@@ -206,10 +197,7 @@ function _step_length_exp_dual(
             return zero(T)
         end
         α *= backtrack    #backtrack line search
-        # @. ws = z + α*dz
-        @inbounds for i = 1:3
-            ws[i] = z[i] + α*dz[i]
-        end
+        @. ws = z + α*dz
     end
 
     return α
@@ -335,7 +323,8 @@ end
 # ω(z) is the Wright-Omega function
 # Computes the value ω(z) defined as the solution y to
 # the equation y+log(y) = z ONLY FOR z real and z>=1.
-# NB::the code is from ECOS solver, which comes from Santiago's thesis, "Algorithms for Unsymmetric Cone Optimization and an Implementation for Problems with the Exponential Cone"
+# NB::the code follows the ECOS solver, which comes from Santiago's thesis, 
+# "Algorithms for Unsymmetric Cone Optimization and an Implementation for Problems with the Exponential Cone"
 function wright_omega(z::T) where {T}
     w  = zero(T);
     r  = zero(T);

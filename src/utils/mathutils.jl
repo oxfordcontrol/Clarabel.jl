@@ -11,6 +11,23 @@ function clip(
     return s
 end
 
+function absextrema(v::AbstractVector{T}) where{T}
+
+    #returns the entry with the smallest absolute value
+
+    #empty array, returns zero 
+    if(length(v) == 0) return (zero(T),zero(T)) end 
+
+    lower = T(Inf)
+    upper = zero(T)
+
+    for val in v
+        absval = abs(val)
+        lower = min(absval,lower)
+        upper = max(absval,upper)
+    end 
+    return (lower,upper)
+end
 
 #2-norm of the product M*v
 function scaled_norm(M::Diagonal{T},v::AbstractVector{T}) where{T}

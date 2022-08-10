@@ -217,8 +217,8 @@ function solve!(
             # generic across solvers or problem domains.
             # YC: The flag is to determine when we switch from primal-dual scaling to the dual scaling depending on the conditioning number of the KKT matrix. 
 
-            variables_scale_cones!(s.variables,s.cones,μ,s.kktsystem.kktsolver.scale_flag)
-
+            variables_scale_cones!(s.variables,s.cones,μ,!s.kktsystem.kktsolver.is_ill_conditioned)
+ 
             #update the KKT system and the constant
             #parts of its solution
             #--------------
@@ -277,9 +277,6 @@ function solve!(
                 info_save_scalars(s.info,μ,α,σ,iter)
             end
 
-            # YC:: offset_KKT_diag directly
-            offset_KKT_diag(s.kktsystem.kktsolver)
-
         end  #end while
         #----------
         #----------
@@ -317,48 +314,13 @@ function solver_default_start!(s::Solver{T}) where {T}
         #fix up (z,s) so that they are in the cone
         variables_shift_to_cone!(s.variables, s.cones)
     else
-        #Unit initialization when there are unsymmetric cones
-        unsymmetric_init!(s.variables, s.cones)
+        #Unit initialization when there are asymmetric cones
+        asymmetric_init!(s.variables, s.cones)
     end
 
-    # YC:: offset_P_diag directly
-    offset_P_diag(s.kktsystem.kktsolver)
     return nothing
 end
 
 function Base.show(io::IO, solver::Clarabel.Solver{T}) where {T}
     println(io, "Clarabel model with Float precision: $(T)")
-end
-
-# offset diagonal static regularization directly
-function offset_P_diag(
-    kktsolver::AbstractKKTSolver{T}
-) where{T}
-    settings  = kktsolver.settings
-    map       = kktsolver.map
-    ϵ = settings.static_regularization_eps
-    KKT       = kktsolver.KKT
-
-    # _offset_values!(kktsolver,map.diagP,-ϵ)  #undo the (now doubled) P shift
-
-    if(settings.static_regularization_enable)
-        (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
-        @views _offset_values!(kktsolver.ldlsolver,KKT, map.diag_full[1:n], -ϵ, kktsolver.Dsigns[1:n])
-    end
-end
-
-function offset_KKT_diag(
-    kktsolver::AbstractKKTSolver{T}
-) where{T}
-    settings  = kktsolver.settings
-    map       = kktsolver.map
-    ϵ = kktsolver.ϵ
-    KKT       = kktsolver.KKT
-
-    # _offset_values!(kktsolver,map.diagP,-ϵ)  #undo the (now doubled) P shift
-
-    if(settings.static_regularization_enable)
-        (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
-        @views _offset_values!(kktsolver.ldlsolver,KKT, map.diag_full, -ϵ, kktsolver.Dsigns)
-    end
 end

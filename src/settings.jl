@@ -71,16 +71,14 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     direct_solve_method::Symbol         = :qdldl
 
     #static regularization parameters
-    static_regularization_enable::Bool  = true
-    static_regularization_eps::T        = 1e-8
+    static_regularization_enable::Bool    = true
+    static_regularization_constant::T     = 1e-8   #PJG: Add to docs
+    static_regularization_proportional::T = eps(T) #PJG: Add to docs
 
     #dynamic regularization parameters
     dynamic_regularization_enable::Bool = true
     dynamic_regularization_eps::T       = 1e-13
     dynamic_regularization_delta::T     = 2e-7
-
-    # proportional regularization w.r.t. the maximum diagonal term
-    proportional_eps = eps(T)
 
     #iterative refinement
     iterative_refinement_enable::Bool   = true
