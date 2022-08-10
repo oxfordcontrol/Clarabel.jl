@@ -411,7 +411,8 @@ function iterative_refinement(kktsolver::DirectLDLKKTSolver{T}) where{T}
     IR_stopratio = settings.iterative_refinement_stop_ratio
 
     if(settings.static_regularization_enable)
-        ϵ = settings.static_regularization_eps
+        # ϵ = settings.static_regularization_eps
+        ϵ = kktsolver.ϵ
     else
         ϵ = zero(settings.static_regularization_eps)
     end

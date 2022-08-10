@@ -201,7 +201,7 @@ function _step_length_exp_primal(
     α::T,
     backtrack::T
 ) where {T}
-
+    αmax = α
     # @. ws = s + α*ds
     @inbounds for i = 1:3
         ws[i] = s[i] + α*ds[i]
@@ -219,6 +219,10 @@ function _step_length_exp_primal(
         @inbounds for i = 1:3
             ws[i] = s[i] + α*ds[i]
         end
+    end
+
+    if α < αmax
+        α = newton_step_length_exp_primal(ws,ds,s,α)
     end
 
     return α
@@ -252,72 +256,63 @@ function _step_length_exp_dual(
         end
     end
 
-    # if α < αmax
-    #     α = newton_step_length_exp_dual(ws,dz,z,α)
-    # end
+    if α < αmax
+        α = newton_step_length_exp_dual(ws,dz,z,α)
+    end
 
     return α
 end
 
-# # YC: line search based on the Newton method
-# function _step_length_exp_primal(
-#     ws::AbstractVector{T},
-#     ds::AbstractVector{T},
-#     s::AbstractVector{T},
-#     α0::T,
-#     backtrack::T
-# ) where {T}
-#     # println("s is ", s[3], "  ", s[2])
-#     # println("ds is ", ds[3], "  ", ds[2])
-#     # println("α0 is ", α0)
-#     α2 = ds[2] < 0 ? min(α0, -s[2]/ds[2]) : α0
-#     α3 = ds[3] < 0 ? min(α0, -s[3]/ds[3]) : α0
+# YC: line search based on the Newton method
+function newton_step_length_exp_primal(
+    ws::AbstractVector{T},
+    ds::AbstractVector{T},
+    s::AbstractVector{T},
+    αprev::T
+) where {T}
 
-#     # println("αk is ", α3, "  ", α2)
-#     αprev = min(α2,α3)     # init step size
-#     # println("α_prim is ", αprev)
-#     @inbounds for j = 1:3
-#         ws[j] = s[j] + αprev*ds[j] #update to current
-#     end
+    l = log(ws[3]/ws[2])
+    f0 = ws[2]*l - ws[1]
+    f1 = ds[2]*l + ws[2]/ws[3]*ds[3] - ds[2] - ds[1]
 
-#     # println("divide ", ws[3], "  ", ws[2])
-#     l = log(ws[3]/ws[2])
-#     f0 = ws[2]*l - ws[1]
+    if f1 < 0
+        # run 20 iterations at maximum
+        @inbounds for iter = 1:20
+            αnew = αprev - f0 / f1
 
-#     if f0 > 0
-#         return 0.999*αprev
-#     else
-#         αnew = αprev
+            if αnew > one(T)    #step size too large
+                return αprev
+            end
 
-#         @inbounds for iter in 1:50
-#             @inbounds for j = 1:3
-#                 ws[j] = s[j] + αprev*ds[j] #update to current
-#             end
+            @inbounds for j = 1:3
+                ws[j] = s[j] + αnew*ds[j] #update to current
+            end
 
-#             l = log(ws[3]/ws[2])
-#             f0 = ws[2]*l - ws[1]                                # f0 < 0
-#             f1 = ds[2]*l + ws[2]/ws[3]*ds[3] - ds[2] - ds[1]    # f1 < 0
+            if ws[2] > 0 && ws[3] > 0       
+                l = log(ws[3]/ws[2])
+                f0 = ws[2]*l - ws[1]
 
-#             if f0 > -eps(T)   # α1 - αnew >=0, Stop when the result is within the desired tolerance
-#                 return 0.999*αnew             
-#             end
+                if f0 > 0 
+                    f1 = ds[2]*l + ws[2]/ws[3]*ds[3] - ds[2] - ds[1]
+                    if abs(αnew - αprev) < eps(T)
+                        return αnew
+                    end
+    
+                    αprev = αnew
+                else
+                    return αprev
+                end
+            else
+                return αprev
+            end
 
-#             if abs(f1) < eps(T)     # Stop if the denominator is too small
-#                 break
-#                 println("failed denominator")
-#             end
-
-#             αnew = αprev - f0 / f1
-
-#             αprev = αnew                         # Update x0 to start the process again
-
-#         end
-
-#         error("Newton method fails")
-#     end
-
-#     return zero(T)
-# end
+        end
+        # return current one
+        return αnew
+    else
+        return αprev
+    end
+end
 
 # YC: line search based on the Newton method
 # search from f(α) > 0, f'(α) < 0
@@ -353,16 +348,21 @@ function newton_step_length_exp_dual(
                 ws[j] = z[j] + αnew*dz[j] #update to current
             end
 
-            f0 = ws[2] - ws[1] - ws[1]*l
+            if ws[1] < 0 && ws[3] > 0
+                l = log(-ws[3]/ws[1])
+                f0 = ws[2] - ws[1] - ws[1]*l
 
-            if f0 > 0 && ws[1] < 0 && ws[3] > 0
-                f1 = dz[2] - dz[1]*l - dz[3]*ws[1]/ws[3]
-
-                if abs(αnew - αprev) < eps(T)
-                    return αnew
+                if f0 > 0
+                    f1 = dz[2] - dz[1]*l - dz[3]*ws[1]/ws[3]
+    
+                    if abs(αnew - αprev) < eps(T)
+                        return αnew
+                    end
+    
+                    αprev = αnew
+                else
+                    return αprev
                 end
-
-                αprev = αnew
             else
                 return αprev
             end

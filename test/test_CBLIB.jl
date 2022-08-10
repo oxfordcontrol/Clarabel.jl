@@ -6,8 +6,8 @@ using ConicBenchmarkUtilities
 
 using Profile,StatProfilerHTML, TimerOutputs
 
-# include("../src\\Clarabel.jl")
-using Clarabel
+include("../src\\Clarabel.jl")
+# using Clarabel
 # using Hypatia
 
 coneMap = Dict(:Zero => MOI.Zeros, :Free => :Free,
@@ -19,7 +19,7 @@ filelist = readdir(pwd()*"./primal_exp_cbf")
 
 # dat = readcbfdata("./exp_cbf/car.cbf.gz") # .cbf.gz extension also accepted
 
-for j = 32:32    #length(filelist)
+for j = 1:32    #length(filelist)
     println("Current file is ", j)
     datadir = filelist[j]   #"gp_dave_1.cbf.gz"
     # datadir = "beck751.cbf.gz"

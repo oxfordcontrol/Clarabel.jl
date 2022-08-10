@@ -59,14 +59,11 @@ function info_check_termination!(
     info.status = UNSOLVED  #ensure default state
     # println("current gap: ", min(info.gap_abs, info.gap_rel))
 
-    # check whether residuals diverges or not
-    if (((info.res_dual > info.prev_res_dual) || (info.res_primal > info.prev_res_primal)) 
-        && (iter > 0) && (info.ktratio < 1e-8)
-    )
-            # YC: Terminate early when the gap is small enough
-            if (info.gap_abs < settings.tol_gap_abs) || (info.gap_rel < settings.tol_gap_rel)
-                info.status = EARLY_TERMINATED
-            end
+    # YC: Terminate early when residuals diverge
+    if iter > 0 && 
+        (info.res_dual > 500*info.prev_res_dual || info.res_primal > 500*info.prev_res_primal)
+            info.status = EARLY_TERMINATED
+
     else
         if( ((info.gap_abs < settings.tol_gap_abs) || (info.gap_rel < settings.tol_gap_rel))
             && (info.res_primal < settings.tol_feas)
