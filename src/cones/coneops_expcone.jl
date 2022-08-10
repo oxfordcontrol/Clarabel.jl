@@ -201,9 +201,10 @@ function _step_length_exp_primal(
         @. ws = s + α*ds
     end
 
-    if α < αmax
-        α = newton_step_length_exp_primal(ws,ds,s,α)
-    end
+    # YC: supplementary line search
+    # if α < αmax
+    #     α = newton_step_length_exp_primal(ws,ds,s,α)
+    # end
 
     return α
 end
@@ -230,9 +231,10 @@ function _step_length_exp_dual(
         @. ws = z + α*dz
     end
 
-    if α < αmax
-        α = newton_step_length_exp_dual(ws,dz,z,α)
-    end
+    # YC: supplementary line search
+    # if α < αmax
+    #     α = newton_step_length_exp_dual(ws,dz,z,α)
+    # end
 
     return α
 end

@@ -17,7 +17,7 @@ function calc_step_length(
     work_vars::DefaultVariables{T},
     cones::ConeSet{T},
     steptype::Symbol,
-    scale_flag::Bool
+    is_ill_conditioned::Bool
 ) where {T}
 
     ατ    = step.τ < 0 ? -variables.τ / step.τ : floatmax(T)
@@ -34,7 +34,7 @@ function calc_step_length(
     #          ensure the update is close to the central path;
     #       2) check only when there are some unsymmetric cones and we are using the dual scaling.
     
-    if (!cones.sym_flag && steptype == :combined && !scale_flag)
+    if (!cones.sym_flag && steptype == :combined && is_ill_conditioned)
         α = check_μ_and_centrality(cones,step,variables,work_vars,α)
 
         if (α < 1e-4)
