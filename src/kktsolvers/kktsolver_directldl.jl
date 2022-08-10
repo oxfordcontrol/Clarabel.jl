@@ -314,12 +314,10 @@ function _update_regularizer(
 
     kkt_diag = @view KKT.nzval[map.diag_full]
     (mindiag,maxdiag)  = absextrema(kkt_diag);
-    mindiag += settings.static_regularization_constant
-    maxdiag += settings.static_regularization_constant
 
     # used to switch from primal-dual scaling to the pure dual scaling 
     # when the approximate conditioning number is larger than 1/eps(T)
-    if  maxdiag*eps(T) > mindiag
+    if  maxdiag*eps(T) > (mindiag + settings.static_regularization_constant)
         kktsolver.is_ill_conditioned = true
     else 
         kktsolver.is_ill_conditioned = false
