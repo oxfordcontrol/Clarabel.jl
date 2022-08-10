@@ -368,15 +368,21 @@ function wright_omega(z::T) where {T}
 
     z = (1+w);
     q = z+2/3.0*r;
-    w *= 1+r/z*(z*q-0.5*r)/(z*q-r);
-    r = (2*w*w-8*w-1)/(72.0*(z*z*z*z*z*z))*r*r*r*r;
+    zq = z*q;
+    w *= 1+r/z*(zq-0.5*r)/(zq-r);
+    r2 = r*r;
+    z2 = z*z;
+    r = (2*w*w-8*w-1)/(72.0*(z2*z2*z2))*r2*r2;
     # Check residual
     # if(r<1.e-16) return w;
     # Just do two rounds
     z = (1+w);
     q = z+2/3.0*r;
-    w *= 1+r/z*(z*q-0.5*r)/(z*q-r);
-    r = (2*w*w-8*w-1)/(72.0*(z*z*z*z*z*z))*r*r*r*r;
+    zq = z*q;
+    w *= 1+r/z*(zq-0.5*r)/(zq-r);
+    r2 = r*r;
+    z2 = z*z;
+    r = (2*w*w-8*w-1)/(72.0*(z2*z2*z2))*r2*r2;
 
     return w;
 end

@@ -82,13 +82,13 @@ index = 7
 
 model_clarabel = exp_model(index; optimizer = Clarabel.Optimizer) 
 model_ecos = exp_model(index; optimizer = ECOS.Optimizer) 
-set_optimizer_attribute(model_clarabel, "verbose", true)
+set_optimizer_attribute(model_clarabel, "verbose", false)
 set_optimizer_attribute(model_ecos, "verbose", false)
 optimize!(model_clarabel) 
 optimize!(model_ecos) 
 
-#println(solution_summary(model_clarabel))
-#println(solution_summary(model_ecos))
+println(solution_summary(model_clarabel))
+println(solution_summary(model_ecos))
 
 solver = model_clarabel.moi_backend.optimizer.model.optimizer.inner
 

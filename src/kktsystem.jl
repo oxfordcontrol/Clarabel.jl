@@ -2,11 +2,6 @@
 # KKT System
 # ---------------
 
-@enum ScalingStrategy begin
-    PrimalDual = 0
-    Dual       = 1
-end
-
 mutable struct DefaultKKTSystem{T} <: AbstractKKTSystem{T}
 
     #the KKT system solver
