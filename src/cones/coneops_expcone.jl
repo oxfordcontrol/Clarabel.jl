@@ -23,12 +23,12 @@ function update_scaling!(
     s::AbstractVector{T},
     z::AbstractVector{T},
     μ::T,
-    scale_flag::Bool
+    scaling_strategy::ScalingStrategy
 ) where {T}
     # update both gradient and Hessian for function f*(z) at the point z
     # NB: the update order can't be switched as we reuse memory in the Hessian computation
     # Hessian update
-    update_HBFGS(K,s,z,scale_flag)
+    update_HBFGS(K,s,z,scaling_strategy)
     gradient_f(K,z,K.grad)
     # K.z .= z
     @inbounds for i = 1:3
@@ -467,7 +467,7 @@ function update_HBFGS(
     K::ExponentialCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
-    scale_flag::Bool
+    scaling_strategy::ScalingStrategy
 ) where {T}
     # reuse memory
     st = K.grad_work
@@ -488,7 +488,7 @@ function update_HBFGS(
     end
 
     # use the dual scaling
-    if !scale_flag
+    if scaling_strategy == Dual::ScalingStrategy
         return nothing
     end
 

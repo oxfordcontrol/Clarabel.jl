@@ -21,7 +21,7 @@ function update_scaling!(
     s::AbstractVector{T},
     z::AbstractVector{T},
     μ::T,
-    flag::Bool
+    scaling_strategy::ScalingStrategy
 ) where {T}
 
     #nothing to do.

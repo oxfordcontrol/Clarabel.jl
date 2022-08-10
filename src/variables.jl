@@ -63,10 +63,10 @@ function variables_scale_cones!(
     variables::DefaultVariables{T},
     cones::ConeSet{T},
 	μ::T,
-    scale_flag::Bool
+    scaling_strategy::ScalingStrategy
 ) where {T}
 
-    cones_update_scaling!(cones,variables.s,variables.z,μ,scale_flag)
+    cones_update_scaling!(cones,variables.s,variables.z,μ,scaling_strategy)
     return nothing
 end
 

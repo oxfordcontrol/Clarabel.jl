@@ -211,13 +211,8 @@ function solve!(
             #update the scalings
             #--------------
 
-            # PJG: This not a good general structure, since the flag
-            # being fed down to the cones here is coming from deep
-            # within the kkt system itself.   This is not easily made
-            # generic across solvers or problem domains.
-            # YC: The flag is to determine when we switch from primal-dual scaling to the dual scaling depending on the conditioning number of the KKT matrix. 
-
-            variables_scale_cones!(s.variables,s.cones,μ,!s.kktsystem.kktsolver.is_ill_conditioned)
+            scaling_strategy = kkt_scaling_strategy(s.kktsystem)
+            variables_scale_cones!(s.variables,s.cones,μ,scaling_strategy)
  
             #update the KKT system and the constant
             #parts of its solution

@@ -28,7 +28,7 @@ function update_scaling!(
     s::AbstractVector{T},
     z::AbstractVector{T},
     μ::T,
-    flag::Bool
+    scaling_strategy::ScalingStrategy
 ) where {T}
     # update both gradient and Hessian for function f*(z) at the point z
     # NB: the update order can't be switched as we reuse memory in the Hessian computation

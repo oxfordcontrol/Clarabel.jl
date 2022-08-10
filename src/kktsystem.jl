@@ -2,6 +2,11 @@
 # KKT System
 # ---------------
 
+@enum ScalingStrategy begin
+    PrimalDual = 0
+    Dual       = 1
+end
+
 mutable struct DefaultKKTSystem{T} <: AbstractKKTSystem{T}
 
     #the KKT system solver
@@ -142,7 +147,7 @@ function kkt_solve!(
     @. workz = Wtlinvds - rhs.z
 
 
-    #####################################################
+    #---------------------------------------------------
     #this solves the variable part of reduced KKT system
     kktsolver_setrhs!(kktsystem.kktsolver, workx, workz)
     kktsolver_solve!(kktsystem.kktsolver,x1,z1)
@@ -173,44 +178,6 @@ function kkt_solve!(
     @. lhs.z = z1 + lhs.τ * z2
 
 
-    #####################################################
-    # # asymmetric system solver
-    # m,n = size(data.A)
-    # ξ = variables.x/variables.τ
-
-    # rhs_asym = vcat(rhs.x, workz.vec, [rhs.τ - rhs.κ/variables.τ])
-    # lhs_asym = Vector{T}(undef, m+n+1)
-    # K_tmp = hcat(kktsystem.kktsolver.ldlsolver.KKTsym, [data.q; -data.b])
-    # K_asym = vcat(K_tmp, [-(2*data.P*ξ + data.q)' -data.b' dot(ξ,data.P,ξ) + T(1e-8)])
-
-    # F = lu(K_asym)
-    # # F = qr(K_asym)
-
-    # lhs_asym = F\rhs_asym
-    # mul!(rhs_asym,K_asym,lhs_asym,-1.,1.)
-
-    # norme = norm(rhs_asym,Inf)
-
-    # @. lhs.x =  lhs_asym[1:n]
-    # @. lhs.z.vec = lhs_asym[n+1:m+n]
-    # lhs.τ  = lhs_asym[m+n+1]
-
-    # # one iterative refinement
-    # if norme > T(1e-10)
-    #     lhs_asym = F\rhs_asym
-    #     mul!(rhs_asym,K_asym,lhs_asym,-1.,1.)
-    #     norme = norm(rhs_asym,Inf)
-
-    #     @. lhs.x +=  lhs_asym[1:n]
-    #     @. lhs.z.vec += lhs_asym[n+1:m+n]
-    #     lhs.τ  += lhs_asym[m+n+1]
-
-    #     println("current IR: ", norme)
-    # end
-    
-
-
-
     #solve for Δs = -Wᵀ(λ \ dₛ + WΔz) = -Wᵀ(λ \ dₛ) - WᵀWΔz
     #where the first part is already in Wtlinvds
     #-------------
@@ -224,4 +191,17 @@ function kkt_solve!(
     lhs.κ = -(rhs.κ + variables.κ * lhs.τ) / variables.τ
 
     return nothing
+end
+
+
+function kkt_scaling_strategy(kktsystem::DefaultKKTSystem{T}) where {T} 
+
+    
+    if kktsolver_is_ill_conditioned(kktsystem.kktsolver)
+        println("Scaling Strategy is ", Dual::ScalingStrategy)
+        return Dual::ScalingStrategy
+    else 
+        println("Scaling Strategy is ", PrimalDual::ScalingStrategy)
+        return PrimalDual::ScalingStrategy
+    end
 end
