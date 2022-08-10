@@ -198,10 +198,8 @@ function kkt_scaling_strategy(kktsystem::DefaultKKTSystem{T}) where {T}
 
     
     if kktsolver_is_ill_conditioned(kktsystem.kktsolver)
-        println("Scaling Strategy is ", Dual::ScalingStrategy)
         return Dual::ScalingStrategy
     else 
-        println("Scaling Strategy is ", PrimalDual::ScalingStrategy)
         return PrimalDual::ScalingStrategy
     end
 end

@@ -320,17 +320,14 @@ function _update_regularizer(
     # used to switch from primal-dual scaling to the pure dual scaling 
     # when the approximate conditioning number is larger than 1/eps(T)
     if  maxdiag*eps(T) > mindiag
-        println("Ill conditioned")
         kktsolver.is_ill_conditioned = true
     else 
         kktsolver.is_ill_conditioned = false
     end
 
     # Compute and apply a new regularizer 
-    kktsolver.diagonal_regularizer = 
-        settings.static_regularization_constant + 
-        settings.static_regularization_proportional * maxdiag;
-    
+    kktsolver.diagonal_regularizer = settings.static_regularization_constant + settings.static_regularization_proportional * maxdiag;
+
     @views _offset_values!(
         ldlsolver,KKT, 
         map.diag_full, 
