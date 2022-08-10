@@ -127,9 +127,11 @@ function print_settings(settings::Settings, T::DataType)
         set.tol_gap_rel
     )
 
-    @printf("  static reg : %s, ϵ = %0.1e\n",
+    @printf("  static reg : %s, ϵ\u2081 = %0.1e, ϵ\u2082 = %0.1e\n",
         bool_on_off(set.static_regularization_enable),
-        set.static_regularization_eps
+        set.static_regularization_constant,
+        set.static_regularization_proportional,
+
     )
     #
     @printf("  dynamic reg: %s, ϵ = %0.1e, δ = %0.1e\n",

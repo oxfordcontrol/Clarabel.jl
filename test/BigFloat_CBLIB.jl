@@ -45,7 +45,7 @@ for j = 1:32    #length(filelist)
     Imatrix = -1.0*Matrix(I, num_var, num_var)
 
     #Tackling constraint
-    for i = 1:length(var_cones)
+    for i in eachindex(var_cones)
         cur_var = var_cones[i]
         # println(coneMap[cur_var[1]])
 
@@ -71,7 +71,7 @@ for j = 1:32    #length(filelist)
 
 
 
-    for i = 1:length(con_cones)
+    for i in eachindex(con_cones)
         cur_cone = con_cones[i]
         # println(coneMap[cur_cone[1]])
 

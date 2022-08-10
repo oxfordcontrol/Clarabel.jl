@@ -3,8 +3,8 @@ using JuMP, MathOptInterface
 # const MOI = MathOptInterface
 using LinearAlgebra
 using ConicBenchmarkUtilities
-
-using Profile,StatProfilerHTML, TimerOutputs
+using Profile
+using TimerOutputs
 
 #include("../src\\Clarabel.jl")
 using Clarabel
@@ -15,11 +15,13 @@ coneMap = Dict(:Zero => MOI.Zeros, :Free => :Free,
                      :SOC => MOI.SecondOrderCone, :SOCRotated => MOI.RotatedSecondOrderCone,
                      :ExpPrimal => MOI.ExponentialCone, :ExpDual => MOI.DualExponentialCone)
 
-function exp_model(exInd::Int)
-    filelist = readdir(pwd()*"./primal_exp_cbf")
+function exp_model(exInd::Int; optimizer = Clarabel.Optimizer)
+
+    cbfpath  = joinpath(@__DIR__,"primal_exp_cbf")
+    filelist = readdir(cbfpath)
 
     datadir = filelist[exInd]   #"gp_dave_1.cbf.gz"
-    dat = readcbfdata("./primal_exp_cbf/"*datadir) # .cbf.gz extension also accepted
+    dat = readcbfdata(joinpath(cbfpath,datadir)) # .cbf.gz extension also accepted
 
     # In MathProgBase format:
     c, A, b, con_cones, var_cones, vartypes, sense, objoffset = cbftompb(dat)
@@ -32,14 +34,14 @@ function exp_model(exInd::Int)
     num_con = size(A,1)
     num_var = size(A,2)
 
-    model = Model(Clarabel.Optimizer)
+    model = Model(optimizer)
     set_optimizer_attribute(model, "direct_solve_method", :qdldl)
 
     # model = Model(ECOS.Optimizer)
     @variable(model, x[1:num_var])
 
     #Tackling constraint
-    for i = 1:length(con_cones)
+    for i in eachindex(con_cones)
         cur_cone = con_cones[i]
         # println(coneMap[cur_cone[1]])
 
@@ -54,7 +56,7 @@ function exp_model(exInd::Int)
         end
     end
 
-    for i = 1:length(var_cones)
+    for i in eachindex(var_cones)
         cur_var = var_cones[i]
         # println(coneMap[cur_var[1]])
 
@@ -75,7 +77,21 @@ function exp_model(exInd::Int)
 end
 
 # the input number i corresponds to the i-th example in CBLIB. Example 7,8,32
-model = exp_model(7) 
-Profile.clear()
-Profile.init()
-@profilehtml optimize!(model)
+
+index = 7
+
+model_clarabel = exp_model(index; optimizer = Clarabel.Optimizer) 
+model_ecos = exp_model(index; optimizer = ECOS.Optimizer) 
+set_optimizer_attribute(model_clarabel, "verbose", true)
+set_optimizer_attribute(model_ecos, "verbose", false)
+optimize!(model_clarabel) 
+optimize!(model_ecos) 
+
+#println(solution_summary(model_clarabel))
+#println(solution_summary(model_ecos))
+
+solver = model_clarabel.moi_backend.optimizer.model.optimizer.inner
+
+#@profile Clarabel.solve!(solver)
+
+#pprof()

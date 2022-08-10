@@ -168,8 +168,8 @@ function shift_to_cone!(
     return nothing
 end
 
-# unsymmetric initialization
-function unsymmetric_init!(
+# asymmetric initialization
+function asymmetric_init!(
    K::SecondOrderCone{T},
    s::AbstractVector{T},
    z::AbstractVector{T}

@@ -98,7 +98,7 @@ function calc_affine_step_rhs!(
 
     @. d.x    .=  r.rx
     @. d.z     =  r.rz
-    cones_affine_ds!(cones, d.s, variables.s)    # unsymmetric cones need value of s
+    cones_affine_ds!(cones, d.s, variables.s)    # asymmetric cones need value of s
     d.τ        =  r.rτ
     d.κ        =  variables.τ * variables.κ
 
@@ -131,9 +131,9 @@ function calc_combined_step_rhs!(
     # want to have aliasing vector arguments to gemv_W or gemv_Winv, so we
     # need to copy into a temporary variable to assign #Δz = WΔz and Δs = W⁻¹Δs
     #
-    # ds is different for symmetric and unsymmetric cones:
+    # ds is different for symmetric and asymmetric cones:
     # Symmetric cones: d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
-    # Unsymmetric cones: d.s = s + σμ*g(z)
+    # Asymmetric cones: d.s = s + σμ*g(z)
     cones_combined_ds!(cones,d.z,d.s,step.z,step.s,dotσμ,scale_flag)
 
     # now we copy the scaled res for rz and d.z is no longer work
@@ -163,7 +163,7 @@ end
 # for the nonnegative cones, e is the vector of all ones;
 # for the second-order cones, e = (1; 0; ... ; 0) where the 1 corresponds to the first variable;
 # for semidefinite cones, e is the identity matrix.
-function unsymmetric_init!(
+function asymmetric_init!(
     variables::DefaultVariables{T},
     cones::ConeSet{T}
 ) where {T}

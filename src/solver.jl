@@ -223,21 +223,21 @@ function solve!(
             # generic across solvers or problem domains.
             # YC: The flag is to determine when we switch from primal-dual scaling to the dual scaling depending on the conditioning number of the KKT matrix. 
 
-            variables_scale_cones!(s.variables,s.cones,μ,s.scale_flag)
-
+            variables_scale_cones!(s.variables,s.cones,μ,!s.kktsystem.kktsolver.is_ill_conditioned)
+ 
             #update the KKT system and the constant
             #parts of its solution
             #--------------
             @timeit s.timers "kkt update" numerical_check = kkt_update!(s.kktsystem,s.data,s.cones)
 
-            if numerical_check && s.scale_flag
+            if numerical_check && !s.kktsystem.kktsolver.is_ill_conditioned
                 # reset to the dual scaling strategy firstly
                 s.scale_flag = false
-                variables_scale_cones!(s.variables,s.cones,μ,s.scale_flag)
+                variables_scale_cones!(s.variables,s.cones,μ,!s.kktsystem.kktsolver.is_ill_conditioned)
                 numerical_check = kkt_update!(s.kktsystem,s.data,s.cones)
             end
             
-            if numerical_check && !(s.scale_flag)
+            if numerical_check && s.kktsystem.kktsolver.is_ill_conditioned
                 # YC: if kkt_solve fails due to numerical issues
                 s.info.status = NUMERICALLY_HARD
                 break
@@ -260,7 +260,7 @@ function solve!(
             #calculate step length and centering parameter
             #--------------
             @timeit_debug timer "step length affine" begin
-                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:affine,s.scale_flag)
+                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:affine, !s.kktsystem.kktsolver.is_ill_conditioned)
                 σ = calc_centering_parameter(α)
             end
 
@@ -269,7 +269,7 @@ function solve!(
             calc_combined_step_rhs!(
                 s.step_rhs, s.residuals,
                 s.variables, s.cones,
-                s.step_lhs, σ, μ, s.scale_flag
+                s.step_lhs, σ, μ, !s.kktsystem.kktsolver.is_ill_conditioned
             )
 
             @timeit s.timers "kkt solve" begin
@@ -282,30 +282,8 @@ function solve!(
             #compute final step length and update the current iterate
             #--------------
             @timeit_debug timer "step length final" begin
-                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:combined, s.scale_flag)
+                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:combined, !s.kktsystem.kktsolver.is_ill_conditioned)
             end
-
-            # PJG: I don't know what's going on in the loop below,
-            # but it might be better to pull this into its own
-            # function.   Also need to remove the print statements
-            # YC: This is a premature test for the multi-correction step, but it seems to be unnecessary 
-            #     if we update the KKT by the dual scaling as soon as the flag turns off.
-
-            # while (α < 0.1 && σ < one(T))
-            #     println("step size too small!! with σ is ", σ)
-            #     σ *= 10
-            #     calc_combined_step_rhs!(
-            #         s.step_rhs, s.residuals,
-            #         s.variables, s.cones,
-            #         s.step_lhs, σ, μ, s.scale_flag
-            #     )
-            #     kkt_solve!(
-            #         s.kktsystem, s.step_lhs, s.step_rhs,
-            #         s.data, s.variables, s.cones, :combined
-            #     )
-            #     α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:combined)
-            #     println("update α ", α)
-            # end
 
             @timeit_debug timer "alpha scale " α *= s.settings.max_step_fraction
 
@@ -323,23 +301,17 @@ function solve!(
 
             # YC: check if the step size is too small
             if α < 1e-4
-                if s.scale_flag
-                    s.scale_flag = false
-                else
+                if s.kktsystem.kktsolver.is_ill_conditioned
                     isdone = true
                     s.info.status = EARLY_TERMINATED
                     break
+                else
+                    s.kktsystem.kktsolver.is_ill_conditioned = true
                 end
             end
 
             # YC: switch from the primal-dual scaling to the dual scaling
-            if s.scale_flag == true && switch_scaling(s.kktsystem.kktsolver)
-                s.scale_flag = false
-            end
-
-            # PJG: need to reset (solver.scale_flag = true) after solving a problem
-            # YC:: offset_KKT_diag directly
-            offset_KKT_diag(s.kktsystem.kktsolver)
+            switch_scaling(s.kktsystem.kktsolver)
 
         end  #end while
         #----------
@@ -378,48 +350,13 @@ function solver_default_start!(s::Solver{T}) where {T}
         #fix up (z,s) so that they are in the cone
         variables_shift_to_cone!(s.variables, s.cones)
     else
-        #Unit initialization when there are unsymmetric cones
-        unsymmetric_init!(s.variables, s.cones)
+        #Unit initialization when there are asymmetric cones
+        asymmetric_init!(s.variables, s.cones)
     end
 
-    # YC:: offset_P_diag directly
-    offset_P_diag(s.kktsystem.kktsolver)
     return nothing
 end
 
 function Base.show(io::IO, solver::Clarabel.Solver{T}) where {T}
     println(io, "Clarabel model with Float precision: $(T)")
-end
-
-# offset diagonal static regularization directly
-function offset_P_diag(
-    kktsolver::AbstractKKTSolver{T}
-) where{T}
-    settings  = kktsolver.settings
-    map       = kktsolver.map
-    ϵ = settings.static_regularization_eps
-    KKT       = kktsolver.KKT
-
-    # _offset_values!(kktsolver,map.diagP,-ϵ)  #undo the (now doubled) P shift
-
-    if(settings.static_regularization_enable)
-        (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
-        _offset_values!(kktsolver.ldlsolver,KKT, map.diag_full[1:n], -ϵ, kktsolver.Dsigns[1:n])
-    end
-end
-
-function offset_KKT_diag(
-    kktsolver::AbstractKKTSolver{T}
-) where{T}
-    settings  = kktsolver.settings
-    map       = kktsolver.map
-    ϵ = kktsolver.ϵ
-    KKT       = kktsolver.KKT
-
-    # _offset_values!(kktsolver,map.diagP,-ϵ)  #undo the (now doubled) P shift
-
-    if(settings.static_regularization_enable)
-        (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
-        _offset_values!(kktsolver.ldlsolver,KKT, map.diag_full, -ϵ, kktsolver.Dsigns)
-    end
 end

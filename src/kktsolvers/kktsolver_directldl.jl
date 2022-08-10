@@ -30,7 +30,6 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
     #symmetric view for residual calcs
     KKTsym::Symmetric{T, SparseMatrixCSC{T,Int}}
-    abs_kkt_diag::Vector{T}
 
     #settings just points back to the main solver settings.
     #Required since there is no separate LDL settings container
@@ -39,7 +38,15 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     #the direct linear LDL solver
     ldlsolver::AbstractDirectLDLSolver{T}
 
-    ϵ::T                    # current dynamic regularization
+    #the diagonal regularizer currently applied
+    diagonal_regularizer::T
+
+    #marker indicating ill conditioning 
+    # PJG: need to reset scale_flag after each solve
+    is_ill_conditioned::Bool
+    maxdiag::T
+    mindiag::T
+
 
     function DirectLDLKKTSolver{T}(P,A,cones,m,n,settings) where {T}
 
@@ -68,22 +75,29 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         kktshape = required_matrix_shape(ldlsolverT)
         KKT, map = _assemble_kkt_matrix(P,A,cones,kktshape)
 
+        diagonal_regularizer = zero(T)
+
         if(settings.static_regularization_enable)
-            ϵ = settings.static_regularization_eps
-            @views _offset_values_KKT!(KKT, map.diag_full[1:n], ϵ, Dsigns[1:n])
+            diagonal_regularizer = settings.static_regularization_constant
+            @views _offset_values_KKT!(KKT, map.diag_full[1:n], diagonal_regularizer, Dsigns[1:n])
         end
 
         #KKT will be triu data only, but we will want
         #the following to allow products like KKT*x
         KKTsym = Symmetric(KKT)
 
-        kkt_diag = @view KKT[map.diag_full]
-        abs_kkt_diag = abs.(kkt_diag)
-
         #the LDL linear solver engine
         ldlsolver = ldlsolverT{T}(KKT,Dsigns,settings)
 
-        return new(m,n,p,x,b,work_e,work_dx,map,Dsigns,WtWblocks,KKT,KKTsym,abs_kkt_diag,settings,ldlsolver)
+        #assume reasonable conditioning to start
+        is_ill_conditioned = false
+        maxdiag = one(T)
+        mindiag = one(T)
+
+        return new(m,n,p,x,b,
+                   work_e,work_dx,map,Dsigns,WtWblocks,
+                   KKT,KKTsym,settings,ldlsolver,
+                   diagonal_regularizer, is_ill_conditioned,maxdiag,mindiag)
     end
 
 end
@@ -267,29 +281,10 @@ function _kktsolver_update_inner!(
 
             cidx += 1
         end
-
     end
 
-    #Perturb the diagonal terms WtW that we have just overwritten
-    #with static regularizers.  Note that we don't want to shift
-    #elements in the ULHS (corresponding to P) since we already
-    #shifted them at initialization and haven't overwritten that block
-
-    # YC:: To add a dynamic regularization w.r.t. the maximum absolute value of diagonal terms,
-    #      we also modify the regularization of P at each iteration 
-    KKTdiag = @view KKT.nzval[map.diag_full]
-    abs_kkt_diag = kktsolver.abs_kkt_diag
-
-    @. abs_kkt_diag = abs(KKTdiag)
-    maxdiag = maximum(abs_kkt_diag)
-
     if(settings.static_regularization_enable)
-        ϵ = settings.static_regularization_eps
-        ξ = settings.dynamic_proportional_eps
-        kktsolver.ϵ = ϵ + ξ*maxdiag
-
-        (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
-        @views _offset_values!(ldlsolver,KKT, map.diag_full, kktsolver.ϵ, kktsolver.Dsigns)
+        _update_regularizer(kktsolver, ldlsolver)
     end
 
     #refactor with new data
@@ -298,54 +293,70 @@ function _kktsolver_update_inner!(
     return nothing
 end
 
+# YC: may remove it later
 # determine the scaling strategy for exponential cones. 
 # True for the primal-dual scaling and false for the dual scaling.
 function switch_scaling(
     kktsolver::DirectLDLKKTSolver{T}
 ) where {T}
+
+    if kktsolver.is_ill_conditioned
+        return nothing
+    end
+
     settings = kktsolver.settings
-    abs_kkt_diag = kktsolver.abs_kkt_diag
+    maxdiag = kktsolver.maxdiag
+    mindiag = kktsolver.mindiag
 
-    # YC: This step could be improved by finding the minimum and the maximum simultaneously
-    maxdiag = maximum(abs_kkt_diag)
-    mindiag = minimum(abs_kkt_diag)
-
-    if(settings.static_regularization_enable)
-        ϵ = settings.static_regularization_eps
-        mindiag += ϵ
-        maxdiag += ϵ
+    # used to switch from primal-dual scaling to the dual scaling 
+    # when the approximate conditioning number is larger than 1/eps(T)
+    if  maxdiag*eps(T) > (mindiag + settings.static_regularization_constant)
+        kktsolver.is_ill_conditioned = true
     end
 
-    # switch from the primal-dual scaling to the pure dual scaling when the conditioning number is larger than 1/eps(T)
-    if  mindiag/maxdiag < eps(T)
-        return true
-    end
-
-    return false
+    return nothing
 end
 
-# function kktsolver_reset_WtW!(
-#     kktsolver::DirectLDLKKTSolver{T},
-#     ldlsolver::AbstractDirectLDLSolver{T},
-#     cones::ConeSet{T}
-# ) where {T}
-#     settings  = kktsolver.settings
-#     map       = kktsolver.map
-#     KKT       = kktsolver.KKT
+function _update_regularizer(
+    kktsolver::DirectLDLKKTSolver{T},
+    ldlsolver::AbstractDirectLDLSolver{T}
+) where {T}
 
-#     #Reset the elements of the W^tW blocks of exponetial cones in the KKT matrix.
-#     for (i,K) = enumerate(cones)
-#         if isa(cones.cone_specs[i],ExponentialConeT)
-#             reset_WtW_block!(K,kktsolver.WtWblocks[i])
-#         end
-#     end
+    settings  = kktsolver.settings
+    map       = kktsolver.map
+    KKT       = kktsolver.KKT
+    (m,n,p)   = (kktsolver.m,kktsolver.n,kktsolver.p)
+    
+    # first we subtract the old regularization from the 
+    # upper left hand block.   No need to do this for the 
+    # lower right since it should have been overwitten with 
+    # new values already
 
-#     for (index, values) in zip(map.WtWblocks,kktsolver.WtWblocks)
-#         #change signs to get -W^TW
-#         BLAS.scal!(-one(T),values) # values .= -values
-#         _update_values!(ldlsolver,KKT,index,values)
-#     end
-# end
+    @views _offset_values!(
+        ldlsolver,KKT, 
+        map.diag_full[1:n], 
+        -kktsolver.diagonal_regularizer,
+        kktsolver.Dsigns[1:n]);
+
+    # interrogate the KKT diagonal and find its min and max
+    # absolute values and their ratio 
+
+    kkt_diag = @view KKT.nzval[map.diag_full]
+    (kktsolver.mindiag,kktsolver.maxdiag)  = absextrema(kkt_diag);
+
+    # Compute and apply a new regularizer 
+    kktsolver.diagonal_regularizer = 
+        settings.static_regularization_constant + 
+        settings.static_regularization_proportional * kktsolver.maxdiag;
+
+    @views _offset_values!(
+        ldlsolver,KKT, 
+        map.diag_full, 
+        kktsolver.diagonal_regularizer,
+        kktsolver.Dsigns);
+    
+end
+
 
 function kktsolver_setrhs!(
     kktsolver::DirectLDLKKTSolver{T},
@@ -390,7 +401,7 @@ function kktsolver_solve!(
     solve!(kktsolver.ldlsolver,x,b)
 
     if(kktsolver.settings.iterative_refinement_enable)
-        iterative_refinement(kktsolver)
+        iterative_refinement(kktsolver,kktsolver.ldlsolver)
     end
 
     kktsolver_getlhs!(kktsolver,lhsx,lhsz)
@@ -398,7 +409,10 @@ function kktsolver_solve!(
     return nothing
 end
 
-function iterative_refinement(kktsolver::DirectLDLKKTSolver{T}) where{T}
+function iterative_refinement(
+    kktsolver::DirectLDLKKTSolver{T},
+    ldlsolver::AbstractDirectLDLSolver{T}
+) where{T}
 
     (x,b)   = (kktsolver.x,kktsolver.b)
     (e,dx)  = (kktsolver.work_e, kktsolver.work_dx)
@@ -410,12 +424,7 @@ function iterative_refinement(kktsolver::DirectLDLKKTSolver{T}) where{T}
     IR_maxiter   = settings.iterative_refinement_max_iter
     IR_stopratio = settings.iterative_refinement_stop_ratio
 
-    if(settings.static_regularization_enable)
-        # ϵ = settings.static_regularization_eps
-        ϵ = kktsolver.ϵ
-    else
-        ϵ = zero(settings.static_regularization_eps)
-    end
+    ϵ = kktsolver.diagonal_regularizer
 
     #Note that K is only triu data, so need to
     #be careful when computing the residual
@@ -428,8 +437,6 @@ function iterative_refinement(kktsolver::DirectLDLKKTSolver{T}) where{T}
 
     for i = 1:IR_maxiter
 
-        # println(i,"-th IR error: ", norme)
-
         if(norme <= IR_abstol + IR_reltol*normb)
             # within tolerance.  Exit
             return nothing
@@ -438,7 +445,7 @@ function iterative_refinement(kktsolver::DirectLDLKKTSolver{T}) where{T}
         lastnorme = norme
 
         #make a refinement and continue
-        solve!(kktsolver.ldlsolver,dx,e)
+        solve!(ldlsolver,dx,e)
 
         #prospective solution is x + dx.   Use dx space to
         #hold it for a check before applying to x
@@ -450,7 +457,7 @@ function iterative_refinement(kktsolver::DirectLDLKKTSolver{T}) where{T}
             #insufficient improvement.  Exit
             return nothing
         else
-            @. x = ξ  #PJG: pointer swap might be faster    #YC: How to implement it?
+            @. x = ξ  #PJG: pointer swap might be faster   
         end
     end
 
@@ -462,19 +469,24 @@ end
 # and returning its norm
 
 function _get_refine_error!(
-    e::Vector{T},
-    b::Vector{T},
-    KKTsym::Symmetric{T, SparseMatrixCSC{T,Int}},
+    e::AbstractVector{T},
+    b::AbstractVector{T},
+    KKTsym::Symmetric{T},
     D::Vector{Int},
     ϵ::T,
-    ξ::Vector{T}
-) where {T}
+    ξ::AbstractVector{T}) where {T}
 
     @. e = b
     mul!(e,KKTsym,ξ,-1.,1.)   # e = b - Kξ
 
     if(!iszero(ϵ))
-        @. e += ϵ * D * ξ
+        @inbounds for i in eachindex(D)
+            if(D[i] == 1)
+                e[i] += ϵ * ξ[i]
+            else 
+                e[i] -= ϵ * ξ[i]
+            end
+        end
     end
 
     return norm(e,Inf)

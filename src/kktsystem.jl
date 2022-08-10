@@ -137,7 +137,7 @@ function kkt_solve!(
     else  #:combined expected, but any general RHS should do this
         #we can use the overall LHS output as additional workspace for the moment
 
-        # compute the generalized step of Wᵀ(λ \ ds), where Wᵀ(λ \ ds) is set to ds for unsymmetric cones
+        # compute the generalized step of Wᵀ(λ \ ds), where Wᵀ(λ \ ds) is set to ds for asymmetric cones
         cones_Wt_λ_inv_circ_ds!(cones,lhs.z,rhs.z,rhs.s,Wtlinvds)
     end
 
@@ -214,7 +214,7 @@ function kkt_solve!(
     #solve for Δs = -Wᵀ(λ \ dₛ + WΔz) = -Wᵀ(λ \ dₛ) - WᵀWΔz
     #where the first part is already in Wtlinvds
     #-------------
-    # compute the generalized step of -WᵀWΔz, where -WᵀW is set to -μH(z) for unsymmetric cones
+    # compute the generalized step of -WᵀWΔz, where -WᵀW is set to -μH(z) for asymmetric cones
     cones_WtW_Δz!(cones,lhs.z,lhs.s,workz)
 
     @. lhs.s -= Wtlinvds

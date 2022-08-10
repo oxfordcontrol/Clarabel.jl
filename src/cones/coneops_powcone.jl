@@ -55,7 +55,7 @@ function get_WtW_block!(
 
 end
 
-# return x = y for unsymmetric cones
+# return x = y for asymmetric cones
 function affine_ds!(
     K::PowerCone{T},
     x::AbstractVector{T},
@@ -69,8 +69,8 @@ function affine_ds!(
 
 end
 
-#  unsymmetric initialization
-function unsymmetric_init!(
+#  asymmetric initialization
+function asymmetric_init!(
    K::PowerCone{T},
    s::AbstractVector{T},
    z::AbstractVector{T}

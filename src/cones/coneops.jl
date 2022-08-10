@@ -20,8 +20,17 @@ end
 # dispatch operators for multiple cones
 # -----------------------------------------------------
 
-function cones_all_symmetric(cones::ConeSet{T}) where {T}
-    return any(is_symmetric, cones)
+function cones_is_symmetric(cones::ConeSet{T}) where {T}
+
+    #only true if *all* cones are symmetric
+    is_symmmetric = true
+    for cone in cones
+        @conedispatch is_symmmetric = is_symmetric(cone)
+        if !is_symmmetric
+            return false 
+        end
+    end
+    return true
 end
 
 function cones_rectify_equilibration!(
@@ -89,7 +98,7 @@ function cones_get_WtW_blocks!(
     return nothing
 end
 
-# YC: x = λ ∘ λ for symmetric cone and x = s for unsymmetric cones
+# YC: x = λ ∘ λ for symmetric cone and x = s for asymmetric cones
 
 function cones_affine_ds!(
     cones::ConeSet{T},
@@ -105,13 +114,13 @@ end
 
 
 # place a vector to some nearby point in the cone
-# YC: only when there is no unsymmetric cone
+# YC: only when there is no asymmetric cone
 #
 # PJG: This is implemented as a no-op.  What happens
 # instead in the non-symmetric case?
 # YC: This is used only when all cones are symmetric cones.
 # We would switch to unit_initialization when there exists 
-# unsymmetric cones and the function is no longer used.
+# asymmetric cones and the function is no longer used.
 
 function cones_shift_to_cone!(
     cones::ConeSet{T},
@@ -124,7 +133,7 @@ function cones_shift_to_cone!(
     return nothing
 end
 
-# initialization when with unsymmetric cones
+# initialization when with asymmetric cones
 function unit_initialization!(
     cones::ConeSet{T},
     s::ConicVector{T},
@@ -132,7 +141,7 @@ function unit_initialization!(
 ) where {T}
 
     for (cone,si,zi) in zip(cones,s.views,z.views)
-        @conedispatch unsymmetric_init!(cone,si,zi)
+        @conedispatch asymmetric_init!(cone,si,zi)
     end
     return nothing
 end
@@ -159,7 +168,7 @@ function cones_combined_ds!(
         @conedispatch combined_ds!(cone,dzi,zi,si,σμ,scale_flag)
     end
 
-    #We are relying on d.s = λ ◦ λ (symmetric) or d.s = s (unsymmetric) already from the affine step here
+    #We are relying on d.s = λ ◦ λ (symmetric) or d.s = s (asymmetric) already from the affine step here
     ds .+= dz
 
     return nothing
@@ -212,15 +221,15 @@ function cones_step_length(
     s     = s.views
 
     #PJG: I don't really like the calling syntax here because the
-    #symmetric and unsymmetric cones have a different function signature,
+    #symmetric and asymmetric cones have a different function signature,
     #and the names are different.   This will make it difficult / impossible
-    #to implement in Rust because the symmetric and unsymmetric cones
+    #to implement in Rust because the symmetric and asymmetric cones
     #won't be able to implement a common trait.   It's also a problem
     #because ConeSet (CompositeCone in Rust) should also really be
     #implementing exactly the same interface, which won't work like this
 
     # YC: Current step size α and the backtracking parameter are needed for
-    # unsymmetric cones. I could add two dummy inputs for symmetric cones.
+    # asymmetric cones. I could add two dummy inputs for symmetric cones.
 
     # YC: implement step search for symmetric cones first
     # NB: split the step search for symmetric and unsymmtric cones due to the complexity of the latter
@@ -233,7 +242,7 @@ function cones_step_length(
     return α
 end
 
-# check the distance to the boundary for unsymmetric cones
+# check the distance to the boundary for asymmetric cones
 function check_μ_and_centrality(
     cones::ConeSet{T},
     step::DefaultVariables{T},
