@@ -59,33 +59,39 @@ function info_check_termination!(
     info.status = UNSOLVED  #ensure default state
     # println("current gap: ", min(info.gap_abs, info.gap_rel))
 
-    # YC: Terminate early when residuals diverge
-    if iter > 0 && 
-        (info.res_dual > 500*info.prev_res_dual || info.res_primal > 500*info.prev_res_primal)
-            info.status = EARLY_TERMINATED
+    if( ((info.gap_abs < settings.tol_gap_abs) || (info.gap_rel < settings.tol_gap_rel))
+        && (info.res_primal < settings.tol_feas)
+        && (info.res_dual   < settings.tol_feas)
+    )
+        info.status = SOLVED
 
-    else
-        if( ((info.gap_abs < settings.tol_gap_abs) || (info.gap_rel < settings.tol_gap_rel))
-            && (info.res_primal < settings.tol_feas)
-            && (info.res_dual   < settings.tol_feas)
-        )
-            info.status = SOLVED
-    
-        elseif info.ktratio > one(T)
-    
-            if (residuals.dot_bz < -settings.tol_infeas_rel) &&
-               (info.res_primal_inf < -settings.tol_infeas_abs*residuals.dot_bz)
-    
-                info.status = PRIMAL_INFEASIBLE
-    
-            elseif (residuals.dot_qx < -settings.tol_infeas_rel) &&
-                   (info.res_dual_inf < -settings.tol_infeas_abs*residuals.dot_qx)
-    
-                info.status = DUAL_INFEASIBLE
-    
-            end
+    elseif info.ktratio > one(T)
+
+        if (residuals.dot_bz < -settings.tol_infeas_rel) &&
+            (info.res_primal_inf < -settings.tol_infeas_abs*residuals.dot_bz)
+
+            info.status = PRIMAL_INFEASIBLE
+
+        elseif (residuals.dot_qx < -settings.tol_infeas_rel) &&
+                (info.res_dual_inf < -settings.tol_infeas_abs*residuals.dot_qx)
+
+            info.status = DUAL_INFEASIBLE
+
         end
     end
+
+    # YC: Terminate early when residuals diverge
+    if iter > 0 && (info.res_dual > info.prev_res_dual || info.res_primal > info.prev_res_primal)
+        # YC: small ktratio means the algorithm converges but feasibility residuals get stucked due to some numerical issues
+        if info.ktratio < 1e-8 && (info.prev_gap_abs < settings.tol_gap_abs || info.prev_gap_rel < settings.tol_gap_rel)
+            info.status = EARLY_TERMINATED
+        end
+        # YC: Severe numerical issue happens and we should stop it immediately
+        if (info.res_dual > 100*info.prev_res_dual || info.res_primal > 100*info.prev_res_primal)
+            info.status = EARLY_TERMINATED
+        end
+    end
+
 
     #time or iteration limits
     #----------------------

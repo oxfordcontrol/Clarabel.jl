@@ -297,7 +297,8 @@ end
 # determine the scaling strategy for exponential cones. 
 # True for the primal-dual scaling and false for the dual scaling.
 function switch_scaling(
-    kktsolver::DirectLDLKKTSolver{T}
+    kktsolver::DirectLDLKKTSolver{T},
+    info::DefaultInfo{T}
 ) where {T}
 
     if kktsolver.is_ill_conditioned

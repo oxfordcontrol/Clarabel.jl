@@ -232,7 +232,7 @@ function solve!(
 
             if numerical_check && !s.kktsystem.kktsolver.is_ill_conditioned
                 # reset to the dual scaling strategy firstly
-                s.scale_flag = false
+                s.kktsystem.kktsolver.is_ill_conditioned = true
                 variables_scale_cones!(s.variables,s.cones,μ,!s.kktsystem.kktsolver.is_ill_conditioned)
                 numerical_check = kkt_update!(s.kktsystem,s.data,s.cones)
             end
@@ -311,7 +311,7 @@ function solve!(
             end
 
             # YC: switch from the primal-dual scaling to the dual scaling
-            switch_scaling(s.kktsystem.kktsolver)
+            switch_scaling(s.kktsystem.kktsolver,s.info)
 
         end  #end while
         #----------

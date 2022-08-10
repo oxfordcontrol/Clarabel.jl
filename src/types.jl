@@ -362,8 +362,7 @@ mutable struct Solver{T <: AbstractFloat}
     #     2) Meanwhile, we use work_vars to store the previous iterates
     #     3) scale_flag needs to be be reset after each solve
     work_vars::Union{AbstractVariables{T},Nothing}
-    scale_flag::Bool     # true for the primal-dual scaling,
-                        # false for the dual scaling
+
 end
 
 #initializes all fields except settings to nothing
@@ -378,7 +377,7 @@ function Solver{T}(settings::Settings{T}) where {T}
     reset_timer!(to["setup!"])
     reset_timer!(to["solve!"])
 
-    Solver{T}(ntuple(x->nothing, fieldcount(Solver)-4)...,settings,to,nothing,true)
+    Solver{T}(ntuple(x->nothing, fieldcount(Solver)-3)...,settings,to,nothing)
 end
 
 function Solver{T}() where {T}
