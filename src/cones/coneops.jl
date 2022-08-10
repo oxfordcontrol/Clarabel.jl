@@ -63,13 +63,13 @@ function cones_update_scaling!(
     s::ConicVector{T},
     z::ConicVector{T},
 	μ::T,
-    flag::Bool
+    scaling_strategy::ScalingStrategy
 ) where {T}
 
     # update cone scalings by passing subview to each of
     # the appropriate cone types.
     for (cone,si,zi) in zip(cones,s.views,z.views)
-        @conedispatch update_scaling!(cone,si,zi,μ,flag)
+        @conedispatch update_scaling!(cone,si,zi,μ,scaling_strategy)
     end
 
     return nothing
@@ -153,8 +153,7 @@ function cones_combined_ds!(
     ds::ConicVector{T},
     step_z::ConicVector{T},
     step_s::ConicVector{T},
-    σμ::T,
-    scale_flag::Bool
+    σμ::T
 ) where {T}
 
     for (cone,dzi,zi,si) in zip(cones,dz.views,step_z.views,step_s.views)
@@ -165,7 +164,7 @@ function cones_combined_ds!(
         # The counterpart for power cones is under development.
 
         # compute the centering and the higher order correction parts in ds and save it in dz
-        @conedispatch combined_ds!(cone,dzi,zi,si,σμ,scale_flag)
+        @conedispatch combined_ds!(cone,dzi,zi,si,σμ)
     end
 
     #We are relying on d.s = λ ◦ λ (symmetric) or d.s = s (asymmetric) already from the affine step here

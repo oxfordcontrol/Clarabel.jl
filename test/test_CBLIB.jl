@@ -6,8 +6,8 @@ using ConicBenchmarkUtilities
 
 using Profile,StatProfilerHTML, TimerOutputs
 
-using Clarabel 
-# include("../src\\Clarabel.jl")
+# using Clarabel 
+include("../src\\Clarabel.jl")
 
 # using Hypatia
 

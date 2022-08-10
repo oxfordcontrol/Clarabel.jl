@@ -44,6 +44,14 @@ end
 
 DefaultVariables(args...) = DefaultVariables{DefaultFloat}(args...)
 
+# Scaling strategy for variables.  Defined 
+# here to avoid errors due to order of includes
+
+@enum ScalingStrategy begin
+    PrimalDual = 0
+    Dual       = 1
+end
+
 
 # ---------------
 # equilibration data
@@ -360,7 +368,7 @@ mutable struct Solver{T <: AbstractFloat}
     #     and some vector sapces in the struct of ExponentialCone can be utilized instead of 
     #     this work_vars variable.
     #     2) Meanwhile, we use work_vars to store the previous iterates
-    #     3) scale_flag needs to be be reset after each solve
+    #     3) scaling_strategy needs to be be reset after each solve
     work_vars::Union{AbstractVariables{T},Nothing}
 
 end

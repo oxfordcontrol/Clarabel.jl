@@ -17,7 +17,7 @@ function calc_step_length(
     work_vars::DefaultVariables{T},
     cones::ConeSet{T},
     steptype::Symbol,
-    is_ill_conditioned::Bool
+    scaling_strategy::ScalingStrategy
 ) where {T}
 
     ατ    = step.τ < 0 ? -variables.τ / step.τ : floatmax(T)
@@ -34,7 +34,7 @@ function calc_step_length(
     #          ensure the update is close to the central path;
     #       2) check only when there are some unsymmetric cones and we are using the dual scaling.
     
-    if (!cones.sym_flag && steptype == :combined && is_ill_conditioned)
+    if (!cones.sym_flag && steptype == :combined && scaling_strategy == Dual)
         α = check_μ_and_centrality(cones,step,variables,work_vars,α)
 
         if (α < 1e-4)
@@ -66,10 +66,10 @@ function variables_scale_cones!(
     variables::DefaultVariables{T},
     cones::ConeSet{T},
 	μ::T,
-    scale_flag::Bool
+    scaling_strategy::ScalingStrategy
 ) where {T}
 
-    cones_update_scaling!(cones,variables.s,variables.z,μ,scale_flag)
+    cones_update_scaling!(cones,variables.s,variables.z,μ,scaling_strategy)
     return nothing
 end
 
@@ -113,8 +113,7 @@ function calc_combined_step_rhs!(
     cones::ConeSet{T},
     step::DefaultVariables{T},
     σ::T,
-    μ::T,
-    scale_flag::Bool
+    μ::T
 ) where {T}
 
     dotσμ = σ*μ
@@ -134,7 +133,7 @@ function calc_combined_step_rhs!(
     # ds is different for symmetric and asymmetric cones:
     # Symmetric cones: d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
     # Asymmetric cones: d.s = s + σμ*g(z)
-    cones_combined_ds!(cones,d.z,d.s,step.z,step.s,dotσμ,scale_flag)
+    cones_combined_ds!(cones,d.z,d.s,step.z,step.s,dotσμ)
 
     # now we copy the scaled res for rz and d.z is no longer work
     @. d.z .= (1 - σ)*r.rz

@@ -217,27 +217,22 @@ function solve!(
             #update the scalings
             #--------------
 
-            # PJG: This not a good general structure, since the flag
-            # being fed down to the cones here is coming from deep
-            # within the kkt system itself.   This is not easily made
-            # generic across solvers or problem domains.
-            # YC: The flag is to determine when we switch from primal-dual scaling to the dual scaling depending on the conditioning number of the KKT matrix. 
-
-            variables_scale_cones!(s.variables,s.cones,μ,!s.kktsystem.kktsolver.is_ill_conditioned)
+            scaling_strategy = kkt_scaling_strategy(s.kktsystem)
+            variables_scale_cones!(s.variables,s.cones,μ,scaling_strategy)
  
             #update the KKT system and the constant
             #parts of its solution
             #--------------
             @timeit s.timers "kkt update" numerical_check = kkt_update!(s.kktsystem,s.data,s.cones)
 
-            if numerical_check && !s.kktsystem.kktsolver.is_ill_conditioned
+            if numerical_check && (scaling_strategy == PrimalDual)
                 # reset to the dual scaling strategy firstly
-                s.kktsystem.kktsolver.is_ill_conditioned = true
-                variables_scale_cones!(s.variables,s.cones,μ,!s.kktsystem.kktsolver.is_ill_conditioned)
+                scaling_strategy = Dual
+                variables_scale_cones!(s.variables,s.cones,μ,scaling_strategy)
                 numerical_check = kkt_update!(s.kktsystem,s.data,s.cones)
             end
             
-            if numerical_check && s.kktsystem.kktsolver.is_ill_conditioned
+            if numerical_check && (scaling_strategy == Dual)
                 # YC: if kkt_solve fails due to numerical issues
                 s.info.status = NUMERICALLY_HARD
                 break
@@ -260,7 +255,7 @@ function solve!(
             #calculate step length and centering parameter
             #--------------
             @timeit_debug timer "step length affine" begin
-                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:affine, s.kktsystem.kktsolver.is_ill_conditioned)
+                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:affine, scaling_strategy)
                 σ = calc_centering_parameter(α)
             end
 
@@ -269,7 +264,7 @@ function solve!(
             calc_combined_step_rhs!(
                 s.step_rhs, s.residuals,
                 s.variables, s.cones,
-                s.step_lhs, σ, μ, !s.kktsystem.kktsolver.is_ill_conditioned
+                s.step_lhs, σ, μ
             )
 
             @timeit s.timers "kkt solve" begin
@@ -282,7 +277,7 @@ function solve!(
             #compute final step length and update the current iterate
             #--------------
             @timeit_debug timer "step length final" begin
-                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:combined, s.kktsystem.kktsolver.is_ill_conditioned)
+                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:combined, scaling_strategy)
             end
 
             @timeit_debug timer "alpha scale " α *= s.settings.max_step_fraction
@@ -301,12 +296,12 @@ function solve!(
 
             # YC: check if the step size is too small
             if α < 1e-4
-                if s.kktsystem.kktsolver.is_ill_conditioned
+                if scaling_strategy == Dual
                     isdone = true
                     s.info.status = EARLY_TERMINATED
                     break
                 else
-                    s.kktsystem.kktsolver.is_ill_conditioned = true
+                    scaling_strategy = PrimalDual
                 end
             end
 

@@ -42,7 +42,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     diagonal_regularizer::T
 
     #marker indicating ill conditioning 
-    # PJG: need to reset scale_flag after each solve
+    # PJG: need to reset scaling_strategy after each solve
     is_ill_conditioned::Bool
     maxdiag::T
     mindiag::T
@@ -402,7 +402,7 @@ function kktsolver_solve!(
     solve!(kktsolver.ldlsolver,x,b)
 
     if(kktsolver.settings.iterative_refinement_enable)
-        iterative_refinement(kktsolver,kktsolver.ldlsolver)
+        _iterative_refinement(kktsolver,kktsolver.ldlsolver)
     end
 
     kktsolver_getlhs!(kktsolver,lhsx,lhsz)
@@ -410,7 +410,13 @@ function kktsolver_solve!(
     return nothing
 end
 
-function iterative_refinement(
+function kktsolver_is_ill_conditioned(
+    kktsolver::DirectLDLKKTSolver{T}
+) where {T}
+    kktsolver.is_ill_conditioned
+end
+
+function _iterative_refinement(
     kktsolver::DirectLDLKKTSolver{T},
     ldlsolver::AbstractDirectLDLSolver{T}
 ) where{T}

@@ -28,7 +28,7 @@ function update_scaling!(
     s::AbstractVector{T},
     z::AbstractVector{T},
     μ::T,
-    flag::Bool
+    scaling_strategy::ScalingStrategy
 ) where {T}
     # update both gradient and Hessian for function f*(z) at the point z
     # NB: the update order can't be switched as we reuse memory in the Hessian computation
@@ -93,8 +93,7 @@ function combined_ds!(
     dz::AbstractVector{T},
     step_z::AbstractVector{T},
     step_s::AbstractVector{T},
-    σμ::T,
-    scale_flag::Bool
+    σμ::T
 ) where {T}
     # NB: The higher-order correction is under development
 
