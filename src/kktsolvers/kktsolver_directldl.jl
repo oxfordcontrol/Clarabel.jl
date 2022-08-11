@@ -42,8 +42,10 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     diagonal_regularizer::T
 
     #marker indicating ill conditioning 
-    # PJG: need to reset scale_flag after each solve
+    # PJG: need to reset scaling_strategy after each solve
     is_ill_conditioned::Bool
+    maxdiag::T
+    mindiag::T
 
 
     function DirectLDLKKTSolver{T}(P,A,cones,m,n,settings) where {T}
@@ -89,11 +91,13 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
         #assume reasonable conditioning to start
         is_ill_conditioned = false
+        maxdiag = one(T)
+        mindiag = one(T)
 
         return new(m,n,p,x,b,
                    work_e,work_dx,map,Dsigns,WtWblocks,
                    KKT,KKTsym,settings,ldlsolver,
-                   diagonal_regularizer, is_ill_conditioned)
+                   diagonal_regularizer, is_ill_conditioned,maxdiag,mindiag)
     end
 
 end
@@ -251,7 +255,8 @@ function _kktsolver_update_inner!(
 
     for (index, values) in zip(map.WtWblocks,kktsolver.WtWblocks)
         #change signs to get -W^TW
-        BLAS.scal!(-one(T),values) # values .= -values
+        # values .= -values
+        @. values *= -one(T)
         _update_values!(ldlsolver,KKT,index,values)
     end
 
@@ -288,6 +293,31 @@ function _kktsolver_update_inner!(
     return nothing
 end
 
+# YC: may remove it later
+# determine the scaling strategy for exponential cones. 
+# True for the primal-dual scaling and false for the dual scaling.
+function switch_scaling(
+    kktsolver::DirectLDLKKTSolver{T},
+    info::DefaultInfo{T}
+) where {T}
+
+    if kktsolver.is_ill_conditioned
+        return nothing
+    end
+
+    settings = kktsolver.settings
+    maxdiag = kktsolver.maxdiag
+    mindiag = kktsolver.mindiag
+
+    # used to switch from primal-dual scaling to the dual scaling 
+    # when the approximate conditioning number is larger than 1/eps(T)
+    if  maxdiag*eps(T) > (mindiag + settings.static_regularization_constant)
+        kktsolver.is_ill_conditioned = true
+    end
+
+    return nothing
+end
+
 function _update_regularizer(
     kktsolver::DirectLDLKKTSolver{T},
     ldlsolver::AbstractDirectLDLSolver{T}
@@ -313,18 +343,12 @@ function _update_regularizer(
     # absolute values and their ratio 
 
     kkt_diag = @view KKT.nzval[map.diag_full]
-    (mindiag,maxdiag)  = absextrema(kkt_diag);
-
-    # used to switch from primal-dual scaling to the pure dual scaling 
-    # when the approximate conditioning number is larger than 1/eps(T)
-    if  maxdiag*eps(T) > (mindiag + settings.static_regularization_constant)
-        kktsolver.is_ill_conditioned = true
-    else 
-        kktsolver.is_ill_conditioned = false
-    end
+    (kktsolver.mindiag,kktsolver.maxdiag)  = absextrema(kkt_diag);
 
     # Compute and apply a new regularizer 
-    kktsolver.diagonal_regularizer = settings.static_regularization_constant + settings.static_regularization_proportional * maxdiag;
+    kktsolver.diagonal_regularizer = 
+        settings.static_regularization_constant + 
+        settings.static_regularization_proportional * kktsolver.maxdiag;
 
     @views _offset_values!(
         ldlsolver,KKT, 

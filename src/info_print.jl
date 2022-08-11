@@ -46,13 +46,14 @@ function info_print_status_header(
     @printf("%s", "iter    ")
     @printf("%s", "pcost        ")
     @printf("%s", "dcost       ")
+    @printf("%s", "gap       ")
     @printf("%s", "pres      ")
     @printf("%s", "dres      ")
     @printf("%s", "k/t       ")
     @printf("%s", " μ       ")
     @printf("%s", "step      ")
     @printf("\n")
-    println("-----------------------------------------------------------------------------------")
+    println("---------------------------------------------------------------------------------------------")
 
     return nothing
 end
@@ -67,6 +68,7 @@ function info_print_status(
     @printf("%3d  ", info.iterations)
     @printf("% .4e  ", info.cost_primal)
     @printf("% .4e  ", info.cost_dual)
+    @printf("%.2e  ", min(info.gap_abs,info.gap_rel))
     @printf("%.2e  ", info.res_primal)
     @printf("%.2e  ", info.res_dual)
     @printf("%.2e  ", info.ktratio)
@@ -90,7 +92,7 @@ function info_print_footer(
 
     if(settings.verbose == false) return end
 
-    println("-----------------------------------------------------------------------------------")
+    println("---------------------------------------------------------------------------------------------")
     @printf("Terminated with status = %s\n",SolverStatusDict[info.status])
     @printf("solve time = %s\n",TimerOutputs.prettytime(info.solve_time*1e9))
 

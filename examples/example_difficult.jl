@@ -76,7 +76,7 @@ model = Model(Mosek.Optimizer)
 #Run the opimization
 optimize!(model)
 
-settings = Clarabel.Settings{T}(max_iter=50,direct_kkt_solver=true, direct_solve_method=:cholmod)
+settings = Clarabel.Settings{T}(max_iter=50,direct_kkt_solver=true, direct_solve_method=:qdldl)
 solver   = Clarabel.Solver{T}()
 α = Vector{Union{Nothing, T}}([nothing; nothing; nothing])
 Clarabel.setup!(solver,T.(P),T.(c),T.(A),T.(b),cone_types,cone_dims,α,settings)

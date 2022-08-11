@@ -172,7 +172,7 @@ function combined_ds!(
     dz::AbstractVector{T},
     step_z::AbstractVector{T},
     step_s::AbstractVector{T},
-    σμ::T 
+    σμ::T
 ) where {T}
 
     tmp = dz                #alias
@@ -238,7 +238,7 @@ function compute_centrality(
     z::AbstractVector{T}
 ) where {T}
 
-    return T(0)
+    return zero(T)
 
 end
 

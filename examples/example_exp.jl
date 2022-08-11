@@ -1,5 +1,5 @@
-#include("../src\\Clarabel.jl")
-using Clarabel
+include("../src\\Clarabel.jl")
+# using Clarabel
 using LinearAlgebra, SparseArrays
 using JuMP, Mosek, MosekTools, ECOS
 import MathOptInterface
@@ -52,9 +52,9 @@ function expconeData(Type::Type{T}) where {T<: AbstractFloat}
     Clarabel.NonnegativeConeT(length(b2)),
     Clarabel.SecondOrderConeT(length(b3)),
     # Clarabel.PSDTriangleConeT,
-    # Clarabel.ExponentialConeT(Int(floor(sqrt(2*length(b4))))),  #???
-    Clarabel.PowerConeT(length(b5)),
-    Clarabel.PowerConeT(length(b6)),
+    Clarabel.ExponentialConeT(),
+    # Clarabel.PowerConeT(3.0/4),
+    Clarabel.PowerConeT(1.0/3),
     ]
 
 
@@ -106,10 +106,10 @@ n = 7
 #         nothing;
 #         # BigFloat(1)/3
 #         ])
-# Clarabel.setup!(solver,BigFloat.(P),BigFloat.(c),BigFloat.(A),BigFloat.(b),cone_types,cone_dims,α,settings)
+# Clarabel.setup!(solver,BigFloat.(P),BigFloat.(c),BigFloat.(A),BigFloat.(b),cones,cone_dims,α,settings)
 # Clarabel.solve!(solver)
 
-settings = Clarabel.Settings{Float64}(max_iter=50,direct_solve_method = :cholmod, static_regularization_enable=true,dynamic_regularization_enable=true)
+settings = Clarabel.Settings{Float64}(max_iter=50,direct_solve_method = :qdldl)
 solver   = Clarabel.Solver{Float64}()
 Clarabel.setup!(solver,P,c,A,b,cones,settings)
 Clarabel.solve!(solver)

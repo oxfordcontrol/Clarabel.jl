@@ -283,7 +283,7 @@ function combined_ds!(
     dz::AbstractVector{T},
     step_z::AbstractVector{T},
     step_s::AbstractVector{T},
-    σμ::T 
+    σμ::T
 ) where {T}
 
     tmp = dz                #alias

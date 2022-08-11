@@ -185,7 +185,7 @@ function combined_ds!(
     dz::AbstractVector{T},
     step_z::AbstractVector{T},
     step_s::AbstractVector{T},
-    σμ::T 
+    σμ::T
 ) where {T}
 
     tmp = dz                #alias
@@ -258,8 +258,8 @@ function compute_centrality(
 ) where {T}
 
     barrier = T(0)
-    for i = 1:K.dim
-        barrier += -log(s[i]) - log(z[i])
+    @inbounds for i = 1:K.dim
+        barrier += -log(s[i]*z[i])
     end
 
     return barrier

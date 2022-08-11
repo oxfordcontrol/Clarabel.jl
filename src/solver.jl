@@ -7,12 +7,12 @@ function Solver(
     c::Vector{T},
     A::AbstractMatrix{T},
     b::Vector{T},
-    cone_types::Vector{<:SupportedCone},
+    cones::Vector{<:SupportedCone},
     kwargs...
 ) where{T <: AbstractFloat}
 
     s = Solver{T}()
-    setup!(s,P,c,A,b,cone_types,kwargs...)
+    setup!(s,P,c,A,b,cones,kwargs...)
     return s
 end
 
@@ -60,16 +60,16 @@ setup!(model, P, q, A, b, cones, settings)
 
 To solve the problem, you must make a subsequent call to [`solve!`](@ref)
 """
-function setup!(s,P,c,A,b,cone_types,settings::Settings)
+function setup!(s,P,c,A,b,cones,settings::Settings)
     #this allows total override of settings during setup
     s.settings = settings
-    setup!(s,P,c,A,b,cone_types)
+    setup!(s,P,c,A,b,cones)
 end
 
-function setup!(s,P,c,A,b,cone_types; kwargs...)
+function setup!(s,P,c,A,b,cones; kwargs...)
     #this allows override of individual settings during setup
     settings_populate!(s.settings, Dict(kwargs))
-    setup!(s,P,c,A,b,cone_types)
+    setup!(s,P,c,A,b,cones)
 end
 
 # main setup function
@@ -79,18 +79,18 @@ function setup!(
     q::Vector{T},
     A::AbstractMatrix{T},
     b::Vector{T},
-    cone_types::Vector{<:SupportedCone},
+    cones::Vector{<:SupportedCone},
 ) where{T}
 
     #sanity check problem dimensions
-    _check_dimensions(P,q,A,b,cone_types)
+    _check_dimensions(P,q,A,b,cones)
 
     #make this first to create the timers
     s.info    = DefaultInfo{T}()
 
     @timeit s.timers "setup!" begin
 
-        s.cones  = ConeSet{T}(cone_types)
+        s.cones  = ConeSet{T}(cones)
         s.data   = DefaultProblemData{T}(P,q,A,b,s.cones)
         s.data.m == s.cones.numel || throw(DimensionMismatch())
 
@@ -123,11 +123,11 @@ end
 
 # sanity check problem dimensions passed by user
 
-function _check_dimensions(P,q,A,b,cone_types)
+function _check_dimensions(P,q,A,b,cones)
 
     n = length(q)
     m = length(b)
-    p = sum(cone -> nvars(cone), cone_types; init = 0)
+    p = sum(cone -> nvars(cone), cones; init = 0)
 
     m == size(A)[1] || throw(DimensionMismatch("A and b incompatible dimensions."))
     p == m          || throw(DimensionMismatch("Constraint dimensions inconsistent with size of cones."))
@@ -201,7 +201,13 @@ function solve!(
                     s.info,s.data,s.variables,
                     s.residuals,s.settings,s.timers
                 )
-                isdone = info_check_termination!(s.info,s.residuals,s.settings)
+                isdone = info_check_termination!(s.info,s.residuals,s.settings,iter)
+            end
+
+            # YC: use the previous iterate as the final solution
+            if isdone && s.info.status == EARLY_TERMINATED
+                info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
+                break
             end
 
             iter += 1
@@ -217,7 +223,20 @@ function solve!(
             #update the KKT system and the constant
             #parts of its solution
             #--------------
-            @timeit s.timers "kkt update" kkt_update!(s.kktsystem,s.data,s.cones)
+            @timeit s.timers "kkt update" numerical_check = kkt_update!(s.kktsystem,s.data,s.cones)
+
+            if numerical_check && (scaling_strategy == PrimalDual)
+                # reset to the dual scaling strategy firstly
+                scaling_strategy = Dual
+                variables_scale_cones!(s.variables,s.cones,μ,scaling_strategy)
+                numerical_check = kkt_update!(s.kktsystem,s.data,s.cones)
+            end
+            
+            if numerical_check && (scaling_strategy == Dual)
+                # YC: if kkt_solve fails due to numerical issues
+                s.info.status = NUMERICALLY_HARD
+                break
+            end
 
             #calculate the affine step
             #--------------
@@ -236,7 +255,7 @@ function solve!(
             #calculate step length and centering parameter
             #--------------
             @timeit_debug timer "step length affine" begin
-                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:affine)
+                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:affine, scaling_strategy)
                 σ = calc_centering_parameter(α)
             end
 
@@ -258,10 +277,13 @@ function solve!(
             #compute final step length and update the current iterate
             #--------------
             @timeit_debug timer "step length final" begin
-                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:combined)
+                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:combined, scaling_strategy)
             end
 
             @timeit_debug timer "alpha scale " α *= s.settings.max_step_fraction
+
+            # YC: Store information of the previous iterate
+            @timeit_debug timer info_save_prev_iterates(s.info,s.variables,s.work_vars)
 
             @timeit_debug timer "variables_add_step" begin
                 variables_add_step!(s.variables,s.step_lhs,α)
@@ -272,6 +294,20 @@ function solve!(
                 info_save_scalars(s.info,μ,α,σ,iter)
             end
 
+            # YC: check if the step size is too small
+            if α < 1e-4
+                if scaling_strategy == Dual
+                    isdone = true
+                    s.info.status = EARLY_TERMINATED
+                    break
+                else
+                    scaling_strategy = PrimalDual
+                end
+            end
+
+            # YC: switch from the primal-dual scaling to the dual scaling
+            switch_scaling(s.kktsystem.kktsolver,s.info)
+
         end  #end while
         #----------
         #----------
@@ -281,7 +317,7 @@ function solve!(
     end #end solve! timer
 
     info_finalize!(s.info,s.timers)  #halts timers
-    solution_finalize!(s.solution,s.data,s.variables,s.info)
+    solution_finalize!(s.solution,s.data,s.variables,s.info,s.settings)
 
     @notimeit info_print_footer(s.info,s.settings)
 
