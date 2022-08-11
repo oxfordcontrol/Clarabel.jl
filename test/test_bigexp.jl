@@ -3,7 +3,7 @@ using JuMP, MathOptInterface
 # const MOI = MathOptInterface
 using LinearAlgebra
 using ConicBenchmarkUtilities
-using Profile, PProf
+using Profile
 using TimerOutputs
 
 #include("../src\\Clarabel.jl")

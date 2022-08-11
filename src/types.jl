@@ -44,7 +44,7 @@ end
 
 DefaultVariables(args...) = DefaultVariables{DefaultFloat}(args...)
 
-# Scaling strategy for variables.  Defined 
+# Scaling strategy for variables.  Defined
 # here to avoid errors due to order of includes
 
 @enum ScalingStrategy begin
@@ -349,8 +349,8 @@ mutable struct Solver{T <: AbstractFloat}
 
     #private / internal?
 
-    # YC: Yes, it is only used when we are doing backtracking line search in the centrality check, 
-    #     and some vector sapces in the struct of ExponentialCone can be utilized instead of 
+    # YC: Yes, it is only used when we are doing backtracking line search in the centrality check,
+    #     and some vector sapces in the struct of ExponentialCone can be utilized instead of
     #     this work_vars variable.
     work_vars::Union{AbstractVariables{T},Nothing}
 

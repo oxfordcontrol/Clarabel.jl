@@ -123,7 +123,7 @@ function asymmetric_init!(
    z::AbstractVector{T}
 ) where{T}
 
-    s .= one(T)                
+    s .= one(T)            
     z .= one(T)
 
    return nothing
@@ -237,7 +237,7 @@ function step_length(
      z::AbstractVector{T},
      s::AbstractVector{T},
      α::T,
-     backtrack::T
+     settings::Settings{T}
 ) where {T}
 
     αz = floatmax(T)

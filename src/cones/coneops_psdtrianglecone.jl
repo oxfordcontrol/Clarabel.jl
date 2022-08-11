@@ -335,7 +335,7 @@ function step_length(
      z::AbstractVector{T},
      s::AbstractVector{T},
      α::T,
-     backtrack::T
+     settings::Settings{T}
 ) where {T}
 
     Λisqrt = K.work.Λisqrt

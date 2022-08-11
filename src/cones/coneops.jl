@@ -211,6 +211,7 @@ function cones_step_length(
     ds::ConicVector{T},
      z::ConicVector{T},
      s::ConicVector{T},
+     settings::Settings{T},
     α::T
 ) where {T}
 
@@ -233,7 +234,7 @@ function cones_step_length(
     # YC: implement step search for symmetric cones first
     # NB: split the step search for symmetric and unsymmtric cones due to the complexity of the latter
     for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
-        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,α,cones.backtrack)
+        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,α,settings)
         α = prevfloat(min(α,nextαz,nextαs))
     end
 
@@ -246,7 +247,8 @@ function check_μ_and_centrality(
     step::DefaultVariables{T},
     variables::DefaultVariables{T},
     work::DefaultVariables{T},
-    α::T
+    α::T,
+    settings::Settings{T},
 ) where {T}
 
     dz    = step.z
@@ -267,11 +269,7 @@ function check_μ_and_centrality(
 
     central_coef = cones.degree + 1
 
-    # PJG:  What does this do?   Is it just some constant parameter
-    # for use in a backtracking line search?
-    # YC: Yes, it is for a backtracking line search.
-
-    backtrack = cones.backtrack
+    backtrack = settings.linesearch_backtrack_step
 
     for j = 1:50
         # current z,s

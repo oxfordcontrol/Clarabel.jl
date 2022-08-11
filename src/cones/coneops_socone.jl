@@ -304,7 +304,7 @@ function step_length(
      z::AbstractVector{T},
      s::AbstractVector{T},
      α::T,
-     backtrack::T
+     settings::Settings{T}
 ) where {T}
 
     αz   = _step_length_soc_component(dz,z)
