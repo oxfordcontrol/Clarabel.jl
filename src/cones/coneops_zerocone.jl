@@ -238,7 +238,7 @@ function compute_centrality(
     z::AbstractVector{T}
 ) where {T}
 
-    return T(0)
+    return zero(T)
 
 end
 
