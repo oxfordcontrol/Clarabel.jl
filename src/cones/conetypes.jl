@@ -277,7 +277,7 @@ ExponentialCone(args...) = ExponentialCone{DefaultFloat}(args...)
 mutable struct PowerCone{T} <: AbstractCone{T}
 
     α::T
-    H::Matrix{T}       #μ*H for the linear sysmtem
+    H::Matrix{T}       #μ*H for the linear system
     grad::Vector{T}
 
     # PJG: internal variables not following
@@ -325,7 +325,3 @@ const ConeDict = Dict(
     ExponentialConeT => ExponentialCone,
           PowerConeT => PowerCone,
 )
-
-
-# set of nonsymmetric cones
-const NonsymmetricCones = [ExponentialConeT; PowerConeT]

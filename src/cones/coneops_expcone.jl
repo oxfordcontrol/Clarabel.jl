@@ -2,9 +2,7 @@
 # Exponential Cone
 # ----------------------------------------------------
 
-# degree of the cone
-#PJG: shouldn't this just be hardcoded to 3 with no dim field?
-#YC: Yes, we should remove it later.
+# degree of the cone.  Always 3
 dim(K::ExponentialCone{T}) where {T} = 3
 degree(K::ExponentialCone{T}) where {T} = dim(K)
 numel(K::ExponentialCone{T}) where {T} = dim(K)
@@ -73,7 +71,10 @@ function asymmetric_init!(
     s[2] = one(T)*(0.556409619469370)
     s[3] = one(T)*(1.258967884768947)
 
-    @. z = s
+    #@. z = s
+    @inbounds for i = 1:3
+        z[i] = s[i]
+    end
 
    return nothing
 end
@@ -144,63 +145,12 @@ function step_length(
         error("numerical error")
     end
 
-    αz = _step_length_exp_dual(K.vec_work,dz,z,α,backtrack)
-    αs = _step_length_exp_primal(K.vec_work,ds,s,α,backtrack)
+    αz = _step_length_powcone_or_expcone(K.vec_work,dz,z,α,backtrack, is_dual_feasible_expcone)
+    αs = _step_length_powcone_or_expcone(K.vec_work,ds,s,α,backtrack, is_primal_feasible_expcone)
 
-    #PJG: prevfloat is probably not portable 
+    #PJG: prevfloat is probably not portable
     # and I don't understand why it is being used
     return (αz,αs)
-end
-
-
-# find the maximum step length α≥0 so that
-# s + α*ds stays in the exponential cone
-function _step_length_exp_primal(
-    ws::AbstractVector{T},
-    ds::AbstractVector{T},
-    s::AbstractVector{T},
-    α::T,
-    backtrack::T
-) where {T}
-
-    @. ws = s + α*ds
-
-    while !check_exp_primal_feas(ws)
-        # NB: need to be tackled in a smarter way
-        # println("current α is ", α)
-        if (α < 1e-4)
-            # error("Expcone's step size fails in primal feasibility check!")
-            return zero(T)
-        end
-        α *= backtrack    #backtrack line search
-        @. ws = s + α*ds
-    end
-
-    return α
-end
-# z + α*dz stays in the dual exponential cone
-function _step_length_exp_dual(
-    ws::AbstractVector{T},
-    dz::AbstractVector{T},
-    z::AbstractVector{T},
-    α::T,
-    backtrack::T
-) where {T}
-
-    # NB: additional memory, may need to remove it later
-    @. ws = z + α*dz
-
-    while !check_exp_dual_feas(ws)
-        # println("current α is ", α)
-        if (α < 1e-4)
-            # error("Expcone's step size fails in dual feasibility check!")
-            return zero(T)
-        end
-        α *= backtrack    #backtrack line search
-        @. ws = z + α*dz
-    end
-
-    return α
 end
 
 
@@ -279,7 +229,7 @@ function compute_centrality(
 end
 
 # Returns true if s is primal feasible
-function check_exp_primal_feas(s::AbstractVector{T}) where {T}
+function is_primal_feasible_expcone(s::AbstractVector{T}) where {T}
 
     if (s[3] > 0 && s[2] > 0)   #feasible
         res = s[2]*log(s[3]/s[2]) - s[1]
@@ -292,7 +242,7 @@ function check_exp_primal_feas(s::AbstractVector{T}) where {T}
 end
 
 # Returns true if z is dual feasible
-function check_exp_dual_feas(z::AbstractVector{T}) where {T}
+function is_dual_feasible_expcone(z::AbstractVector{T}) where {T}
 
     if (z[3] > 0 && z[1] < 0)
         res = z[2] - z[1] - z[1]*log(-z[3]/z[1])
@@ -323,7 +273,7 @@ end
 # ω(z) is the Wright-Omega function
 # Computes the value ω(z) defined as the solution y to
 # the equation y+log(y) = z ONLY FOR z real and z>=1.
-# NB::the code follows the ECOS solver, which comes from Santiago's thesis, 
+# NB::the code follows the ECOS solver, which comes from Santiago's thesis,
 # "Algorithms for Unsymmetric Cone Optimization and an Implementation for Problems with the Exponential Cone"
 function wright_omega(z::T) where {T}
     w  = zero(T);

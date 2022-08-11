@@ -2,14 +2,7 @@
 # Power Cone
 # ----------------------------------------------------
 
-# degree of the cone
-# PJG: hardcoded 3 unless it can be different
-# MOSEK seems to allow n-dimensional, but maybe
-# it's always possible to combine a 3d power cone
-# with a bigger SOC or something to get the same
-# behaviour
-# YC: We should remove it at present and add it back
-# when it is extended to the generalized power cone.
+# degree of the cone is always 3 for PowerCone
 dim(K::PowerCone{T}) where {T} = 3
 degree(K::PowerCone{T}) where {T} = dim(K)
 numel(K::PowerCone{T}) where {T} = dim(K)
@@ -82,7 +75,10 @@ function asymmetric_init!(
     s[2] = one(T)*sqrt(1+(1-α))
     s[3] = zero(T)
 
-    @. z = s
+    #@. z = s
+    @inbounds for i = 1:3
+        z[i] = s[i]
+    end
 
    return nothing
 end
@@ -98,7 +94,7 @@ function combined_ds!(
     # NB: The higher-order correction is under development
 
     # PJG: remove dead code in comments here
-    # YC: I need to test whether higherorder correction 
+    # YC: I need to test whether higherorder correction
     # is effective for the power cone
 
     # η = K.grad_work      #share the same memory as gψ in higher_correction!()
@@ -152,80 +148,19 @@ function step_length(
      z::AbstractVector{T},
      s::AbstractVector{T},
      α::T,
-     scaling::T
+     backtrack::T
 ) where {T}
 
     if isnan(α)
         error("numerical error")
     end
 
-    # avoid abuse of α
-    αExp = K.α
-
-    αz = _step_length_power_dual(K.vec_work,dz,z,α,scaling,αExp)
-    αs = _step_length_power_primal(K.vec_work,ds,s,α,scaling,αExp)
+    αz = _step_length_powcone_or_expcone(K.vec_work, dz, z, α, backtrack, is_dual_feasible_powcone)
+    αs = _step_length_powcone_or_expcone(K.vec_work, ds, s, α, backtrack, is_primal_feasible_powcone)
 
     return (αz,αs)
 end
 
-
-# find the maximum step length α≥0 so that
-# s + α*ds stays in the Power cone
-function _step_length_power_primal(
-    ws::AbstractVector{T},
-    ds::AbstractVector{T},
-    s::AbstractVector{T},
-    α::T,
-    scaling::T,
-    αExp::T
-) where {T}
-
-    # @. ws = s + α*ds
-    @inbounds for i = 1:3
-        ws[i] = s[i] + α*ds[i]
-    end
-
-    while !check_power_primal_feas(ws,αExp)
-        if (α < 1e-4)
-            error("Power cone's step size fails in primal feasibility check!")
-        end
-        α *= scaling    #backtrack line search
-        # @. ws = s + α*ds
-        @inbounds for i = 1:3
-            ws[i] = s[i] + α*ds[i]
-        end
-    end
-
-    return α
-end
-# z + α*dz stays in the dual Power cone
-function _step_length_power_dual(
-    ws::AbstractVector{T},
-    dz::AbstractVector{T},
-    z::AbstractVector{T},
-    α::T,
-    scaling::T,
-    αExp::T
-) where {T}
-
-    # @. ws = z + α*dz
-    @inbounds for i = 1:3
-        ws[i] = z[i] + α*dz[i]
-    end
-
-    while !check_power_dual_feas(ws,αExp)
-        if (α < 1e-4)
-            error("Power cone's step size fails in dual feasibility check!")
-        end
-        α *= scaling    #backtrack line search
-        # @. ws = z + α*dz
-        @inbounds for i = 1:3
-            ws[i] = z[i] + α*dz[i]
-        end
-    end
-
-    return α
-end
 
 
 
@@ -304,7 +239,7 @@ function compute_centrality(
 end
 
 # Returns true if s is primal feasible
-function check_power_primal_feas(s::AbstractVector{T},α::T) where {T}
+function is_primal_feasible_powcone(s::AbstractVector{T},α::T) where {T}
     s1 = s[1]
     s2 = s[2]
     s3 = s[3]
@@ -320,7 +255,7 @@ function check_power_primal_feas(s::AbstractVector{T},α::T) where {T}
 end
 
 # Returns true if s is dual feasible
-function check_power_dual_feas(z::AbstractVector{T},α::T) where {T}
+function is_dual_feasible_powcone(z::AbstractVector{T},α::T) where {T}
 
     if (z[1] > 0 && z[2] > 0)
         res = exp(2*α*log(z[1]/α) + 2*(1-α)*log(z[2]/(1-α))) - z[3]*z[3]
@@ -502,7 +437,7 @@ end
 #how the code could possibly have worked like that, unless This
 #function was never called at all.
 
-# YC: I'm testing the primal-dual scaling with 
+# YC: I'm testing the primal-dual scaling with
 #     higher order correction and the function is for that purpose
 
 function update_HBFGS(

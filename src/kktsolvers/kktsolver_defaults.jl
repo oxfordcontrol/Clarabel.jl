@@ -24,8 +24,17 @@ function kktsolver_solve!(
     error("function not implemented")
 end
 
+
 # check whether the factorization is successful
 function kktsolver_checkfact!(
+    kktsolver::AbstractKKTSolver{T}
+) where{T}
+    error("function not implemented")
+end
+
+
+# check whether the condition number is poors
+function kktsolver_is_ill_conditioned!(
     kktsolver::AbstractKKTSolver{T}
 ) where{T}
     error("function not implemented")

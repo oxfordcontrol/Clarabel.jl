@@ -39,6 +39,7 @@ module Clarabel
 
     #conic constraints.  Additional
     #cone implementations go here
+    include("./cones/cone_utils.jl")
     include("./cones/coneops.jl")
     include("./cones/coneops_defaults.jl")
     include("./cones/coneops_zerocone.jl")
