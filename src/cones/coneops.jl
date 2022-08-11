@@ -27,7 +27,7 @@ function cones_is_symmetric(cones::ConeSet{T}) where {T}
     for cone in cones
         @conedispatch is_symmmetric = is_symmetric(cone)
         if !is_symmmetric
-            return false 
+            return false
         end
     end
     return true
@@ -119,7 +119,7 @@ end
 # PJG: This is implemented as a no-op.  What happens
 # instead in the non-symmetric case?
 # YC: This is used only when all cones are symmetric cones.
-# We would switch to unit_initialization when there exists 
+# We would switch to unit_initialization when there exists
 # asymmetric cones and the function is no longer used.
 
 function cones_shift_to_cone!(
@@ -206,12 +206,13 @@ end
 
 # maximum allowed step length over all cones
 function cones_step_length(
-    cones::ConeSet{T},
-    dz::ConicVector{T},
-    ds::ConicVector{T},
-     z::ConicVector{T},
-     s::ConicVector{T},
-    α::T
+     cones::ConeSet{T},
+        dz::ConicVector{T},
+        ds::ConicVector{T},
+         z::ConicVector{T},
+         s::ConicVector{T},
+  settings::Settings{T},
+         α::T
 ) where {T}
 
     dz    = dz.views
@@ -233,7 +234,7 @@ function cones_step_length(
     # YC: implement step search for symmetric cones first
     # NB: split the step search for symmetric and unsymmtric cones due to the complexity of the latter
     for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
-        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,α,cones.backtrack)
+        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
         α = prevfloat(min(α,nextαz,nextαs))
     end
 
@@ -246,7 +247,8 @@ function check_μ_and_centrality(
     step::DefaultVariables{T},
     variables::DefaultVariables{T},
     work::DefaultVariables{T},
-    α::T
+    α::T,
+    settings::Settings{T}
 ) where {T}
 
     dz    = step.z
@@ -267,11 +269,7 @@ function check_μ_and_centrality(
 
     central_coef = cones.degree + 1
 
-    # PJG:  What does this do?   Is it just some constant parameter
-    # for use in a backtracking line search?
-    # YC: Yes, it is for a backtracking line search.
-
-    backtrack = cones.backtrack
+    backtrack = settings.linesearch_backtrack_step
 
     for j = 1:50
         # current z,s
@@ -311,4 +309,3 @@ function check_μ_and_centrality(
 
     return α
 end
-

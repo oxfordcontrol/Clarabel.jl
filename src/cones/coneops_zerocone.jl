@@ -172,7 +172,7 @@ function combined_ds!(
     dz::AbstractVector{T},
     step_z::AbstractVector{T},
     step_s::AbstractVector{T},
-    σμ::T 
+    σμ::T
 ) where {T}
 
     tmp = dz                #alias
@@ -193,7 +193,7 @@ function Wt_λ_inv_circ_ds!(
     rz::AbstractVector{T},
     rs::AbstractVector{T},
     Wtlinvds::AbstractVector{T}
-) where {T} 
+) where {T}
 
     tmp = lz;
     @. tmp = rz  #Don't want to modify our RHS
@@ -222,8 +222,8 @@ function step_length(
     ds::AbstractVector{T},
      z::AbstractVector{T},
      s::AbstractVector{T},
+     settings::Settings{T},
      α::T,
-     backtrack::T
 ) where {T}
 
     #equality constraints allow arbitrary step length
@@ -241,4 +241,3 @@ function compute_centrality(
     return T(0)
 
 end
-

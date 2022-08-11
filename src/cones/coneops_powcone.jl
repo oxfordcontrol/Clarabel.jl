@@ -147,8 +147,8 @@ function step_length(
     ds::AbstractVector{T},
      z::AbstractVector{T},
      s::AbstractVector{T},
+     settings::Settings{T},
      α::T,
-     backtrack::T
 ) where {T}
 
     if isnan(α)

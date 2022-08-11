@@ -245,8 +245,8 @@ function step_length(
     ds::AbstractVector{T},
      z::AbstractVector{T},
      s::AbstractVector{T},
-     α::T,
-     backtrack::T
+     settings::Settings{T},
+     α::T
 ) where {T}
 
      error("Incomplete cone operation specification: ",typeof(K))
@@ -263,4 +263,3 @@ function compute_centrality(
     error("Incomplete cone operation specification: ",typeof(K))
 
 end
-

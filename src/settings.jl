@@ -65,6 +65,9 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 	equilibrate_min_scaling::T          = 1e-4
 	equilibrate_max_scaling::T          = 1e+4
 
+    #cones and line search parameters 
+    linesearch_backtrack_step::T        = 0.8     #PJG: Add to docs
+
     #the direct linear solver to use
     #can be :qdldl or :mkl
     direct_kkt_solver::Bool             = true   #indirect not yet supported
@@ -84,11 +87,12 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     iterative_refinement_enable::Bool   = true
     iterative_refinement_reltol::T      = 1e-8
     iterative_refinement_abstol::T      = 1e-10
-    iterative_refinement_max_iter::Int  = 10
-    iterative_refinement_stop_ratio::T  = 5
+    iterative_refinement_max_iter::Int  = 10       #PJG check value in docs
+    iterative_refinement_stop_ratio::T  = 5        #PJG check value in docs
 
 end
 
+Settings() = Settings{DefaultFloat}()
 Settings(args...) = Settings{DefaultFloat}(args...)
 
 

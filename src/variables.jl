@@ -16,6 +16,7 @@ function calc_step_length(
     step::DefaultVariables{T},
     work_vars::DefaultVariables{T},
     cones::ConeSet{T},
+    settings::Settings{T},
     steptype::Symbol
 ) where {T}
 
@@ -25,15 +26,16 @@ function calc_step_length(
     α = min(ατ,ακ,one(T))
 
     # Find a feasible step size for all cones
-    α = cones_step_length(cones, step.z, step.s, variables.z, variables.s, α)
+    α = cones_step_length(cones, step.z, step.s, variables.z, variables.s, settings, α)
 
 
     #   Centrality check for asymmetric cones
     #   balance global μ and local μ_i of each nonsymmetric cone;
     #   check centrality, ensure the update is close to the central path
     if (!cones.sym_flag && steptype == :combined)
-        α = check_μ_and_centrality(cones,step,variables,work_vars,α)
+        α = check_μ_and_centrality(cones,step,variables,work_vars,α,settings)
 
+        #PJG : This if statement is not doing anything
         if (steptype == :combined && α < 1e-4)
             # error("get stalled with step size ", α)
             return α
