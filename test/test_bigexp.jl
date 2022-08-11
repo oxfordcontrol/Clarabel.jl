@@ -3,7 +3,7 @@ using JuMP, MathOptInterface
 # const MOI = MathOptInterface
 using LinearAlgebra
 using ConicBenchmarkUtilities
-using Profile
+using Profile, PProf
 using TimerOutputs
 
 #include("../src\\Clarabel.jl")
@@ -84,6 +84,7 @@ model_clarabel = exp_model(index; optimizer = Clarabel.Optimizer)
 model_ecos = exp_model(index; optimizer = ECOS.Optimizer) 
 set_optimizer_attribute(model_clarabel, "verbose", false)
 set_optimizer_attribute(model_clarabel, "static_regularization_constant",1e-7)
+set_optimizer_attribute(model_clarabel, "static_regularization_enable",true)
 set_optimizer_attribute(model_ecos, "verbose", false)
 optimize!(model_clarabel) 
 optimize!(model_ecos) 

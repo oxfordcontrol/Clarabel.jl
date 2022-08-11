@@ -418,11 +418,12 @@ function _iterative_refinement(
     #compute the initial error
     norme = _get_refine_error!(e,b,KKTsym,kktsolver.Dsigns,ϵ,x)
 
+    ctr = 0
     for i = 1:IR_maxiter
-
+        ctr = i 
         if(norme <= IR_abstol + IR_reltol*normb)
             # within tolerance.  Exit
-            return nothing
+            break
         end
 
         lastnorme = norme
@@ -438,12 +439,11 @@ function _iterative_refinement(
 
         if(lastnorme/norme < IR_stopratio)
             #insufficient improvement.  Exit
-            return nothing
+            break 
         else
             @. x = ξ  #PJG: pointer swap might be faster   
         end
-    end
-
+    end    
     return nothing
 end
 
