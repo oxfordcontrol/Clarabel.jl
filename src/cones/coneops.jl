@@ -234,14 +234,9 @@ function cones_step_length(
     # YC: implement step search for symmetric cones first
     # NB: split the step search for symmetric and unsymmtric cones due to the complexity of the latter
     for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
-<<<<<<< HEAD
-        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
-        α = prevfloat(min(α,nextαz,nextαs))
-=======
         # println("type is ", type)
-        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,α,cones.backtrack)
+        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
         α = min(α,nextαz,nextαs)
->>>>>>> b27de237d80005f796d96074763681127a5616b5
     end
 
     return α

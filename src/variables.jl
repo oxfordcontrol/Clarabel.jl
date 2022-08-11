@@ -17,7 +17,7 @@ function calc_step_length(
     work_vars::DefaultVariables{T},
     cones::ConeSet{T},
     settings::Settings{T},
-    steptype::Symbol
+    steptype::Symbol,
     scaling_strategy::ScalingStrategy
 ) where {T}
 
@@ -29,27 +29,15 @@ function calc_step_length(
     # Find a feasible step size for all cones
     α = cones_step_length(cones, step.z, step.s, variables.z, variables.s, settings, α)
 
-
-<<<<<<< HEAD
-    #   Centrality check for asymmetric cones
-    #   balance global μ and local μ_i of each nonsymmetric cone;
-    #   check centrality, ensure the update is close to the central path
-    if (!cones.sym_flag && steptype == :combined)
-        α = check_μ_and_centrality(cones,step,variables,work_vars,α,settings)
-
-        #PJG : This if statement is not doing anything
-        if (steptype == :combined && α < 1e-4)
-=======
     #   YC: Centrality check for unsymmetric cones
     #       1) balance global μ and local μ_i of each nonsymmetric cone, 
     #          ensure the update is close to the central path;
     #       2) check only when there are some unsymmetric cones and we are using the dual scaling.
     
     if (!cones.sym_flag && steptype == :combined && scaling_strategy == Dual)
-        α = check_μ_and_centrality(cones,step,variables,work_vars,α)
+        α = check_μ_and_centrality(cones,step,variables,work_vars,α,settings)
 
         if (α < 1e-4)
->>>>>>> b27de237d80005f796d96074763681127a5616b5
             # error("get stalled with step size ", α)
             return α
         end
@@ -174,7 +162,7 @@ end
 # for the nonnegative cones, e is the vector of all ones;
 # for the second-order cones, e = (1; 0; ... ; 0) where the 1 corresponds to the first variable;
 # for semidefinite cones, e is the identity matrix.
-function asymmetric_init!(
+function asymmetric_init_cone!(
     variables::DefaultVariables{T},
     cones::ConeSet{T}
 ) where {T}

@@ -161,12 +161,6 @@ function step_length(
     αz = _step_length_powcone_or_expcone(K.vec_work,dz,z,α,backtrack, is_dual_feasible_expcone)
     αs = _step_length_powcone_or_expcone(K.vec_work,ds,s,α,backtrack, is_primal_feasible_expcone)
 
-<<<<<<< HEAD
-=======
-
-    #PJG: prevfloat is probably not portable
-    # and I don't understand why it is being used
->>>>>>> b27de237d80005f796d96074763681127a5616b5
     return (αz,αs)
 end
 

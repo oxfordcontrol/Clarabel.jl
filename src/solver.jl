@@ -255,11 +255,7 @@ function solve!(
             #calculate step length and centering parameter
             #--------------
             @timeit_debug timer "step length affine" begin
-<<<<<<< HEAD
-                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,s.settings,:affine)
-=======
-                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:affine, scaling_strategy)
->>>>>>> b27de237d80005f796d96074763681127a5616b5
+                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,s.settings,:affine, scaling_strategy)
                 σ = calc_centering_parameter(α)
             end
 
@@ -281,11 +277,7 @@ function solve!(
             #compute final step length and update the current iterate
             #--------------
             @timeit_debug timer "step length final" begin
-<<<<<<< HEAD
-                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,s.settings,:combined)
-=======
-                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,:combined, scaling_strategy)
->>>>>>> b27de237d80005f796d96074763681127a5616b5
+                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,s.settings,:combined, scaling_strategy)
             end
 
             @timeit_debug timer "alpha scale " α *= s.settings.max_step_fraction
@@ -354,7 +346,7 @@ function solver_default_start!(s::Solver{T}) where {T}
         variables_shift_to_cone!(s.variables, s.cones)
     else
         #Unit initialization when there are asymmetric cones
-        asymmetric_init!(s.variables, s.cones)
+        asymmetric_init_cone!(s.variables, s.cones)
     end
 
     return nothing
