@@ -44,7 +44,7 @@ end
 
 DefaultVariables(args...) = DefaultVariables{DefaultFloat}(args...)
 
-# Scaling strategy for variables.  Defined 
+# Scaling strategy for variables.  Defined
 # here to avoid errors due to order of includes
 
 @enum ScalingStrategy begin

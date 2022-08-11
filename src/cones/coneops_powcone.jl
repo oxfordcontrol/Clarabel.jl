@@ -155,6 +155,8 @@ function step_length(
         error("numerical error")
     end
 
+    backtrack = settings::linesearch_backtrack_step
+
     αz = _step_length_powcone_or_expcone(K.vec_work, dz, z, α, backtrack, is_dual_feasible_powcone)
     αs = _step_length_powcone_or_expcone(K.vec_work, ds, s, α, backtrack, is_primal_feasible_powcone)
 

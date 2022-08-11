@@ -249,7 +249,7 @@ function check_μ_and_centrality(
     variables::DefaultVariables{T},
     work::DefaultVariables{T},
     α::T,
-    settings::Settings{T}
+    settings::Settings{T},
 ) where {T}
 
     dz    = step.z
