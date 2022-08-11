@@ -164,6 +164,7 @@ end
 
 
 
+
 ###############################################
 # Basic operations for Power Cones
 # Primal Power cone: s1^{α}s2^{1-α} ≥ s3, s1,s2 ≥ 0
@@ -441,63 +442,67 @@ end
 #     higher order correction and the function is for that purpose
 
 function update_HBFGS(
-    K::PowerCone{T},
+    K::ExponentialCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
-    flag::Bool
+    scaling_strategy::ScalingStrategy
 ) where {T}
     # reuse memory
-    st = K.grad_work
+    st = K.grad
     zt = K.vec_work
-    δs = K.grad
+    δs = K.grad_work
     tmp = K.z
     H = K.H
     HBFGS = K.HBFGS
 
     # Hessian computation, compute μ locally
-    compute_Hessian(K,z,H)
+    compute_Hessian(K,z,H)  
+
     μ = dot(z,s)/3
+    K.μ = μ
     # HBFGS .= μ*H
     @inbounds for i = 1:3
         @inbounds for j = 1:3
             HBFGS[i,j] = μ*H[i,j]
         end
     end
-
-    # use the dual scaling
-    if !flag
-        return nothing
-    end
+    
+    # compute the gradient at z
+    gradient_f(K,z,st)  #st (K.grad) is indeed the gradient at z
 
     # compute zt,st,μt locally
+    # YC: note the definitions of zt,st have a sign difference compared to the Mosek's paper
+
+    # use the dual scaling
+    if scaling_strategy == Dual
+        return nothing
+    end
     gradient_primal(K,s,zt)
-    zt .*= -1
-    gradient_f(K,z,st)
-    st .*= -1
+ 
+    
     μt = dot(zt,st)/3
 
-    # δs = s - μ*st
-    # δz = z - μ*zt
+    # δs = s + μ*st
+    # δz = z + μ*zt
     @inbounds for i = 1:3
-        δs[i] = s[i] - μ*st[i]
+        δs[i] = s[i] + μ*st[i]
     end
 
     de1 = μ*μt-1
     de2 = dot(zt,H,zt) - 3*μt*μt
 
     if (de1 > eps(T) && de2 > eps(T))
-        # tmp = H*zt - μt*st
-        mul!(tmp,H,zt)
+        # tmp = μt*st - H*zt
         @inbounds for i = 1:3
-            tmp[i] -= μt*st[i]
+            tmp[i] = μt*st[i] - H[i,1]*zt[1] - H[i,2]*zt[2] - H[i,3]*zt[3]
         end
 
-        # store (s + μ*st + δs/de1) into zt
+        # store (s - μ*st + δs/de1) into zt
         @inbounds for i = 1:3
-            zt[i] = s[i] + μ*st[i] + δs[i]/de1
+            zt[i] = s[i] - μ*st[i] + δs[i]/de1
         end
 
-        # Hessian HBFGS:= μ*H + 1/(2*μ*3)*δs*(s + μ*st + δs/de1)' + 1/(2*μ*3)*(s + μ*st + δs/de1)*δs' - μ/de2*tmp*tmp'
+        # Hessian HBFGS:= μ*H + 1/(2*μ*3)*δs*(s - μ*st + δs/de1)' + 1/(2*μ*3)*(s - μ*st + δs/de1)*δs' - μ/de2*tmp*tmp'
         coef1 = 1/(2*μ*3)
         coef2 = μ/de2
         # HBFGS .+= coef1*δs*zt' + coef1*zt*δs' - coef2*tmp*tmp'
@@ -506,10 +511,7 @@ function update_HBFGS(
                 HBFGS[i,j] += coef1*δs[i]*zt[j] + coef1*zt[i]*δs[j] - coef2*tmp[i]*tmp[j]
             end
         end
-        # YC: to do but require H to be symmetric with upper triangular parts
-        # syr2k!(uplo, trans, alpha, A, B, beta, C)
     else
         return nothing
     end
-
 end

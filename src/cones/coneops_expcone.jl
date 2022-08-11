@@ -26,8 +26,8 @@ function update_scaling!(
     # update both gradient and Hessian for function f*(z) at the point z
     # NB: the update order can't be switched as we reuse memory in the Hessian computation
     # Hessian update
-    update_HBFGS(K,s,z,scaling_strategy)
-    gradient_f(K,z,K.grad)
+    update_grad_HBFGS(K,s,z,scaling_strategy)
+
     # K.z .= z
     @inbounds for i = 1:3
         K.z[i] = z[i]
@@ -92,10 +92,17 @@ function combined_ds!(
     @inbounds for i = 1:3
         dz[i] = K.grad[i]*σμ - η[i]
     end
-
-    # # @. dz = σμ*K.grad                   #dz <- σμ*g(z)
-    # @inbounds for i = 1:3
-    #     dz[i] = K.grad[i]*σμ                 #dz <- σμ*g(z)
+    # if scaling_strategy == PrimalDual
+    #     η = K.grad_work
+    #     higher_correction!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
+    #     @inbounds for i = 1:3
+    #         dz[i] = K.grad[i]*σμ - η[i]
+    #     end
+    # else
+    #     # @. dz = σμ*K.grad                   #dz <- σμ*g(z)
+    #     @inbounds for i = 1:3
+    #         dz[i] = K.grad[i]*σμ                 #dz <- σμ*g(z)
+    #     end
     # end
 
     return nothing
@@ -126,7 +133,11 @@ function WtW_Δz!(
     workz::AbstractVector{T}
 ) where {T}
 
-    mul!(ls,K.HBFGS,lz,-one(T),zero(T))
+    # mul!(ls,K.HBFGS,lz,-one(T),zero(T))
+    H = K.HBFGS
+    @inbounds for i = 1:3
+        ls[i] = - H[i,1]*lz[1] - H[i,2]*lz[2] - H[i,3]*lz[3]
+    end
 
 end
 
@@ -150,61 +161,135 @@ function step_length(
     αz = _step_length_powcone_or_expcone(K.vec_work,dz,z,α,backtrack, is_dual_feasible_expcone)
     αs = _step_length_powcone_or_expcone(K.vec_work,ds,s,α,backtrack, is_primal_feasible_expcone)
 
+<<<<<<< HEAD
+=======
+
+    #PJG: prevfloat is probably not portable
+    # and I don't understand why it is being used
+>>>>>>> b27de237d80005f796d96074763681127a5616b5
     return (αz,αs)
 end
 
 
+
+
+# YC: line search based on the Newton method
+function newton_step_length_exp_primal(
+    ws::AbstractVector{T},
+    ds::AbstractVector{T},
+    s::AbstractVector{T},
+    αprev::T
+) where {T}
+
+    l = log(ws[3]/ws[2])
+    f0 = ws[2]*l - ws[1]
+    f1 = ds[2]*l + ws[2]/ws[3]*ds[3] - ds[2] - ds[1]
+
+    if f1 < 0
+        # run 20 iterations at maximum
+        @inbounds for iter = 1:20
+            αnew = αprev - f0 / f1
+
+            if αnew > one(T)    #step size too large
+                return αprev
+            end
+
+            @inbounds for j = 1:3
+                ws[j] = s[j] + αnew*ds[j] #update to current
+            end
+
+            if ws[2] > 0 && ws[3] > 0       
+                l = log(ws[3]/ws[2])
+                f0 = ws[2]*l - ws[1]
+
+                if f0 > 0 
+                    f1 = ds[2]*l + ws[2]/ws[3]*ds[3] - ds[2] - ds[1]
+                    if abs(αnew - αprev) < eps(T)
+                        return αnew
+                    end
+    
+                    αprev = αnew
+                else
+                    return αprev
+                end
+            else
+                return αprev
+            end
+
+        end
+        # return current one
+        return αnew
+    else
+        return αprev
+    end
+end
+
+# YC: line search based on the Newton method
+# search from f(α) > 0, f'(α) < 0
+function newton_step_length_exp_dual(
+    ws::AbstractVector{T},
+    dz::AbstractVector{T},
+    z::AbstractVector{T},
+    αprev::T
+) where {T}
+    #assume αprev is feasible
+
+    # feasibility for other two conditions
+    # α1 = dz[1] > 0 ? (- z[1]/dz[1]) : floatmax(T)
+    # α3 = dz[3] < 0 ? (- z[3]/dz[3]) : floatmax(T)
+    # αmax = min(α1,α3)
+
+    l = log(-ws[3]/ws[1])
+    f0 = ws[2] - ws[1] - ws[1]*l
+    f1 = dz[2] - dz[1]*l - dz[3]*ws[1]/ws[3]
+    αnew = αprev
+
+    if f1 < 0
+        
+        # run 20 iterations at maximum
+        @inbounds for iter = 1:20
+            αnew = αprev - f0 / f1
+
+            if αnew > one(T)    #step size too large
+                return αprev
+            end
+
+            @inbounds for j = 1:3
+                ws[j] = z[j] + αnew*dz[j] #update to current
+            end
+
+            if ws[1] < 0 && ws[3] > 0
+                l = log(-ws[3]/ws[1])
+                f0 = ws[2] - ws[1] - ws[1]*l
+
+                if f0 > 0
+                    f1 = dz[2] - dz[1]*l - dz[3]*ws[1]/ws[3]
+    
+                    if abs(αnew - αprev) < eps(T)
+                        return αnew
+                    end
+    
+                    αprev = αnew
+                else
+                    return αprev
+                end
+            else
+                return αprev
+            end
+
+        end
+        # return current one
+        return αnew
+    else
+        return αprev
+    end
+end
 
 ###############################################
 # Basic operations for exponential Cones
 # Primal exponential cone: s3 ≥ s2*e^(s1/s2), s3,s2 > 0
 # Dual exponential cone: z3 ≥ -z1*e^(z2/z1 - 1), z3 > 0, z1 < 0
 # As in ECOS, we use the dual barrier function: f*(z) = -log(z2 - z1 - z1*log(z3/-z1)) - log(-z1) - log(z3):
-# Evaluates the gradient of the dual exponential cone ∇f*(z) at z, and stores the result at g
-function gradient_f(
-    K::ExponentialCone{T},
-    z::AbstractVector{T},
-    g::AbstractVector{T}
-) where {T}
-
-    c1 = log(-z[3]/z[1])
-    c2 = 1/(-z[1]*c1-z[1]+z[2])
-
-    g[1] = c2*c1 - 1/z[1]
-    g[2] = -c2
-    g[3] = (c2*z[1]-1)/z[3]
-
-end
-
-# Evaluates the Hessian of the dual exponential cone barrier at z and stores the upper triangular part of the matrix μH*(z)
-# NB:could reduce H to an upper triangular matrix later, remove duplicate updates
-function compute_Hessian(
-    K::ExponentialCone{T},
-    z::AbstractVector{T},
-    H::AbstractMatrix{T}
-) where {T}
-    # y = z1; z = z2; x = z3;
-    # l = log(-z3/z1);
-    # r = -z1*l-z1+z2;
-    # Problematic Hessian
-    # Hessian = [1/z1^2 - 1/(r*z1) + l^2/r^2     -l/r^2     1/(r*z3) + (l*z1)/(r^2*z3);
-    #            -l/r^2                           1/r^2                  -z1/(r^2*z3);
-    #            1/(r*z3) + (l*z1)/(r^2*z3)   -z1/(r^2*z3)   1/z3^2 - z1/(r*z3^2) + z1^2/(r^2*z3^2)]
-
-    l = log(-z[3]/z[1])
-    r = -z[1]*l-z[1]+z[2]
-
-    H[1,1] = ((r*r-z[1]*r+l*l*z[1]*z[1])/(r*z[1]*z[1]*r))
-    H[1,2] = (-l/(r*r))
-    H[2,1] = H[1,2]
-    H[2,2] = (1/(r*r))
-    H[1,3] = ((z[2]-z[1])/(r*r*z[3]))
-    H[3,1] = H[1,3]
-    H[2,3] = (-z[1]/(r*r*z[3]))
-    H[3,2] = H[2,3]
-    H[3,3] = ((r*r-z[1]*r+z[1]*z[1])/(r*r*z[3]*z[3]))
-
-end
 
 function compute_centrality(
     K::ExponentialCone{T},
@@ -216,7 +301,7 @@ function compute_centrality(
 
     # Dual barrier
     l = log(-z[3]/z[1])
-    barrier += -log(z[2]-z[1]-z[1]*l)-log(-z[1])-log(z[3])
+    barrier += l -log(z[2]-z[1]-z[1]*l) # -log(-z[1])-log(z[3])
 
     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
     # f(s) = -2*log(s2) - log(s3) - log((1-barω)^2/barω) - 3, where barω = ω(1 - s1/s2 - log(s2) - log(s3))
@@ -318,21 +403,15 @@ function wright_omega(z::T) where {T}
 
     z = (1+w);
     q = z+2/3.0*r;
-    zq = z*q;
-    w *= 1+r/z*(zq-0.5*r)/(zq-r);
-    r2 = r*r;
-    z2 = z*z;
-    r = (2*w*w-8*w-1)/(72.0*(z2*z2*z2))*r2*r2;
+    w *= 1+r/z*(z*q-0.5*r)/(z*q-r);
+    r = (2*w*w-8*w-1)/(72.0*(z*z*z*z*z*z))*r*r*r*r;
     # Check residual
     # if(r<1.e-16) return w;
     # Just do two rounds
     z = (1+w);
     q = z+2/3.0*r;
-    zq = z*q;
-    w *= 1+r/z*(zq-0.5*r)/(zq-r);
-    r2 = r*r;
-    z2 = z*z;
-    r = (2*w*w-8*w-1)/(72.0*(z2*z2*z2))*r2*r2;
+    w *= 1+r/z*(z*q-0.5*r)/(z*q-r);
+    r = (2*w*w-8*w-1)/(72.0*(z*z*z*z*z*z))*r*r*r*r;
 
     return w;
 end
@@ -367,13 +446,13 @@ function higher_correction!(
         return nothing
     end
 
-    l = log(-z[3]/z[1])
-    ψ = -z[1]*l-z[1]+z[2]
 
     # memory allocation
-    η[1] = -l
     η[2] = one(T)
     η[3] = -z[1]/z[3]    # gradient of ψ
+    η[1] = log(η[3])
+
+    ψ = z[1]*η[1]-z[1]+z[2]
 
     dotψu = dot(η,u)
     dotψv = dot(η,v)
@@ -418,65 +497,85 @@ end
 
 # NB: better to create two matrix spaces, one for the Hessian at z, H*(z), and another one for BFGS (primal-dual scaling) matrix, H-BFGS(z,s)
 
-
-function update_HBFGS(
+function update_grad_HBFGS(
     K::ExponentialCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
     scaling_strategy::ScalingStrategy
 ) where {T}
     # reuse memory
-    st = K.grad_work
+    st = K.grad
     zt = K.vec_work
-    δs = K.grad
+    δs = K.grad_work
     tmp = K.z
     H = K.H
     HBFGS = K.HBFGS
 
     # Hessian computation, compute μ locally
-    compute_Hessian(K,z,H)
+    # compute_Hessian(K,z,H)
+    l = log(-z[3]/z[1])
+    r = -z[1]*l-z[1]+z[2]
+
+    H[1,1] = ((r*r-z[1]*r+l*l*z[1]*z[1])/(r*z[1]*z[1]*r))
+    H[1,2] = (-l/(r*r))
+    H[2,1] = H[1,2]
+    H[2,2] = (1/(r*r))
+    H[1,3] = ((z[2]-z[1])/(r*r*z[3]))
+    H[3,1] = H[1,3]
+    H[2,3] = (-z[1]/(r*r*z[3]))
+    H[3,2] = H[2,3]
+    H[3,3] = ((r*r-z[1]*r+z[1]*z[1])/(r*r*z[3]*z[3]))    
+
     μ = dot(z,s)/3
+    K.μ = μ
     # HBFGS .= μ*H
     @inbounds for i = 1:3
         @inbounds for j = 1:3
             HBFGS[i,j] = μ*H[i,j]
         end
     end
+    
+    # compute the gradient at z
+    # gradient_f(K,z,st)  #st (K.grad) is indeed the gradient at z
+    c2 = one(T)/r
 
-    # use the dual scaling
-    if scaling_strategy == Dual::ScalingStrategy
-        return nothing
-    end
+    st[1] = c2*l - 1/z[1]
+    st[2] = -c2
+    st[3] = (c2*z[1]-1)/z[3]
 
     # compute zt,st,μt locally
+    # YC: note the definitions of zt,st have a sign difference compared to the Mosek's paper
+
+    # use the dual scaling
+    if scaling_strategy == Dual
+        return nothing
+    end
     gradient_primal(K,s,zt)
-    zt .*= -1
-    gradient_f(K,z,st)
-    st .*= -1
+ 
+    
     μt = dot(zt,st)/3
 
-    # δs = s - μ*st
-    # δz = z - μ*zt
+    # δs = s + μ*st
+    # δz = z + μ*zt
     @inbounds for i = 1:3
-        δs[i] = s[i] - μ*st[i]
+        δs[i] = s[i] + μ*st[i]
     end
 
     de1 = μ*μt-1
     de2 = dot(zt,H,zt) - 3*μt*μt
 
     if (de1 > eps(T) && de2 > eps(T))
-        # tmp = H*zt - μt*st
-        mul!(tmp,H,zt)
+        # tmp = μt*st - H*zt
         @inbounds for i = 1:3
-            tmp[i] -= μt*st[i]
+            tmp[i] = μt*st[i] - H[i,1]*zt[1] - H[i,2]*zt[2] - H[i,3]*zt[3]
         end
 
-        # store (s + μ*st + δs/de1) into zt
+        # store (s - μ*st + δs/de1) into zt
         @inbounds for i = 1:3
-            zt[i] = s[i] + μ*st[i] + δs[i]/de1
+            zt[i] = s[i] - μ*st[i] + δs[i]/de1
         end
 
-        # Hessian HBFGS:= μ*H + 1/(2*μ*3)*δs*(s + μ*st + δs/de1)' + 1/(2*μ*3)*(s + μ*st + δs/de1)*δs' - μ/de2*tmp*tmp'
+        # Hessian HBFGS:= μ*H + 1/(2*μ*3)*δs*(s - μ*st + δs/de1)' + 1/(2*μ*3)*(s - μ*st + δs/de1)*δs' - μ/de2*tmp*tmp'
         coef1 = 1/(2*μ*3)
         coef2 = μ/de2
         # HBFGS .+= coef1*δs*zt' + coef1*zt*δs' - coef2*tmp*tmp'
@@ -485,10 +584,54 @@ function update_HBFGS(
                 HBFGS[i,j] += coef1*δs[i]*zt[j] + coef1*zt[i]*δs[j] - coef2*tmp[i]*tmp[j]
             end
         end
-        # YC: to do but require H to be symmetric with upper triangular parts
-        # syr2k!(uplo, trans, alpha, A, B, beta, C)
     else
         return nothing
     end
+end
+
+# YC: some functions that are integrated into the function update_grad_HBFGS() to reduce repeated computation
+# Evaluates the Hessian of the dual exponential cone barrier at z and stores the upper triangular part of the matrix μH*(z)
+# NB:could reduce H to an upper triangular matrix later, remove duplicate updates
+function compute_Hessian(
+    K::ExponentialCone{T},
+    z::AbstractVector{T},
+    H::AbstractMatrix{T}
+) where {T}
+    # y = z1; z = z2; x = z3;
+    # l = log(-z3/z1);
+    # r = -z1*l-z1+z2;
+    # Problematic Hessian
+    # Hessian = [1/z1^2 - 1/(r*z1) + l^2/r^2     -l/r^2     1/(r*z3) + (l*z1)/(r^2*z3);
+    #            -l/r^2                           1/r^2                  -z1/(r^2*z3);
+    #            1/(r*z3) + (l*z1)/(r^2*z3)   -z1/(r^2*z3)   1/z3^2 - z1/(r*z3^2) + z1^2/(r^2*z3^2)]
+
+    l = log(-z[3]/z[1])
+    r = -z[1]*l-z[1]+z[2]
+
+    H[1,1] = ((r*r-z[1]*r+l*l*z[1]*z[1])/(r*z[1]*z[1]*r))
+    H[1,2] = (-l/(r*r))
+    H[2,1] = H[1,2]
+    H[2,2] = (1/(r*r))
+    H[1,3] = ((z[2]-z[1])/(r*r*z[3]))
+    H[3,1] = H[1,3]
+    H[2,3] = (-z[1]/(r*r*z[3]))
+    H[3,2] = H[2,3]
+    H[3,3] = ((r*r-z[1]*r+z[1]*z[1])/(r*r*z[3]*z[3]))
+
+end
+
+# Evaluates the gradient of the dual exponential cone ∇f*(z) at z, and stores the result at g
+function gradient_f(
+    K::ExponentialCone{T},
+    z::AbstractVector{T},
+    g::AbstractVector{T}
+) where {T}
+
+    l = log(-z[3]/z[1])
+    c2 = 1/(-z[1]*l-z[1]+z[2])
+
+    g[1] = c2*l - 1/z[1]
+    g[2] = -c2
+    g[3] = (c2*z[1]-1)/z[3]
 
 end

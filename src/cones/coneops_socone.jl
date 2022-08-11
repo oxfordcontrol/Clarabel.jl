@@ -362,7 +362,7 @@ function compute_centrality(
 
     # avoid numerical issue that barrier_s <= 0 or barrier_z <= 0
     if barrier_s > 0 && barrier_z > 0
-        return (- log(barrier_s) - log(barrier_z))/2
+        return -log(barrier_s*barrier_z)/2
     else
         return Inf
     end

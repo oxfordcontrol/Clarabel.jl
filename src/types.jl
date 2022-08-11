@@ -211,19 +211,25 @@ Otherwise:
 @enum SolverStatus begin
     UNSOLVED           = 0
     SOLVED
+    APPROX_SOLVED
     PRIMAL_INFEASIBLE
     DUAL_INFEASIBLE
     MAX_ITERATIONS
     MAX_TIME
+    EARLY_TERMINATED
+    NUMERICALLY_HARD
 end
 
 const SolverStatusDict = Dict(
     UNSOLVED            =>  "unsolved",
     SOLVED              =>  "solved",
+    APPROX_SOLVED       =>  "approximately solved",
     PRIMAL_INFEASIBLE   =>  "primal infeasible",
     DUAL_INFEASIBLE     =>  "dual infeasible",
     MAX_ITERATIONS      =>  "iteration limit",
-    MAX_TIME            =>  "time limit"
+    MAX_TIME            =>  "time limit",
+    EARLY_TERMINATED    =>  "terminate early",
+    NUMERICALLY_HARD    =>  "numerically hard in KKT"
 )
 
 mutable struct DefaultInfo{T} <: AbstractInfo{T}
@@ -241,6 +247,15 @@ mutable struct DefaultInfo{T} <: AbstractInfo{T}
     gap_abs::T
     gap_rel::T
     ktratio::T
+
+    #YC: previous iterates
+    prev_cost_primal::T
+    prev_cost_dual::T
+    prev_res_primal::T
+    prev_res_dual::T
+    prev_gap_abs::T
+    prev_gap_rel::T
+
     solve_time::T
     status::SolverStatus
 
@@ -349,9 +364,11 @@ mutable struct Solver{T <: AbstractFloat}
 
     #private / internal?
 
-    # YC: Yes, it is only used when we are doing backtracking line search in the centrality check, 
+    # YC: 1) Yes, it is only used when we are doing backtracking line search in the centrality check, 
     #     and some vector sapces in the struct of ExponentialCone can be utilized instead of 
     #     this work_vars variable.
+    #     2) Meanwhile, we use work_vars to store the previous iterates
+    #     3) scaling_strategy needs to be be reset after each solve
     work_vars::Union{AbstractVariables{T},Nothing}
 
 end

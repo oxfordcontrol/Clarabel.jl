@@ -258,8 +258,8 @@ function compute_centrality(
 ) where {T}
 
     barrier = T(0)
-    for i = 1:K.dim
-        barrier += -log(s[i]) - log(z[i])
+    @inbounds for i = 1:K.dim
+        barrier += -log(s[i]*z[i])
     end
 
     return barrier

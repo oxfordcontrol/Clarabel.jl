@@ -50,13 +50,15 @@ end
 function info_check_termination!(
     info::DefaultInfo{T},
     residuals::DefaultResiduals{T},
-    settings::Settings{T}
+    settings::Settings{T},
+    iter::Int
 ) where {T}
 
     #optimality
     #---------------------
     info.status = UNSOLVED  #ensure default state
     # println("current gap: ", min(info.gap_abs, info.gap_rel))
+
     if( ((info.gap_abs < settings.tol_gap_abs) || (info.gap_rel < settings.tol_gap_rel))
         && (info.res_primal < settings.tol_feas)
         && (info.res_dual   < settings.tol_feas)
@@ -66,17 +68,30 @@ function info_check_termination!(
     elseif info.ktratio > one(T)
 
         if (residuals.dot_bz < -settings.tol_infeas_rel) &&
-           (info.res_primal_inf < -settings.tol_infeas_abs*residuals.dot_bz)
+            (info.res_primal_inf < -settings.tol_infeas_abs*residuals.dot_bz)
 
             info.status = PRIMAL_INFEASIBLE
 
         elseif (residuals.dot_qx < -settings.tol_infeas_rel) &&
-               (info.res_dual_inf < -settings.tol_infeas_abs*residuals.dot_qx)
+                (info.res_dual_inf < -settings.tol_infeas_abs*residuals.dot_qx)
 
             info.status = DUAL_INFEASIBLE
 
         end
     end
+
+    # YC: Terminate early when residuals diverge
+    if iter > 0 && (info.res_dual > info.prev_res_dual || info.res_primal > info.prev_res_primal)
+        # YC: small ktratio means the algorithm converges but feasibility residuals get stucked due to some numerical issues
+        if info.ktratio < 1e-8 && (info.prev_gap_abs < settings.tol_gap_abs || info.prev_gap_rel < settings.tol_gap_rel)
+            info.status = EARLY_TERMINATED
+        end
+        # YC: Severe numerical issue happens and we should stop it immediately
+        if (info.res_dual > 100*info.prev_res_dual || info.res_primal > 100*info.prev_res_primal)
+            info.status = EARLY_TERMINATED
+        end
+    end
+
 
     #time or iteration limits
     #----------------------
@@ -95,8 +110,51 @@ function info_check_termination!(
     return is_done = info.status != UNSOLVED
 end
 
+function info_save_prev_iterates(
+    info::DefaultInfo{T},
+    variables::DefaultVariables{T},
+    prev_variables::DefaultVariables{T}
+) where {T}
+    info.prev_cost_primal    = info.cost_primal
+    info.prev_cost_dual      = info.cost_dual
+    info.prev_res_primal     = info.res_primal
+    info.prev_res_dual       = info.res_dual
+    info.prev_gap_abs        = info.gap_abs
+    info.prev_gap_rel        = info.gap_rel
 
-function info_save_scalars(info,μ,α,σ,iter)
+    prev_variables.x    .= variables.x
+    prev_variables.s    .= variables.s
+    prev_variables.z    .= variables.z
+    prev_variables.τ     = variables.τ
+    prev_variables.κ     = variables.κ
+end
+
+function info_reset_to_prev_iterates(
+    info::DefaultInfo{T},
+    variables::DefaultVariables{T},
+    prev_variables::DefaultVariables{T}
+) where {T}
+    info.cost_primal    = info.prev_cost_primal
+    info.cost_dual      = info.prev_cost_dual
+    info.res_primal     = info.prev_res_primal
+    info.res_dual       = info.prev_res_dual
+    info.gap_abs        = info.prev_gap_abs
+    info.gap_rel        = info.prev_gap_rel
+
+    variables.x    .= prev_variables.x
+    variables.s    .= prev_variables.s
+    variables.z    .= prev_variables.z
+    variables.τ     = prev_variables.τ
+    variables.κ     = prev_variables.κ
+end
+
+function info_save_scalars(
+    info::DefaultInfo{T},
+    μ::T,
+    α::T,
+    σ::T,
+    iter::Int
+) where {T}
 
     info.μ = μ
     info.step_length = α
@@ -107,7 +165,10 @@ function info_save_scalars(info,μ,α,σ,iter)
 end
 
 
-function info_reset!(info,timers)
+function info_reset!(
+    info::DefaultInfo{T},
+    timers::TimerOutput
+) where {T}
 
     info.status     = UNSOLVED
     info.iterations = 0
@@ -120,16 +181,20 @@ function info_reset!(info,timers)
 end
 
 
-function info_get_solve_time!(info,timers)
-
+function info_get_solve_time!(
+    info::DefaultInfo{T},
+    timers::TimerOutput
+) where {T}
     #TimerOutputs reports in nanoseconds
     info.solve_time = TimerOutputs.tottime(timers)*1e-9
     return nothing
 end
 
 
-function info_finalize!(info,timers)
-
+function info_finalize!(
+    info::DefaultInfo{T},
+    timers::TimerOutput
+) where {T}
     info_get_solve_time!(info,timers)
     return nothing
 end

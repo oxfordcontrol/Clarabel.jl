@@ -39,3 +39,4 @@ function kktsolver_is_ill_conditioned!(
 ) where{T}
     error("function not implemented")
 end
+

@@ -234,8 +234,14 @@ function cones_step_length(
     # YC: implement step search for symmetric cones first
     # NB: split the step search for symmetric and unsymmtric cones due to the complexity of the latter
     for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
+<<<<<<< HEAD
         @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
         α = prevfloat(min(α,nextαz,nextαs))
+=======
+        # println("type is ", type)
+        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,α,cones.backtrack)
+        α = min(α,nextαz,nextαs)
+>>>>>>> b27de237d80005f796d96074763681127a5616b5
     end
 
     return α
@@ -283,9 +289,6 @@ function check_μ_and_centrality(
 
         # check centrality
         barrier = central_coef*log(μ) - log(cur_τ) - log(cur_κ)
-
-        #"compute_centrality" is not a good function name.   I can't tell what
-        #it does from the name.
 
         for (cone,cur_si,cur_zi) in zip(cones,cur_s.views, cur_z.views)
             @conedispatch barrier += compute_centrality(cone, cur_si, cur_zi)
