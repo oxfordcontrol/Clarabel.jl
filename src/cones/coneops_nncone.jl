@@ -237,11 +237,11 @@ function step_length(
      z::AbstractVector{T},
      s::AbstractVector{T},
      settings::Settings{T},
-     α::T
+     αmax::T
 ) where {T}
 
-    αz = floatmax(T)
-    αs = floatmax(T)
+    αz = αmax
+    αs = αmax
 
     for i in eachindex(ds)
         αz = dz[i] < 0 ? prevfloat(min(αz,-z[i]/dz[i])) : αz

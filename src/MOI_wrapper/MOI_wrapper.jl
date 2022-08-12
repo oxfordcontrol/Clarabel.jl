@@ -169,7 +169,13 @@ end
 MOI.supports(::Optimizer, ::MOI.TerminationStatus) = true
 function MOI.get(opt::Optimizer, ::MOI.TerminationStatus)
     opt.has_results || return MOI.OPTIMIZE_NOT_CALLED
-    return ClarabeltoMOITerminationStatus[opt.inner.info.status]
+    try 
+        #PJG: NOT ALL RETURN CODES ARE COVERED.   TEMPORARY FIX HERE 
+        return ClarabeltoMOITerminationStatus[opt.inner.info.status]
+    catch 
+        MOI.OTHER_ERROR
+    end
+
 end
 
 MOI.supports(::Optimizer, ::MOI.PrimalStatus) = true
@@ -177,7 +183,12 @@ function MOI.get(opt::Optimizer, attr::MOI.PrimalStatus)
     if !opt.has_results || attr.result_index != 1
         return MOI.NO_SOLUTION
     else
-        return ClarabeltoMOIPrimalStatus[opt.inner.info.status]
+        try 
+            #PJG: NOT ALL RETURN CODES ARE COVERED.   TEMPORARY FIX HERE 
+            return ClarabeltoMOIPrimalStatus[opt.inner.info.status]
+        catch
+            return MOI.OTHER_RESULT_STATUS
+        end
     end
 end
 
@@ -186,7 +197,12 @@ function MOI.get(opt::Optimizer, attr::MOI.DualStatus)
     if !opt.has_results || attr.result_index != 1
         return MOI.NO_SOLUTION
     end
-    return ClarabeltoMOIDualStatus[opt.inner.info.status]
+    try 
+        #PJG: NOT ALL RETURN CODES ARE COVERED.   TEMPORARY FIX HERE 
+        return ClarabeltoMOIDualStatus[opt.inner.info.status]
+    catch
+        return MOI.OTHER_RESULT_STATUS
+    end
 end
 
 MOI.supports(::Optimizer, ::MOI.Silent) = true

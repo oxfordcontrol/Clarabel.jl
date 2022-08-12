@@ -223,12 +223,11 @@ function step_length(
      z::AbstractVector{T},
      s::AbstractVector{T},
      settings::Settings{T},
-     α::T,
+     αmax::T,
 ) where {T}
 
     #equality constraints allow arbitrary step length
-    huge = floatmax(T)
-    return (huge,huge)
+    return (αmax,αmax)
 end
 
 # no compute_centrality for Zerocone

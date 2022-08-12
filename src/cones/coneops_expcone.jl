@@ -149,17 +149,13 @@ function step_length(
      z::AbstractVector{T},
      s::AbstractVector{T},
      settings::Settings{T},
-     α::T
+     αmax::T
 ) where {T}
-
-    if isnan(α)
-        error("numerical error")
-    end
 
     backtrack = settings.linesearch_backtrack_step
 
-    αz = _step_length_powcone_or_expcone(K.vec_work,dz,z,α,backtrack, is_dual_feasible_expcone)
-    αs = _step_length_powcone_or_expcone(K.vec_work,ds,s,α,backtrack, is_primal_feasible_expcone)
+    αz = _step_length_powcone_or_expcone(K.vec_work, dz, z, αmax, backtrack, is_dual_feasible_expcone)
+    αs = _step_length_powcone_or_expcone(K.vec_work, ds, s, αmax, backtrack, is_primal_feasible_expcone)
 
     return (αz,αs)
 end

@@ -335,7 +335,7 @@ function step_length(
      z::AbstractVector{T},
      s::AbstractVector{T},
      settings::Settings{T},
-     α::T
+     αmax::T
 ) where {T}
 
     Λisqrt = K.work.Λisqrt
@@ -343,11 +343,11 @@ function step_length(
 
     #d = Δz̃ = WΔz
     gemv_W!(K, :N, dz, d, one(T), zero(T))
-    αz = _step_length_psd_component(K,d,Λisqrt)
+    αz = _step_length_psd_component(K,d,Λisqrt,αmax)
 
     #d = Δs̃ = W^{-T}Δs
     gemv_Winv!(K, :T, ds, d, one(T), zero(T))
-    αs = _step_length_psd_component(K,d,Λisqrt)
+    αs = _step_length_psd_component(K,d,Λisqrt,αmax)
 
     return (αz,αs)
 end
@@ -356,7 +356,8 @@ end
 function _step_length_psd_component(
     K::PSDTriangleCone{T},
     d::Vector{T},
-    Λisqrt::Diagonal{T}
+    Λisqrt::Diagonal{T},
+    αmax::T
 ) where {T}
 
     Δ = K.work.workmat1
@@ -366,8 +367,11 @@ function _step_length_psd_component(
     M = Symmetric(Λisqrt*Δ*Λisqrt)
 
     γ = eigvals(M,1:1)[1] #minimum eigenvalue
-    α = γ < 0 ? inv(-γ) : floatmax(T)
-    return α
+    if γ < 0 
+        return min(inv(-γ),αmax)
+    else
+        return αmax
+    end
 
 end
 

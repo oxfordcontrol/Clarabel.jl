@@ -103,7 +103,6 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
 end
 
-Settings() = Settings{DefaultFloat}()
 Settings(args...) = Settings{DefaultFloat}(args...)
 Settings() = Settings{DefaultFloat}()
 

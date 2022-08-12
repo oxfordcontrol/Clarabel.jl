@@ -304,11 +304,11 @@ function step_length(
      z::AbstractVector{T},
      s::AbstractVector{T},
      settings::Settings{T},
-     α::T
+     αmax::T
 ) where {T}
 
-    αz   = _step_length_soc_component(dz,z)
-    αs   = _step_length_soc_component(ds,s)
+    αz   = _step_length_soc_component(dz,z,αmax)
+    αs   = _step_length_soc_component(ds,s,αmax)
 
     return (αz,αs)
 end
@@ -317,7 +317,8 @@ end
 # x + αy stays in the SOC
 function _step_length_soc_component(
     y::AbstractVector{T},
-    x::AbstractVector{T}
+    x::AbstractVector{T},
+    αmax::T
 ) where {T}
 
     # assume that x is in the SOC, and
@@ -346,7 +347,7 @@ function _step_length_soc_component(
         #return the minimum positive root
         r1 = r1 < 0 ? floatmax(T) : r1
         r2 = r2 < 0 ? floatmax(T) : r2
-        return prevfloat(min(r1,r2))
+        return prevfloat(min(αmax,r1,r2))
     end
 
 end

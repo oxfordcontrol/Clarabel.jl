@@ -183,7 +183,6 @@ function solve!(
 
         # PJG: come back to this to ensure that timer sections
         # and tabs remain consistent with the Rust labels
-        # YC: Why we have some parts that are not timed?
 
         while true
             #update the residuals
@@ -225,9 +224,9 @@ function solve!(
             #--------------
             @timeit s.timers "kkt update" numerical_check = kkt_update!(s.kktsystem,s.data,s.cones)
 
-            if numerical_check && (scaling_strategy == PrimalDual)
+            if numerical_check && (scaling_strategy == PrimalDual::ScalingStrategy)
                 # reset to the dual scaling strategy firstly
-                scaling_strategy = Dual
+                scaling_strategy = Dual::ScalingStrategy
                 variables_scale_cones!(s.variables,s.cones,μ,scaling_strategy)
                 numerical_check = kkt_update!(s.kktsystem,s.data,s.cones)
             end
@@ -277,7 +276,10 @@ function solve!(
             #compute final step length and update the current iterate
             #--------------
             @timeit_debug timer "step length final" begin
-                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,s.settings,:combined, scaling_strategy)
+                α = calc_step_length(
+                    s.variables, s.step_lhs, s.work_vars,
+                    s.cones,s.settings,:combined, scaling_strategy
+                )
             end
 
             @timeit_debug timer "alpha scale " α *= s.settings.max_step_fraction
@@ -328,7 +330,7 @@ end
 # Mehrotra heuristic
 function calc_centering_parameter(α::T) where{T}
 
-    return σ = (1-α)^3
+    return σ = max((1-α)^3)
 end
 
 
