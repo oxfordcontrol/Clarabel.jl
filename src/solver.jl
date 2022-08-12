@@ -303,7 +303,7 @@ function solve!(
                     s.info.status = EARLY_TERMINATED
                     break
                 else
-                    scaling_strategy = PrimalDual
+                    scaling_strategy = Dual
                 end
             end
 
