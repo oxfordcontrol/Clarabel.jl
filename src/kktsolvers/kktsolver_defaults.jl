@@ -1,4 +1,3 @@
-abstract type AbstractKKTSolver{T <: AbstractFloat} end
 
 #update matrix data and factor
 function kktsolver_update!(linsys::AbstractKKTSolver{T},cones::ConeSet{T}) where{T}

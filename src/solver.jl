@@ -181,13 +181,13 @@ function solve!(
         # main loop
         #----------
 
-        # PJG: come back to this to ensure that timer sections
-        # and tabs remain consistent with the Rust labels
+        scaling_strategy = PrimalDual::ScalingStrategy
 
         while true
+
             #update the residuals
             #--------------
-            @timeit_debug s.timers "residuals_update" residuals_update!(s.residuals,s.variables,s.data)
+            residuals_update!(s.residuals,s.variables,s.data)
 
             #calculate duality gap (scaled)
             #--------------
@@ -215,27 +215,7 @@ function solve!(
 
             #update the scalings
             #--------------
-
-            scaling_strategy = kkt_scaling_strategy(s.kktsystem)
             variables_scale_cones!(s.variables,s.cones,μ,scaling_strategy)
-
-            #update the KKT system and the constant
-            #parts of its solution
-            #--------------
-            @timeit s.timers "kkt update" numerical_check = kkt_update!(s.kktsystem,s.data,s.cones)
-
-            if numerical_check && (scaling_strategy == PrimalDual::ScalingStrategy)
-                # reset to the dual scaling strategy firstly
-                scaling_strategy = Dual::ScalingStrategy
-                variables_scale_cones!(s.variables,s.cones,μ,scaling_strategy)
-                numerical_check = kkt_update!(s.kktsystem,s.data,s.cones)
-            end
-            
-            if numerical_check && (scaling_strategy == Dual)
-                # YC: if kkt_solve fails due to numerical issues
-                s.info.status = NUMERICALLY_HARD
-                break
-            end
 
             #calculate the affine step
             #--------------
@@ -244,71 +224,103 @@ function solve!(
                 s.variables, s.cones
             )
 
+            #update the KKT system and the constant parts of its solution.  
+            #Keep track of the success of each step that calls KKT 
+            #--------------
+            is_kkt_solve_success = true 
+            @timeit s.timers "kkt update" begin 
+            is_kkt_solve_success &= 
+                kkt_update!(s.kktsystem,s.data,s.cones)
+            end 
+
             @timeit s.timers "kkt solve" begin
+            is_kkt_solve_success &= 
                 kkt_solve!(
                     s.kktsystem, s.step_lhs, s.step_rhs,
                     s.data, s.variables, s.cones, :affine
                 )
             end
 
-            #calculate step length and centering parameter
-            #--------------
-            @timeit_debug timer "step length affine" begin
-                α = calc_step_length(s.variables,s.step_lhs,s.work_vars,s.cones,s.settings,:affine, scaling_strategy)
+            if is_kkt_solve_success 
+
+                #calculate step length and centering parameter
+                #--------------
+                α = calc_step_length(
+                    s.variables, s.step_lhs, s.work_vars,
+                    s.cones, s.settings, :affine, scaling_strategy
+                )
                 σ = calc_centering_parameter(α)
+            
+
+                #calculate the combined step and length
+                #--------------
+                calc_combined_step_rhs!(
+                    s.step_rhs, s.residuals,
+                    s.variables, s.cones,
+                    s.step_lhs, σ, μ
+                )
             end
 
-            #calculate the combined step and length
-            #--------------
-            calc_combined_step_rhs!(
-                s.step_rhs, s.residuals,
-                s.variables, s.cones,
-                s.step_lhs, σ, μ
-            )
-
             @timeit s.timers "kkt solve" begin
+            is_kkt_solve_success &= 
                 kkt_solve!(
                     s.kktsystem, s.step_lhs, s.step_rhs,
                     s.data, s.variables, s.cones, :combined
                 )
             end
 
-            #compute final step length and update the current iterate
-            #--------------
-            @timeit_debug timer "step length final" begin
-                α = calc_step_length(
-                    s.variables, s.step_lhs, s.work_vars,
-                    s.cones,s.settings,:combined, scaling_strategy
-                )
-            end
-
-            @timeit_debug timer "alpha scale " α *= s.settings.max_step_fraction
-
-            # YC: Store information of the previous iterate
-            @timeit_debug timer info_save_prev_iterates(s.info,s.variables,s.work_vars)
-
-            @timeit_debug timer "variables_add_step" begin
-                variables_add_step!(s.variables,s.step_lhs,α)
-            end
-
-            #record scalar values from this iteration
-            @timeit_debug timer "save scalars" begin
-                info_save_scalars(s.info,μ,α,σ,iter)
-            end
-
-            # YC: check if the step size is too small
-            if α < 1e-4
-                if scaling_strategy == Dual
-                    isdone = true
-                    s.info.status = EARLY_TERMINATED
+            # We change scaling strategy on numerical error.  We 
+            # take a small chance that the combined step will 
+            # fail unchecked, and only put this logic here 
+            if !is_kkt_solve_success
+                # save scalars indicating no step 
+                info_save_scalars(s.info,μ,zero(T),one(T),iter)
+                if scaling_strategy == PrimalDual::ScalingStrategy
+                    # switch to the more conservative dual scaling strategy 
+                    # PJG: `continue`` means that we will compute residuals and  
+                    # termination conditions twice for this iterate 
+                    scaling_strategy = Dual::ScalingStrategy
+                    println("Numerics: Switching to Dual strategy")
+                    continue 
+                elseif scaling_strategy == Dual::ScalingStrategy 
+                    #out of tricks.  Bail out with an error 
+                    s.info.status = NUMERICAL_ERROR
+                    println("Break : Numerical Error")
                     break
-                else
-                    scaling_strategy = Dual
                 end
             end
 
-            # YC: switch from the primal-dual scaling to the dual scaling
-            switch_scaling(s.kktsystem.kktsolver,s.info)
+            #compute final step length and update the current iterate
+            #--------------
+            α = calc_step_length(
+                s.variables, s.step_lhs, s.work_vars,
+                s.cones,s.settings,:combined, scaling_strategy
+            )  
+
+            α *= s.settings.max_step_fraction
+
+            # YC: check if the step size is too small
+            if scaling_strategy == PrimalDual::ScalingStrategy && 
+                α < s.settings.min_primaldual_step_length
+                   scaling_strategy = Dual
+                   println("Progress: Switching to dual scaling")
+                   #PJG: We are taking this final step anyway... 
+
+            elseif scaling_strategy == Dual::ScalingStrategy && 
+                α < s.settings.min_dual_step_length
+                    s.info.status = INSUFFICIENT_PROGRESS
+                    # save scalars indicating no step 
+                    info_save_scalars(s.info,μ,zero(T),one(T),iter)
+                    break
+            end
+            
+            # Copy previous iterate in case the next one is a dud
+            info_save_prev_iterate(s.info,s.variables,s.work_vars)
+
+            variables_add_step!(s.variables,s.step_lhs,α)
+
+            #record scalar values from this iteration
+            info_save_scalars(s.info,μ,α,σ,iter)
 
         end  #end while
         #----------
@@ -330,7 +342,7 @@ end
 # Mehrotra heuristic
 function calc_centering_parameter(α::T) where{T}
 
-    return σ = max((1-α)^3)
+    return σ = (1-α)^3
 end
 
 

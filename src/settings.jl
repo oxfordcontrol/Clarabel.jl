@@ -77,7 +77,9 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 	equilibrate_max_scaling::T          = 1e+4
 
     #cones and line search parameters 
-    linesearch_backtrack_step::T        = 0.8     #PJG: Add to docs
+    linesearch_backtrack_step::T        = 0.95     #PJG: Add to docs
+    min_primaldual_step_length          = 1e-2    #PJG: disable PD step at this length
+    min_dual_step_length                = 1e-4    #PJG: disable PD step at this length
 
     #the direct linear solver to use
     #can be :qdldl or :mkl
@@ -104,7 +106,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 end
 
 Settings(args...) = Settings{DefaultFloat}(args...)
-Settings() = Settings{DefaultFloat}()
+#Settings() = Settings{DefaultFloat}()
 
 function Settings(d::Dict)
 

@@ -244,8 +244,8 @@ function step_length(
     αs = αmax
 
     for i in eachindex(ds)
-        αz = dz[i] < 0 ? prevfloat(min(αz,-z[i]/dz[i])) : αz
-        αs = ds[i] < 0 ? prevfloat(min(αs,-s[i]/ds[i])) : αs
+        αz = dz[i] < 0 ? (min(αz,-z[i]/dz[i])) : αz
+        αs = ds[i] < 0 ? (min(αs,-s[i]/ds[i])) : αs
     end
 
     return (αz,αs)

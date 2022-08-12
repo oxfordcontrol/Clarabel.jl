@@ -110,7 +110,7 @@ function info_check_termination!(
     return is_done = info.status != UNSOLVED
 end
 
-function info_save_prev_iterates(
+function info_save_prev_iterate(
     info::DefaultInfo{T},
     variables::DefaultVariables{T},
     prev_variables::DefaultVariables{T}

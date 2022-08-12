@@ -78,23 +78,26 @@ end
 
 # the input number i corresponds to the i-th example in CBLIB. Example 7,8,32
 
-index = 7
+index = 23
 
 model_clarabel = exp_model(index; optimizer = Clarabel.Optimizer) 
 model_ecos = exp_model(index; optimizer = ECOS.Optimizer) 
 set_optimizer_attribute(model_clarabel, "verbose", true)
 set_optimizer_attribute(model_clarabel, "static_regularization_constant",1e-7)
-set_optimizer_attribute(model_clarabel, "static_regularization_enable",true)
+set_optimizer_attribute(model_clarabel, "linesearch_backtrack_step",0.8)
+set_optimizer_attribute(model_clarabel, "min_primaldual_step_length", 0.05)
+set_optimizer_attribute(model_clarabel, "static_regularization_enable",false)
 set_optimizer_attribute(model_clarabel, "direct_solve_method",:qdldl)
-set_optimizer_attribute(model_ecos, "verbose", true)
 optimize!(model_clarabel) 
-optimize!(model_ecos) 
 
-println(solution_summary(model_clarabel))
-println(solution_summary(model_ecos))
+#set_optimizer_attribute(model_ecos, "verbose", true)
+#optimize!(model_ecos) 
 
-solver = model_clarabel.moi_backend.optimizer.model.optimizer.inner
+#println(solution_summary(model_clarabel))
+#println(solution_summary(model_ecos))
 
-#@profile Clarabel.solve!(solver)
+#solver = model_clarabel.moi_backend.optimizer.model.optimizer.inner
+
+#@enter Clarabel.solve!(solver)
 
 #pprof()

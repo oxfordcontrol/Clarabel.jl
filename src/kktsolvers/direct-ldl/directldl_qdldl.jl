@@ -80,6 +80,12 @@ function refactor!(ldlsolver::QDLDLDirectLDLSolver{T}, K::SparseMatrixCSC) where
     #the update matrix entries for itself using the
     #offset/update methods implemented above.
     QDLDL.refactor!(ldlsolver.factors)
+
+    # PJG: this function should be moved to the QDLDL 
+    # package before release  .  call it `isssuccess`
+    # to match the Cholmod convention
+    return all(isfinite, ldlsolver.factors.Dinv.diag)
+
 end
 
 
@@ -90,9 +96,8 @@ function solve!(
     b::Vector{T}
 ) where{T}
 
-    #make an initial solve (solves in place)
+    #solve in place 
     @. x = b
     QDLDL.solve!(ldlsolver.factors,x)
 
-    return nothing
 end

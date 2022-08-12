@@ -75,6 +75,8 @@ function refactor!(ldlsolver::CholmodDirectLDLSolver{T}, K::SparseMatrixCSC{T}) 
         #this reuses the symbolic factorization
         ldlt!(ldlsolver.F, Symmetric(K))
     end
+
+    return issuccess(ldlsolver.F)
 end
 
 

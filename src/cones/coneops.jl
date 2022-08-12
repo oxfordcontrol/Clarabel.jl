@@ -300,7 +300,7 @@ function check_μ_and_centrality(
             # YC: Right now I just follow the same strategy in ECOS
             # and it could be improved by some smarter methods.
 
-            α = prevfloat(backtrack*α)    #backtrack line search
+            α = backtrack*α   #backtrack line search
         end
 
     end

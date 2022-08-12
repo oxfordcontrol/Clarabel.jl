@@ -41,9 +41,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     #the diagonal regularizer currently applied
     diagonal_regularizer::T
 
-    #marker indicating ill conditioning 
-    # PJG: need to reset scaling_strategy after each solve
-    is_ill_conditioned::Bool
+    #PJG: not clear if these need to be recorded
     maxdiag::T
     mindiag::T
 
@@ -97,7 +95,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         return new(m,n,p,x,b,
                    work_e,work_dx,map,Dsigns,WtWblocks,
                    KKT,KKTsym,settings,ldlsolver,
-                   diagonal_regularizer, is_ill_conditioned,maxdiag,mindiag)
+                   diagonal_regularizer,maxdiag,mindiag)
     end
 
 end
@@ -233,7 +231,7 @@ function kktsolver_update!(
     # directly.   Grab it here and then call an inner function
     # so that the ldlsolver has concrete type
     ldlsolver = kktsolver.ldlsolver
-    _kktsolver_update_inner!(kktsolver,ldlsolver,cones)
+     return _kktsolver_update_inner!(kktsolver,ldlsolver,cones)
 end
 
 
@@ -288,34 +286,30 @@ function _kktsolver_update_inner!(
     end
 
     #refactor with new data
-    refactor!(ldlsolver,kktsolver.KKT)
+    is_success = refactor!(ldlsolver,kktsolver.KKT)
 
-    return nothing
+    return is_success 
 end
 
-# YC: may remove it later
-# determine the scaling strategy for exponential cones. 
-# True for the primal-dual scaling and false for the dual scaling.
-function switch_scaling(
+# PJG: Keeping this temporarily because we may want 
+# to re-implement some check on bad scaling behaviour 
+# This is currently dead code and could be removed.
+# If it is removed, then the min/max diag fields can 
+# also be dropped 
+function is_ill_conditioned(
     kktsolver::DirectLDLKKTSolver{T},
     info::DefaultInfo{T}
 ) where {T}
 
-    if kktsolver.is_ill_conditioned
-        return nothing
-    end
-
-    settings = kktsolver.settings
-    maxdiag = kktsolver.maxdiag
+    maxdiag = kktsolver.maxdiag 
     mindiag = kktsolver.mindiag
 
-    # used to switch from primal-dual scaling to the dual scaling 
-    # when the approximate conditioning number is larger than 1/eps(T)
     if  maxdiag*eps(T) > (mindiag + settings.static_regularization_constant)
-        kktsolver.is_ill_conditioned = true
-    end
+        return true
+    else 
+        return false 
+    end 
 
-    return nothing
 end
 
 function _update_regularizer(
@@ -401,22 +395,24 @@ function kktsolver_solve!(
     (x,b) = (kktsolver.x,kktsolver.b)
     solve!(kktsolver.ldlsolver,x,b)
 
-    if(kktsolver.settings.iterative_refinement_enable)
-        _iterative_refinement(kktsolver,kktsolver.ldlsolver)
+    is_success = begin 
+        if(kktsolver.settings.iterative_refinement_enable)
+            #IR reports success based on finite normed residual
+            is_success = _iterative_refinement(kktsolver,kktsolver.ldlsolver)
+        else 
+             # otherwise must directly verify finite values 
+            is_success = all(isfinite,x)
+        end 
     end
 
-    kktsolver_getlhs!(kktsolver,lhsx,lhsz)
+    if is_success 
+       kktsolver_getlhs!(kktsolver,lhsx,lhsz)
+    end 
 
-    return nothing
+    return is_success 
 end
 
-function kktsolver_is_ill_conditioned(
-    kktsolver::DirectLDLKKTSolver{T}
-) where {T}
-    kktsolver.is_ill_conditioned
-end
-
-function _iterative_refinement(
+function  _iterative_refinement(
     kktsolver::DirectLDLKKTSolver{T},
     ldlsolver::AbstractDirectLDLSolver{T}
 ) where{T}
@@ -445,11 +441,14 @@ function _iterative_refinement(
     ctr = 0
     for i = 1:IR_maxiter
         ctr = i 
+
+        # bail on numerical error
+        if !isfinite(norme) return is_success = false end
+
         if(norme <= IR_abstol + IR_reltol*normb)
-            # within tolerance.  Exit
+            # within tolerance, or failed.  Exit
             break
         end
-
         lastnorme = norme
 
         #make a refinement and continue
@@ -467,8 +466,10 @@ function _iterative_refinement(
         else
             @. x = ξ  #PJG: pointer swap might be faster   
         end
-    end    
-    return nothing
+    end   
+
+    #NB: "success" means only we had a finite valued result  
+    return is_success = true
 end
 
 

@@ -62,13 +62,16 @@ function kkt_update!(
 ) where {T}
 
     #update the linear solver with new cones
-    kktsolver_update!(kktsystem.kktsolver,cones)
+    is_success  = kktsolver_update!(kktsystem.kktsolver,cones)
+
+    #bail of the factorization has failed 
+    is_success || return is_success 
 
     #calculate KKT solution for constant terms
     # YC: kkt_constant_status for checking numerical stability
-    kkt_constant_status = _kkt_solve_constant_rhs!(kktsystem,data)
+    _kkt_solve_constant_rhs!(kktsystem,data)
 
-    return kkt_constant_status
+    return is_success
 end
 
 function _kkt_solve_constant_rhs!(
@@ -79,9 +82,8 @@ function _kkt_solve_constant_rhs!(
     @. kktsystem.workx = -data.q;
 
     kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, data.b)
-    kktsolver_solve!(kktsystem.kktsolver, kktsystem.x2, kktsystem.z2)
+    is_success = kktsolver_solve!(kktsystem.kktsolver, kktsystem.x2, kktsystem.z2)
 
-    return any(isnan,kktsystem.x2) || any(isnan, kktsystem.z2)
 end
 
 
@@ -96,7 +98,9 @@ function kkt_solve_initial_point!(
     kktsystem.workx .= zero(T)
     kktsystem.workz .= data.b
     kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
-    kktsolver_solve!(kktsystem.kktsolver, variables.x, variables.s)
+    is_success = kktsolver_solve!(kktsystem.kktsolver, variables.x, variables.s)
+
+    if !is_success return is_success end
 
     # solve with [-q;0] as a RHS to get z initializer
     # zero out any sparse cone variables at end
@@ -104,9 +108,10 @@ function kkt_solve_initial_point!(
     kktsystem.workz .=  zero(T)
 
     kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
-    kktsolver_solve!(kktsystem.kktsolver, nothing, variables.z)
+    is_success = kktsolver_solve!(kktsystem.kktsolver, nothing, variables.z)
 
-    return nothing
+    return is_success 
+
 end
 
 
@@ -147,7 +152,9 @@ function kkt_solve!(
     #---------------------------------------------------
     #this solves the variable part of reduced KKT system
     kktsolver_setrhs!(kktsystem.kktsolver, workx, workz)
-    kktsolver_solve!(kktsystem.kktsolver,x1,z1)
+    is_success = kktsolver_solve!(kktsystem.kktsolver,x1,z1)
+
+    if !is_success return is_success end 
 
     #solve for Δτ.
     #-----------
@@ -185,16 +192,9 @@ function kkt_solve!(
     #--------------
     lhs.κ = -(rhs.κ + variables.κ * lhs.τ) / variables.τ
 
-    return nothing
-end
+    # we don't check the validity of anything 
+    # after the KKT solve, so just return is_success
+    # without further validation 
+    return is_success
 
-
-function kkt_scaling_strategy(kktsystem::DefaultKKTSystem{T}) where {T} 
-
-    
-    if kktsolver_is_ill_conditioned(kktsystem.kktsolver)
-        return Dual::ScalingStrategy
-    else 
-        return PrimalDual::ScalingStrategy
-    end
 end

@@ -158,7 +158,7 @@ function _kkt_assemble_colcounts(
     #count dense columns for each SOC
     socidx = 1  #which SOC are we working on?
 
-    for i = 1:length(cones)
+    for i in eachindex(cones)
         if isa(cones.cone_specs[i],Clarabel.SecondOrderConeT)
 
             #we will add the u and v columns for this cone
@@ -230,7 +230,7 @@ function _kkt_assemble_fill(
     #fill in dense columns for each SOC
     socidx = 1  #which SOC are we working on?
 
-    for i = 1:length(cones)
+    for i in eachindex(cones)
         if isa(cones.cone_specs[i],Clarabel.SecondOrderConeT)
 
             nvars = numel(cones[i])

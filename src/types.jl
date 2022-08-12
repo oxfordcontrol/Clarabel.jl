@@ -216,8 +216,9 @@ Otherwise:
     DUAL_INFEASIBLE
     MAX_ITERATIONS
     MAX_TIME
-    EARLY_TERMINATED
-    NUMERICALLY_HARD
+    NUMERICAL_ERROR
+    INSUFFICIENT_PROGRESS
+    EARLY_TERMINATED  #PJG: FIX THIS ONE.  Is it "solved inaccurate" maybe?
 end
 
 const SolverStatusDict = Dict(
@@ -228,8 +229,9 @@ const SolverStatusDict = Dict(
     DUAL_INFEASIBLE     =>  "dual infeasible",
     MAX_ITERATIONS      =>  "iteration limit",
     MAX_TIME            =>  "time limit",
-    EARLY_TERMINATED    =>  "terminate early",
-    NUMERICALLY_HARD    =>  "numerically hard in KKT"
+    NUMERICAL_ERROR     =>  "numerical error",
+    INSUFFICIENT_PROGRESS =>  "insufficient progress",
+    EARLY_TERMINATED      =>  "early termination"
 )
 
 mutable struct DefaultInfo{T} <: AbstractInfo{T}
