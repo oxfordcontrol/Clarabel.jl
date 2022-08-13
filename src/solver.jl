@@ -204,7 +204,7 @@ function solve!(
             end
 
             # YC: use the previous iterate as the final solution
-            if isdone && s.info.status == EARLY_TERMINATED
+            if isdone && (s.info.status == INSUFFICIENT_PROGRESS || s.info.status == NUMERICAL_ERROR)
                 info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
                 break
             end

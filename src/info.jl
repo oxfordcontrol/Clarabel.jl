@@ -84,11 +84,11 @@ function info_check_termination!(
     if iter > 0 && (info.res_dual > info.prev_res_dual || info.res_primal > info.prev_res_primal)
         # YC: small ktratio means the algorithm converges but feasibility residuals get stucked due to some numerical issues
         if info.ktratio < 1e-8 && (info.prev_gap_abs < settings.tol_gap_abs || info.prev_gap_rel < settings.tol_gap_rel)
-            info.status = EARLY_TERMINATED
+            info.status = INSUFFICIENT_PROGRESS
         end
         # YC: Severe numerical issue happens and we should stop it immediately
         if (info.res_dual > 100*info.prev_res_dual || info.res_primal > 100*info.prev_res_primal)
-            info.status = EARLY_TERMINATED
+            info.status = NUMERICAL_ERROR
         end
     end
 

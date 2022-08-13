@@ -218,7 +218,6 @@ Otherwise:
     MAX_TIME
     NUMERICAL_ERROR
     INSUFFICIENT_PROGRESS
-    EARLY_TERMINATED  #PJG: FIX THIS ONE.  Is it "solved inaccurate" maybe?
 end
 
 const SolverStatusDict = Dict(
@@ -230,8 +229,7 @@ const SolverStatusDict = Dict(
     MAX_ITERATIONS      =>  "iteration limit",
     MAX_TIME            =>  "time limit",
     NUMERICAL_ERROR     =>  "numerical error",
-    INSUFFICIENT_PROGRESS =>  "insufficient progress",
-    EARLY_TERMINATED      =>  "early termination"
+    INSUFFICIENT_PROGRESS =>  "insufficient progress"
 )
 
 mutable struct DefaultInfo{T} <: AbstractInfo{T}
