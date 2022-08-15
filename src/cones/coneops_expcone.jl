@@ -40,8 +40,7 @@ function get_WtW_block!(
     WtWblock::AbstractVector{T}
 ) where {T}
 
-    #Vectorize triu(K.μH)
-    # _pack_triu(WtWblock,K.μH)
+    #Vectorize triu(K.HBFGS)
     _pack_triu(WtWblock,K.HBFGS)
 
 end
@@ -92,18 +91,6 @@ function combined_ds!(
     @inbounds for i = 1:3
         dz[i] = K.grad[i]*σμ - η[i]
     end
-    # if scaling_strategy == PrimalDual
-    #     η = K.grad_work
-    #     higher_correction!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
-    #     @inbounds for i = 1:3
-    #         dz[i] = K.grad[i]*σμ - η[i]
-    #     end
-    # else
-    #     # @. dz = σμ*K.grad                   #dz <- σμ*g(z)
-    #     @inbounds for i = 1:3
-    #         dz[i] = K.grad[i]*σμ                 #dz <- σμ*g(z)
-    #     end
-    # end
 
     return nothing
 end
@@ -154,8 +141,8 @@ function step_length(
 
     backtrack = settings.linesearch_backtrack_step
 
-    αz = _step_length_powcone_or_expcone(K.vec_work, dz, z, αmax, backtrack, is_dual_feasible_expcone)
-    αs = _step_length_powcone_or_expcone(K.vec_work, ds, s, αmax, backtrack, is_primal_feasible_expcone)
+    αz = _step_length_expcone(K.vec_work, dz, z, αmax, backtrack, is_dual_feasible_expcone)
+    αs = _step_length_expcone(K.vec_work, ds, s, αmax, backtrack, is_primal_feasible_expcone)
 
     return (αz,αs)
 end
@@ -468,9 +455,8 @@ function higher_correction!(
     η[1] += (1/ψ - 2/z[1])*u[1]*v[1]/(z[1]*z[1]) - u[3]*v[3]/(z[3]*z[3])/ψ + dotψu*inv_ψ2*(v[1]/z[1] - v[3]/z[3]) + dotψv*inv_ψ2*(u[1]/z[1] - u[3]/z[3])
     η[3] += 2*(z[1]/ψ-1)*u[3]*v[3]/(z[3]*z[3]*z[3]) - (u[3]*v[1]+u[1]*v[3])/(z[3]*z[3])/ψ + dotψu*inv_ψ2*(z[1]*v[3]/(z[3]*z[3]) - v[1]/z[3]) + dotψv*inv_ψ2*(z[1]*u[3]/(z[3]*z[3]) - u[1]/z[3])
 
-    invTwo = one(T)/2
     @inbounds for i = 1:3
-        η[i] *= invTwo
+        η[i] /= 2
     end
 
 end
@@ -502,10 +488,18 @@ function update_grad_HBFGS(
     HBFGS = K.HBFGS
 
     # Hessian computation, compute μ locally
-    # compute_Hessian(K,z,H)
     l = log(-z[3]/z[1])
     r = -z[1]*l-z[1]+z[2]
 
+    # compute the gradient at z
+    # gradient_f(K,z,st)  #st (K.grad) is indeed the gradient at z
+    c2 = one(T)/r
+
+    st[1] = c2*l - 1/z[1]
+    st[2] = -c2
+    st[3] = (c2*z[1]-1)/z[3]
+
+    # compute_Hessian(K,z,H)
     H[1,1] = ((r*r-z[1]*r+l*l*z[1]*z[1])/(r*z[1]*z[1]*r))
     H[1,2] = (-l/(r*r))
     H[2,1] = H[1,2]
@@ -517,21 +511,13 @@ function update_grad_HBFGS(
     H[3,3] = ((r*r-z[1]*r+z[1]*z[1])/(r*r*z[3]*z[3]))    
 
     μ = dot(z,s)/3
-    K.μ = μ
+
     # HBFGS .= μ*H
     @inbounds for i = 1:3
         @inbounds for j = 1:3
             HBFGS[i,j] = μ*H[i,j]
         end
     end
-    
-    # compute the gradient at z
-    # gradient_f(K,z,st)  #st (K.grad) is indeed the gradient at z
-    c2 = one(T)/r
-
-    st[1] = c2*l - 1/z[1]
-    st[2] = -c2
-    st[3] = (c2*z[1]-1)/z[3]
 
     # compute zt,st,μt locally
     # YC: note the definitions of zt,st have a sign difference compared to the Mosek's paper

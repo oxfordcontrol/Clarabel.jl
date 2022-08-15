@@ -9,7 +9,7 @@
 # to R^3 for faster execution
 
 
-function _step_length_powcone_or_expcone(
+function _step_length_expcone(
     wq::AbstractVector{T},
     dq::AbstractVector{T},
     q::AbstractVector{T},
@@ -28,6 +28,39 @@ function _step_length_powcone_or_expcone(
         end
 
         if is_in_cone_fcn(wq)
+            break
+        end
+
+        if (α *= backtrack) < 1e-4
+            α = zero(T)
+            break
+        end
+
+    end
+
+    return α
+end
+
+function _step_length_powcone(
+    wq::AbstractVector{T},
+    dq::AbstractVector{T},
+    q::AbstractVector{T},
+    α_init::T,
+    power::T,
+    backtrack::T,
+    is_in_cone_fcn::Function
+) where {T}
+
+    α = α_init
+
+    while true
+
+        #@. wq = q + α*dq
+        @inbounds for i = 1:3
+            wq[i] = q[i] + α*dq[i]
+        end
+
+        if is_in_cone_fcn(wq,power)
             break
         end
 

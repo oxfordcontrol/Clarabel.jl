@@ -26,10 +26,8 @@ function update_scaling!(
     # update both gradient and Hessian for function f*(z) at the point z
     # NB: the update order can't be switched as we reuse memory in the Hessian computation
     # Hessian update
-    # update_HBFGS(K,s,z,flag)
-    update_Hessian(K,s,z,μ)
+    update_grad_HBFGS(K,s,z,scaling_strategy)
 
-    gradient_f(K,z,K.grad)
     # K.z .= z
     @inbounds for i = 1:3
         K.z[i] = z[i]
@@ -91,21 +89,11 @@ function combined_ds!(
     step_s::AbstractVector{T},
     σμ::T
 ) where {T}
-    # NB: The higher-order correction is under development
 
-    # PJG: remove dead code in comments here
-    # YC: I need to test whether higherorder correction
-    # is effective for the power cone
-
-    # η = K.grad_work      #share the same memory as gψ in higher_correction!()
-    # higher_correction!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
-    # @inbounds for i = 1:3
-    #     dz[i] = η[i] + K.grad[i]*σμ
-    # end
-
-    # @. dz = σμ*K.grad                   #dz <- σμ*g(z)
+    η = K.grad_work      
+    higher_correction!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
     @inbounds for i = 1:3
-        dz[i] = σμ*K.grad[i]
+        dz[i] = K.grad[i]*σμ - η[i]
     end
 
     return nothing
@@ -136,7 +124,11 @@ function WtW_Δz!(
     workz::AbstractVector{T}
 ) where {T}
 
-    mul!(ls,K.HBFGS,lz,-one(T),zero(T))
+    # mul!(ls,K.HBFGS,lz,-one(T),zero(T))
+    H = K.HBFGS
+    @inbounds for i = 1:3
+        ls[i] = - H[i,1]*lz[1] - H[i,2]*lz[2] - H[i,3]*lz[3]
+    end
 
 end
 
@@ -151,10 +143,10 @@ function step_length(
      αmax::T,
 ) where {T}
 
-    backtrack = settings::linesearch_backtrack_step
+    backtrack = settings.linesearch_backtrack_step
 
-    αz = _step_length_powcone_or_expcone(K.vec_work, dz, z, αmax, backtrack, is_dual_feasible_powcone)
-    αs = _step_length_powcone_or_expcone(K.vec_work, ds, s, αmax, backtrack, is_primal_feasible_powcone)
+    αz = _step_length_powcone(K.vec_work, dz, z, αmax, K.α, backtrack, is_dual_feasible_powcone)
+    αs = _step_length_powcone(K.vec_work, ds, s, αmax, K.α, backtrack, is_primal_feasible_powcone)
 
     return (αz,αs)
 end
@@ -169,51 +161,6 @@ end
 # Dual Power cone: (z1/α)^{α} * (z2/(1-α))^{1-α} ≥ z3, z1,z2 ≥ 0
 # We use the dual barrier function: f*(z) = -log((z1/α)^{2α} * (z2/(1-α))^{2(1-α)} - z3*z3) - (1-α)*log(z1) - α*log(z2):
 # Evaluates the gradient of the dual Power cone ∇f*(z) at z, and stores the result at g
-function gradient_f(
-    K::PowerCone{T},
-    z::AbstractVector{T},
-    g::AbstractVector{T}
-) where {T}
-
-    α = K.α
-
-    ϕ = (z[1]/α)^(2*α)*(z[2]/(1-α))^(2-2*α)
-    ψ = ϕ - z[3]*z[3]
-
-    g[1] = -2*α*ϕ/(z[1]*ψ) - (1-α)/z[1]
-    g[2] = -2*(1-α)*ϕ/(z[2]*ψ) - α/z[2]
-    g[3] = 2*z[3]/ψ
-
-end
-
-# Evaluates the Hessian of the Power dual cone barrier at z and stores the upper triangular part of the matrix μH*(z)
-# NB:could reduce H to an upper triangular matrix later, remove duplicate updates
-function compute_Hessian(
-    K::PowerCone{T},
-    z::AbstractVector{T},
-    H::AbstractMatrix{T},
-) where {T}
-
-    α = K.α
-    gψ = K.vec_work
-
-    ϕ = (z[1]/α)^(2*α)*(z[2]/(1-α))^(2-2*α)
-    ψ = ϕ - z[3]*z[3]
-    gψ[1] = 2*α*ϕ/(z[1]*ψ)
-    gψ[2] = 2*(1-α)*ϕ/(z[2]*ψ)
-    gψ[3] = -2*z[3]/ψ
-
-    H[1,1] = gψ[1]*gψ[1] - 2*α*(2*α-1)*ϕ/(z[1]*z[1]*ψ) + (1-α)/(z[1]*z[1])
-    H[1,2] = gψ[1]*gψ[2] - 4*α*(1-α)*ϕ/(z[1]*z[2]*ψ)
-    H[2,1] = H[1,2]
-    H[2,2] = gψ[2]*gψ[2] - 2*(1-α)*(1-2*α)*ϕ/(z[2]*z[2]*ψ) + α/(z[2]*z[2])
-    H[1,3] = gψ[1]*gψ[3]
-    H[3,1] = H[1,3]
-    H[2,3] = gψ[2]*gψ[3]
-    H[3,2] = H[2,3]
-    H[3,3] = gψ[3]*gψ[3] + 2/ψ
-
-end
 
 function compute_centrality(
     K::PowerCone{T},
@@ -222,7 +169,7 @@ function compute_centrality(
 ) where {T}
 
     α = K.α
-    barrier = T(0)
+    barrier = zero(T)
 
     # Dual barrier
     barrier += -log((z[1]/α)^(2*α) * (z[2]/(1-α))^(2-2*α) - z[3]*z[3]) - (1-α)*log(z[1]) - α*log(z[2])
@@ -239,12 +186,9 @@ end
 
 # Returns true if s is primal feasible
 function is_primal_feasible_powcone(s::AbstractVector{T},α::T) where {T}
-    s1 = s[1]
-    s2 = s[2]
-    s3 = s[3]
 
-    if (s1 > 0 && s2 > 0)
-        res = exp(2*α*log(s1) + 2*(1-α)*log(s2)) - s3*s3
+    if (s[1] > 0 && s[2] > 0)
+        res = exp(2*α*log(s[1]) + 2*(1-α)*log(s[2])) - s[3]*s[3]
         if res > 0
             return true
         end
@@ -342,7 +286,7 @@ function higher_correction!(
 ) where {T}
 
     # u for H^{-1}*Δs
-    #NB: need to be refined later
+
     H = K.H
     u = K.vec_work
     z = K.z
@@ -368,37 +312,53 @@ function higher_correction!(
     ϕ = (z[1]/α)^(2*α)*(z[2]/(1-α))^(2-2*α)
     ψ = ϕ - z[3]*z[3]
 
-    # memory allocation
-    gψ = K.grad_work
-    Hψ = Matrix{T}(undef,3,3)
+    # Reuse K.H memory for computation
+    Hψ = K.H
+    
+    η[1] = 2*α*ϕ/z[1]
+    η[2] = 2*(1-α)*ϕ/z[2]
+    η[3] = -2*z[3]
 
-    gψ[1] = 2*α*ϕ/z[1]
-    gψ[2] = 2*(1-α)*ϕ/z[2]
-    gψ[3] = -2*z[3]
-
+    # 3rd order correction: η = -0.5*[(dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv]
+    # where: 
     # Hψ = [  2*α*(2*α-1)*ϕ/(z1*z1)     4*α*(1-α)*ϕ/(z1*z2)       0;
     #         4*α*(1-α)*ϕ/(z1*z2)     2*(1-α)*(1-2*α)*ϕ/(z2*z2)   0;
     #         0                       0                          -2;]
     Hψ[1,1] = 2*α*(2*α-1)*ϕ/(z[1]*z[1])
     Hψ[1,2] = 4*α*(1-α)*ϕ/(z[1]*z[2])
     Hψ[2,1] = Hψ[1,2]
-    Hψ[1,3] = 0
-    Hψ[3,1] = Hψ[1,3]
+    # Hψ[1,3] = 0
+    # Hψ[3,1] = Hψ[1,3]
     Hψ[2,2] = 2*(1-α)*(1-2*α)*ϕ/(z[2]*z[2])
-    Hψ[2,3] = 0
-    Hψ[3,2] = Hψ[2,3]
-    Hψ[3,3] = -2
+    # Hψ[2,3] = 0
+    # Hψ[3,2] = Hψ[2,3]
+    Hψ[3,3] = -2.
 
-    dotψu = dot(gψ,u)
-    dotψv = dot(gψ,v)
+    dotψu = dot(η,u)
+    dotψv = dot(η,v)
 
-    dotψuv = 4*α*(2*α-1)*(1-α)*ϕ*[-u[1]*v[1]/(z[1]*z[1]*z[1]) + (u[2]*v[1]+u[1]*v[2])/(z[1]*z[1]*z[2]) - u[2]*v[2]/(z[1]*z[2]*z[2]); u[1]*v[1]/(z[1]*z[1]*z[2]) - (u[2]*v[1]+u[1]*v[2])/(z[1]*z[2]*z[2]) + u[2]*v[2]/(z[2]*z[2]*z[2]); 0]
-    dothuv = [-2*(1-α)*u[1]*v[1]/(z[1]*z[1]*z[1]); -2*α*u[2]*v[2]/(z[2]*z[2]*z[2]); 0]
-    Hψv = Hψ*v
-    Hψu = Hψ*u
+    Hψv = K.vec_work_2
+    Hψv[1] = Hψ[1,1]*v[1]+Hψ[1,2]*v[2]
+    Hψv[2] = Hψ[2,1]*v[1]+Hψ[2,2]*v[2]
+    Hψv[3] = -2*v[3]
 
-    η .= (dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv
-    η ./= -2
+    coef = (dot(u,Hψv)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)
+    coef2 = 4*α*(2*α-1)*(1-α)*ϕ*(u[1]/z[1] - u[2]/z[2])*(v[1]/z[1] - v[2]/z[2])/ψ
+    inv_ψ2 = 1/ψ/ψ
+
+    η[1] = coef*η[1] - 2*(1-α)*u[1]*v[1]/(z[1]*z[1]*z[1]) + coef2/z[1] + Hψv[1]*dotψu*inv_ψ2
+    η[2] = coef*η[2] - 2*α*u[2]*v[2]/(z[2]*z[2]*z[2]) - coef2/z[2] + Hψv[2]*dotψu*inv_ψ2
+    η[3] = coef*η[3] + Hψv[3]*dotψu*inv_ψ2
+
+    Hψu = K.vec_work_2
+    Hψu[1] = Hψ[1,1]*u[1]+Hψ[1,2]*u[2]
+    Hψu[2] = Hψ[2,1]*u[1]+Hψ[2,2]*u[2]
+    Hψu[3] = -2*u[3]
+    @. η = η + Hψu*dotψv*inv_ψ2
+
+    @inbounds for i = 1:3
+        η[i] /= 2
+    end
 
 end
 
@@ -412,35 +372,10 @@ end
 #   where W⊤W is the primal-dual scaling matrix generated by BFGS, i.e. W⊤W*[z,̃z] = [s,̃s]
 #   ̃z = -f'(s), ̃s = - f*'(z)
 
-# NB: better to create two matrix spaces, one for the Hessian at z, H*(z), and another one for BFGS (primal-dual scaling) matrix, H-BFGS(z,s)
+# YC: PowerCone utilizes the dual scaling strategy only
 
-# YC: This is the temporary implementation for the dual scaling strategy
-function update_Hessian(
+function update_grad_HBFGS(
     K::PowerCone{T},
-    s::AbstractVector{T},
-    z::AbstractVector{T},
-    μ::T
-) where {T}
-    H = K.H
-    HBFGS = K.HBFGS
-    μ = dot(z,s)/3
-
-    compute_Hessian(K,z,H)
-
-    copyto!(HBFGS,H)
-    BLAS.scal!(μ,HBFGS)
-end
-
-#PJG: There was a type error in the function below, where
-#the first argument was K::ExponentalCone.   I don't understand
-#how the code could possibly have worked like that, unless This
-#function was never called at all.
-
-# YC: I'm testing the primal-dual scaling with
-#     higher order correction and the function is for that purpose
-
-function update_HBFGS(
-    K::ExponentialCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
     scaling_strategy::ScalingStrategy
@@ -454,19 +389,41 @@ function update_HBFGS(
     HBFGS = K.HBFGS
 
     # Hessian computation, compute μ locally
-    compute_Hessian(K,z,H)  
+    α = K.α
+
+    ϕ = (z[1]/α)^(2*α)*(z[2]/(1-α))^(2-2*α)
+    ψ = ϕ - z[3]*z[3]
+
+    # compute the gradient at z
+    st[1] = -2*α*ϕ/(z[1]*ψ) - (1-α)/z[1]
+    st[2] = -2*(1-α)*ϕ/(z[2]*ψ) - α/z[2]
+    st[3] = 2*z[3]/ψ
+
+
+    # use workspace K.vec_work temporarily
+    gψ = K.vec_work
+    gψ[1] = 2*α*ϕ/(z[1]*ψ)
+    gψ[2] = 2*(1-α)*ϕ/(z[2]*ψ)
+    gψ[3] = -2*z[3]/ψ
+
+    H[1,1] = gψ[1]*gψ[1] - 2*α*(2*α-1)*ϕ/(z[1]*z[1]*ψ) + (1-α)/(z[1]*z[1])
+    H[1,2] = gψ[1]*gψ[2] - 4*α*(1-α)*ϕ/(z[1]*z[2]*ψ)
+    H[2,1] = H[1,2]
+    H[2,2] = gψ[2]*gψ[2] - 2*(1-α)*(1-2*α)*ϕ/(z[2]*z[2]*ψ) + α/(z[2]*z[2])
+    H[1,3] = gψ[1]*gψ[3]
+    H[3,1] = H[1,3]
+    H[2,3] = gψ[2]*gψ[3]
+    H[3,2] = H[2,3]
+    H[3,3] = gψ[3]*gψ[3] + 2/ψ
 
     μ = dot(z,s)/3
-    K.μ = μ
+
     # HBFGS .= μ*H
     @inbounds for i = 1:3
         @inbounds for j = 1:3
             HBFGS[i,j] = μ*H[i,j]
         end
     end
-    
-    # compute the gradient at z
-    gradient_f(K,z,st)  #st (K.grad) is indeed the gradient at z
 
     # compute zt,st,μt locally
     # YC: note the definitions of zt,st have a sign difference compared to the Mosek's paper
@@ -512,4 +469,50 @@ function update_HBFGS(
     else
         return nothing
     end
+end
+
+function gradient_f(
+    K::PowerCone{T},
+    z::AbstractVector{T},
+    g::AbstractVector{T}
+) where {T}
+
+    α = K.α
+
+    ϕ = (z[1]/α)^(2*α)*(z[2]/(1-α))^(2-2*α)
+    ψ = ϕ - z[3]*z[3]
+
+    g[1] = -2*α*ϕ/(z[1]*ψ) - (1-α)/z[1]
+    g[2] = -2*(1-α)*ϕ/(z[2]*ψ) - α/z[2]
+    g[3] = 2*z[3]/ψ
+
+end
+
+# Evaluates the Hessian of the Power dual cone barrier at z and stores the upper triangular part of the matrix μH*(z)
+# NB:could reduce H to an upper triangular matrix later, remove duplicate updates
+function compute_Hessian(
+    K::PowerCone{T},
+    z::AbstractVector{T},
+    H::AbstractMatrix{T},
+) where {T}
+
+    α = K.α
+    gψ = K.vec_work
+
+    ϕ = (z[1]/α)^(2*α)*(z[2]/(1-α))^(2-2*α)
+    ψ = ϕ - z[3]*z[3]
+    gψ[1] = 2*α*ϕ/(z[1]*ψ)
+    gψ[2] = 2*(1-α)*ϕ/(z[2]*ψ)
+    gψ[3] = -2*z[3]/ψ
+
+    H[1,1] = gψ[1]*gψ[1] - 2*α*(2*α-1)*ϕ/(z[1]*z[1]*ψ) + (1-α)/(z[1]*z[1])
+    H[1,2] = gψ[1]*gψ[2] - 4*α*(1-α)*ϕ/(z[1]*z[2]*ψ)
+    H[2,1] = H[1,2]
+    H[2,2] = gψ[2]*gψ[2] - 2*(1-α)*(1-2*α)*ϕ/(z[2]*z[2]*ψ) + α/(z[2]*z[2])
+    H[1,3] = gψ[1]*gψ[3]
+    H[3,1] = H[1,3]
+    H[2,3] = gψ[2]*gψ[3]
+    H[3,2] = H[2,3]
+    H[3,3] = gψ[3]*gψ[3] + 2/ψ
+
 end

@@ -1,5 +1,5 @@
-include("../src\\Clarabel.jl")
-# using Clarabel
+# include("../src\\Clarabel.jl")
+using Clarabel
 using LinearAlgebra, SparseArrays
 using JuMP, Mosek, MosekTools, ECOS
 import MathOptInterface

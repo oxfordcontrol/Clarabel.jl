@@ -238,7 +238,6 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
     H::Matrix{T}       #μ*H for the linear sysmtem
     Hsym::Symmetric{T, Matrix{T}}
     grad::Vector{T}
-    μ::T
 
     # workspace for centrality check
     HBFGS::Matrix{T}
@@ -257,7 +256,6 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
         H = Matrix{T}(undef,3,3)
         Hsym = Symmetric(H)
         grad = Vector{T}(undef,3)
-        μ = T(Inf)
 
         HBFGS = Matrix{T}(undef,3,3)
         HBFGSsym = Symmetric(HBFGS)
@@ -265,7 +263,7 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
         vec_work = Vector{T}(undef,3)
         z = Vector{T}(undef,3)
         ws = LuBlasWorkspace{T}(3)
-        return new(H,Hsym,grad,μ,HBFGS,HBFGSsym,grad_work,vec_work,z,ws)
+        return new(H,Hsym,grad,HBFGS,HBFGSsym,grad_work,vec_work,z,ws)
     end
 end
 
@@ -289,6 +287,7 @@ mutable struct PowerCone{T} <: AbstractCone{T}
     HBFGS::Matrix{T}
     grad_work::Vector{T}
     vec_work::Vector{T}
+    vec_work_2::Vector{T}
     z::Vector{T}            # temporary storage for current z
     ws::LuBlasWorkspace{T}
 
@@ -305,9 +304,10 @@ mutable struct PowerCone{T} <: AbstractCone{T}
         HBFGS = Matrix{T}(undef,3,3)
         grad_work = Vector{T}(undef,3)
         vec_work = Vector{T}(undef,3)
+        vec_work_2 = Vector{T}(undef,3)
         z = Vector{T}(undef,3)
         ws = LuBlasWorkspace{T}(3)
-        return new(α,H,grad,HBFGS,grad_work,vec_work,z,ws)
+        return new(α,H,grad,HBFGS,grad_work,vec_work,vec_work_2,z,ws)
     end
 end
 
