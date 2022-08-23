@@ -64,8 +64,8 @@ function kkt_update!(
     #update the linear solver with new cones
     is_success  = kktsolver_update!(kktsystem.kktsolver,cones)
 
-    #bail of the factorization has failed 
-    is_success || return is_success 
+    #bail if the factorization has failed 
+    is_success || return is_success
 
     #calculate KKT solution for constant terms
     # YC: kkt_constant_status for checking numerical stability
@@ -110,7 +110,7 @@ function kkt_solve_initial_point!(
     kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
     is_success = kktsolver_solve!(kktsystem.kktsolver, nothing, variables.z)
 
-    return is_success 
+    return is_success
 
 end
 
@@ -154,7 +154,7 @@ function kkt_solve!(
     kktsolver_setrhs!(kktsystem.kktsolver, workx, workz)
     is_success = kktsolver_solve!(kktsystem.kktsolver,x1,z1)
 
-    if !is_success return is_success end 
+    if !is_success return is_success end
 
     #solve for Δτ.
     #-----------
@@ -192,9 +192,9 @@ function kkt_solve!(
     #--------------
     lhs.κ = -(rhs.κ + variables.κ * lhs.τ) / variables.τ
 
-    # we don't check the validity of anything 
+    # we don't check the validity of anything
     # after the KKT solve, so just return is_success
-    # without further validation 
+    # without further validation
     return is_success
 
 end
