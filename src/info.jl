@@ -32,7 +32,8 @@ function info_update!(
     info.res_dual_inf   = max(scaled_norm(dinv,residuals.Px),scaled_norm(einv,residuals.rz_inf))
 
     #absolute and relative gaps
-    info.gap_abs   = residuals.dot_sz * τinv * τinv
+    #info.gap_abs   = residuals.dot_sz * τinv * τinv     #PJG:slow to converge to high tolerance
+    info.gap_abs    = abs(info.cost_primal - info.cost_dual)  #PJG: maybe this way is better?
     if(info.cost_primal > 0 && info.cost_dual < 0)
         info.gap_rel = 1/eps()
     else
@@ -57,7 +58,6 @@ function info_check_termination!(
     #optimality
     #---------------------
     info.status = UNSOLVED  #ensure default state
-    # println("current gap: ", min(info.gap_abs, info.gap_rel))
 
     if( ((info.gap_abs < settings.tol_gap_abs) || (info.gap_rel < settings.tol_gap_rel))
         && (info.res_primal < settings.tol_feas)

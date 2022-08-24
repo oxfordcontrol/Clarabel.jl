@@ -48,7 +48,7 @@ function calc_step_length(
     #PJG: OK, it is becaus there is no outer loop downscaling.    I 
     #will comment it out there temporarily.   In our standard implementation
     #the backoff factor is only applied to the combined step
-    α *= 0.99
+    #α *= 0.99
     #println("Calling centrality check.   Stop = ", α)
 
     return α

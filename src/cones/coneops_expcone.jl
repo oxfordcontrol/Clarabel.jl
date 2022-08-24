@@ -88,7 +88,7 @@ function combined_ds!(
 ) where {T}
     η = K.grad_work
     higher_correction!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
-    η .= 0   #PJG: disables HOC
+    #η .= 0   #PJG: disables HOC
     @inbounds for i = 1:3
         dz[i] = K.grad[i]*σμ - η[i]
     end
@@ -511,7 +511,10 @@ function update_grad_HBFGS(
     H[3,2] = H[2,3]
     H[3,3] = ((r*r-z[1]*r+z[1]*z[1])/(r*r*z[3]*z[3]))    
 
-    #localμ = dot(z,s)/3
+    #PJG: use local mu with primal dual strategy?
+    if(scaling_strategy == PrimalDual::ScalingStrategy)
+        μ = dot(z,s)/3
+    end 
 
     # HBFGS .= μ*H
     @inbounds for i = 1:3
@@ -520,7 +523,7 @@ function update_grad_HBFGS(
         end
     end
 
-    return #PJG: bail here to get just the basic method
+    #return #PJG: bail here to get just the basic method
 
     # compute zt,st,μt locally
     # YC: note the definitions of zt,st have a sign difference compared to the Mosek's paper

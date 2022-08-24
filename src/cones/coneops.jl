@@ -247,6 +247,7 @@ function cones_step_length(
     end
 
     #here ECOS caps it at 0.999, and then multiplies the answer by γ = 0.99 for combined?
+    #NB:removing this causes a numerical error in some cases
     α = min(α,0.999)
     if(steptype == :combined)
         α *= 0.99
@@ -260,9 +261,6 @@ function cones_step_length(
         end
         # println("type is ", type)
         @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
-
-        #println("DEBUG.  Cone type = ", typeof(cone),  " Alpha = ", min(nextαz,nextαs))
-
         α = min(α,nextαz,nextαs)
     end
 

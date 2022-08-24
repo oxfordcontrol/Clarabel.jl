@@ -205,15 +205,31 @@ function solve!(
                 isdone = info_check_termination!(s.info,s.residuals,s.settings,iter)
             end
 
-            # YC: use the previous iterate as the final solution
-            if isdone && (s.info.status == INSUFFICIENT_PROGRESS || s.info.status == NUMERICAL_ERROR)
-                info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
-                break
-            end
+            # # YC: use the previous iterate as the final solution
+            # if isdone && (s.info.status == INSUFFICIENT_PROGRESS || s.info.status == NUMERICAL_ERROR)
+            #     info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
+            #     break
+            # end
 
-            iter += 1
+            # iter += 1
+            # @notimeit info_print_status(s.info,s.settings)
+            # isdone && break
+
+            if isdone 
+               if (scaling_strategy == PrimalDual::ScalingStrategy && 
+                  (s.info.status == INSUFFICIENT_PROGRESS || s.info.status == NUMERICAL_ERROR)
+               )
+                    #restart if using an aggressive strategy and are failing to progress
+                    info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
+                    scaling_strategy = Dual::ScalingStrategy
+                    s.info.status = UNSOLVED
+                    continue
+               else
+                    break
+               end
+            end
             @notimeit info_print_status(s.info,s.settings)
-            isdone && break
+            iter += 1
 
             #update the scalings
             #--------------
@@ -253,6 +269,11 @@ function solve!(
                 )
                 σ = calc_centering_parameter(α)
                 println("SIGMA = ", σ)
+
+                #PJG: Try to stop overly aggressive gap convergence?
+                if(σ*μ <= eps(T))
+                    σ = eps(T)/μ
+                end
 
                 #calculate the combined step and length
                 #--------------
@@ -299,7 +320,7 @@ function solve!(
                 s.cones,s.settings,:combined, scaling_strategy
             )  
 
-            #α *= s.settings.max_step_fraction
+            α *= s.settings.max_step_fraction
 
             # YC: check if the step size is too small
             if scaling_strategy == PrimalDual::ScalingStrategy && 
