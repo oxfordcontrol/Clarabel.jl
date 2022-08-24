@@ -26,7 +26,7 @@ function update_scaling!(
     # update both gradient and Hessian for function f*(z) at the point z
     # NB: the update order can't be switched as we reuse memory in the Hessian computation
     # Hessian update
-    update_grad_HBFGS(K,s,z,scaling_strategy)
+    update_grad_HBFGS(K,s,z,μ,scaling_strategy)
 
     # K.z .= z
     @inbounds for i = 1:3
@@ -88,6 +88,7 @@ function combined_ds!(
 ) where {T}
     η = K.grad_work
     higher_correction!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
+    η .= 0   #PJG: disables HOC
     @inbounds for i = 1:3
         dz[i] = K.grad[i]*σμ - η[i]
     end
@@ -158,7 +159,7 @@ function newton_step_length_exp_primal(
     αprev::T
 ) where {T}
 
-    l = log(ws[3]/ws[2])
+    l = logsafe(ws[3]/ws[2])
     f0 = ws[2]*l - ws[1]
     f1 = ds[2]*l + ws[2]/ws[3]*ds[3] - ds[2] - ds[1]
 
@@ -176,7 +177,7 @@ function newton_step_length_exp_primal(
             end
 
             if ws[2] > 0 && ws[3] > 0       
-                l = log(ws[3]/ws[2])
+                l = logsafe(ws[3]/ws[2])
                 f0 = ws[2]*l - ws[1]
 
                 if f0 > 0 
@@ -216,7 +217,7 @@ function newton_step_length_exp_dual(
     # α3 = dz[3] < 0 ? (- z[3]/dz[3]) : floatmax(T)
     # αmax = min(α1,α3)
 
-    l = log(-ws[3]/ws[1])
+    l = logsafe(-ws[3]/ws[1])
     f0 = ws[2] - ws[1] - ws[1]*l
     f1 = dz[2] - dz[1]*l - dz[3]*ws[1]/ws[3]
     αnew = αprev
@@ -236,7 +237,7 @@ function newton_step_length_exp_dual(
             end
 
             if ws[1] < 0 && ws[3] > 0
-                l = log(-ws[3]/ws[1])
+                l = logsafe(-ws[3]/ws[1])
                 f0 = ws[2] - ws[1] - ws[1]*l
 
                 if f0 > 0
@@ -277,15 +278,15 @@ function compute_centrality(
     barrier = zero(T)
 
     # Dual barrier
-    l = log(-z[3]/z[1])
-    barrier += l -log(z[2]-z[1]-z[1]*l) # -log(-z[1])-log(z[3])
+    l = logsafe(-z[3]/z[1])
+    barrier += -logsafe(-z[3]*z[1]) - logsafe(z[2]-z[1]-z[1]*l) 
 
     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
     # f(s) = -2*log(s2) - log(s3) - log((1-barω)^2/barω) - 3, where barω = ω(1 - s1/s2 - log(s2) - log(s3))
     # NB: ⟨s,g(s)⟩ = -3 = - ν
-    o = wright_omega(1-s[1]/s[2]-log(s[2]/s[3]))
+    o = wright_omega(1-s[1]/s[2]-logsafe(s[2]/s[3]))
     o = (o-1)*(o-1)/o
-    barrier += -log(o)-2*log(s[2])-log(s[3]) - 3
+    barrier += -logsafe(o)-2*logsafe(s[2])-logsafe(s[3]) - 3
 
     return barrier
 end
@@ -294,7 +295,7 @@ end
 function is_primal_feasible_expcone(s::AbstractVector{T}) where {T}
 
     if (s[3] > 0 && s[2] > 0)   #feasible
-        res = s[2]*log(s[3]/s[2]) - s[1]
+        res = s[2]*logsafe(s[3]/s[2]) - s[1]
         if (res > 0)
             return true
         end
@@ -307,12 +308,11 @@ end
 function is_dual_feasible_expcone(z::AbstractVector{T}) where {T}
 
     if (z[3] > 0 && z[1] < 0)
-        res = z[2] - z[1] - z[1]*log(-z[3]/z[1])
+        res = z[2] - z[1] - z[1]*logsafe(-z[3]/z[1])
         if (res > 0)
             return true
         end
     end
-
     return false
 end
 
@@ -324,10 +324,10 @@ function gradient_primal(
     g::AbstractVector{T}
 ) where {T}
 
-    o = wright_omega(1-s[1]/s[2]-log(s[2]/s[3]))
+    o = wright_omega(1-s[1]/s[2]-logsafe(s[2]/s[3]))
 
     g[1] = one(T)/((o-1)*s[2])
-    g[2] = g[1] + g[1]*log(o*s[2]/s[3]) - one(T)/s[2]
+    g[2] = g[1] + g[1]*logsafe(o*s[2]/s[3]) - one(T)/s[2]
     g[3] = o/((one(T) - o)*s[3])
 
 end
@@ -361,7 +361,7 @@ function wright_omega(z::T) where {T}
         w += 13/61440.0*q;
         #Initialize with the taylor series
     else
-        r = log(z);
+        r = logsafe(z);
         q = r;
         zi  = one(T)/z;
         w = z-r;
@@ -376,7 +376,7 @@ function wright_omega(z::T) where {T}
 
     # FSC iteration
     # Initialize the residual
-    r = z-w-log(w);
+    r = z-w-logsafe(w);
 
     z = (1+w);
     q = z+2/3.0*r;
@@ -427,7 +427,7 @@ function higher_correction!(
     # memory allocation
     η[2] = one(T)
     η[3] = -z[1]/z[3]    # gradient of ψ
-    η[1] = log(η[3])
+    η[1] = logsafe(η[3])
 
     ψ = z[1]*η[1]-z[1]+z[2]
 
@@ -477,6 +477,7 @@ function update_grad_HBFGS(
     K::ExponentialCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
+    μ::T,
     scaling_strategy::ScalingStrategy
 ) where {T}
     # reuse memory
@@ -488,7 +489,7 @@ function update_grad_HBFGS(
     HBFGS = K.HBFGS
 
     # Hessian computation, compute μ locally
-    l = log(-z[3]/z[1])
+    l = logsafe(-z[3]/z[1])
     r = -z[1]*l-z[1]+z[2]
 
     # compute the gradient at z
@@ -510,7 +511,7 @@ function update_grad_HBFGS(
     H[3,2] = H[2,3]
     H[3,3] = ((r*r-z[1]*r+z[1]*z[1])/(r*r*z[3]*z[3]))    
 
-    μ = dot(z,s)/3
+    #localμ = dot(z,s)/3
 
     # HBFGS .= μ*H
     @inbounds for i = 1:3
@@ -518,6 +519,8 @@ function update_grad_HBFGS(
             HBFGS[i,j] = μ*H[i,j]
         end
     end
+
+    return #PJG: bail here to get just the basic method
 
     # compute zt,st,μt locally
     # YC: note the definitions of zt,st have a sign difference compared to the Mosek's paper
@@ -581,7 +584,7 @@ function compute_Hessian(
     #            -l/r^2                           1/r^2                  -z1/(r^2*z3);
     #            1/(r*z3) + (l*z1)/(r^2*z3)   -z1/(r^2*z3)   1/z3^2 - z1/(r*z3^2) + z1^2/(r^2*z3^2)]
 
-    l = log(-z[3]/z[1])
+    l = logsafe(-z[3]/z[1])
     r = -z[1]*l-z[1]+z[2]
 
     H[1,1] = ((r*r-z[1]*r+l*l*z[1]*z[1])/(r*z[1]*z[1]*r))
@@ -603,7 +606,7 @@ function gradient_f(
     g::AbstractVector{T}
 ) where {T}
 
-    l = log(-z[3]/z[1])
+    l = logsafe(-z[3]/z[1])
     c2 = 1/(-z[1]*l-z[1]+z[2])
 
     g[1] = c2*l - 1/z[1]

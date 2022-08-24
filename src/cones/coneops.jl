@@ -212,7 +212,8 @@ function cones_step_length(
          z::ConicVector{T},
          s::ConicVector{T},
   settings::Settings{T},
-         α::T
+         α::T,
+         steptype
 ) where {T}
 
     dz    = dz.views
@@ -231,11 +232,37 @@ function cones_step_length(
     # YC: Current step size α and the backtracking parameter are needed for
     # asymmetric cones. I could add two dummy inputs for symmetric cones.
 
-    # YC: implement step search for symmetric cones first
-    # NB: split the step search for symmetric and unsymmtric cones due to the complexity of the latter
+    # PJG: Hack to force symmetric cones first.   This is very poor style
     for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
+
+        if !is_symmetric(cone) 
+            continue 
+        end
         # println("type is ", type)
         @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
+
+        #println("DEBUG.  Cone type = ", typeof(cone),  " Alpha = ", min(nextαz,nextαs))
+
+        α = min(α,nextαz,nextαs)
+    end
+
+    #here ECOS caps it at 0.999, and then multiplies the answer by γ = 0.99 for combined?
+    α = min(α,0.999)
+    if(steptype == :combined)
+        α *= 0.99
+    end
+
+    # PJG: Hack to force asymmetric cones last.   This is very poor style
+    for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
+
+        if is_symmetric(cone) 
+            continue 
+        end
+        # println("type is ", type)
+        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
+
+        #println("DEBUG.  Cone type = ", typeof(cone),  " Alpha = ", min(nextαz,nextαs))
+
         α = min(α,nextαz,nextαs)
     end
 
@@ -263,11 +290,6 @@ function check_μ_and_centrality(
     cur_z = work.z
     cur_s = work.s
 
-    #PJG: I don't understand what is going on in this function at all,
-    #and there are loads of things commented out.   This needs to be
-    #cleaned up and better documented.    Also "check" is not a good
-    #method name since it's not clear what it is returning
-
     central_coef = cones.degree + 1
 
     backtrack = settings.linesearch_backtrack_step
@@ -283,7 +305,7 @@ function check_μ_and_centrality(
         μ = (dot(cur_s,cur_z) + cur_τ*cur_κ)/central_coef
 
         # check centrality
-        barrier = central_coef*log(μ) - log(cur_τ) - log(cur_κ)
+        barrier = central_coef*logsafe(μ) - logsafe(cur_τ) - logsafe(cur_κ)
 
         for (cone,cur_si,cur_zi) in zip(cones,cur_s.views, cur_z.views)
             @conedispatch barrier += compute_centrality(cone, cur_si, cur_zi)
@@ -292,14 +314,6 @@ function check_μ_and_centrality(
         if barrier < 1.
             return α
         else
-
-            # PJG: This seems crazy inefficient.   Shouldn't we
-            #implement some much smarter method, or at least
-            #some kind of bisection method?   We can do a lot
-            #better here I think.
-            # YC: Right now I just follow the same strategy in ECOS
-            # and it could be improved by some smarter methods.
-
             α = backtrack*α   #backtrack line search
         end
 

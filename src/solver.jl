@@ -1,3 +1,5 @@
+using Printf
+
 # -------------------------------------
 # utility constructor that includes
 # both object creation and setup
@@ -250,7 +252,7 @@ function solve!(
                     s.cones, s.settings, :affine, scaling_strategy
                 )
                 σ = calc_centering_parameter(α)
-            
+                println("SIGMA = ", σ)
 
                 #calculate the combined step and length
                 #--------------
@@ -297,7 +299,7 @@ function solve!(
                 s.cones,s.settings,:combined, scaling_strategy
             )  
 
-            α *= s.settings.max_step_fraction
+            #α *= s.settings.max_step_fraction
 
             # YC: check if the step size is too small
             if scaling_strategy == PrimalDual::ScalingStrategy && 

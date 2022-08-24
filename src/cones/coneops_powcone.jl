@@ -172,14 +172,14 @@ function compute_centrality(
     barrier = zero(T)
 
     # Dual barrier
-    barrier += -log((z[1]/α)^(2*α) * (z[2]/(1-α))^(2-2*α) - z[3]*z[3]) - (1-α)*log(z[1]) - α*log(z[2])
+    barrier += -logsafe((z[1]/α)^(2*α) * (z[2]/(1-α))^(2-2*α) - z[3]*z[3]) - (1-α)*logsafe(z[1]) - α*logsafe(z[2])
 
     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
     # NB: ⟨s,g(s)⟩ = -3 = - ν
 
     g = K.vec_work
     gradient_primal(K,s,g)     #compute g(s)
-    barrier += log((-g[1]/α)^(2*α) * (-g[2]/(1-α))^(2-2*α) - g[3]*g[3]) + (1-α)*log(-g[1]) + α*log(-g[2]) - 3
+    barrier += logsafe((-g[1]/α)^(2*α) * (-g[2]/(1-α))^(2-2*α) - g[3]*g[3]) + (1-α)*logsafe(-g[1]) + α*logsafe(-g[2]) - 3
 
     return barrier
 end
@@ -188,7 +188,7 @@ end
 function is_primal_feasible_powcone(s::AbstractVector{T},α::T) where {T}
 
     if (s[1] > 0 && s[2] > 0)
-        res = exp(2*α*log(s[1]) + 2*(1-α)*log(s[2])) - s[3]*s[3]
+        res = exp(2*α*logsafe(s[1]) + 2*(1-α)*logsafe(s[2])) - s[3]*s[3]
         if res > 0
             return true
         end
@@ -201,7 +201,7 @@ end
 function is_dual_feasible_powcone(z::AbstractVector{T},α::T) where {T}
 
     if (z[1] > 0 && z[2] > 0)
-        res = exp(2*α*log(z[1]/α) + 2*(1-α)*log(z[2]/(1-α))) - z[3]*z[3]
+        res = exp(2*α*logsafe(z[1]/α) + 2*(1-α)*logsafe(z[2]/(1-α))) - z[3]*z[3]
         if res > 0
             return true
         end
@@ -253,11 +253,11 @@ function newton_raphson(
     # the previous selection from Hypatia is still feasible, i.e. f(x0) > 0
     x = -one(T)/s3 + 2*(s3 + sqrt(4*ϕ*ϕ/s3/s3 + 3*ϕ))/(4*ϕ - s3*s3)
 
-    t0 = - 2*α*log(α) - 2*(1-α)*log(1-α)    # additional shift due to the choice of dual barrier
+    t0 = - 2*α*logsafe(α) - 2*(1-α)*logsafe(1-α)    # additional shift due to the choice of dual barrier
     t1 = x*x
     t2 = x*2/s3
 
-    f0 = 2*α*log(2*α*t1 + (1+α)*t2) + 2*(1-α)*log(2*(1-α)*t1 + (2-α)*t2) - log(ϕ) - log(t1+t2) - 2*log(t2) + t0
+    f0 = 2*α*logsafe(2*α*t1 + (1+α)*t2) + 2*(1-α)*logsafe(2*(1-α)*t1 + (2-α)*t2) - logsafe(ϕ) - logsafe(t1+t2) - 2*logsafe(t2) + t0
     f1 = 2*α*α/(α*x + (1+α)/s3) + 2*(1-α)*(1-α)/((1-α)*x + (2-α)/s3) - 2*(x + 1/s3)/(t1 + t2)
 
     xnew = x - f0/f1
@@ -269,7 +269,7 @@ function newton_raphson(
 
         t1 = x*x
         t2 = x*2/s3
-        f0 = 2*α*log(2*α*t1 + (1+α)*t2) + 2*(1-α)*log(2*(1-α)*t1 + (2-α)*t2) - log(ϕ) - log(t1+t2) - 2*log(t2) + t0
+        f0 = 2*α*logsafe(2*α*t1 + (1+α)*t2) + 2*(1-α)*logsafe(2*(1-α)*t1 + (2-α)*t2) - logsafe(ϕ) - logsafe(t1+t2) - 2*logsafe(t2) + t0
         f1 = 2*α*α/(α*x + (1+α)/s3) + 2*(1-α)*(1-α)/((1-α)*x + (2-α)/s3) - 2*(x + 1/s3)/(t1 + t2)
         xnew = x - f0/f1
     end

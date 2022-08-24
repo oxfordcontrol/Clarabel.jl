@@ -288,27 +288,27 @@ function _kktsolver_update_inner!(
     #refactor with new data
     is_success = refactor!(ldlsolver,kktsolver.KKT)
 
-    return is_success 
+    return is_success
 end
 
-# PJG: Keeping this temporarily because we may want 
-# to re-implement some check on bad scaling behaviour 
+# PJG: Keeping this temporarily because we may want
+# to re-implement some check on bad scaling behaviour
 # This is currently dead code and could be removed.
-# If it is removed, then the min/max diag fields can 
-# also be dropped 
+# If it is removed, then the min/max diag fields can
+# also be dropped
 function is_ill_conditioned(
     kktsolver::DirectLDLKKTSolver{T},
     info::DefaultInfo{T}
 ) where {T}
 
-    maxdiag = kktsolver.maxdiag 
+    maxdiag = kktsolver.maxdiag
     mindiag = kktsolver.mindiag
 
     if  maxdiag*eps(T) > (mindiag + settings.static_regularization_constant)
         return true
-    else 
-        return false 
-    end 
+    else
+        return false
+    end
 
 end
 
@@ -321,35 +321,35 @@ function _update_regularizer(
     map       = kktsolver.map
     KKT       = kktsolver.KKT
     (m,n,p)   = (kktsolver.m,kktsolver.n,kktsolver.p)
-    
-    # first we subtract the old regularization from the 
-    # upper left hand block.   No need to do this for the 
-    # lower right since it should have been overwitten with 
+
+    # first we subtract the old regularization from the
+    # upper left hand block.   No need to do this for the
+    # lower right since it should have been overwitten with
     # new values already
 
     @views _offset_values!(
-        ldlsolver,KKT, 
-        map.diag_full[1:n], 
+        ldlsolver,KKT,
+        map.diag_full[1:n],
         -kktsolver.diagonal_regularizer,
         kktsolver.Dsigns[1:n]);
 
     # interrogate the KKT diagonal and find its min and max
-    # absolute values and their ratio 
+    # absolute values and their ratio
 
     kkt_diag = @view KKT.nzval[map.diag_full]
     (kktsolver.mindiag,kktsolver.maxdiag)  = absextrema(kkt_diag);
 
-    # Compute and apply a new regularizer 
-    kktsolver.diagonal_regularizer = 
-        settings.static_regularization_constant + 
+    # Compute and apply a new regularizer
+    kktsolver.diagonal_regularizer =
+        settings.static_regularization_constant +
         settings.static_regularization_proportional * kktsolver.maxdiag;
 
     @views _offset_values!(
-        ldlsolver,KKT, 
-        map.diag_full, 
+        ldlsolver,KKT,
+        map.diag_full,
         kktsolver.diagonal_regularizer,
         kktsolver.Dsigns);
-    
+
 end
 
 
@@ -395,21 +395,21 @@ function kktsolver_solve!(
     (x,b) = (kktsolver.x,kktsolver.b)
     solve!(kktsolver.ldlsolver,x,b)
 
-    is_success = begin 
+    is_success = begin
         if(kktsolver.settings.iterative_refinement_enable)
             #IR reports success based on finite normed residual
             is_success = _iterative_refinement(kktsolver,kktsolver.ldlsolver)
-        else 
-             # otherwise must directly verify finite values 
+        else
+             # otherwise must directly verify finite values
             is_success = all(isfinite,x)
-        end 
+        end
     end
 
-    if is_success 
+    if is_success
        kktsolver_getlhs!(kktsolver,lhsx,lhsz)
-    end 
+    end
 
-    return is_success 
+    return is_success
 end
 
 function  _iterative_refinement(
@@ -440,7 +440,7 @@ function  _iterative_refinement(
 
     ctr = 0
     for i = 1:IR_maxiter
-        ctr = i 
+        ctr = i
 
         # bail on numerical error
         if !isfinite(norme) return is_success = false end
@@ -462,13 +462,13 @@ function  _iterative_refinement(
 
         if(lastnorme/norme < IR_stopratio)
             #insufficient improvement.  Exit
-            break 
+            break
         else
-            @. x = ξ  #PJG: pointer swap might be faster   
+            @. x = ξ  #PJG: pointer swap might be faster
         end
-    end   
+    end
 
-    #NB: "success" means only we had a finite valued result  
+    #NB: "success" means only we had a finite valued result
     return is_success = true
 end
 
@@ -491,7 +491,7 @@ function _get_refine_error!(
         @inbounds for i in eachindex(D)
             if(D[i] == 1)
                 e[i] += ϵ * ξ[i]
-            else 
+            else
                 e[i] -= ϵ * ξ[i]
             end
         end

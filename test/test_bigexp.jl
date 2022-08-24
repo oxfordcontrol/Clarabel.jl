@@ -31,6 +31,9 @@ function exp_model(exInd::Int; optimizer = Clarabel.Optimizer)
         c .*= -1
     end
 
+    #println("con_cones = ", con_cones)
+    #println("var_cones = ", var_cones)
+
     num_con = size(A,1)
     num_var = size(A,2)
 
@@ -77,27 +80,42 @@ function exp_model(exInd::Int; optimizer = Clarabel.Optimizer)
 end
 
 # the input number i corresponds to the i-th example in CBLIB. Example 7,8,32
+# 4 is very small, also 12,13
 
-index = 23
+index = 4
+
+verbosity = true
+maxiter     = 14
 
 model_clarabel = exp_model(index; optimizer = Clarabel.Optimizer) 
 model_ecos = exp_model(index; optimizer = ECOS.Optimizer) 
-set_optimizer_attribute(model_clarabel, "verbose", true)
+set_optimizer_attribute(model_clarabel, "verbose", verbosity)
+set_optimizer_attribute(model_clarabel, "max_iter", maxiter)
+set_optimizer_attribute(model_clarabel, "equilibrate_enable", false)
 set_optimizer_attribute(model_clarabel, "static_regularization_constant",1e-7)
 set_optimizer_attribute(model_clarabel, "linesearch_backtrack_step",0.8)
-set_optimizer_attribute(model_clarabel, "min_primaldual_step_length", 0.05)
+set_optimizer_attribute(model_clarabel, "min_primaldual_step_length", 0.0001)
 set_optimizer_attribute(model_clarabel, "static_regularization_enable",false)
 set_optimizer_attribute(model_clarabel, "direct_solve_method",:qdldl)
 optimize!(model_clarabel) 
 
-#set_optimizer_attribute(model_ecos, "verbose", true)
+set_optimizer_attribute(model_ecos, "verbose", verbosity)
+set_optimizer_attribute(model_ecos, "maxit", maxiter)
 #optimize!(model_ecos) 
 
-#println(solution_summary(model_clarabel))
+println(solution_summary(model_clarabel))
 #println(solution_summary(model_ecos))
 
-#solver = model_clarabel.moi_backend.optimizer.model.optimizer.inner
+solver = model_clarabel.moi_backend.optimizer.model.optimizer.inner
 
-#@enter Clarabel.solve!(solver)
+# @enter Clarabel.solve!(solver)
 
-#pprof()
+# pprof()
+
+
+
+Q  = (solver.kktsystem.kktsolver.ldlsolver.factors.workspace.triuA) + Diagonal(solver.kktsystem.kktsolver.ldlsolver.factors.workspace.Dsigns).*7e-8
+(rows,cols) = findnz(Q)
+[rows cols Q.nzval];
+
+nothing
