@@ -208,6 +208,7 @@ function solve!(
             )
             isdone = info_check_termination!(s.info,s.residuals,s.settings,iter)
 
+            @notimeit info_print_status(s.info,s.settings)
 
             if isdone
                if (scaling_strategy == PrimalDual::ScalingStrategy &&
@@ -223,7 +224,6 @@ function solve!(
                end
             end
 
-            @notimeit info_print_status(s.info,s.settings)
             iter += 1
 
             #update the scalings

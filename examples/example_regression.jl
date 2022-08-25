@@ -1,7 +1,8 @@
-using LinearAlgebra, SparseArrays, ECOS,JuMP
+using LinearAlgebra, SparseArrays, JuMP
 using Mosek, MosekTools
-# using Clarabel
-include("../src\\Clarabel.jl")
+# using ECOS
+using Clarabel
+# include("../src\\Clarabel.jl")
 
 # load example data
 f = open(joinpath(@__DIR__, "chip_data.txt"))
