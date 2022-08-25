@@ -72,11 +72,6 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
         diagonal_regularizer = zero(T)
 
-        if(settings.static_regularization_enable)
-            diagonal_regularizer = settings.static_regularization_constant
-            @views _offset_values_KKT!(KKT, map.diag_full[1:n], diagonal_regularizer, Dsigns[1:n])
-        end
-
         #KKT will be triu data only, but we will want
         #the following to allow products like KKT*x
         KKTsym = Symmetric(KKT)
@@ -182,6 +177,8 @@ end
 #offset entries in the kktsolver object using the
 #given index into its CSC representation.  Lengths
 #of index and signs must agree
+#PJG: dead code if new IR scheme works.   Calls to
+#subsolvers will also not need to implement this
 function _offset_values!(
     ldlsolver::AbstractDirectLDLSolver{T},
     KKT::SparseMatrixCSC{T,Ti},
@@ -199,6 +196,7 @@ function _offset_values!(
 end
 
 #offsets KKT matrix values
+#PJG: dead code if new IR scheme works. 
 function _offset_values_KKT!(
     KKT::SparseMatrixCSC{T,Ti},
     index::AbstractVector{Ti},
@@ -231,7 +229,7 @@ function _kktsolver_update_inner!(
     kktsolver::DirectLDLKKTSolver{T},
     ldlsolver::AbstractDirectLDLSolver{T},
     cones::ConeSet{T}
-    ) where {T}
+) where {T}
 
     #real implementation is here, and now ldlsolver
     #will be compiled to something concrete.
@@ -273,53 +271,72 @@ function _kktsolver_update_inner!(
         end
     end
 
+    return _kktsolver_regularize_and_refactor!(kktsolver, ldlsolver)
+
+end
+
+function _kktsolver_regularize_and_refactor!(   
+    kktsolver::DirectLDLKKTSolver{T},
+    ldlsolver::AbstractDirectLDLSolver{T}
+) where{T}
+
+    settings      = kktsolver.settings
+    map           = kktsolver.map
+    KKT           = kktsolver.KKT
+    Dsigns        = kktsolver.Dsigns
+    diag_kkt      = kktsolver.work1 
+    diag_shifted  = kktsolver.work2
+
     if(settings.static_regularization_enable)
-        _update_regularizer(kktsolver, ldlsolver)
+        
+        # hold a copy of the true KKT diagonal
+        @views diag_kkt .= KKT.nzval[map.diag_full]
+        ϵ = _compute_regularizer(diag_kkt, settings)
+
+        # compute an offset version, accounting for signs
+        diag_shifted .= diag_kkt
+        @inbounds for i in eachindex(Dsigns)
+            if(Dsigns[i] == 1) diag_shifted[i] += ϵ 
+            else               diag_shifted[i] -= ϵ 
+            end
+        end
+        # overwrite the diagonal of KKT and within the ldlsolver 
+        _update_values!(ldlsolver,KKT,map.diag_full,diag_shifted)
+
+        # remember the value we used.  Not needed,
+        # but possibly useful for debugging 
+        kktsolver.diagonal_regularizer = ϵ
+
     end
 
-    #refactor with new data
-    is_success = refactor!(ldlsolver,kktsolver.KKT)
+    is_success = refactor!(ldlsolver,KKT)
+
+    if(settings.static_regularization_enable)
+        
+        # put our internal copy of the KKT matrix back the way
+        # it was. Not necessary to fix the ldlsolver copy because  
+        # this is only needed for our post-factorization IR scheme 
+
+        _update_values_KKT!(KKT,map.diag_full,diag_kkt)
+
+    end
 
     return is_success
 end
 
-function _update_regularizer(
-    kktsolver::DirectLDLKKTSolver{T},
-    ldlsolver::AbstractDirectLDLSolver{T}
+
+function _compute_regularizer(
+    diag_kkt::AbstractVector{T},
+    settings::Settings{T}
 ) where {T}
 
-    settings  = kktsolver.settings
-    map       = kktsolver.map
-    KKT       = kktsolver.KKT
-    (m,n,p)   = (kktsolver.m,kktsolver.n,kktsolver.p)
+    maxdiag  = norm(diag_kkt,Inf);
 
-    # first we subtract the old regularization from the
-    # upper left hand block.   No need to do this for the
-    # lower right since it should have been overwitten with
-    # new values already
+    # Compute a new regularizer
+    regularizer =  settings.static_regularization_constant +
+                   settings.static_regularization_proportional * maxdiag
 
-    @views _offset_values!(
-        ldlsolver,KKT,
-        map.diag_full[1:n],
-        -kktsolver.diagonal_regularizer,
-        kktsolver.Dsigns[1:n]);
-
-    # interrogate the KKT diagonal and find its min and max
-    # absolute values and their ratio
-
-    kkt_diag = @view KKT.nzval[map.diag_full]
-    maxdiag  = norm(kkt_diag,Inf);
-
-    # Compute and apply a new regularizer
-    kktsolver.diagonal_regularizer =
-        settings.static_regularization_constant +
-        settings.static_regularization_proportional * maxdiag;
-
-    @views _offset_values!(
-        ldlsolver,KKT,
-        map.diag_full,
-        kktsolver.diagonal_regularizer,
-        kktsolver.Dsigns);
+    return regularizer
 
 end
 
@@ -398,20 +415,14 @@ function  _iterative_refinement(
     IR_maxiter   = settings.iterative_refinement_max_iter
     IR_stopratio = settings.iterative_refinement_stop_ratio
 
-    ϵ = kktsolver.diagonal_regularizer
-
-    #Note that K is only triu data, so need to
-    #be careful when computing the residual
-    K      = kktsolver.KKT
     KKTsym = kktsolver.KKTsym
     normb  = norm(b,Inf)
 
     #compute the initial error
-    norme = _get_refine_error!(e,b,KKTsym,kktsolver.Dsigns,ϵ,x)
+    norme = _get_refine_error!(e,b,KKTsym,x)
 
     ctr = 0
     for i = 1:IR_maxiter
-        ctr = i
 
         # bail on numerical error
         if !isfinite(norme) return is_success = false end
@@ -422,6 +433,8 @@ function  _iterative_refinement(
         end
         lastnorme = norme
 
+        ctr = i  #counts the re-solves
+
         #make a refinement and continue
         solve!(ldlsolver,dx,e)
 
@@ -429,7 +442,7 @@ function  _iterative_refinement(
         #hold it for a check before applying to x
         ξ = dx
         @. ξ += x
-        norme = _get_refine_error!(e,b,KKTsym,kktsolver.Dsigns,ϵ,ξ)
+        norme = _get_refine_error!(e,b,KKTsym,ξ)
 
         if(lastnorme/norme <  IR_stopratio)
             #insufficient improvement.  Exit
@@ -444,91 +457,20 @@ function  _iterative_refinement(
 end
 
 
-# computes e = b - (K+ϵD)ξ + ϵDξ, overwriting the first argument
+# computes e = b - Kξ, overwriting the first argument
 # and returning its norm
 
 function _get_refine_error!(
     e::AbstractVector{T},
     b::AbstractVector{T},
     KKTsym::Symmetric{T},
-    D::Vector{Int},
-    ϵ::T,
     ξ::AbstractVector{T}) where {T}
 
     @. e = b
-    mul!(e,KKTsym,ξ,-1.,1.)   # e = b - (K+ϵD)ξ
-
-    if(!iszero(ϵ))
-        @inbounds for i in eachindex(D)
-            if(D[i] == 1)
-                e[i] += ϵ * ξ[i]
-            else
-                e[i] -= ϵ * ξ[i]
-            end
-        end
-    end
+    mul!(e,KKTsym,ξ,-1.,1.)   # e = b - Kξ
 
     return norm(e,Inf)
 
 end
 
-#handwritten # e = b - (K+ϵD)ξ for K triu to see if we can make it faster 
-function _fast_sym_product(e,b,K,D,ϵ,ξ)
 
-    @inbounds for col in 1:K.n
-
-        e[col] = b[col]
-        ξcol = ξ[col]
-
-        @inbounds for j in K.colptr[col]:(K.colptr[col+1]-1)
-            row = K.rowval[j]
-            Kij = K.nzval[j]
-
-            if row != col 
-                e[col] -= Kij * ξ[row]
-                e[row] -= Kij * ξcol 
-            else 
-                if(D[col] == 1)
-                    Kij -= ϵ 
-                else
-                    Kij += ϵ 
-                end
-                e[col] -= Kij * ξcol
-            end
-        end 
-    end
-end
-
-
-
-function DEBUG_CONST_SOLVE(
-    b::AbstractVector{T},
-    KKTsym::Symmetric{T},
-    D::Vector{Int},
-    ϵ::T) where {T}
-
-    @printf("\nDEBUG_CONST_SOLVE   :: ")
-
-    #if we are in this function, then something has gone wrong 
-    #with Kx = b 
-    Ktrue  =  KKTsym - ϵ.* Diagonal(D)
-    Ktrue  = sparse(Symmetric(Ktrue))
-
-    myD = diag(Ktrue)
-
-    #try to solve the regularized system 
-    x = KKTsym\b 
-    err = norm(Ktrue * x - b,Inf)
-    @printf("Regu = %0.3e   ::   ", err)
-
-    #try to solve the regularized system 
-    x = Ktrue\b 
-    err = norm(Ktrue * x - b,Inf)
-    @printf("True = %0.3e\n\n", err)
-
-    jldsave("debug.jld2";b,KKTsym,D,ϵ)
-
-    @printf("nnz(b) = %i.\n",sum(b .!= 0))
-
-    error("Foo!")
-end
