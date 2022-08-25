@@ -28,28 +28,10 @@ function calc_step_length(
 
     # Find a feasible step size for all cones
     α = cones_step_length(cones, step.z, step.s, variables.z, variables.s, settings, α, steptype)
-
-    #   YC: Centrality check for unsymmetric cones
-    #       1) balance global μ and local μ_i of each nonsymmetric cone, 
-    #          ensure the update is close to the central path;
-    #       2) check only when there are some unsymmetric cones and we are using the dual scaling.
     
-    #PJG: HACKED THIS CENTRALITY CHECK TO ALWAYS RUN
-    #if (!cones.sym_flag && steptype == :combined && scaling_strategy == Dual)
-    #println("Calling centrality check.   Start = ", α)
-    α = check_μ_and_centrality(cones,step,variables,work_vars,α,settings)
-
-        #if (α < 1e-4)
-            # error("get stalled with step size ", α)
-            #return α
-        #end
-    #
-    #PJG:   Not sure why ECOS does this, but copy it for debugging 
-    #PJG: OK, it is becaus there is no outer loop downscaling.    I 
-    #will comment it out there temporarily.   In our standard implementation
-    #the backoff factor is only applied to the combined step
-    #α *= 0.99
-    #println("Calling centrality check.   Stop = ", α)
+    if (!cones_is_symmetric(cones) && steptype == :combined && scaling_strategy == Dual)
+        α = check_μ_and_centrality(cones,step,variables,work_vars,α,settings)
+    end
 
     return α
 end
@@ -175,11 +157,11 @@ function asymmetric_init_cone!(
     cones::ConeSet{T}
 ) where {T}
     #set conic variables to units and x to 0
-    unit_initialization!(cones,variables.s,variables.z)
+    cones_unit_initialization!(cones,variables.s,variables.z)
 
-    variables.x .= T(0)
-    variables.τ = T(1)
-    variables.κ = T(1)
+    variables.x .= zero(T)
+    variables.τ = one(T)
+    variables.κ = one(T)
 
     return nothing
 end

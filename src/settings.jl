@@ -77,7 +77,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 	equilibrate_max_scaling::T          = 1e+4
 
     #cones and line search parameters 
-    linesearch_backtrack_step::T        = 0.95     #PJG: Add to docs
+    linesearch_backtrack_step::T        = 0.8     #PJG: Add to docs
     min_primaldual_step_length          = 1e-2    #PJG: disable PD step at this length
     min_dual_step_length                = 1e-4    #PJG: disable PD step at this length
 
@@ -88,8 +88,8 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     #static regularization parameters
     static_regularization_enable::Bool    = true
-    static_regularization_constant::T     = 1e-8   #PJG: Add to docs
-    static_regularization_proportional::T = eps(T) #PJG: Add to docs
+    static_regularization_constant::T     = 1e-7     #PJG: Add to docs
+    static_regularization_proportional::T = eps(T)^2 #PJG: Add to docs
 
     #dynamic regularization parameters
     dynamic_regularization_enable::Bool = true

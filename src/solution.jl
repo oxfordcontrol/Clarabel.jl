@@ -15,8 +15,6 @@ function solution_finalize!(
 	solution.z .= variables.z
 	solution.s .= variables.s
 
-	# YC: determine the final status if the solver terminates early due to a numerical issue
-	# PJG: COME BACK TO THIS
 	if (info.status == INSUFFICIENT_PROGRESS || info.status == NUMERICAL_ERROR)
 		if( ((info.gap_abs < settings.reduced_tol_gap_abs) || (info.gap_rel < settings.reduced_tol_gap_rel))
             && (info.res_primal < settings.reduced_tol_feas)

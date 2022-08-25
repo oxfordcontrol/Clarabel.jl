@@ -21,24 +21,6 @@ end
 end
 
 
-function absextrema(v::AbstractVector{T}) where{T}
-
-    #returns the entry with the smallest absolute value
-
-    #empty array, returns zero 
-    if(length(v) == 0) return (zero(T),zero(T)) end 
-
-    lower = T(Inf)
-    upper = zero(T)
-
-    for val in v
-        absval = abs(val)
-        lower = min(absval,lower)
-        upper = max(absval,upper)
-    end 
-    return (lower,upper)
-end
-
 #2-norm of the product M*v
 function scaled_norm(M::Diagonal{T},v::AbstractVector{T}) where{T}
     return scaled_norm(M.diag,v)
@@ -356,16 +338,3 @@ function Base.getindex(TI::TriuIndex, i::Int)
     return _get_triu_index(TI.n,i)
 end
 
-##################################
-# add regularization for Hessian as in Hypatia
-# PJG: I don't understand what this is for, and 
-# it will need a separate implementation for CSC
-function increase_diag!(A::Matrix{T}) where {T <: Real}
-    diag_pert = 1 + T(1e-5)
-    diag_min = 1000 * eps(T)
-    @inbounds for j in 1:size(A, 1)
-        A[j, j] = diag_pert * max(A[j, j], diag_min)
-    end
-    return A
-end
-###################################

@@ -42,10 +42,6 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     #the diagonal regularizer currently applied
     diagonal_regularizer::T
 
-    #PJG: not clear if these need to be recorded
-    maxdiag::T
-    mindiag::T
-
 
     function DirectLDLKKTSolver{T}(P,A,cones,m,n,settings) where {T}
 
@@ -88,15 +84,10 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         #the LDL linear solver engine
         ldlsolver = ldlsolverT{T}(KKT,Dsigns,settings)
 
-        #assume reasonable conditioning to start
-        is_ill_conditioned = false
-        maxdiag = one(T)
-        mindiag = one(T)
-
         return new(m,n,p,x,b,
                    work_e,work_dx,map,Dsigns,WtWblocks,
                    KKT,KKTsym,settings,ldlsolver,
-                   diagonal_regularizer,maxdiag,mindiag)
+                   diagonal_regularizer)
     end
 
 end
@@ -292,27 +283,6 @@ function _kktsolver_update_inner!(
     return is_success
 end
 
-# PJG: Keeping this temporarily because we may want
-# to re-implement some check on bad scaling behaviour
-# This is currently dead code and could be removed.
-# If it is removed, then the min/max diag fields can
-# also be dropped
-function is_ill_conditioned(
-    kktsolver::DirectLDLKKTSolver{T},
-    info::DefaultInfo{T}
-) where {T}
-
-    maxdiag = kktsolver.maxdiag
-    mindiag = kktsolver.mindiag
-
-    if  maxdiag*eps(T) > (mindiag + settings.static_regularization_constant)
-        return true
-    else
-        return false
-    end
-
-end
-
 function _update_regularizer(
     kktsolver::DirectLDLKKTSolver{T},
     ldlsolver::AbstractDirectLDLSolver{T}
@@ -338,12 +308,12 @@ function _update_regularizer(
     # absolute values and their ratio
 
     kkt_diag = @view KKT.nzval[map.diag_full]
-    (kktsolver.mindiag,kktsolver.maxdiag)  = absextrema(kkt_diag);
+    maxdiag  = norm(kkt_diag,Inf);
 
     # Compute and apply a new regularizer
     kktsolver.diagonal_regularizer =
         settings.static_regularization_constant +
-        settings.static_regularization_proportional * kktsolver.maxdiag;
+        settings.static_regularization_proportional * maxdiag;
 
     @views _offset_values!(
         ldlsolver,KKT,

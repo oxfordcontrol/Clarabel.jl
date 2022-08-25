@@ -21,16 +21,9 @@ end
 # -----------------------------------------------------
 
 function cones_is_symmetric(cones::ConeSet{T}) where {T}
-
-    #only true if *all* cones are symmetric
-    is_symmmetric = true
-    for cone in cones
-        @conedispatch is_symmmetric = is_symmetric(cone)
-        if !is_symmmetric
-            return false
-        end
-    end
-    return true
+    #true if all pieces are symmetric.  
+    #determined during obj construction
+    return cones._is_symmetric
 end
 
 function cones_rectify_equilibration!(
@@ -52,11 +45,6 @@ function cones_rectify_equilibration!(
     return any_changed
 end
 
-
-
-# PJG: it's not clear to me what "flag" is.   Needs a more descriptive name
-# YC: The flag is used to determine when we change from the primal-dual scaling
-# to the dual scaling strategy
 
 function cones_update_scaling!(
     cones::ConeSet{T},
@@ -114,14 +102,6 @@ end
 
 
 # place a vector to some nearby point in the cone
-# YC: only when there is no asymmetric cone
-#
-# PJG: This is implemented as a no-op.  What happens
-# instead in the non-symmetric case?
-# YC: This is used only when all cones are symmetric cones.
-# We would switch to unit_initialization when there exists
-# asymmetric cones and the function is no longer used.
-
 function cones_shift_to_cone!(
     cones::ConeSet{T},
     z::ConicVector{T}
@@ -133,15 +113,15 @@ function cones_shift_to_cone!(
     return nothing
 end
 
-# initialization when with asymmetric cones
-function unit_initialization!(
+# unit initialization for asymmetric solves
+function cones_unit_initialization!(
     cones::ConeSet{T},
     s::ConicVector{T},
     z::ConicVector{T}
 ) where {T}
 
     for (cone,si,zi) in zip(cones,s.views,z.views)
-        @conedispatch asymmetric_init!(cone,si,zi)
+        @conedispatch unit_initialization!(cone,si,zi)
     end
     return nothing
 end
@@ -157,11 +137,6 @@ function cones_combined_ds!(
 ) where {T}
 
     for (cone,dzi,zi,si) in zip(cones,dz.views,step_z.views,step_s.views)
-
-        #PJG: This comment does not appear to be consisten with what is actually
-        # happening in the function.
-        # YC: The higher order correction applies to exponential cones only at present.
-        # The counterpart for power cones is under development.
 
         # compute the centering and the higher order correction parts in ds and save it in dz
         @conedispatch combined_ds!(cone,dzi,zi,si,σμ)
@@ -213,7 +188,7 @@ function cones_step_length(
          s::ConicVector{T},
   settings::Settings{T},
          α::T,
-         steptype
+         steptype::Symbol
 ) where {T}
 
     dz    = dz.views
@@ -221,47 +196,30 @@ function cones_step_length(
     z     = z.views
     s     = s.views
 
-    #PJG: I don't really like the calling syntax here because the
-    #symmetric and asymmetric cones have a different function signature,
-    #and the names are different.   This will make it difficult / impossible
-    #to implement in Rust because the symmetric and asymmetric cones
-    #won't be able to implement a common trait.   It's also a problem
-    #because ConeSet (CompositeCone in Rust) should also really be
-    #implementing exactly the same interface, which won't work like this
-
-    # YC: Current step size α and the backtracking parameter are needed for
-    # asymmetric cones. I could add two dummy inputs for symmetric cones.
-
-    # PJG: Hack to force symmetric cones first.   This is very poor style
+    # Force symmetric cones first.   
     for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
 
-        if !is_symmetric(cone) 
-            continue 
-        end
-        # println("type is ", type)
+        if !is_symmetric(cone) continue end
         @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
+        α = min(α,nextαz,nextαs)
+    end
+        
+    #if we have any nonsymmetric cones, then back off from full steps slightly
+    #so that centrality checks and logarithms don't fail right at the boundaries
+    if(!cones_is_symmetric(cones))
+        α = min(α,0.99)
+    end
 
-        #println("DEBUG.  Cone type = ", typeof(cone),  " Alpha = ", min(nextαz,nextαs))
+    # Force asymmetric cones last.  
+    for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
 
+        if is_symmetric(cone) continue end
+        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
         α = min(α,nextαz,nextαs)
     end
 
-    #here ECOS caps it at 0.999, and then multiplies the answer by γ = 0.99 for combined?
-    #NB:removing this causes a numerical error in some cases
-    α = min(α,0.999)
     if(steptype == :combined)
-        α *= 0.99
-    end
-
-    # PJG: Hack to force asymmetric cones last.   This is very poor style
-    for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
-
-        if is_symmetric(cone) 
-            continue 
-        end
-        # println("type is ", type)
-        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
-        α = min(α,nextαz,nextαs)
+        α *= settings.max_step_fraction
     end
 
     return α

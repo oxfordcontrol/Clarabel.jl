@@ -5,7 +5,7 @@ using LinearAlgebra
 using ConicBenchmarkUtilities
 using Profile
 using TimerOutputs
-using Printf
+using Printf, StatsBase
 
 #include("../src\\Clarabel.jl")
 using Clarabel
@@ -94,8 +94,9 @@ function run(index)
     set_optimizer_attribute(model_clarabel, "max_iter", maxiter)
     set_optimizer_attribute(model_clarabel, "equilibrate_enable", true)
     set_optimizer_attribute(model_clarabel, "static_regularization_constant",1e-7)
-    set_optimizer_attribute(model_clarabel, "static_regularization_proportional",eps()^(2)) 
+    set_optimizer_attribute(model_clarabel, "static_regularization_proportional",eps()^(2))  #disables it?
     set_optimizer_attribute(model_clarabel, "linesearch_backtrack_step",0.8)  #matches ECOS
+    set_optimizer_attribute(model_clarabel, "max_step_fraction",0.99);  #default 0.99
     set_optimizer_attribute(model_clarabel, "min_primaldual_step_length", 0.01)
     set_optimizer_attribute(model_clarabel, "static_regularization_enable",true)
     set_optimizer_attribute(model_clarabel, "direct_solve_method",:qdldl)
@@ -107,8 +108,8 @@ function run(index)
     set_optimizer_attribute(model_ecos, "maxit", maxiter)
     optimize!(model_ecos) 
 
-    println(solution_summary(model_clarabel))
-    println(solution_summary(model_ecos))
+    #println(solution_summary(model_clarabel))
+    #println(solution_summary(model_ecos))
 
     solver = model_clarabel.moi_backend.optimizer.model.optimizer.inner
     return model_clarabel, model_ecos
@@ -122,7 +123,9 @@ function run_all()
         model_c,model_e = run(i)
         push!(status_c,solution_summary(model_c))
         push!(status_e,solution_summary(model_e))
+        @printf("%i ",i)
     end
+    println()
 
     for i = 1:length(status_c)
         @printf("%i:  Clarabel: status %s.\t Iterations: %i. \t time: %e\n", 
@@ -131,6 +134,11 @@ function run_all()
         i, status_e[i].termination_status,status_e[i].barrier_iterations,status_e[i].solve_time)
         println()
     end
+    println("Clarabel iterations : ", sum(i->status_c[i].barrier_iterations,1:32))
+    println("Clarabel time       : ", StatsBase.geomean(map(i->status_c[i].solve_time,1:32)))
+    println("ECOS iterations     : ", sum(i->status_e[i].barrier_iterations,1:32))
+    println("ECOS time           : ", StatsBase.geomean(map(i->status_e[i].solve_time,1:32)))
+
 end
 
 #bad problems 

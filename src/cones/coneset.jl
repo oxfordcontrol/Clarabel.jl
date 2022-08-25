@@ -22,7 +22,7 @@ struct ConeSet{T}
     headidx::Vector{Int}
 
     # the flag for symmetric cone check
-    sym_flag::Bool
+    _is_symmetric::Bool
 
     function ConeSet{T}(cone_specs::Vector{<:SupportedCone}) where {T}
 
@@ -42,13 +42,18 @@ struct ConeSet{T}
             type_counts[coneT] = count(C->isa(C,coneT), cone_specs)
         end
 
+        #assumed symmetric to start
+        _is_symmetric = true
+
         #create cones with the given dims
         for i in eachindex(cone_specs)
             types[i] = typeof(cone_specs[i])
             if types[i] == ExponentialConeT
                 cones[i] = ConeDict[typeof(cone_specs[i])]{T}()
+                _is_symmetric = false
             elseif types[i] == PowerConeT
                 cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].α)
+                _is_symmetric = false
             else
                 cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].dim)
             end
@@ -63,15 +68,7 @@ struct ConeSet{T}
         headidx = Vector{Int}(undef,length(cones))
         _coneset_make_headidx!(headidx,cones)
 
-        #check whether the problem only contains symmetric cones
-        if (type_counts[ZeroConeT] + type_counts[NonnegativeConeT] +
-            type_counts[SecondOrderConeT] + type_counts[PSDTriangleConeT] == ncones)
-            sym_flag = true
-        else
-            sym_flag = false
-        end
-
-        return new(cones,cone_specs,types,type_counts,numel,degree,headidx,sym_flag)
+        return new(cones,cone_specs,types,type_counts,numel,degree,headidx,_is_symmetric)
     end
 end
 

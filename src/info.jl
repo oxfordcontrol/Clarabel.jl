@@ -23,23 +23,13 @@ function info_update!(
     info.cost_primal =  (+residuals.dot_qx*τinv + xPx_τinvsq_over2)/cscale
     info.cost_dual   =  (-residuals.dot_bz*τinv - xPx_τinvsq_over2)/cscale
 
-    #primal and dual residuals.   Need to invert the equilibration
-
-    #PJG: I think, but am not certain, that ECOS is downscaling the 
-    #primal and dual residuals also by the norms of x, z and s somehow 
-    #Doing then same would allow earlier convergence in some problems 
-    #for us, and likely salvage a few of the very difficult EXPCONE problems
-    # have attempted to do that here (original commented out first 2 lines)
-    
-    info.res_primal  = scaled_norm(einv,residuals.rz) * τinv / (one(T) + data.normb)
-    info.res_dual    = scaled_norm(dinv,residuals.rx) * τinv / (one(T) + data.normq)
-
+    #primal and dual relative residuals.   Need to invert the equilibration
     normx = scaled_norm(dinv,variables.x) * τinv
     normz = scaled_norm(einv,variables.z) * τinv
     norms = scaled_norm(einv,variables.s) * τinv
 
-    info.res_primal  = scaled_norm(einv,residuals.rz) * τinv / max(one(T),data.normb + normx + norms)
-    info.res_dual    = scaled_norm(dinv,residuals.rx) * τinv / max(one(T),data.normq + normx + normz)
+    info.res_primal  = scaled_norm(einv,residuals.rz) * τinv / max(one(T), data.normb + normx + norms)
+    info.res_dual    = scaled_norm(dinv,residuals.rx) * τinv / max(one(T), data.normq + normx + normz)
 
 
     #primal and dual infeasibility residuals.   Need to invert the equilibration
@@ -47,8 +37,7 @@ function info_update!(
     info.res_dual_inf   = max(scaled_norm(dinv,residuals.Px),scaled_norm(einv,residuals.rz_inf))
 
     #absolute and relative gaps
-    #info.gap_abs   = residuals.dot_sz * τinv * τinv     #PJG:slow to converge to high tolerance
-    info.gap_abs    = abs(info.cost_primal - info.cost_dual)  #PJG: maybe this way is better?
+    info.gap_abs    = abs(info.cost_primal - info.cost_dual)  
     if(info.cost_primal > 0 && info.cost_dual < 0)
         info.gap_rel = 1/eps()
     else

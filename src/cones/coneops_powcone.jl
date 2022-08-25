@@ -60,8 +60,8 @@ function affine_ds!(
 
 end
 
-#  asymmetric initialization
-function asymmetric_init!(
+# unit initialization for asymmetric solves
+function unit_initialization!(
    K::PowerCone{T},
    s::AbstractVector{T},
    z::AbstractVector{T}

@@ -149,8 +149,8 @@ function shift_to_cone!(
 
 end
 
-# asymmetric initialization
-function asymmetric_init!(
+# unit initialization for asymmetric solves
+function unit_initialization!(
     K::AbstractCone{T},
 	s::AbstractVector{T},
     z::AbstractVector{T}

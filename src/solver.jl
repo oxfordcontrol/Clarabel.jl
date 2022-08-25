@@ -183,7 +183,11 @@ function solve!(
         # main loop
         #----------
 
-        scaling_strategy = PrimalDual::ScalingStrategy
+        if(cones_is_symmetric(s.cones))
+            scaling_strategy = Dual::ScalingStrategy
+        else
+            scaling_strategy = PrimalDual::ScalingStrategy
+        end
 
         while true
 
@@ -205,30 +209,20 @@ function solve!(
                 isdone = info_check_termination!(s.info,s.residuals,s.settings,iter)
             end
 
-            # # YC: use the previous iterate as the final solution
-            # if isdone && (s.info.status == INSUFFICIENT_PROGRESS || s.info.status == NUMERICAL_ERROR)
-            #     info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
-            #     break
-            # end
-
-            # iter += 1
-            # @notimeit info_print_status(s.info,s.settings)
-            # isdone && break
-
             if isdone 
                if (scaling_strategy == PrimalDual::ScalingStrategy && 
                   (s.info.status == INSUFFICIENT_PROGRESS || s.info.status == NUMERICAL_ERROR)
                )
-                    #go back a step if using an aggressive strategy and failing to progress
+                    #recover old iterate if using an aggressive strategy and failing to progress
                     info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
                     scaling_strategy = Dual::ScalingStrategy
                     s.info.status = UNSOLVED
                     continue
                else
-                    println("isdone but status = ", s.info.status)
                     break
                end
             end
+
             @notimeit info_print_status(s.info,s.settings)
             iter += 1
 
@@ -259,18 +253,6 @@ function solve!(
                     s.data, s.variables, s.cones, :affine
                 )
             end
-            # PJG: REMOVE THIS BEFORE RELEASE
-            #=
-            @printf("Affine   : ")
-            check_KKT_system!(
-                s.kktsystem,
-                s.step_lhs,
-                s.step_rhs,
-                s.data,
-                s.variables,
-                s.cones,
-            )
-            =#
 
             if is_kkt_solve_success 
 
@@ -281,14 +263,6 @@ function solve!(
                     s.cones, s.settings, :affine, scaling_strategy
                 )
                 σ = calc_centering_parameter(α)
-
-                #PJG: REMOVE BEFORE RELEASE
-                #println("SIGMA = ", σ)
-
-                #PJG: Try to stop overly aggressive gap convergence?
-                #if(σ*μ <= eps(T))
-                #    σ = eps(T)/μ
-                #end
 
                 #calculate the combined step and length
                 #--------------
@@ -306,17 +280,6 @@ function solve!(
                     s.data, s.variables, s.cones, :combined
                 )
             end
-            # PJG: REMOVE THIS BEFORE RELEASE
-            #=
-            @printf("Combined : ")
-            check_KKT_system!(
-                s.kktsystem,
-                s.step_lhs,
-                s.step_rhs,
-                s.data,
-                s.variables,
-                s.cones,
-            ) =#
 
             # We change scaling strategy on numerical error.  We 
             # take a small chance that the combined step will 
@@ -325,16 +288,11 @@ function solve!(
                 # save scalars indicating no step 
                 info_save_scalars(s.info,μ,zero(T),one(T),iter)
                 if scaling_strategy == PrimalDual::ScalingStrategy
-                    # switch to the more conservative dual scaling strategy 
-                    # PJG: `continue`` means that we will compute residuals and  
-                    # termination conditions twice for this iterate 
                     scaling_strategy = Dual::ScalingStrategy
-                    println("Numerics: Switching to Dual strategy")
                     continue 
                 elseif scaling_strategy == Dual::ScalingStrategy 
                     #out of tricks.  Bail out with an error 
                     s.info.status = NUMERICAL_ERROR
-                    println("Break : Numerical Error")
                     break
                 end
             end
@@ -343,17 +301,12 @@ function solve!(
             #--------------
             α = calc_step_length(
                 s.variables, s.step_lhs, s.work_vars,
-                s.cones,s.settings,:combined, scaling_strategy
+                s.cones,s.settings, :combined, scaling_strategy
             )  
 
-            α *= s.settings.max_step_fraction
-
-            # YC: check if the step size is too small
             if scaling_strategy == PrimalDual::ScalingStrategy && 
                 α < s.settings.min_primaldual_step_length
                    scaling_strategy = Dual
-                   println("Progress: Switching to dual scaling with step", α)
-                   println("with status ",s.info.status)
                    info_save_scalars(s.info,μ,zero(T),one(T),iter)
                    continue
                    
@@ -362,7 +315,6 @@ function solve!(
                 α < s.settings.min_dual_step_length
                     s.info.status = INSUFFICIENT_PROGRESS
                     # save scalars indicating no step 
-                    @printf("Progress : bailing with dual strategy.  Step %e too small\n",α)
                     info_save_scalars(s.info,μ,zero(T),one(T),iter)
                     break
             end
@@ -402,7 +354,7 @@ end
 function solver_default_start!(s::Solver{T}) where {T}
     # YC:If there are only smmetric cones, use Mehrotra initialization strategy as ECOS and CVXOPT
     # Otherwise, initialize it along central rays
-    if (s.cones.sym_flag)
+    if (cones_is_symmetric(s.cones))
         #set all scalings to identity (or zero for the zero cone)
         cones_set_identity_scaling!(s.cones)
         #Refactor
@@ -423,30 +375,3 @@ function Base.show(io::IO, solver::Clarabel.Solver{T}) where {T}
     println(io, "Clarabel model with Float precision: $(T)")
 end
 
-
-
-# YC:need to be removed later
-function check_KKT_system!(
-    kktsystem::DefaultKKTSystem{T},
-    lhs::DefaultVariables{T},
-    rhs::DefaultVariables{T},
-    data::DefaultProblemData{T},
-    variables::DefaultVariables{T},
-    cones::ConeSet{T},
-) where {T}
-    m,n = size(data.A)
-    ξ = variables.x/variables.τ
-    K = [data.P data.A' data.q; -data.A spzeros(T,m,m) data.b; -(2*data.P*ξ + data.q)' -data.b' dot(ξ,data.P,ξ)]
-    v1 = [zeros(T,n,1); lhs.s.vec; lhs.κ]
-    v2 = [lhs.x; lhs.z.vec; lhs.τ]
-    v3 = [rhs.x; rhs.z.vec; rhs.τ]
-    res = v1 - K*v2+v3
-
-    # Q = [kktsystem.kktsolver.ldlsolver.KKTsym vcat(data.q, -data.b); -(2*data.Psym*ξ + data.q)' -data.b' (dot(ξ,data.Psym,ξ)+variables.κ/variables.τ)]
-    # w1 = [lhs.x; lhs.z.vec; lhs.τ]
-    # w2 = [rhs.x; kktsystem.work_conic.vec-rhs.z.vec; rhs.τ - rhs.κ/variables.τ]
-    # res = Q*w1 - w2
-
-    @printf("KKT residual is: %.8e\n", norm(res,Inf))
-
-end
