@@ -11,9 +11,9 @@ function clip(
     return s
 end
 
-function logsafe(v::T) where {T<:Real}
+@inline function logsafe(v::T) where {T<:Real}
     if v < 0
-        @printf("LOGSAFE: v = %0.8e.   From %s\n",v,StackTraces.stacktrace()[2].func); 
+        #@printf("LOGSAFE: v = %0.8e.   From %s\n",v,StackTraces.stacktrace()[2].func); 
         return -typemax(T)
     else 
         return log(v)

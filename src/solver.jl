@@ -219,12 +219,13 @@ function solve!(
                if (scaling_strategy == PrimalDual::ScalingStrategy && 
                   (s.info.status == INSUFFICIENT_PROGRESS || s.info.status == NUMERICAL_ERROR)
                )
-                    #restart if using an aggressive strategy and are failing to progress
+                    #go back a step if using an aggressive strategy and failing to progress
                     info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
                     scaling_strategy = Dual::ScalingStrategy
                     s.info.status = UNSOLVED
                     continue
                else
+                    println("isdone but status = ", s.info.status)
                     break
                end
             end
@@ -258,6 +259,18 @@ function solve!(
                     s.data, s.variables, s.cones, :affine
                 )
             end
+            # PJG: REMOVE THIS BEFORE RELEASE
+            #=
+            @printf("Affine   : ")
+            check_KKT_system!(
+                s.kktsystem,
+                s.step_lhs,
+                s.step_rhs,
+                s.data,
+                s.variables,
+                s.cones,
+            )
+            =#
 
             if is_kkt_solve_success 
 
@@ -268,12 +281,14 @@ function solve!(
                     s.cones, s.settings, :affine, scaling_strategy
                 )
                 σ = calc_centering_parameter(α)
-                println("SIGMA = ", σ)
+
+                #PJG: REMOVE BEFORE RELEASE
+                #println("SIGMA = ", σ)
 
                 #PJG: Try to stop overly aggressive gap convergence?
-                if(σ*μ <= eps(T))
-                    σ = eps(T)/μ
-                end
+                #if(σ*μ <= eps(T))
+                #    σ = eps(T)/μ
+                #end
 
                 #calculate the combined step and length
                 #--------------
@@ -291,6 +306,17 @@ function solve!(
                     s.data, s.variables, s.cones, :combined
                 )
             end
+            # PJG: REMOVE THIS BEFORE RELEASE
+            #=
+            @printf("Combined : ")
+            check_KKT_system!(
+                s.kktsystem,
+                s.step_lhs,
+                s.step_rhs,
+                s.data,
+                s.variables,
+                s.cones,
+            ) =#
 
             # We change scaling strategy on numerical error.  We 
             # take a small chance that the combined step will 
@@ -326,13 +352,17 @@ function solve!(
             if scaling_strategy == PrimalDual::ScalingStrategy && 
                 α < s.settings.min_primaldual_step_length
                    scaling_strategy = Dual
-                   println("Progress: Switching to dual scaling")
-                   #PJG: We are taking this final step anyway... 
+                   println("Progress: Switching to dual scaling with step", α)
+                   println("with status ",s.info.status)
+                   info_save_scalars(s.info,μ,zero(T),one(T),iter)
+                   continue
+                   
 
             elseif scaling_strategy == Dual::ScalingStrategy && 
                 α < s.settings.min_dual_step_length
                     s.info.status = INSUFFICIENT_PROGRESS
                     # save scalars indicating no step 
+                    @printf("Progress : bailing with dual strategy.  Step %e too small\n",α)
                     info_save_scalars(s.info,μ,zero(T),one(T),iter)
                     break
             end
@@ -391,4 +421,32 @@ end
 
 function Base.show(io::IO, solver::Clarabel.Solver{T}) where {T}
     println(io, "Clarabel model with Float precision: $(T)")
+end
+
+
+
+# YC:need to be removed later
+function check_KKT_system!(
+    kktsystem::DefaultKKTSystem{T},
+    lhs::DefaultVariables{T},
+    rhs::DefaultVariables{T},
+    data::DefaultProblemData{T},
+    variables::DefaultVariables{T},
+    cones::ConeSet{T},
+) where {T}
+    m,n = size(data.A)
+    ξ = variables.x/variables.τ
+    K = [data.P data.A' data.q; -data.A spzeros(T,m,m) data.b; -(2*data.P*ξ + data.q)' -data.b' dot(ξ,data.P,ξ)]
+    v1 = [zeros(T,n,1); lhs.s.vec; lhs.κ]
+    v2 = [lhs.x; lhs.z.vec; lhs.τ]
+    v3 = [rhs.x; rhs.z.vec; rhs.τ]
+    res = v1 - K*v2+v3
+
+    # Q = [kktsystem.kktsolver.ldlsolver.KKTsym vcat(data.q, -data.b); -(2*data.Psym*ξ + data.q)' -data.b' (dot(ξ,data.Psym,ξ)+variables.κ/variables.τ)]
+    # w1 = [lhs.x; lhs.z.vec; lhs.τ]
+    # w2 = [rhs.x; kktsystem.work_conic.vec-rhs.z.vec; rhs.τ - rhs.κ/variables.τ]
+    # res = Q*w1 - w2
+
+    @printf("KKT residual is: %.8e\n", norm(res,Inf))
+
 end

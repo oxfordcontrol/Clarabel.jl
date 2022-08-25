@@ -24,8 +24,23 @@ function info_update!(
     info.cost_dual   =  (-residuals.dot_bz*τinv - xPx_τinvsq_over2)/cscale
 
     #primal and dual residuals.   Need to invert the equilibration
+
+    #PJG: I think, but am not certain, that ECOS is downscaling the 
+    #primal and dual residuals also by the norms of x, z and s somehow 
+    #Doing then same would allow earlier convergence in some problems 
+    #for us, and likely salvage a few of the very difficult EXPCONE problems
+    # have attempted to do that here (original commented out first 2 lines)
+    
     info.res_primal  = scaled_norm(einv,residuals.rz) * τinv / (one(T) + data.normb)
     info.res_dual    = scaled_norm(dinv,residuals.rx) * τinv / (one(T) + data.normq)
+
+    normx = scaled_norm(dinv,variables.x) * τinv
+    normz = scaled_norm(einv,variables.z) * τinv
+    norms = scaled_norm(einv,variables.s) * τinv
+
+    info.res_primal  = scaled_norm(einv,residuals.rz) * τinv / max(one(T),data.normb + normx + norms)
+    info.res_dual    = scaled_norm(dinv,residuals.rx) * τinv / max(one(T),data.normq + normx + normz)
+
 
     #primal and dual infeasibility residuals.   Need to invert the equilibration
     info.res_primal_inf = scaled_norm(dinv,residuals.rx_inf)
@@ -82,8 +97,9 @@ function info_check_termination!(
 
     # YC: Terminate early when residuals diverge
     if iter > 0 && (info.res_dual > info.prev_res_dual || info.res_primal > info.prev_res_primal)
-        # YC: small ktratio means the algorithm converges but feasibility residuals get stucked due to some numerical issues
-        if info.ktratio < 1e-8 && (info.prev_gap_abs < settings.tol_gap_abs || info.prev_gap_rel < settings.tol_gap_rel)
+        # YC: small ktratio means the algorithm converges but feasibility residuals get stuck due to some numerical issues
+        if info.ktratio < 1e-10 && (info.prev_gap_abs < settings.tol_gap_abs || info.prev_gap_rel < settings.tol_gap_rel)
+            println("Check status : insufficient progress with small ktratio ")
             info.status = INSUFFICIENT_PROGRESS
         end
         # YC: Severe numerical issue happens and we should stop it immediately

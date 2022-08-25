@@ -12,8 +12,9 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     b::Vector{T}
 
     # internal workspace for IR scheme
-    work_e::Vector{T}
-    work_dx::Vector{T}
+    # and static offsetting of KKT 
+    work1::Vector{T}
+    work2::Vector{T}
 
     #KKT mapping from problem data to KKT
     map::LDLDataMap
@@ -418,7 +419,7 @@ function  _iterative_refinement(
 ) where{T}
 
     (x,b)   = (kktsolver.x,kktsolver.b)
-    (e,dx)  = (kktsolver.work_e, kktsolver.work_dx)
+    (e,dx)  = (kktsolver.work1, kktsolver.work2)
     settings = kktsolver.settings
 
     #iterative refinement params
@@ -460,7 +461,7 @@ function  _iterative_refinement(
         @. ξ += x
         norme = _get_refine_error!(e,b,KKTsym,kktsolver.Dsigns,ϵ,ξ)
 
-        if(lastnorme/norme < IR_stopratio)
+        if(lastnorme/norme <  IR_stopratio)
             #insufficient improvement.  Exit
             break
         else
@@ -485,7 +486,7 @@ function _get_refine_error!(
     ξ::AbstractVector{T}) where {T}
 
     @. e = b
-    mul!(e,KKTsym,ξ,-1.,1.)   # e = b - Kξ
+    mul!(e,KKTsym,ξ,-1.,1.)   # e = b - (K+ϵD)ξ
 
     if(!iszero(ϵ))
         @inbounds for i in eachindex(D)
@@ -499,4 +500,65 @@ function _get_refine_error!(
 
     return norm(e,Inf)
 
+end
+
+#handwritten # e = b - (K+ϵD)ξ for K triu to see if we can make it faster 
+function _fast_sym_product(e,b,K,D,ϵ,ξ)
+
+    @inbounds for col in 1:K.n
+
+        e[col] = b[col]
+        ξcol = ξ[col]
+
+        @inbounds for j in K.colptr[col]:(K.colptr[col+1]-1)
+            row = K.rowval[j]
+            Kij = K.nzval[j]
+
+            if row != col 
+                e[col] -= Kij * ξ[row]
+                e[row] -= Kij * ξcol 
+            else 
+                if(D[col] == 1)
+                    Kij -= ϵ 
+                else
+                    Kij += ϵ 
+                end
+                e[col] -= Kij * ξcol
+            end
+        end 
+    end
+end
+
+
+
+function DEBUG_CONST_SOLVE(
+    b::AbstractVector{T},
+    KKTsym::Symmetric{T},
+    D::Vector{Int},
+    ϵ::T) where {T}
+
+    @printf("\nDEBUG_CONST_SOLVE   :: ")
+
+    #if we are in this function, then something has gone wrong 
+    #with Kx = b 
+    Ktrue  =  KKTsym - ϵ.* Diagonal(D)
+    Ktrue  = sparse(Symmetric(Ktrue))
+
+    myD = diag(Ktrue)
+
+    #try to solve the regularized system 
+    x = KKTsym\b 
+    err = norm(Ktrue * x - b,Inf)
+    @printf("Regu = %0.3e   ::   ", err)
+
+    #try to solve the regularized system 
+    x = Ktrue\b 
+    err = norm(Ktrue * x - b,Inf)
+    @printf("True = %0.3e\n\n", err)
+
+    jldsave("debug.jld2";b,KKTsym,D,ϵ)
+
+    @printf("nnz(b) = %i.\n",sum(b .!= 0))
+
+    error("Foo!")
 end

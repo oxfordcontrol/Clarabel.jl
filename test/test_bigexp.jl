@@ -5,6 +5,7 @@ using LinearAlgebra
 using ConicBenchmarkUtilities
 using Profile
 using TimerOutputs
+using Printf
 
 #include("../src\\Clarabel.jl")
 using Clarabel
@@ -84,36 +85,59 @@ end
 
 function run(index)
 
-    verbosity = true
-    maxiter     = 50
+    verbosity = false        
+    maxiter     = 100
 
     model_clarabel = exp_model(index; optimizer = Clarabel.Optimizer) 
     model_ecos = exp_model(index; optimizer = ECOS.Optimizer) 
     set_optimizer_attribute(model_clarabel, "verbose", verbosity)
     set_optimizer_attribute(model_clarabel, "max_iter", maxiter)
-    set_optimizer_attribute(model_clarabel, "equilibrate_enable", false)
+    set_optimizer_attribute(model_clarabel, "equilibrate_enable", true)
     set_optimizer_attribute(model_clarabel, "static_regularization_constant",1e-7)
-    set_optimizer_attribute(model_clarabel, "linesearch_backtrack_step",0.8)
-    set_optimizer_attribute(model_clarabel, "min_primaldual_step_length", 0.0001)
-    set_optimizer_attribute(model_clarabel, "static_regularization_enable",false)
+    set_optimizer_attribute(model_clarabel, "static_regularization_proportional",eps()^(2)) 
+    set_optimizer_attribute(model_clarabel, "linesearch_backtrack_step",0.8)  #matches ECOS
+    set_optimizer_attribute(model_clarabel, "min_primaldual_step_length", 0.01)
+    set_optimizer_attribute(model_clarabel, "static_regularization_enable",true)
     set_optimizer_attribute(model_clarabel, "direct_solve_method",:qdldl)
+    set_optimizer_attribute(model_clarabel, "iterative_refinement_reltol",1e-8 )   #default 1e-8
+    set_optimizer_attribute(model_clarabel, "iterative_refinement_abstol",1e-10)  #default 1e-10
     optimize!(model_clarabel) 
 
     set_optimizer_attribute(model_ecos, "verbose", verbosity)
     set_optimizer_attribute(model_ecos, "maxit", maxiter)
-    #optimize!(model_ecos) 
+    optimize!(model_ecos) 
 
     println(solution_summary(model_clarabel))
-    #println(solution_summary(model_ecos))
+    println(solution_summary(model_ecos))
 
     solver = model_clarabel.moi_backend.optimizer.model.optimizer.inner
-    return solver 
+    return model_clarabel, model_ecos
 end
 
-run(1) 
+function run_all()
+
+    status_c = []
+    status_e = [] 
+    for i = 1:32
+        model_c,model_e = run(i)
+        push!(status_c,solution_summary(model_c))
+        push!(status_e,solution_summary(model_e))
+    end
+
+    for i = 1:length(status_c)
+        @printf("%i:  Clarabel: status %s.\t Iterations: %i. \t time: %e\n", 
+        i, status_c[i].termination_status,status_c[i].barrier_iterations,status_c[i].solve_time)
+        @printf("%i:  ECOS    : status %s.\t Iterations: %i. \t time: %e\n", 
+        i, status_e[i].termination_status,status_e[i].barrier_iterations,status_e[i].solve_time)
+        println()
+    end
+end
 
 #bad problems 
-#2,17,21,24,28,32
+# 21 : infeasible.   Hits iteration limit?  Works with smaller regularization.
+# 19,32 fails.   Bad pivots, but nearly(?) solved.  ECOS solves both.
+# maybe need to switch to dual scaling sooner?
+
 
 # @enter Clarabel.solve!(solver)
 
@@ -121,8 +145,8 @@ run(1)
 
 
 
-Q  = (solver.kktsystem.kktsolver.ldlsolver.factors.workspace.triuA) + Diagonal(solver.kktsystem.kktsolver.ldlsolver.factors.workspace.Dsigns).*7e-8
-(rows,cols) = findnz(Q)
-[rows cols Q.nzval];
+# Q  = (solver.kktsystem.kktsolver.ldlsolver.factors.workspace.triuA) + Diagonal(solver.kktsystem.kktsolver.ldlsolver.factors.workspace.Dsigns).*7e-8
+# (rows,cols) = findnz(Q)
+# [rows cols Q.nzval];
 
 nothing
