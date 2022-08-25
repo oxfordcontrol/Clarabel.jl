@@ -347,7 +347,7 @@ function _step_length_soc_component(
         #return the minimum positive root
         r1 = r1 < 0 ? floatmax(T) : r1
         r2 = r2 < 0 ? floatmax(T) : r2
-        return prevfloat(min(αmax,r1,r2))
+        return min(αmax,r1,r2)
     end
 
 end

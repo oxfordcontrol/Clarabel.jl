@@ -37,7 +37,7 @@ function info_update!(
     info.res_dual_inf   = max(scaled_norm(dinv,residuals.Px),scaled_norm(einv,residuals.rz_inf))
 
     #absolute and relative gaps
-    info.gap_abs    = abs(info.cost_primal - info.cost_dual)  
+    info.gap_abs    = abs(info.cost_primal - info.cost_dual)
     if(info.cost_primal > 0 && info.cost_dual < 0)
         info.gap_rel = 1/eps()
     else
@@ -86,12 +86,13 @@ function info_check_termination!(
 
     # YC: Terminate early when residuals diverge
     if iter > 0 && (info.res_dual > info.prev_res_dual || info.res_primal > info.prev_res_primal)
-        # YC: small ktratio means the algorithm converges but feasibility residuals get stuck due to some numerical issues
-        if info.ktratio < 1e-10 && (info.prev_gap_abs < settings.tol_gap_abs || info.prev_gap_rel < settings.tol_gap_rel)
+        # YC: small ktratio means the algorithm converges but feasibility residuals get stuck due to some numerical issue
+        #PJG: Not sure if this ktratio test is still relevant.
+        if info.ktratio < 100*eps(T) && (info.prev_gap_abs < settings.tol_gap_abs || info.prev_gap_rel < settings.tol_gap_rel)
             println("Check status : insufficient progress with small ktratio ")
             info.status = INSUFFICIENT_PROGRESS
         end
-        # YC: Severe numerical issue happens and we should stop it immediately
+        # Going backwards. Stop immediately.
         if (info.res_dual > 100*info.prev_res_dual || info.res_primal > 100*info.prev_res_primal)
             info.status = NUMERICAL_ERROR
         end

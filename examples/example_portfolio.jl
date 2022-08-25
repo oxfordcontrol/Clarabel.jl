@@ -35,8 +35,6 @@ set_optimizer_attribute(model, "tol_gap_abs", 1e-8)
 set_optimizer_attribute(model, "tol_gap_rel", 1e-8)
 set_optimizer_attribute(model, "verbose", true)
 
-#PJG: there were no variables defined. I guess this is right
-#YC: Yes, I forgot defining them.
 @variable(model, x[1:n])
 @variable(model, y[1:k])   #this is never used in the model?
 @variable(model, s[1:n])

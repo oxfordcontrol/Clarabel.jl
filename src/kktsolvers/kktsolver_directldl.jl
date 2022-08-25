@@ -172,45 +172,6 @@ function _scale_values_KKT!(
 end
 
 
-
-
-#offset entries in the kktsolver object using the
-#given index into its CSC representation.  Lengths
-#of index and signs must agree
-#PJG: dead code if new IR scheme works.   Calls to
-#subsolvers will also not need to implement this
-function _offset_values!(
-    ldlsolver::AbstractDirectLDLSolver{T},
-    KKT::SparseMatrixCSC{T,Ti},
-    index::AbstractVector{Ti},
-    offset::T,
-    signs::AbstractVector{<:Integer}
-) where{T,Ti}
-
-    #Update values in the KKT matrix K
-    _offset_values_KKT!(KKT, index, offset, signs)
-
-    # ...and in the LDL subsolver if needed.
-    offset_values!(ldlsolver, index, offset, signs)
-
-end
-
-#offsets KKT matrix values
-#PJG: dead code if new IR scheme works. 
-function _offset_values_KKT!(
-    KKT::SparseMatrixCSC{T,Ti},
-    index::AbstractVector{Ti},
-    offset::T,
-    signs::AbstractVector{<:Integer}  #allows Vector{T} or a @view
-) where{T,Ti}
-
-    #Update values in the KKT matrix K
-    # @. KKT.nzval[index] += offset*signs
-    cur_vec = @view KKT.nzval[index]
-    axpy!(offset,signs,cur_vec)
-
-end
-
 function kktsolver_update!(
     kktsolver::DirectLDLKKTSolver{T},
     cones::ConeSet{T}

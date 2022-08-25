@@ -54,21 +54,6 @@ function scale_values!(
     #passed to refactor!
 end
 
-#offset entries in the KKT matrix using the
-#given index into its CSC representation and
-#an optional vector of signs
-function offset_values!(
-    ldlsolver::PardisoDirectLDLSolver{T},
-    index::AbstractVector{Int},
-    offset::T,
-    signs::AbstractVector{<:Integer}
-) where{T}
-
-    #no-op.  Will just use KKT matrix as it as
-    #passed to refactor!
-
-end
-
 
 #refactor the linear system
 function refactor!(ldlsolver::PardisoDirectLDLSolver{T},K::SparseMatrixCSC{T}) where{T}

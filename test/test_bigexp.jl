@@ -95,7 +95,7 @@ function run(index)
     set_optimizer_attribute(model_clarabel, "equilibrate_enable", true)
     set_optimizer_attribute(model_clarabel, "static_regularization_constant",1e-7)
     set_optimizer_attribute(model_clarabel, "static_regularization_proportional",eps()^(2))  #disables it?
-    set_optimizer_attribute(model_clarabel, "linesearch_backtrack_step",0.8)  #matches ECOS
+    set_optimizer_attribute(model_clarabel, "linesearch_backtrack_step",0.80)  #matches ECOS
     set_optimizer_attribute(model_clarabel, "max_step_fraction",0.99);  #default 0.99
     set_optimizer_attribute(model_clarabel, "min_primaldual_step_length", 0.01)
     set_optimizer_attribute(model_clarabel, "static_regularization_enable",true)

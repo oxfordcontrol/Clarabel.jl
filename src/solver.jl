@@ -201,16 +201,16 @@ function solve!(
 
             #convergence check and printing
             #--------------
-            begin
-                info_update!(
-                    s.info,s.data,s.variables,
-                    s.residuals,s.settings,s.timers
-                )
-                isdone = info_check_termination!(s.info,s.residuals,s.settings,iter)
-            end
 
-            if isdone 
-               if (scaling_strategy == PrimalDual::ScalingStrategy && 
+            info_update!(
+                s.info,s.data,s.variables,
+                s.residuals,s.settings,s.timers
+            )
+            isdone = info_check_termination!(s.info,s.residuals,s.settings,iter)
+
+
+            if isdone
+               if (scaling_strategy == PrimalDual::ScalingStrategy &&
                   (s.info.status == INSUFFICIENT_PROGRESS || s.info.status == NUMERICAL_ERROR)
                )
                     #recover old iterate if using an aggressive strategy and failing to progress
@@ -237,24 +237,24 @@ function solve!(
                 s.variables, s.cones
             )
 
-            #update the KKT system and the constant parts of its solution.  
-            #Keep track of the success of each step that calls KKT 
+            #update the KKT system and the constant parts of its solution.
+            #Keep track of the success of each step that calls KKT
             #--------------
-            is_kkt_solve_success = true 
-            @timeit s.timers "kkt update" begin 
-            is_kkt_solve_success &= 
+            is_kkt_solve_success = true
+            @timeit s.timers "kkt update" begin
+            is_kkt_solve_success &=
                 kkt_update!(s.kktsystem,s.data,s.cones)
-            end 
+            end
 
             @timeit s.timers "kkt solve" begin
-            is_kkt_solve_success &= 
+            is_kkt_solve_success &=
                 kkt_solve!(
                     s.kktsystem, s.step_lhs, s.step_rhs,
                     s.data, s.variables, s.cones, :affine
                 )
             end
 
-            if is_kkt_solve_success 
+            if is_kkt_solve_success
 
                 #calculate step length and centering parameter
                 #--------------
@@ -274,24 +274,23 @@ function solve!(
             end
 
             @timeit s.timers "kkt solve" begin
-            is_kkt_solve_success &= 
+            is_kkt_solve_success &=
                 kkt_solve!(
                     s.kktsystem, s.step_lhs, s.step_rhs,
                     s.data, s.variables, s.cones, :combined
                 )
             end
 
-            # We change scaling strategy on numerical error.  We 
-            # take a small chance that the combined step will 
-            # fail unchecked, and only put this logic here 
+            # Change scaling strategy on numerical error.
+
             if !is_kkt_solve_success
-                # save scalars indicating no step 
+                # save scalars indicating no step
                 info_save_scalars(s.info,μ,zero(T),one(T),iter)
                 if scaling_strategy == PrimalDual::ScalingStrategy
                     scaling_strategy = Dual::ScalingStrategy
-                    continue 
-                elseif scaling_strategy == Dual::ScalingStrategy 
-                    #out of tricks.  Bail out with an error 
+                    continue
+                elseif scaling_strategy == Dual::ScalingStrategy
+                    #out of tricks.  Bail out with an error
                     s.info.status = NUMERICAL_ERROR
                     break
                 end
@@ -302,23 +301,23 @@ function solve!(
             α = calc_step_length(
                 s.variables, s.step_lhs, s.work_vars,
                 s.cones,s.settings, :combined, scaling_strategy
-            )  
+            )
 
-            if scaling_strategy == PrimalDual::ScalingStrategy && 
+            if scaling_strategy == PrimalDual::ScalingStrategy &&
                 α < s.settings.min_primaldual_step_length
                    scaling_strategy = Dual
                    info_save_scalars(s.info,μ,zero(T),one(T),iter)
                    continue
-                   
 
-            elseif scaling_strategy == Dual::ScalingStrategy && 
+
+            elseif scaling_strategy == Dual::ScalingStrategy &&
                 α < s.settings.min_dual_step_length
                     s.info.status = INSUFFICIENT_PROGRESS
-                    # save scalars indicating no step 
+                    # save scalars indicating no step
                     info_save_scalars(s.info,μ,zero(T),one(T),iter)
                     break
             end
-            
+
             # Copy previous iterate in case the next one is a dud
             info_save_prev_iterate(s.info,s.variables,s.work_vars)
 
@@ -352,8 +351,10 @@ end
 
 
 function solver_default_start!(s::Solver{T}) where {T}
-    # YC:If there are only smmetric cones, use Mehrotra initialization strategy as ECOS and CVXOPT
-    # Otherwise, initialize it along central rays
+
+    # If there are only symmetric cones, use CVXOPT style initilization
+    # Otherwise, initialize along central rays
+
     if (cones_is_symmetric(s.cones))
         #set all scalings to identity (or zero for the zero cone)
         cones_set_identity_scaling!(s.cones)
@@ -363,8 +364,8 @@ function solver_default_start!(s::Solver{T}) where {T}
         kkt_solve_initial_point!(s.kktsystem,s.variables,s.data)
         #fix up (z,s) so that they are in the cone
         variables_shift_to_cone!(s.variables, s.cones)
+
     else
-        #Unit initialization when there are asymmetric cones
         asymmetric_init_cone!(s.variables, s.cones)
     end
 
@@ -374,4 +375,3 @@ end
 function Base.show(io::IO, solver::Clarabel.Solver{T}) where {T}
     println(io, "Clarabel model with Float precision: $(T)")
 end
-

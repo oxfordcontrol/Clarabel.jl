@@ -80,7 +80,7 @@ struct DefaultEquilibration{T} <: AbstractEquilibration{T}
         dinv = ones(T,nvars)
 
         # PJG : note that this double initializes
-        # e / einv because the ConicVector constructor
+        # e and einv because the ConicVector constructor
         # first initializes to zero.   Could be improved.
         e    = ConicVector{T}(cones); e .= one(T)
         einv = ConicVector{T}(cones); einv .= one(T)
@@ -211,7 +211,7 @@ Otherwise:
 @enum SolverStatus begin
     UNSOLVED           = 0
     SOLVED
-    APPROX_SOLVED
+    ALMOST_SOLVED
     PRIMAL_INFEASIBLE
     DUAL_INFEASIBLE
     MAX_ITERATIONS
@@ -223,7 +223,7 @@ end
 const SolverStatusDict = Dict(
     UNSOLVED            =>  "unsolved",
     SOLVED              =>  "solved",
-    APPROX_SOLVED       =>  "approximately solved",
+    ALMOST_SOLVED       =>  "solved (reduced accuracy)",
     PRIMAL_INFEASIBLE   =>  "primal infeasible",
     DUAL_INFEASIBLE     =>  "dual infeasible",
     MAX_ITERATIONS      =>  "iteration limit",

@@ -15,12 +15,15 @@ function solution_finalize!(
 	solution.z .= variables.z
 	solution.s .= variables.s
 
+	#PJG: This convergence check is almost identical to the code 
+	#in info.jl.   Convergence checking logic should all remain 
+	#in the same place 
 	if (info.status == INSUFFICIENT_PROGRESS || info.status == NUMERICAL_ERROR)
 		if( ((info.gap_abs < settings.reduced_tol_gap_abs) || (info.gap_rel < settings.reduced_tol_gap_rel))
             && (info.res_primal < settings.reduced_tol_feas)
             && (info.res_dual   < settings.reduced_tol_feas)
         )
-			info.status = APPROX_SOLVED
+			info.status = ALMOST_SOLVED
 		end
 	end
 

@@ -35,19 +35,6 @@ function scale_values!(
 end
 
 
-#offset entries in the KKT matrix using the
-#given index into its CSC representation and
-#an optional vector of signs
-function offset_values!(
-    ldlsolver::AbstractDirectLDLSolver{T},
-    index::AbstractVector{Int},
-    offset::Union{T,AbstractVector{T}},
-    signs::Union{Integer,AbstractArray{Integer}} = 1
-) where{T}
-    error("function not implemented")
-end
-
-
 #refactor the linear system
 function refactor!(ldlsolver::AbstractDirectLDLSolver{T}) where{T}
     error("function not implemented")

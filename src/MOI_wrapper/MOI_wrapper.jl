@@ -44,7 +44,10 @@ const ClarabeltoMOITerminationStatus = Dict([
     Clarabel.MAX_ITERATIONS     =>  MOI.ITERATION_LIMIT,
     Clarabel.MAX_TIME           =>  MOI.TIME_LIMIT,
     Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBLE,
-    Clarabel.DUAL_INFEASIBLE    =>  MOI.DUAL_INFEASIBLE
+    Clarabel.DUAL_INFEASIBLE    =>  MOI.DUAL_INFEASIBLE,
+    Clarabel.ALMOST_SOLVED      =>  MOI.ALMOST_OPTIMAL,
+    Clarabel.NUMERICAL_ERROR    =>  MOI.NUMERICAL_ERROR,
+    Clarabel.INSUFFICIENT_PROGRESS    =>  MOI.NUMERICAL_ERROR
 ])
 
 const ClarabeltoMOIPrimalStatus = Dict([
@@ -52,7 +55,10 @@ const ClarabeltoMOIPrimalStatus = Dict([
     Clarabel.MAX_ITERATIONS     =>  MOI.NEARLY_FEASIBLE_POINT,
     Clarabel.MAX_TIME           =>  MOI.NEARLY_FEASIBLE_POINT,
     Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBLE_POINT,
-    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBILITY_CERTIFICATE
+    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBILITY_CERTIFICATE,
+    Clarabel.ALMOST_SOLVED      =>  MOI.NEARLY_FEASIBLE_POINT,
+    Clarabel.NUMERICAL_ERROR    =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.INSUFFICIENT_PROGRESS => MOI.OTHER_RESULT_STATUS,
 ])
 
 const ClarabeltoMOIDualStatus = Dict([
@@ -60,7 +66,10 @@ const ClarabeltoMOIDualStatus = Dict([
     Clarabel.MAX_ITERATIONS     =>  MOI.NEARLY_FEASIBLE_POINT,
     Clarabel.MAX_TIME           =>  MOI.NEARLY_FEASIBLE_POINT,
     Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBILITY_CERTIFICATE,
-    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBLE_POINT
+    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBLE_POINT,
+    Clarabel.ALMOST_SOLVED      =>  MOI.NEARLY_FEASIBLE_POINT,
+    Clarabel.NUMERICAL_ERROR    =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.INSUFFICIENT_PROGRESS => MOI.OTHER_RESULT_STATUS,
 ])
 
 #-----------------------------
@@ -169,13 +178,7 @@ end
 MOI.supports(::Optimizer, ::MOI.TerminationStatus) = true
 function MOI.get(opt::Optimizer, ::MOI.TerminationStatus)
     opt.has_results || return MOI.OPTIMIZE_NOT_CALLED
-    try 
-        #PJG: NOT ALL RETURN CODES ARE COVERED.   TEMPORARY FIX HERE 
-        return ClarabeltoMOITerminationStatus[opt.inner.info.status]
-    catch 
-        MOI.OTHER_ERROR
-    end
-
+    return ClarabeltoMOITerminationStatus[opt.inner.info.status]
 end
 
 MOI.supports(::Optimizer, ::MOI.PrimalStatus) = true
@@ -183,12 +186,7 @@ function MOI.get(opt::Optimizer, attr::MOI.PrimalStatus)
     if !opt.has_results || attr.result_index != 1
         return MOI.NO_SOLUTION
     else
-        try 
-            #PJG: NOT ALL RETURN CODES ARE COVERED.   TEMPORARY FIX HERE 
-            return ClarabeltoMOIPrimalStatus[opt.inner.info.status]
-        catch
-            return MOI.OTHER_RESULT_STATUS
-        end
+        return ClarabeltoMOIPrimalStatus[opt.inner.info.status]
     end
 end
 
@@ -196,13 +194,10 @@ MOI.supports(::Optimizer, a::MOI.DualStatus) = true
 function MOI.get(opt::Optimizer, attr::MOI.DualStatus)
     if !opt.has_results || attr.result_index != 1
         return MOI.NO_SOLUTION
-    end
-    try 
-        #PJG: NOT ALL RETURN CODES ARE COVERED.   TEMPORARY FIX HERE 
+    else
         return ClarabeltoMOIDualStatus[opt.inner.info.status]
-    catch
-        return MOI.OTHER_RESULT_STATUS
     end
+
 end
 
 MOI.supports(::Optimizer, ::MOI.Silent) = true

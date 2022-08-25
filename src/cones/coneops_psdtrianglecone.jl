@@ -363,7 +363,7 @@ function _step_length_psd_component(
     Δ = K.work.workmat1
     _svec_to_mat!(Δ,d,K)
 
-    #allocate.   Slow AF
+    #PJG:  allocates. slow AF
     M = Symmetric(Λisqrt*Δ*Λisqrt)
 
     γ = eigvals(M,1:1)[1] #minimum eigenvalue

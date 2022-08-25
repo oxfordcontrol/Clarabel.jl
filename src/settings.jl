@@ -65,10 +65,12 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 	tol_infeas_rel::T		= 1e-8
     max_step_fraction::T    = 0.99
 
-    # YC: reduced accuracy
+    # reduced accuracy solution tolerances
     reduced_tol_gap_abs::T          = 5e-5
     reduced_tol_gap_rel::T          = 5e-5
     reduced_tol_feas::T             = 1e-4
+    reduced_tol_infeas_abs::T		= 5e-5
+	reduced_tol_infeas_rel::T		= 5e-5
 
 	#data equilibration
 	equilibrate_enable::Bool            = true
