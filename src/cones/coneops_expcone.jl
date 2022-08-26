@@ -291,8 +291,7 @@ function higher_correction!(
     H = K.H
     u = K.vec_work
     z = K.z
-
-    # lu factorization
+ 
     getrf!(H,K.ws)
     if K.ws.info[] == 0     # lu decomposition is successful
         # @. u = ds
@@ -308,8 +307,6 @@ function higher_correction!(
         return nothing
     end
 
-
-    # memory allocation
     η[2] = one(T)
     η[3] = -z[1]/z[3]    # gradient of ψ
     η[1] = logsafe(η[3])
@@ -410,7 +407,7 @@ function update_grad_HBFGS(
     end
 
     # compute zt,st,μt locally
-    # YC: note the definitions of zt,st have a sign difference compared to the Mosek's paper
+    # NB: zt,st have different sign conventiion w.r.t to Mosek paper
 
     # use the dual scaling
     if scaling_strategy == Dual
@@ -454,3 +451,4 @@ function update_grad_HBFGS(
         return nothing
     end
 end
+

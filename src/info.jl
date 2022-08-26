@@ -84,24 +84,22 @@ function info_check_termination!(
         end
     end
 
-    # YC: Terminate early when residuals diverge
-    if iter > 0 && (info.res_dual > info.prev_res_dual || info.res_primal > info.prev_res_primal)
-        # YC: small ktratio means the algorithm converges but feasibility residuals get stuck due to some numerical issue
-        #PJG: Not sure if this ktratio test is still relevant.
-        if info.ktratio < 100*eps(T) && (info.prev_gap_abs < settings.tol_gap_abs || info.prev_gap_rel < settings.tol_gap_rel)
-            println("Check status : insufficient progress with small ktratio ")
-            info.status = INSUFFICIENT_PROGRESS
-        end
-        # Going backwards. Stop immediately.
-        if (info.res_dual > 100*info.prev_res_dual || info.res_primal > 100*info.prev_res_primal)
-            info.status = NUMERICAL_ERROR
-        end
-    end
 
-
-    #time or iteration limits
+    #poor progress, or time / iteration limits
     #----------------------
     if info.status == UNSOLVED
+
+        # Report poor progress when residuals diverge
+        if iter > 0 && (info.res_dual > info.prev_res_dual || info.res_primal > info.prev_res_primal)
+            #PJG: Not sure if this ktratio test is still relevant.
+            if info.ktratio < 100*eps(T) && (info.prev_gap_abs < settings.tol_gap_abs || info.prev_gap_rel < settings.tol_gap_rel)
+                info.status = INSUFFICIENT_PROGRESS
+            end
+            # Going backwards. Stop immediately.
+            if (info.res_dual > 100*info.prev_res_dual || info.res_primal > 100*info.prev_res_primal)
+                info.status = INSUFFICIENT_PROGRESS
+            end
+        end
 
         if settings.max_iter  == info.iterations
             info.status = MAX_ITERATIONS

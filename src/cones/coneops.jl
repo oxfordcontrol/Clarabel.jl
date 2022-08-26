@@ -86,8 +86,7 @@ function cones_get_WtW_blocks!(
     return nothing
 end
 
-# YC: x = λ ∘ λ for symmetric cone and x = s for asymmetric cones
-
+# x = λ ∘ λ for symmetric cone and x = s for asymmetric cones
 function cones_affine_ds!(
     cones::ConeSet{T},
     x::ConicVector{T},
@@ -226,6 +225,10 @@ function cones_step_length(
 end
 
 # check the distance to the boundary for asymmetric cones
+# PJG: This function should not take DefaultVariables as 
+# input, since the definition is problem dependent.  Instead 
+# it should take only ConicVectors like other functions in 
+# this file
 function check_μ_and_centrality(
     cones::ConeSet{T},
     step::DefaultVariables{T},

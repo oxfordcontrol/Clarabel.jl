@@ -212,7 +212,7 @@ function solve!(
 
             if isdone
                if (scaling_strategy == PrimalDual::ScalingStrategy &&
-                  (s.info.status == INSUFFICIENT_PROGRESS || s.info.status == NUMERICAL_ERROR)
+                  (s.info.status == INSUFFICIENT_PROGRESS )
                )
                     #recover old iterate if using an aggressive strategy and failing to progress
                     info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)

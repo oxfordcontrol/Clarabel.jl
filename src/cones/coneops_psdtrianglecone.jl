@@ -367,7 +367,7 @@ function _step_length_psd_component(
     M = Symmetric(Λisqrt*Δ*Λisqrt)
 
     γ = eigvals(M,1:1)[1] #minimum eigenvalue
-    if γ < 0 
+    if γ < 0
         return min(inv(-γ),αmax)
     else
         return αmax
