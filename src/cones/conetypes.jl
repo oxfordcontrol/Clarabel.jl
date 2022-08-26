@@ -245,7 +245,10 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
     grad_work::Vector{T}
     vec_work::Vector{T}
     z::Vector{T}            # temporary storage for current z
+
+    #PJG: only one of these is needed
     ws::LuBlasWorkspace{T}
+    cholL::Matrix{T}
 
     function ExponentialCone{T}() where {T}
 
@@ -260,7 +263,10 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
         z = Vector{T}(undef,3)
         ws = LuBlasWorkspace{T}(3)
 
-        return new(H,Hsym,grad,HBFGS,HBFGSsym,grad_work,vec_work,z,ws)
+        cholL = zeros(T,3,3)
+
+
+        return new(H,Hsym,grad,HBFGS,HBFGSsym,grad_work,vec_work,z,ws,cholL)
     end
 end
 
