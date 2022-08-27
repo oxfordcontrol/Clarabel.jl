@@ -26,7 +26,7 @@ function update_scaling!(
     # update both gradient and Hessian for function f*(z) at the point z
     # NB: the update order can't be switched as we reuse memory in the 
     # Hessian update
-    update_grad_HBFGS(K,s,z,scaling_strategy)
+    update_grad_HBFGS(K,s,z,μ,scaling_strategy)
 
     # K.z .= z
     @inbounds for i = 1:3
@@ -376,6 +376,7 @@ function update_grad_HBFGS(
     K::PowerCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
+    μ::T,
     scaling_strategy::ScalingStrategy
 ) where {T}
     # reuse memory
@@ -507,6 +508,7 @@ end
 #     K::PowerCone{T},
 #     s::AbstractVector{T},
 #     z::AbstractVector{T},
+#     μ::T,
 #     scaling_strategy::ScalingStrategy
 # ) where {T}
 #     # reuse memory

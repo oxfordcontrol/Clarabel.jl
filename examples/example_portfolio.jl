@@ -5,8 +5,8 @@ using Clarabel
 
 ## generate the data
 rng = Random.MersenneTwister(1)
-k = 5; # number of factors
-n = k * 10; # number of assets
+k = 50; # number of factors
+n = k * 100; # number of assets
 D = spdiagm(0 => rand(rng, n) .* sqrt(k))
 F = sprandn(rng, n, k, 0.5); # factor loading matrix
 μ = (3 .+ 9. * rand(rng, n)) / 100. # expected returns between 3% - 12%
@@ -33,7 +33,7 @@ model = JuMP.Model(Clarabel.Optimizer)
 set_optimizer_attribute(model, "direct_solve_method", :qdldl)
 set_optimizer_attribute(model, "tol_gap_abs", 1e-8)
 set_optimizer_attribute(model, "tol_gap_rel", 1e-8)
-set_optimizer_attribute(model, "verbose", true)
+# set_optimizer_attribute(model, "min_primaldual_step_length", 1e-1)
 
 @variable(model, x[1:n])
 @variable(model, y[1:k])   #this is never used in the model?
