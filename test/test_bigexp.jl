@@ -85,7 +85,7 @@ end
 
 function run(index)
 
-    verbosity = false        
+    verbosity = true        
     maxiter     = 100
 
     model_clarabel = exp_model(index; optimizer = Clarabel.Optimizer) 
