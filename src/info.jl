@@ -31,10 +31,10 @@ function info_update!(
     info.res_primal  = scaled_norm(einv,residuals.rz) * τinv / max(one(T), data.normb + normx + norms)
     info.res_dual    = scaled_norm(dinv,residuals.rx) * τinv / max(one(T), data.normq + normx + normz)
 
-
     #primal and dual infeasibility residuals.   Need to invert the equilibration
-    info.res_primal_inf = scaled_norm(dinv,residuals.rx_inf)
-    info.res_dual_inf   = max(scaled_norm(dinv,residuals.Px),scaled_norm(einv,residuals.rz_inf))
+    info.res_primal_inf = scaled_norm(dinv,residuals.rx_inf) / max(one(T), normz)
+    info.res_dual_inf   = max(scaled_norm(dinv,residuals.Px) / max(one(T), normx),
+                              scaled_norm(einv,residuals.rz_inf) / max(one(T), normx + norms))
 
     #absolute and relative gaps
     info.gap_abs    = abs(info.cost_primal - info.cost_dual)
