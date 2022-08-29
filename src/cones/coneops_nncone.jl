@@ -106,7 +106,7 @@ function shift_to_cone!(
 ) where{T}
 
     α = minimum(z)
-    if(α < eps(T))
+    if(α < sqrt(eps(T)))
         #done in two stages since otherwise (1-α) = -α for
         #large α, which makes z exactly 0. (or worse, -0.0 )
         add_scaled_e!(K,z,-α)

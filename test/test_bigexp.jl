@@ -89,7 +89,6 @@ function run(index)
     maxiter     = 100
 
     model_clarabel = exp_model(index; optimizer = Clarabel.Optimizer) 
-    #model_ecos = exp_model(index; optimizer = ECOS.Optimizer) 
     set_optimizer_attribute(model_clarabel, "verbose", verbosity)
     set_optimizer_attribute(model_clarabel, "max_iter", maxiter)
     set_optimizer_attribute(model_clarabel, "equilibrate_enable", true)
@@ -97,13 +96,14 @@ function run(index)
     set_optimizer_attribute(model_clarabel, "static_regularization_proportional",eps()^(2))  #disables it?
     set_optimizer_attribute(model_clarabel, "linesearch_backtrack_step",0.80)  #matches ECOS
     set_optimizer_attribute(model_clarabel, "max_step_fraction",0.99);  #default 0.99
-    set_optimizer_attribute(model_clarabel, "min_primaldual_step_length", 0.01)
+    set_optimizer_attribute(model_clarabel, "min_primaldual_step_length", 0.2)
     set_optimizer_attribute(model_clarabel, "static_regularization_enable",true)
     set_optimizer_attribute(model_clarabel, "direct_solve_method",:qdldl)
     set_optimizer_attribute(model_clarabel, "iterative_refinement_reltol",1e-8 )   #default 1e-8
     set_optimizer_attribute(model_clarabel, "iterative_refinement_abstol",1e-10)  #default 1e-10
     optimize!(model_clarabel) 
 
+    #model_ecos = exp_model(index; optimizer = ECOS.Optimizer) 
     #set_optimizer_attribute(model_ecos, "verbose", verbosity)
     #set_optimizer_attribute(model_ecos, "maxit", maxiter)
     #optimize!(model_ecos) 
@@ -112,7 +112,7 @@ function run(index)
     #println(solution_summary(model_ecos))
 
     solver = model_clarabel.moi_backend.optimizer.model.optimizer.inner
-    return model_clarabel#, model_ecos
+    return model_clarabel  #model_ecos
 end
 
 function run_all()
@@ -130,14 +130,14 @@ function run_all()
     for i = 1:length(status_c)
         @printf("%i:  Clarabel: status %s.\t Iterations: %i. \t time: %e\n", 
         i, status_c[i].termination_status,status_c[i].barrier_iterations,status_c[i].solve_time)
-       # @printf("%i:  ECOS    : status %s.\t Iterations: %i. \t time: %e\n", 
-       # i, status_e[i].termination_status,status_e[i].barrier_iterations,status_e[i].solve_time)
-       # println()
+       #@printf("%i:  ECOS    : status %s.\t Iterations: %i. \t time: %e\n", 
+       #i, status_e[i].termination_status,status_e[i].barrier_iterations,status_e[i].solve_time)
+       #println()
     end
     println("Clarabel iterations : ", sum(i->status_c[i].barrier_iterations,1:32))
     println("Clarabel time       : ", StatsBase.geomean(map(i->status_c[i].solve_time,1:32)))
     #println("ECOS iterations     : ", sum(i->status_e[i].barrier_iterations,1:32))
-    #sprintln("ECOS time           : ", StatsBase.geomean(map(i->status_e[i].solve_time,1:32)))
+    #println("ECOS time           : ", StatsBase.geomean(map(i->status_e[i].solve_time,1:32)))
 
 end
 

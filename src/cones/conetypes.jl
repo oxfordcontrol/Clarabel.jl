@@ -150,84 +150,6 @@ end
 PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 
 
-#####################################
-# LAPACK Implementation
-#####################################
-import LinearAlgebra.BLAS
-import LinearAlgebra.BLAS.@blasfunc
-using Base: iszero, require_one_based_indexing
-using LinearAlgebra: chkstride1, checksquare
-# For LU decomposition
-const DGETRF_ = (BLAS.@blasfunc(dgetrf_),Base.liblapack_name)
-const DGETRS_ = (BLAS.@blasfunc(dgetrs_),Base.liblapack_name)
-
-mutable struct LuBlasWorkspace{T}
-    dim::Int64
-    ipiv::Vector{BLAS.BlasInt}
-    info::Base.RefValue{BLAS.BlasInt}
-
-    function LuBlasWorkspace{T}(n::Int64) where {T <: AbstractFloat}
-
-        #workspace data for BLAS
-        dim = n
-        ipiv = Vector{BLAS.BlasInt}(undef,n)
-        info  = Ref{BLAS.BlasInt}()
-
-        new(dim,ipiv,info)
-    end
-end
-
-(getrf, getrs, elty) = (:DGETRF_, :DGETRS_, :Float64)
-
-@eval begin
-    # SUBROUTINE DGETRF( M, N, A, LDA, IPIV, INFO )
-    # *     .. Scalar Arguments ..
-    #       INTEGER            INFO, LDA, M, N
-    # *     .. Array Arguments ..
-    #       INTEGER            IPIV( * )
-    #       DOUBLE PRECISION   A( LDA, * )
-
-    function getrf!(A::AbstractMatrix{$elty},ws::LuBlasWorkspace{$elty})
-        require_one_based_indexing(A)
-        chkstride1(A)
-        n = ws.dim
-        lda  = max(1,stride(A, 2))
-        ipiv = ws.ipiv
-        info = ws.info
-        ccall($getrf, Cvoid,
-                (Ref{BLAS.BlasInt}, Ref{BLAS.BlasInt}, Ptr{$elty},
-                Ref{BLAS.BlasInt}, Ptr{BLAS.BlasInt}, Ptr{BLAS.BlasInt}),
-                n, n, A, lda, ipiv, info)
-        LAPACK.chkargsok(info[])
-
-    end
-
-    ########################################
-    #compute the inverse of a LU factorization
-    ########################################
-
-    #     SUBROUTINE DGETRS( TRANS, N, NRHS, A, LDA, IPIV, B, LDB, INFO )
-    #*     .. Scalar Arguments ..
-    #      CHARACTER          TRANS
-    #      INTEGER            INFO, LDA, LDB, N, NRHS
-    #     .. Array Arguments ..
-    #      INTEGER            IPIV( * )
-    #      DOUBLE PRECISION   A( LDA, * ), B( LDB, * )
-    function getrs!(A::AbstractMatrix{$elty}, ws::LuBlasWorkspace{$elty}, B::AbstractVecOrMat{$elty})
-        trans = 'N'
-        ipiv = ws.ipiv
-        require_one_based_indexing(A, ipiv, B)
-        chkstride1(A, B, ipiv)
-        n = ws.dim
-        info = ws.info
-        ccall($getrs, Cvoid,
-                (Ref{UInt8}, Ref{BLAS.BlasInt}, Ref{BLAS.BlasInt}, Ptr{$elty}, Ref{BLAS.BlasInt},
-                Ptr{BLAS.BlasInt}, Ptr{$elty}, Ref{BLAS.BlasInt}, Ptr{BLAS.BlasInt}, Clong),
-                trans, n, size(B,2), A, max(1,stride(A,2)), ipiv, B, max(1,stride(B,2)), info, 1)
-        LAPACK.chklapackerror(info[])
-    end
-end
-
 # ------------------------------------
 # Exponential Cone
 # ------------------------------------
@@ -245,7 +167,8 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
     grad_work::Vector{T}
     vec_work::Vector{T}
     z::Vector{T}            # temporary storage for current z
-    ws::LuBlasWorkspace{T}
+
+    cholH::Matrix{T}
 
     function ExponentialCone{T}() where {T}
 
@@ -258,9 +181,10 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
         grad_work = Vector{T}(undef,3)
         vec_work = Vector{T}(undef,3)
         z = Vector{T}(undef,3)
-        ws = LuBlasWorkspace{T}(3)
+        cholH = zeros(T,3,3)
 
-        return new(H,Hsym,grad,HBFGS,HBFGSsym,grad_work,vec_work,z,ws)
+
+        return new(H,Hsym,grad,HBFGS,HBFGSsym,grad_work,vec_work,z,cholH)
     end
 end
 
@@ -283,7 +207,7 @@ mutable struct PowerCone{T} <: AbstractCone{T}
     vec_work::Vector{T}
     vec_work_2::Vector{T}
     z::Vector{T}            # temporary storage for current z
-    ws::LuBlasWorkspace{T}
+    cholH::Matrix{T} 
 
     function PowerCone{T}(α::T) where {T}
 
@@ -294,9 +218,9 @@ mutable struct PowerCone{T} <: AbstractCone{T}
         vec_work = Vector{T}(undef,3)
         vec_work_2 = Vector{T}(undef,3)
         z = Vector{T}(undef,3)
-        ws = LuBlasWorkspace{T}(3)
+        cholH = zeros(T,3,3)
         
-        return new(α,H,grad,HBFGS,grad_work,vec_work,vec_work_2,z,ws)
+        return new(α,H,grad,HBFGS,grad_work,vec_work,vec_work_2,z,cholH)
     end
 end
 

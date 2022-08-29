@@ -306,6 +306,58 @@ end
 
 
 #------------------------------
+# special methods for solving 3x3 positive definite systems 
+#------------------------------
+
+
+# Unrolled 3x3 cholesky decomposition without pivoting 
+# Returns `false` for a non-positive pivot and the 
+# factorization is not completed
+#
+# NB: this is only marginally slower than the explicit
+# 3x3 LDL decomposition, which would avoid sqrts.  
+
+function cholesky_3x3_explicit_factor!(L,A)
+
+    t = A[1,1]
+
+    if t <= 0; return false; end
+
+    L[1,1] = sqrt(A[1,1])
+    L[2,1] = A[2,1]/L[1,1]
+
+    t = A[2,2] - L[2,1]*L[2,1]
+
+    if(t <= 0); return false; end
+
+    L[2,2] = sqrt(t);
+    L[3,1] = A[3,1] / L[1,1]
+    L[3,2] = (A[3,2] - L[2,1]*L[3,1]) / L[2,2]
+
+    t = A[3,3] - L[3,1]*L[3,1] - L[3,2]*L[3,2]
+
+    if(t <= 0); return false; end
+    L[3,3] = sqrt(t)
+
+    return true
+
+end
+
+# Unrolled 3x3 forward/backward substition for a Cholesky factor
+
+function cholesky_3x3_explicit_solve!(x,L,b)
+
+  c1 = b[1]/L[1,1]
+  c2 = (b[2]*L[1,1] - b[1]*L[2,1])/(L[1,1]*L[2,2])
+  c3 = (b[3]*L[1,1]*L[2,2] - b[2]*L[1,1]*L[3,2] + b[1]*L[2,1]*L[3,2] - b[1]*L[2,2]*L[3,1])/(L[1,1]*L[2,2]*L[3,3])
+
+ 
+ x[1] = (c1*L[2,2]*L[3,3] - c2*L[2,1]*L[3,3] + c3*L[2,1]*L[3,2] - c3*L[2,2]*L[3,1])/(L[1,1]*L[2,2]*L[3,3])
+ x[2] = (c2*L[3,3] - c3*L[3,2])/(L[2,2]*L[3,3])
+ x[3] = c3/L[3,3]
+end
+
+#------------------------------
 # methods and types for indexing into the upper triangle of a square matrix
 #------------------------------
 
