@@ -23,9 +23,10 @@ function update_scaling!(
     μ::T,
     scaling_strategy::ScalingStrategy
 ) where {T}
+
     # update both gradient and Hessian for function f*(z) at the point z
-    # NB: the update order can't be switched as we reuse memory in the Hessian computation
-    # Hessian update
+    # NB: the update order can't be switched as we reuse memory in the 
+    # Hessian computation Hessian update
     update_grad_HBFGS(K,s,z,μ,scaling_strategy)
 
     # K.z .= z
@@ -34,7 +35,7 @@ function update_scaling!(
     end
 end
 
-# return μH*(z) for exponetial cone
+# return μH*(z) for exponential cone
 function get_WtW_block!(
     K::ExponentialCone{T},
     WtWblock::AbstractVector{T}
@@ -87,7 +88,9 @@ function combined_ds!(
     σμ::T
 ) where {T}
     η = K.grad_work
-    higher_correction!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
+
+    #3rd order correction requires input variables.z
+    higher_correction!(K,η,step_s,step_z)             
 
     @inbounds for i = 1:3
         dz[i] = K.grad[i]*σμ - η[i]
@@ -129,7 +132,7 @@ function WtW_Δz!(
 
 end
 
-#return maximum allowable step length while remaining in the exponential cone
+#return maximum step length while staying in exponential cone
 function step_length(
     K::ExponentialCone{T},
     dz::AbstractVector{T},
@@ -148,11 +151,15 @@ function step_length(
     return (αz,αs)
 end
 
-###############################################
+# -----------------------------------------
 # Basic operations for exponential Cones
+#
 # Primal exponential cone: s3 ≥ s2*e^(s1/s2), s3,s2 > 0
 # Dual exponential cone: z3 ≥ -z1*e^(z2/z1 - 1), z3 > 0, z1 < 0
-# As in ECOS, we use the dual barrier function: f*(z) = -log(z2 - z1 - z1*log(z3/-z1)) - log(-z1) - log(z3):
+# We use the dual barrier function: 
+# f*(z) = -log(z2 - z1 - z1*log(z3/-z1)) - log(-z1) - log(z3)
+# -----------------------------------------
+
 
 function compute_centrality(
     K::ExponentialCone{T},
@@ -166,8 +173,10 @@ function compute_centrality(
     l = logsafe(-z[3]/z[1])
     barrier += -logsafe(-z[3]*z[1]) - logsafe(z[2]-z[1]-z[1]*l) 
 
-    # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
-    # f(s) = -2*log(s2) - log(s3) - log((1-barω)^2/barω) - 3, where barω = ω(1 - s1/s2 - log(s2) - log(s3))
+    # Primal barrier: 
+    # f(s) = ⟨s,g(s)⟩ - f*(-g(s))
+    #      = -2*log(s2) - log(s3) - log((1-barω)^2/barω) - 3, 
+    # where barω = ω(1 - s1/s2 - log(s2) - log(s3))
     # NB: ⟨s,g(s)⟩ = -3 = - ν
     o = wright_omega(1-s[1]/s[2]-logsafe(s[2]/s[3]))
     o = (o-1)*(o-1)/o
@@ -209,77 +218,84 @@ function gradient_primal(
     g::AbstractVector{T}
 ) where {T}
 
-    o = wright_omega(1-s[1]/s[2]-logsafe(s[2]/s[3]))
+    ω = wright_omega(1-s[1]/s[2]-logsafe(s[2]/s[3]))
 
-    g[1] = one(T)/((o-1)*s[2])
-    g[2] = g[1] + g[1]*logsafe(o*s[2]/s[3]) - one(T)/s[2]
-    g[3] = o/((one(T) - o)*s[3])
+    g[1] = one(T)/((ω-1)*s[2])
+    g[2] = g[1] + g[1]*logsafe(ω*s[2]/s[3]) - one(T)/s[2]
+    g[3] = ω/((one(T) - ω)*s[3])
 
 end
 
 # ω(z) is the Wright-Omega function
 # Computes the value ω(z) defined as the solution y to
-# the equation y+log(y) = z ONLY FOR z real and z>=1.
-# NB::the code follows the ECOS solver, which comes from Santiago's thesis,
-# "Algorithms for Unsymmetric Cone Optimization and an Implementation for Problems with the Exponential Cone"
+# y+log(y) = z ONLY FOR z real and z>=1.
+#
+# Follows Algorithm 4, §8.4 of thesis of Santiago Serrango:
+#  Algorithms for Unsymmetric Cone Optimization and an
+#  Implementation for Problems with the Exponential Cone 
+#  https://web.stanford.edu/group/SOL/dissertations/ThesisAkleAdobe-augmented.pdf
 function wright_omega(z::T) where {T}
-    w  = zero(T);
-    r  = zero(T);
-    q  = zero(T);
-    zi = zero(T);
 
-	if(z< zero(T))
-        throw(error("β not in supported range", z)); #Fail if the input is not supported
+ 	if(z< zero(T))
+        throw(error("argument not in supported range", z)); 
     end
 
-	if(z<one(T)+π)      #If z is between 0 and 1+π
-        q = z-1;
-        r = q;
-        w = 1+0.5*r;
-        r *= q;
-        w += 1/16.0*r;
-        r *= q;
-        w -= 1/192.0*r;
-        r *= q;
-        w -= 1/3072.0*q;
-        r *= q;                 #(z-1)^5
-        w += 13/61440.0*q;
+	if(z<one(T)+π)      
         #Initialize with the taylor series
+        p = z-1            #(z-1)
+        w = 1+0.5*p
+        p *= (z-1)         #(z-1)^2
+        w += (1/16.0)*p
+        p *= (z-1)          #(z-1)^3
+        w -= (1/192.0)*p
+        p *= (z-1)          #(z-1)^4
+        w -= (1/3072.0)*p
+        p *= (z-1)          #(z-1)^5
+        w += (13/61440.0)*p
     else
-        r = logsafe(z);
-        q = r;
-        zi  = one(T)/z;
-        w = z-r;
-        q = r*zi;
-        w += q;
-        q = q*zi;
-        w += q*(0.5*r-1);
-        q = q*zi;
-        w += q*(1/3.0*r*r-3.0/2.0*r+1);
-        # Initialize with w(z) = z-r+r/z^2(r/2-1)+r/z^3(1/3ln^2z-3/2r+1)
+        # Initialize with:
+        # w(z) = z - log(z) + 
+        #        log(z)/z + 
+        #        log(z)/z^2(log(z)/2-1) + 
+        #        log(z)/z^3(1/3log(z)^2-3/2log(z)+1)
+
+        logz = logsafe(z)
+        zinv = inv(z)
+        w = z - logz
+
+        # add log(z)/z 
+        q = logz*zinv  # log(z)/z 
+        w += q
+
+        # add log(z)/z^2(log(z)/2-1
+        q *= zinv      # log(z)/(z^2) 
+        w += q * (logz/2 - 1)
+
+        # add log(z)/z^3(1/3log(z)^2-3/2log(z)+1)
+        q * zinv       # log(z)/(z^3) 
+        w += q * (logz*logz/3 - (3/2)*logz + 1)
+
     end
 
     # FSC iteration
-    # Initialize the residual
-    r = z-w-logsafe(w);
 
-    z = (1+w);
-    q = z+2/3.0*r;
-    w *= 1+r/z*(z*q-0.5*r)/(z*q-r);
-    r = (2*w*w-8*w-1)/(72.0*(z*z*z*z*z*z))*r*r*r*r;
-    # Check residual
-    # if(r<1.e-16) return w;
-    # Just do two rounds
-    z = (1+w);
-    q = z+2/3.0*r;
-    w *= 1+r/z*(z*q-0.5*r)/(z*q-r);
-    r = (2*w*w-8*w-1)/(72.0*(z*z*z*z*z*z))*r*r*r*r;
+    # Initialize the residual
+    r = z - w - logsafe(w)
+
+    # Santiago suggests two refinement iterations only
+    for i = 1:2
+        wp1 = (1+w)
+        t = wp1 * (wp1 + (2. * r)/3.0 )
+        w *= 1 + (r/wp1) * ( t - 0.5 * r) / (t - r)
+        r = (2*w*w-8*w-1)/(72.0*(wp1*wp1*wp1*wp1*wp1*wp1))*r*r*r*r
+    end 
 
     return w;
 end
 
-# 3rd-order correction at the point z, w.r.t. directions u,v and then save it to η
-# NB: not so effective at present
+# 3rd-order correction at the point z, 
+# w.r.t. directions u,v and then save it to η
+
 function higher_correction!(
     K::ExponentialCone{T},
     η::AbstractVector{T},
@@ -341,14 +357,15 @@ function higher_correction!(
 end
 
 
-######################################
+#-------------------------------------
 # primal-dual scaling
-######################################
+#-------------------------------------
 
 # Implementation sketch
-# 1) only need to replace μH by W⊤W,
-#   where W⊤W is the primal-dual scaling matrix generated by BFGS, i.e. W⊤W*[z,̃z] = [s,̃s]
-#   ̃z = -f'(s), ̃s = - f*'(z)
+# 1) only need to replace μH by W^TW, where
+#    W^TW is the primal-dual scaling matrix 
+#    generated by BFGS, i.e. W⊤W*[z,̃z] = [s,̃s]
+#   \tilde z = -f'(s), \tilde s = - f*'(z)
 
 
 # update the gradient and the HBFGS
@@ -426,7 +443,7 @@ function update_grad_HBFGS(
     de1 = μ*μt-1
     de2 = dot(zt,H,zt) - 3*μt*μt
 
-    if iszero(de1)
+    if !(abs(de1) > eps(T) && abs(de2) > eps(T))
         # HBFGS when s,z are on the central path
         @inbounds for i = 1:3
             @inbounds for j = 1:3
@@ -478,101 +495,3 @@ function update_grad_HBFGS(
         return nothing
     end
 end
-
-# Previous update for the gradient and the HBFGS
-# function update_grad_HBFGS(
-#     K::ExponentialCone{T},
-#     s::AbstractVector{T},
-#     z::AbstractVector{T},
-#     μ::T,
-#     scaling_strategy::ScalingStrategy
-# ) where {T}
-#     # reuse memory
-#     st = K.grad
-#     zt = K.vec_work
-#     δs = K.grad_work
-#     tmp = K.z
-#     H = K.H
-#     HBFGS = K.HBFGS
-
-#     # Hessian computation, compute μ locally
-#     l = logsafe(-z[3]/z[1])
-#     r = -z[1]*l-z[1]+z[2]
-
-#     # compute the gradient at z
-#     # gradient_f(K,z,st)  #st (K.grad) is indeed the gradient at z
-#     c2 = one(T)/r
-
-#     st[1] = c2*l - 1/z[1]
-#     st[2] = -c2
-#     st[3] = (c2*z[1]-1)/z[3]
-
-#     # compute_Hessian(K,z,H)
-#     H[1,1] = ((r*r-z[1]*r+l*l*z[1]*z[1])/(r*z[1]*z[1]*r))
-#     H[1,2] = (-l/(r*r))
-#     H[2,1] = H[1,2]
-#     H[2,2] = (1/(r*r))
-#     H[1,3] = ((z[2]-z[1])/(r*r*z[3]))
-#     H[3,1] = H[1,3]
-#     H[2,3] = (-z[1]/(r*r*z[3]))
-#     H[3,2] = H[2,3]
-#     H[3,3] = ((r*r-z[1]*r+z[1]*z[1])/(r*r*z[3]*z[3]))    
-
-#     #Use the local mu with primal dual strategy.  Otherwise 
-#     #we use the global one 
-#     if(scaling_strategy == PrimalDual::ScalingStrategy)
-#         μ = dot(z,s)/3
-#     end 
-
-#     # HBFGS .= μ*H
-#     @inbounds for i = 1:3
-#         @inbounds for j = 1:3
-#             HBFGS[i,j] = μ*H[i,j]
-#         end
-#     end
-
-#     # compute zt,st,μt locally
-#     # NB: zt,st have different sign conventiion w.r.t to Mosek paper
-
-#     # use the dual scaling
-#     if scaling_strategy == Dual
-#         return nothing
-#     end
-#     gradient_primal(K,s,zt)
- 
-    
-#     μt = dot(zt,st)/3
-
-#     # δs = s + μ*st
-#     # δz = z + μ*zt
-#     @inbounds for i = 1:3
-#         δs[i] = s[i] + μ*st[i]
-#     end
-
-#     de1 = μ*μt-1
-#     de2 = dot(zt,H,zt) - 3*μt*μt
-
-#     if (de1 > eps(T) && de2 > eps(T))
-#         # tmp = μt*st - H*zt
-#         @inbounds for i = 1:3
-#             tmp[i] = μt*st[i] - H[i,1]*zt[1] - H[i,2]*zt[2] - H[i,3]*zt[3]
-#         end
-
-#         # store (s - μ*st + δs/de1) into zt
-#         @inbounds for i = 1:3
-#             zt[i] = s[i] - μ*st[i] + δs[i]/de1
-#         end
-
-#         # Hessian HBFGS:= μ*H + 1/(2*μ*3)*δs*(s - μ*st + δs/de1)' + 1/(2*μ*3)*(s - μ*st + δs/de1)*δs' - μ/de2*tmp*tmp'
-#         coef1 = 1/(2*μ*3)
-#         coef2 = μ/de2
-#         # HBFGS .+= coef1*δs*zt' + coef1*zt*δs' - coef2*tmp*tmp'
-#         @inbounds for i = 1:3
-#             @inbounds for j = 1:3
-#                 HBFGS[i,j] += coef1*δs[i]*zt[j] + coef1*zt[i]*δs[j] - coef2*tmp[i]*tmp[j]
-#             end
-#         end
-#     else
-#         return nothing
-#     end
-# end

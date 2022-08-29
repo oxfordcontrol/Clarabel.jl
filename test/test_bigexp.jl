@@ -96,7 +96,7 @@ function run(index)
     set_optimizer_attribute(model_clarabel, "static_regularization_proportional",eps()^(2))  #disables it?
     set_optimizer_attribute(model_clarabel, "linesearch_backtrack_step",0.80)  #matches ECOS
     set_optimizer_attribute(model_clarabel, "max_step_fraction",0.99);  #default 0.99
-    set_optimizer_attribute(model_clarabel, "min_primaldual_step_length", 0.01)
+    set_optimizer_attribute(model_clarabel, "min_primaldual_step_length", 0.2)
     set_optimizer_attribute(model_clarabel, "static_regularization_enable",true)
     set_optimizer_attribute(model_clarabel, "direct_solve_method",:qdldl)
     set_optimizer_attribute(model_clarabel, "iterative_refinement_reltol",1e-8 )   #default 1e-8
@@ -112,7 +112,7 @@ function run(index)
     #println(solution_summary(model_ecos))
 
     solver = model_clarabel.moi_backend.optimizer.model.optimizer.inner
-    return model_clarabel  #, model_ecos
+    return model_clarabel  #model_ecos
 end
 
 function run_all()
@@ -120,7 +120,7 @@ function run_all()
     status_c = []
     status_e = [] 
     for i = 1:32
-        model_c #= run(i)
+        model_c = run(i)
         push!(status_c,solution_summary(model_c))
         #push!(status_e,solution_summary(model_e))
         @printf("%i ",i)
