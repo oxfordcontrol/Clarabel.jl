@@ -80,7 +80,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     #cones and line search parameters 
     linesearch_backtrack_step::T        = 0.8     #PJG: Add to docs
-    min_primaldual_step_length          = 1e-2    #PJG: disable PD step at this length
+    min_primaldual_step_length          = 1e-1    #PJG: disable PD step at this length
     min_dual_step_length                = 1e-4    #PJG: disable PD step at this length
 
     #the direct linear solver to use

@@ -211,17 +211,22 @@ function solve!(
             @notimeit info_print_status(s.info,s.settings)
 
             if isdone
-               if (scaling_strategy == PrimalDual::ScalingStrategy &&
+                if (scaling_strategy == PrimalDual::ScalingStrategy &&
                   (s.info.status == INSUFFICIENT_PROGRESS )
-               )
+                )
                     #recover old iterate if using an aggressive strategy and failing to progress
                     info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
                     scaling_strategy = Dual::ScalingStrategy
                     s.info.status = UNSOLVED
                     continue
-               else
+                else
+                    #return old iterate if primal-dual residuals become worse than before 
+                    if s.info.status == INSUFFICIENT_PROGRESS   
+                        info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
+                    end
+
                     break
-               end
+                end
             end
 
             iter += 1
