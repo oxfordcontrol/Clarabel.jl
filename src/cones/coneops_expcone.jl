@@ -237,7 +237,7 @@ end
 function wright_omega(z::T) where {T}
 
  	if(z< zero(T))
-        throw(error("argument not in supported range", z)); 
+        throw(error("argument not in supported range : ", z)); 
     end
 
 	if(z<one(T)+π)      
