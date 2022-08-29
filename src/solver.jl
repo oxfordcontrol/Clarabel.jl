@@ -183,11 +183,8 @@ function solve!(
         # main loop
         #----------
 
-        if(cones_is_symmetric(s.cones))
-            scaling_strategy = Dual::ScalingStrategy
-        else
-            scaling_strategy = PrimalDual::ScalingStrategy
-        end
+        # Initialize the scaling strategy to be PrimalDual
+        scaling_strategy = PrimalDual::ScalingStrategy
 
         while true
 
@@ -211,16 +208,18 @@ function solve!(
             @notimeit info_print_status(s.info,s.settings)
 
             if isdone
-                if (scaling_strategy == PrimalDual::ScalingStrategy &&
-                  (s.info.status == INSUFFICIENT_PROGRESS )
-                )
+                # If there are some asymmetric cones
+                if !cones_is_symmetric(s.cones) &&
+                    (scaling_strategy == PrimalDual::ScalingStrategy) &&
+                    (s.info.status == INSUFFICIENT_PROGRESS )
+                
                     #recover old iterate if using an aggressive strategy and failing to progress
                     info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
                     scaling_strategy = Dual::ScalingStrategy
                     s.info.status = UNSOLVED
                     continue
                 else
-                    #return old iterate if primal-dual residuals become worse than before 
+                    #return old iterate if primal-dual residuals worsen
                     if s.info.status == INSUFFICIENT_PROGRESS   
                         info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
                     end
@@ -291,10 +290,12 @@ function solve!(
             if !is_kkt_solve_success
                 # save scalars indicating no step
                 info_save_scalars(s.info,μ,zero(T),one(T),iter)
-                if scaling_strategy == PrimalDual::ScalingStrategy
+                if (!cones_is_symmetric(s.cones) &&
+                    scaling_strategy == PrimalDual::ScalingStrategy)
+
                     scaling_strategy = Dual::ScalingStrategy
                     continue
-                elseif scaling_strategy == Dual::ScalingStrategy
+                else
                     #out of tricks.  Bail out with an error
                     s.info.status = NUMERICAL_ERROR
                     break
@@ -308,15 +309,15 @@ function solve!(
                 s.cones,s.settings, :combined, scaling_strategy
             )
 
-            if scaling_strategy == PrimalDual::ScalingStrategy &&
-                α < s.settings.min_primaldual_step_length
-                   scaling_strategy = Dual
+            if !cones_is_symmetric(s.cones) &&
+                scaling_strategy == PrimalDual::ScalingStrategy &&
+                α < s.settings.min_switch_step_length
+                   scaling_strategy = Dual::ScalingStrategy
                    info_save_scalars(s.info,μ,zero(T),one(T),iter)
                    continue
 
 
-            elseif scaling_strategy == Dual::ScalingStrategy &&
-                α < s.settings.min_dual_step_length
+            elseif α < s.settings.min_terminate_step_length
                     s.info.status = INSUFFICIENT_PROGRESS
                     # save scalars indicating no step
                     info_save_scalars(s.info,μ,zero(T),one(T),iter)

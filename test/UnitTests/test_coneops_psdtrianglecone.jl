@@ -145,7 +145,8 @@ FloatT = Float64
         map((v,M)->Clarabel._mat_to_svec!(v,M,K),(s,z),(S,Z))
 
         μ = 0.0 #placeholder value, not used
-        Clarabel.update_scaling!(K,s,z,μ)
+        strategy = Clarabel.PrimalDual
+        Clarabel.update_scaling!(K,s,z,μ,strategy)
 
         f = K.work
         R = f.R
@@ -164,6 +165,7 @@ FloatT = Float64
 
         n = 10
         K = Clarabel.PSDTriangleCone(n)
+        settings = Clarabel.Settings{Float64}()
 
         Z = randpsd(rng,n); dZ = randsym(rng,n)
         S = randpsd(rng,n); dS = randsym(rng,n)
@@ -173,27 +175,28 @@ FloatT = Float64
 
         #compute internal scaling required for step calc
         μ = 0.0 #placeholder value, not used
-        Clarabel.update_scaling!(K,s,z,μ)
+        strategy = Clarabel.PrimalDual
+        Clarabel.update_scaling!(K,s,z,μ,strategy)
 
         #Z direction only
-        α = Clarabel.step_length(K,dz,ds.*0.,z,s)[1]
+        α = Clarabel.step_length(K,dz,ds.*0.,z,s,settings,1.0)[1]
         @test minimum(eigvals(Z + α.*dZ)) ≈ 0.  atol = sqrt(eps(FloatT))
 
         #S direction only
-        α = Clarabel.step_length(K,dz.*0,ds,z,s)[2]
+        α = Clarabel.step_length(K,dz.*0,ds,z,s,settings,1.0)[2]
         @test minimum(eigvals(S + α.*dS)) ≈ 0.  atol = sqrt(eps(FloatT))
 
         #joint
-        (αz,αs) = Clarabel.step_length(K,dz,ds,z,s)
+        (αz,αs) = Clarabel.step_length(K,dz,ds,z,s,settings,1.0)
         eZ = eigvals(Z + αz.*dZ)
         eS = eigvals(S + αs.*dS)
         @test minimum([eZ;eS]) ≈ 0.  atol = sqrt(eps(FloatT))
 
-        #unbounded
+        #should reach maximum step 
         dS .= randpsd(rng,n); dZ .= randpsd(rng,n)
         map((v,M)->Clarabel._mat_to_svec!(v,M,K),(ds,dz),(dS,dZ))
-        (αz,αs) = Clarabel.step_length(K,dz,ds,z,s)
-        @test min(αz,αs) ≈ floatmax(FloatT)  rtol = 10*eps(FloatT)
+        (αz,αs) = Clarabel.step_length(K,dz,ds,z,s,settings,1.0)
+        @test min(αz,αs) ≈ 1.0  rtol = 10*eps(FloatT)
 
     end
 
@@ -208,7 +211,8 @@ FloatT = Float64
 
         #compute internal scaling required for step calc
         μ = 0.0 #placeholder value, not used
-        Clarabel.update_scaling!(K,s,z,μ)
+        strategy = Clarabel.PrimalDual
+        Clarabel.update_scaling!(K,s,z,μ,strategy)
 
         #check W^{-T}s = Wz = λ (λ is Diagonal)
         Clarabel.gemv_W!(K,:N,z,v1,one(FloatT),zero(FloatT)) #v1 = Wz
@@ -240,7 +244,8 @@ FloatT = Float64
 
         #compute internal scaling required for step calc
         μ = 0.0 #placeholder value, not used
-        Clarabel.update_scaling!(K,s,z,μ)
+        strategy = Clarabel.PrimalDual
+        Clarabel.update_scaling!(K,s,z,μ,strategy)
 
         R    = K.work.R
         Rinv = K.work.Rinv
