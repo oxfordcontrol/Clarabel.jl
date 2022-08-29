@@ -451,6 +451,7 @@ function update_grad_HBFGS(
     de2 = dot(zt,H,zt) - 3*μt*μt
 
     if !(abs(de1) > eps(T) && abs(de2) > eps(T))
+
         # HBFGS when s,z are on the central path
         @inbounds for i = 1:3
             @inbounds for j = 1:3
