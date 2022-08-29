@@ -219,7 +219,7 @@ function solve!(
                     s.info.status = UNSOLVED
                     continue
                 else
-                    #return old iterate if primal-dual residuals become worse than before 
+                    #return old iterate if primal-dual residuals worsen
                     if s.info.status == INSUFFICIENT_PROGRESS   
                         info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
                     end
