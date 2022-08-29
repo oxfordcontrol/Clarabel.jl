@@ -190,47 +190,9 @@ end
 DefaultProblemData(args...) = DefaultProblemData{DefaultFloat}(args...)
 
 
-# ---------------
-# solver status
-# ---------------
-"""
-    SolverStatus
-An Enum of of possible conditions set by [`solve!`](@ref).
-
-If no call has been made to [`solve!`](@ref), then the `SolverStatus`
-is:
-* `UNSOLVED`: The algorithm has not started.
-
-Otherwise:
-* `SOLVED`              : Solver as terminated with a solution.
-* `PRIMAL_INFEASIBLE`   : Problem is primal infeasible.  Solution returned is a certificate of primal infeasibility.
-* `DUAL_INFEASIBLE`     : Problem is dual infeasible.  Solution returned is a certificate of dual infeasibility.
-* `MAX_ITERATIONS`      : Iteration limit reached before solution or infeasibility certificate found.
-* `MAX_TIME`            : Time limit reached before solution or infeasibility certificate found.
-"""
-@enum SolverStatus begin
-    UNSOLVED           = 0
-    SOLVED
-    ALMOST_SOLVED
-    PRIMAL_INFEASIBLE
-    DUAL_INFEASIBLE
-    MAX_ITERATIONS
-    MAX_TIME
-    NUMERICAL_ERROR
-    INSUFFICIENT_PROGRESS
-end
-
-const SolverStatusDict = Dict(
-    UNSOLVED            =>  "unsolved",
-    SOLVED              =>  "solved",
-    ALMOST_SOLVED       =>  "solved (reduced accuracy)",
-    PRIMAL_INFEASIBLE   =>  "primal infeasible",
-    DUAL_INFEASIBLE     =>  "dual infeasible",
-    MAX_ITERATIONS      =>  "iteration limit",
-    MAX_TIME            =>  "time limit",
-    NUMERICAL_ERROR     =>  "numerical error",
-    INSUFFICIENT_PROGRESS =>  "insufficient progress"
-)
+# ----------------------
+# progress info
+# ----------------------
 
 mutable struct DefaultInfo{T} <: AbstractInfo{T}
 

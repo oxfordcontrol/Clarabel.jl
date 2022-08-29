@@ -59,31 +59,11 @@ function info_check_termination!(
     iter::Int
 ) where {T}
 
-    #optimality
+    info.status = UNSOLVED  #ensure default state to start
+
+    #optimality or infeasibility
     #---------------------
-    info.status = UNSOLVED  #ensure default state
-
-    if( ((info.gap_abs < settings.tol_gap_abs) || (info.gap_rel < settings.tol_gap_rel))
-        && (info.res_primal < settings.tol_feas)
-        && (info.res_dual   < settings.tol_feas)
-    )
-        info.status = SOLVED
-
-    elseif info.ktratio > one(T)
-
-        if (residuals.dot_bz < -settings.tol_infeas_rel) &&
-            (info.res_primal_inf < -settings.tol_infeas_abs*residuals.dot_bz)
-
-            info.status = PRIMAL_INFEASIBLE
-
-        elseif (residuals.dot_qx < -settings.tol_infeas_rel) &&
-                (info.res_dual_inf < -settings.tol_infeas_abs*residuals.dot_qx)
-
-            info.status = DUAL_INFEASIBLE
-
-        end
-    end
-
+    _check_convergence_full(info,residuals,settings)
 
     #poor progress, or time / iteration limits
     #----------------------
@@ -113,6 +93,7 @@ function info_check_termination!(
     #return TRUE if we settled on a final status
     return is_done = info.status != UNSOLVED
 end
+
 
 function info_save_prev_iterate(
     info::DefaultInfo{T},
@@ -197,8 +178,126 @@ end
 
 function info_finalize!(
     info::DefaultInfo{T},
+    residuals::DefaultResiduals{T},
+    settings::Settings{T},
     timers::TimerOutput
 ) where {T}
+
+    # if there was an error or we ran out 
+    # or time or iterations, check for partial 
+    # convergence 
+    if (status_is_errored(info.status) || 
+        info.status == MAX_ITERATIONS  || 
+        info.status == MAX_TIME 
+    )
+        _check_convergence_almost(info,residuals,settings)
+    end 
+
+    # final check of timers 
     info_get_solve_time!(info,timers)
     return nothing
 end
+
+
+
+# utility functions for convergence checking 
+
+function _check_convergence_full(info,residuals,settings)
+
+    # "full" tolerances 
+    tol_gap_abs = settings.tol_gap_abs 
+    tol_gap_rel = settings.tol_gap_rel 
+    tol_feas    = settings.tol_feas 
+    tol_infeas_abs = settings.tol_infeas_abs
+    tol_infeas_rel = settings.tol_infeas_rel 
+
+    solved_status  = SOLVED  
+    pinf_status    = PRIMAL_INFEASIBLE
+    dinf_status    = DUAL_INFEASIBLE
+
+    _check_convergence(info,residuals,
+                       tol_gap_abs,tol_gap_rel,tol_feas,
+                       tol_infeas_abs,tol_infeas_rel,
+                       solved_status,pinf_status,dinf_status)
+
+end 
+
+
+function _check_convergence_almost(info,residuals,settings)
+
+    # "full" tolerances 
+    tol_gap_abs = settings.reduced_tol_gap_abs 
+    tol_gap_rel = settings.reduced_tol_gap_rel 
+    tol_feas    = settings.reduced_tol_feas 
+    tol_infeas_abs = settings.reduced_tol_infeas_abs
+    tol_infeas_rel = settings.reduced_tol_infeas_rel 
+
+    solved_status  = ALMOST_SOLVED  
+    pinf_status    = ALMOST_PRIMAL_INFEASIBLE
+    dinf_status    = ALMOST_DUAL_INFEASIBLE
+
+    _check_convergence(info,residuals,
+                       tol_gap_abs,tol_gap_rel,tol_feas,
+                       tol_infeas_abs,tol_infeas_rel,
+                       solved_status,pinf_status,dinf_status)
+
+end 
+    
+
+function _check_convergence(
+    info::DefaultInfo{T},
+    residuals::DefaultResiduals{T},
+    tol_gap_abs::T,
+    tol_gap_rel::T,
+    tol_feas::T,
+    tol_infeas_abs::T,
+    tol_infeas_rel::T,
+    solved_status::SolverStatus,  
+    pinf_status::SolverStatus, 
+    dinf_status::SolverStatus,
+) where {T}
+
+    if _is_solved(info, tol_gap_abs, tol_gap_rel, tol_feas)
+        info.status = solved_status 
+    elseif info.ktratio > one(T)
+        if _is_primal_infeasible(info, residuals, tol_infeas_abs, tol_infeas_rel)
+            info.status = pinf_status
+        elseif _is_dual_infeasible(info, residuals, tol_infeas_abs, tol_infeas_rel)
+            info.status = dinf_status
+        end
+    end
+end 
+
+
+
+function _is_solved(info, tol_gap_abs, tol_gap_rel, tol_feas)
+
+    if( ((info.gap_abs < tol_gap_abs) || (info.gap_rel < tol_gap_rel))
+        && (info.res_primal < tol_feas)
+        && (info.res_dual   < tol_feas)
+    )
+        return true 
+    else 
+        return false 
+    end 
+end 
+
+function _is_primal_infeasible(info, residuals, tol_infeas_abs, tol_infeas_rel)
+
+    if (residuals.dot_bz < -tol_infeas_abs) &&
+        (info.res_primal_inf < -tol_infeas_rel * residuals.dot_bz)
+        return true 
+    else 
+        return false 
+    end 
+end 
+
+function _is_dual_infeasible(info, residuals, tol_infeas_abs, tol_infeas_rel)
+
+    if (residuals.dot_qx < -tol_infeas_abs) &&
+            (info.res_dual_inf < -tol_infeas_rel * residuals.dot_qx)
+        return true 
+    else 
+        return false 
+    end
+end 

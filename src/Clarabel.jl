@@ -18,6 +18,7 @@ module Clarabel
     #core solver components
     include("./settings.jl")
     include("./conicvector.jl")
+    include("./statuscodes.jl")
     include("./types.jl")
     include("./variables.jl")
     include("./residuals.jl")
