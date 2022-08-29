@@ -158,7 +158,7 @@ function shift_to_cone!(
     z[1] = max(z[1],0)
 
     @views α = z[1]^2 - dot(z[2:end],z[2:end])
-    if(α < eps(T))
+    if(α < sqrt(eps(T)))
         #done in two stages since otherwise (1.-α) = -α for
         #large α, which makes z exactly 0.0 (or worse, -0.0 )
         z[1] -=  α
