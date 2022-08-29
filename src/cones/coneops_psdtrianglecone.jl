@@ -177,8 +177,6 @@ function shift_to_cone!(
     Z = K.work.workmat1
     _svec_to_mat!(Z,z,K)
     
-
-
     α = eigvals(Symmetric(Z),1:1)[1]  #min eigenvalue
 
     if(α < sqrt(eps(T)))
