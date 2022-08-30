@@ -85,22 +85,12 @@ end
 
 function run(index)
 
-    verbosity = true
+    verbosity = false
     maxiter     = 100
 
     model_clarabel = exp_model(index; optimizer = Clarabel.Optimizer)
     set_optimizer_attribute(model_clarabel, "verbose", verbosity)
     set_optimizer_attribute(model_clarabel, "max_iter", maxiter)
-    set_optimizer_attribute(model_clarabel, "equilibrate_enable", true)
-    set_optimizer_attribute(model_clarabel, "static_regularization_constant",1e-7)
-    set_optimizer_attribute(model_clarabel, "static_regularization_proportional",eps()^(2))  #disables it?
-    set_optimizer_attribute(model_clarabel, "linesearch_backtrack_step",0.80)  #matches ECOS
-    set_optimizer_attribute(model_clarabel, "max_step_fraction",0.99);  #default 0.99
-    #set_optimizer_attribute(model_clarabel, "min_primaldual_step_length", 0.2)
-    set_optimizer_attribute(model_clarabel, "static_regularization_enable",true)
-    set_optimizer_attribute(model_clarabel, "direct_solve_method",:qdldl)
-    set_optimizer_attribute(model_clarabel, "iterative_refinement_reltol",1e-13 )   #default 1e-8
-    set_optimizer_attribute(model_clarabel, "iterative_refinement_abstol",1e-14)  #default 1e-10
     optimize!(model_clarabel)
 
     #model_ecos = exp_model(index; optimizer = ECOS.Optimizer)

@@ -14,8 +14,8 @@ function update_scaling!(
 ) where {T}
 
     #first calculate the scaled vector w
-    @views zscale = sqrt(z[1]^2 - dot(z[2:end],z[2:end]))
-    @views sscale = sqrt(s[1]^2 - dot(s[2:end],s[2:end]))
+    @views zscale = sqrt(_soc_residual(z))
+    @views sscale = sqrt(_soc_residual(s))
     gamma  = sqrt((1 + dot(s,z)/(zscale*sscale) ) / 2)
 
     w = K.w
@@ -139,7 +139,7 @@ function inv_circ_op!(
     z::AbstractVector{T}
 ) where {T}
 
-    @views p = (y[1]^2 - dot(y[2:end],y[2:end]))
+    @views p = _soc_residual(y)
     pinv = 1/p
     @views v = dot(y[2:end],z[2:end])
 
@@ -157,7 +157,7 @@ function shift_to_cone!(
 
     z[1] = max(z[1],0)
 
-    @views α = z[1]^2 - dot(z[2:end],z[2:end])
+    @views α = _soc_residual(z)
     if(α < sqrt(eps(T)))
         #done in two stages since otherwise (1.-α) = -α for
         #large α, which makes z exactly 0.0 (or worse, -0.0 )
@@ -171,14 +171,14 @@ end
 # unit initialization for asymmetric solves
 function unit_initialization!(
    K::SecondOrderCone{T},
-   s::AbstractVector{T},
-   z::AbstractVector{T}
+   z::AbstractVector{T},
+   s::AbstractVector{T}
 ) where{T}
 
-    s .= zero(T)
     z .= zero(T)
-    add_scaled_e!(K,s,one(T))
+    s .= zero(T)
     add_scaled_e!(K,z,one(T))
+    add_scaled_e!(K,s,one(T))
 
    return nothing
 end
@@ -326,9 +326,9 @@ function _step_length_soc_component(
     # the quadratic equation:
     # ||x₁+αy₁||^2 = (x₀ + αy₀)^2
 
-    @views a = y[1]^2 - dot(y[2:end],y[2:end])
+    @views a = _soc_residual(y)
     @views b = 2*(x[1]*y[1] - dot(x[2:end],y[2:end]))
-    @views c = x[1]^2 - dot(x[2:end],x[2:end])  #should be ≥0
+    @views c = _soc_residual(x) #should be ≥0
     d = b^2 - 4*a*c
 
     if(c < 0)
@@ -352,19 +352,49 @@ function _step_length_soc_component(
 
 end
 
-function compute_centrality(
+function compute_barrier(
     K::SecondOrderCone{T},
+    z::AbstractVector{T},
     s::AbstractVector{T},
-    z::AbstractVector{T}
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T
 ) where {T}
 
-    barrier_s = s[1]^2 - dot(s[2:end],s[2:end])
-    barrier_z = z[1]^2 - dot(z[2:end],z[2:end])
+    res_s = _soc_residual_shifted(s,ds,α)
+    res_z = _soc_residual_shifted(z,dz,α)
 
-    # avoid numerical issue that barrier_s <= 0 or barrier_z <= 0
-    if barrier_s > 0 && barrier_z > 0
-        return -logsafe(barrier_s*barrier_z)/2
+    # avoid numerical issue if res_s <= 0 or res_z <= 0
+    if res_s > 0 && res_z > 0
+        return -logsafe(res_s*res_z)/2
     else
         return Inf
     end
 end
+
+
+
+# ------------------------------------------------
+# internal operations for second order cones 
+
+@inline function _soc_residual(z:: AbstractVector{T}) where {T} 
+    @views res = z[1]*z[1] - dot(z[2:end],z[2:end])
+end 
+
+
+#compute the residual at z + \alpha dz 
+#with storing the intermediate vector
+@inline function _soc_residual_shifted(
+    z::AbstractVector{T}, 
+    dz::AbstractVector{T}, 
+    α::T
+) where {T} 
+    
+    z1 = z[1] + α*z[1]
+        
+    @views res = z1*z1 -  dot_shifted(z[2:end],s[2:end],dz[2:end],ds[2:end],α)
+
+
+    return res
+end 
+

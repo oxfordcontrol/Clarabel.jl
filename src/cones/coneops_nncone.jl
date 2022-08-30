@@ -119,8 +119,8 @@ end
 # unit initialization for asymmetric solves
 function unit_initialization!(
    K::NonnegativeCone{T},
-   s::AbstractVector{T},
-   z::AbstractVector{T}
+   z::AbstractVector{T},
+   s::AbstractVector{T}
 ) where{T}
 
     s .= one(T)
@@ -251,15 +251,20 @@ function step_length(
     return (αz,αs)
 end
 
-function compute_centrality(
+function compute_barrier(
     K::NonnegativeCone{T},
+    z::AbstractVector{T},
     s::AbstractVector{T},
-    z::AbstractVector{T}
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T
 ) where {T}
 
     barrier = T(0)
     @inbounds for i = 1:K.dim
-        barrier -= logsafe(s[i]*z[i])
+        si = s[i] + α*ds[i]
+        zi = z[i] + α*dz[i]
+        barrier -= logsafe(si * zi)
     end
 
     return barrier

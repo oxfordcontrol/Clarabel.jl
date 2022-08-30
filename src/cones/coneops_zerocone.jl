@@ -113,8 +113,8 @@ end
 # unit initialization for asymmetric solves
 function unit_initialization!(
     K::ZeroCone{T},
-	s::AbstractVector{T},
-    z::AbstractVector{T}
+	z::AbstractVector{T},
+    s::AbstractVector{T}
 ) where{T}
 
     s .= zero(T)
@@ -231,10 +231,13 @@ function step_length(
 end
 
 # no compute_centrality for Zerocone
-function compute_centrality(
+function compute_barrier(
     K::ZeroCone{T},
+    z::AbstractVector{T},
     s::AbstractVector{T},
-    z::AbstractVector{T}
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T
 ) where {T}
 
     return zero(T)

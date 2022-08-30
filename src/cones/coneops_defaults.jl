@@ -152,8 +152,8 @@ end
 # unit initialization for asymmetric solves
 function unit_initialization!(
     K::AbstractCone{T},
-	s::AbstractVector{T},
-    z::AbstractVector{T}
+	z::AbstractVector{T},
+    s::AbstractVector{T}
 ) where{T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -253,11 +253,14 @@ function step_length(
 
 end
 
-# Computes f(s) + f*(z) for each cone as in Section 8.3 in Santiago's thesis
-function compute_centrality(
+# Computes f(s + α⋅ds) + f*(z + α⋅dz) for each cone as in §8.3 of Santiago's thesis
+function compute_barrier(
     K::AbstractCone{T},
+    z::AbstractVector{T},
     s::AbstractVector{T},
-    z::AbstractVector{T}
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))

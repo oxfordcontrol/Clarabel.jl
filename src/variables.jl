@@ -1,5 +1,5 @@
 
-function calc_mu(
+function variables_calc_mu(
     variables::DefaultVariables{T},
     residuals::DefaultResiduals{T},
     cones::ConeSet{T}
@@ -11,7 +11,7 @@ function calc_mu(
 end
 
 
-function calc_step_length(
+function variables_calc_step_length(
     variables::DefaultVariables{T},
     step::DefaultVariables{T},
     work_vars::DefaultVariables{T},
@@ -29,12 +29,43 @@ function calc_step_length(
     # Find a feasible step size for all cones
     α = cones_step_length(cones, step.z, step.s, variables.z, variables.s, settings, α, steptype)
     
-    if (!cones_is_symmetric(cones) && steptype == :combined && scaling_strategy == Dual)
-        α = check_μ_and_centrality(cones,step,variables,work_vars,α,settings)
-    end
-
     return α
 end
+
+# check the distance to the boundary for asymmetric cones
+# PJG: This function should not take DefaultVariables as 
+# input, since the definition is problem dependent.  Instead 
+# it should take only ConicVectors like other functions in 
+# this file
+function variables_compute_barrier(
+    variables::DefaultVariables{T},
+    step::DefaultVariables{T},
+    α::T,
+    cones::ConeSet{T},
+    work::DefaultVariables{T},
+) where {T}
+
+    central_coef = cones.degree + 1
+
+    cur_τ = variables.τ + α*step.τ
+    cur_κ = variables.κ + α*step.κ
+
+    # compute current μ
+    sz = dot_shifted(variables.z,variables.s,step.z,step.s,α)
+    μ = (sz + cur_τ*cur_κ)/central_coef
+
+    # barrier terms from gap and scalars
+    barrier = central_coef*logsafe(μ) - logsafe(cur_τ) - logsafe(cur_κ)
+
+    # barriers from the cones 
+    ( z, s) = (variables.z, variables.s)
+    (dz,ds) = (step.z, step.s)
+
+    barrier += cones_compute_barrier(cones, z, s, dz, ds, α)
+
+    return barrier
+end
+
 
 function variables_rescale!(variables)
 
@@ -79,7 +110,7 @@ function variables_add_step!(
 end
 
 
-function calc_affine_step_rhs!(
+function variables_affine_step_rhs!(
     d::DefaultVariables{T},
     r::DefaultResiduals{T},
     variables::DefaultVariables{T},
@@ -96,7 +127,7 @@ function calc_affine_step_rhs!(
 end
 
 
-function calc_combined_step_rhs!(
+function variables_combined_step_rhs!(
     d::DefaultVariables{T},
     r::DefaultResiduals{T},
     variables::DefaultVariables{T},
@@ -156,8 +187,9 @@ function asymmetric_init_cone!(
     variables::DefaultVariables{T},
     cones::ConeSet{T}
 ) where {T}
+
     #set conic variables to units and x to 0
-    cones_unit_initialization!(cones,variables.s,variables.z)
+    cones_unit_initialization!(cones,variables.z,variables.s)
 
     variables.x .= zero(T)
     variables.τ = one(T)

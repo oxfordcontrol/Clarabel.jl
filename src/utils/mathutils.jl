@@ -13,11 +13,36 @@ end
 
 @inline function logsafe(v::T) where {T<:Real}
     if v < 0
-        #@printf("LOGSAFE: v = %0.8e.   From %s\n",v,StackTraces.stacktrace()[2].func); 
         return -typemax(T)
     else 
         return log(v)
     end
+end
+
+
+#computes dot(z + αdz,s + αds) without intermediate allocation
+
+@inline function dot_shifted(
+    z::AbstractVector{T}, 
+    s::AbstractVector{T},
+    dz::AbstractVector{T}, 
+    ds::AbstractVector{T},
+    α::T
+    ) where {T<:Real}
+
+    @assert(length(z) == length(s))
+    @assert(length(z) == length(dz))
+    @assert(length(s) == length(ds))
+    
+    out = zero(T)
+    @inbounds for i in eachindex(z) 
+        zi = z[i] + α*dz[i]
+        si = s[i] + α*ds[i]
+        out += zi*si
+    end 
+
+    return out
+
 end
 
 

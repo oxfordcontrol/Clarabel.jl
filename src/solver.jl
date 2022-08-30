@@ -8,7 +8,7 @@ function Solver(
     P::AbstractMatrix{T},
     c::Vector{T},
     A::AbstractMatrix{T},
-    b::Vector{T},
+    b::Vector{T}, 
     cones::Vector{<:SupportedCone},
     kwargs...
 ) where{T <: AbstractFloat}
@@ -194,7 +194,7 @@ function solve!(
 
             #calculate duality gap (scaled)
             #--------------
-            μ = calc_mu(s.variables, s.residuals, s.cones)
+            μ = variables_calc_mu(s.variables, s.residuals, s.cones)
 
             #convergence check and printing
             #--------------
@@ -223,7 +223,6 @@ function solve!(
                     if s.info.status == INSUFFICIENT_PROGRESS   
                         info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
                     end
-
                     break
                 end
             end
@@ -236,7 +235,7 @@ function solve!(
 
             #calculate the affine step
             #--------------
-            calc_affine_step_rhs!(
+            variables_affine_step_rhs!(
                 s.step_rhs, s.residuals,
                 s.variables, s.cones
             )
@@ -262,15 +261,13 @@ function solve!(
 
                 #calculate step length and centering parameter
                 #--------------
-                α = calc_step_length(
-                    s.variables, s.step_lhs, s.work_vars,
-                    s.cones, s.settings, :affine, scaling_strategy
-                )
-                σ = calc_centering_parameter(α)
+                α = solver_get_step_length(s,:affine,scaling_strategy)
+
+                σ = _calc_centering_parameter(α)
 
                 #calculate the combined step and length
                 #--------------
-                calc_combined_step_rhs!(
+                variables_combined_step_rhs!(
                     s.step_rhs, s.residuals,
                     s.variables, s.cones,
                     s.step_lhs, σ, μ
@@ -304,10 +301,7 @@ function solve!(
 
             #compute final step length and update the current iterate
             #--------------
-            α = calc_step_length(
-                s.variables, s.step_lhs, s.work_vars,
-                s.cones,s.settings, :combined, scaling_strategy
-            )
+            α = solver_get_step_length(s,:combined,scaling_strategy)
 
             if !cones_is_symmetric(s.cones) &&
                 scaling_strategy == PrimalDual::ScalingStrategy &&
@@ -349,13 +343,6 @@ function solve!(
 end
 
 
-# Mehrotra heuristic
-function calc_centering_parameter(α::T) where{T}
-
-    return σ = (1-α)^3
-end
-
-
 function solver_default_start!(s::Solver{T}) where {T}
 
     # If there are only symmetric cones, use CVXOPT style initilization
@@ -377,6 +364,53 @@ function solver_default_start!(s::Solver{T}) where {T}
 
     return nothing
 end
+
+
+function solver_get_step_length(s::Solver{T},steptype::Symbol,scaling_strategy::ScalingStrategy) where{T}
+
+    # step length to stay within the cones 
+    α = variables_calc_step_length(
+        s.variables, s.step_lhs, s.work_vars,
+        s.cones, s.settings, steptype, scaling_strategy
+    )
+
+    # additional barrier function limits for asymmetric cones 
+    if (!cones_is_symmetric(s.cones) && steptype == :combined && scaling_strategy == Dual)
+        αinit = α
+        α = solver_backtrack_step_to_barrier(s,αinit)
+    end
+    return α
+end 
+
+
+# check the distance to the boundary for asymmetric cones
+function solver_backtrack_step_to_barrier(
+    s::Solver{T}, αinit::T
+) where {T}
+
+    backtrack = s.settings.linesearch_backtrack_step
+    α = αinit
+
+    for j = 1:50
+        barrier = variables_compute_barrier(s.variables,s.step_lhs,α,s.cones,s.work_vars)
+        if barrier < one(T)
+            return α
+        else
+            α = backtrack*α   #backtrack line search
+        end
+    end
+
+    return α
+end
+
+
+
+# Mehrotra heuristic
+function _calc_centering_parameter(α::T) where{T}
+
+    return σ = (1-α)^3
+end
+
 
 function Base.show(io::IO, solver::Clarabel.Solver{T}) where {T}
     println(io, "Clarabel model with Float precision: $(T)")

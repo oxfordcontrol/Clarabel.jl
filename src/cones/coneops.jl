@@ -115,12 +115,12 @@ end
 # unit initialization for asymmetric solves
 function cones_unit_initialization!(
     cones::ConeSet{T},
-    s::ConicVector{T},
-    z::ConicVector{T}
+    z::ConicVector{T},
+    s::ConicVector{T}
 ) where {T}
 
-    for (cone,si,zi) in zip(cones,s.views,z.views)
-        @conedispatch unit_initialization!(cone,si,zi)
+    for (cone,zi,si) in zip(cones,z.views,s.views)
+        @conedispatch unit_initialization!(cone,zi,si)
     end
     return nothing
 end
@@ -224,59 +224,28 @@ function cones_step_length(
     return α
 end
 
-# check the distance to the boundary for asymmetric cones
-# PJG: This function should not take DefaultVariables as 
-# input, since the definition is problem dependent.  Instead 
-# it should take only ConicVectors like other functions in 
-# this file
-function check_μ_and_centrality(
+
+# compute the total barrier function at the point (z + α⋅dz, s + α⋅ds)
+function cones_compute_barrier(
     cones::ConeSet{T},
-    step::DefaultVariables{T},
-    variables::DefaultVariables{T},
-    work::DefaultVariables{T},
-    α::T,
-    settings::Settings{T},
+    z::ConicVector{T},
+    s::ConicVector{T},
+    dz::ConicVector{T},
+    ds::ConicVector{T},
+    α::T
 ) where {T}
 
-    dz    = step.z
-    ds    = step.s
-    dτ    = step.τ
-    dκ    = step.κ
-    z     = variables.z
-    s     = variables.s
-    τ     = variables.τ
-    κ     = variables.κ
-    cur_z = work.z
-    cur_s = work.s
+    dz    = dz.views
+    ds    = ds.views
+    z     = z.views
+    s     = s.views
 
-    central_coef = cones.degree + 1
+    barrier = zero(T)
 
-    backtrack = settings.linesearch_backtrack_step
-
-    for j = 1:50
-        # current z,s
-        @. cur_z = z + α*dz
-        @. cur_s = s + α*ds
-        cur_τ = τ + α*dτ
-        cur_κ = κ + α*dκ
-
-        # compute current μ
-        μ = (dot(cur_s,cur_z) + cur_τ*cur_κ)/central_coef
-
-        # check centrality
-        barrier = central_coef*logsafe(μ) - logsafe(cur_τ) - logsafe(cur_κ)
-
-        for (cone,cur_si,cur_zi) in zip(cones,cur_s.views, cur_z.views)
-            @conedispatch barrier += compute_centrality(cone, cur_si, cur_zi)
-        end
-
-        if barrier < 1.
-            return α
-        else
-            α = backtrack*α   #backtrack line search
-        end
-
+    for (cone,zi,si,dzi,dsi) in zip(cones,z,s,dz,ds)
+        @conedispatch barrier += compute_barrier(cone,zi,si,dzi,dsi,α)
     end
 
-    return α
+    return barrier
 end
+

@@ -26,7 +26,7 @@ function update_scaling!(
     # update both gradient and Hessian for function f*(z) at the point z
     # NB: the update order can't be switched as we reuse memory in the 
     # Hessian update
-    update_grad_HBFGS(K,s,z,μ,scaling_strategy)
+    _update_grad_HBFGS(K,s,z,μ,scaling_strategy)
 
     # K.z .= z
     @inbounds for i = 1:3
@@ -63,8 +63,8 @@ end
 # unit initialization for asymmetric solves
 function unit_initialization!(
    K::PowerCone{T},
-   s::AbstractVector{T},
-   z::AbstractVector{T}
+   z::AbstractVector{T},
+   s::AbstractVector{T}
 ) where{T}
 
     α = K.α
@@ -91,7 +91,7 @@ function combined_ds!(
 ) where {T}
 
     η = K.grad_work      
-    higher_correction!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
+    _higher_correction!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
     @inbounds for i = 1:3
         dz[i] = K.grad[i]*σμ - η[i]
     end
@@ -145,47 +145,78 @@ function step_length(
 
     backtrack = settings.linesearch_backtrack_step
 
-    αz = _step_length_powcone(K.vec_work, dz, z, αmax, K.α, backtrack, is_dual_feasible_powcone)
-    αs = _step_length_powcone(K.vec_work, ds, s, αmax, K.α, backtrack, is_primal_feasible_powcone)
+    αz = _step_length_powcone(K.vec_work, dz, z, αmax, K.α, backtrack, _is_dual_feasible_powcone)
+    αs = _step_length_powcone(K.vec_work, ds, s, αmax, K.α, backtrack, _is_primal_feasible_powcone)
 
     return (αz,αs)
 end
 
 
-
-
-
-###############################################
-# Basic operations for Power Cones
-# Primal Power cone: s1^{α}s2^{1-α} ≥ s3, s1,s2 ≥ 0
-# Dual Power cone: (z1/α)^{α} * (z2/(1-α))^{1-α} ≥ z3, z1,z2 ≥ 0
-# We use the dual barrier function: f*(z) = -log((z1/α)^{2α} * (z2/(1-α))^{2(1-α)} - z3*z3) - (1-α)*log(z1) - α*log(z2):
-# Evaluates the gradient of the dual Power cone ∇f*(z) at z, and stores the result at g
-
-function compute_centrality(
+function compute_barrier(
     K::PowerCone{T},
+    z::AbstractVector{T},
     s::AbstractVector{T},
-    z::AbstractVector{T}
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T
 ) where {T}
 
-    α = K.α
     barrier = zero(T)
 
+    # we want to avoid allocating a vector for the intermediate 
+    # sums, so the two barrier functions are written to accept 
+    # both vectors and 3-element tuples. 
+    cur_z    = (z[1] + α*dz[1], z[2] + α*dz[2], z[3] + α*dz[3])
+    cur_s    = (s[1] + α*ds[1], s[2] + α*ds[2], s[3] + α*ds[3])
+
+    barrier += _barrier_dual(K, cur_z)
+    barrier += _barrier_primal(K, cur_s)
+
+    return barrier
+end
+
+
+# ----------------------------------------------
+#  internal operations for power cones
+#
+# Primal Power cone: s1^{α}s2^{1-α} ≥ s3, s1,s2 ≥ 0
+# Dual Power cone: (z1/α)^{α} * (z2/(1-α))^{1-α} ≥ z3, z1,z2 ≥ 0
+# We use the dual barrier function: 
+# f*(z) = -log((z1/α)^{2α} * (z2/(1-α))^{2(1-α)} - z3*z3) - (1-α)*log(z1) - α*log(z2):
+# Evaluates the gradient of the dual Power cone ∇f*(z) at z, 
+# and stores the result at g
+
+
+@inline function _barrier_dual(
+    K::PowerCone{T},
+    z::Union{AbstractVector{T}, NTuple{3,T}}
+) where {T}
+
     # Dual barrier
-    barrier += -logsafe((z[1]/α)^(2*α) * (z[2]/(1-α))^(2-2*α) - z[3]*z[3]) - (1-α)*logsafe(z[1]) - α*logsafe(z[2])
+    α = K.α
+    return -logsafe((z[1]/α)^(2*α) * (z[2]/(1-α))^(2-2*α) - z[3]*z[3]) - (1-α)*logsafe(z[1]) - α*logsafe(z[2])
+
+end
+
+@inline function _barrier_primal(
+    K::PowerCone{T},
+    s::Union{AbstractVector{T}, NTuple{3,T}}
+) where {T}
 
     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
     # NB: ⟨s,g(s)⟩ = -3 = - ν
 
     g = K.vec_work
-    gradient_primal(K,s,g)     #compute g(s)
-    barrier += logsafe((-g[1]/α)^(2*α) * (-g[2]/(1-α))^(2-2*α) - g[3]*g[3]) + (1-α)*logsafe(-g[1]) + α*logsafe(-g[2]) - 3
+    α = K.α
 
-    return barrier
-end
+    _gradient_primal(K,s,g)     #compute g(s)
+    return logsafe((-g[1]/α)^(2*α) * (-g[2]/(1-α))^(2-2*α) - g[3]*g[3]) + (1-α)*logsafe(-g[1]) + α*logsafe(-g[2]) - 3
+end 
+
+
 
 # Returns true if s is primal feasible
-function is_primal_feasible_powcone(s::AbstractVector{T},α::T) where {T}
+function _is_primal_feasible_powcone(s::AbstractVector{T},α::T) where {T}
 
     if (s[1] > 0 && s[2] > 0)
         res = exp(2*α*logsafe(s[1]) + 2*(1-α)*logsafe(s[2])) - s[3]*s[3]
@@ -198,7 +229,7 @@ function is_primal_feasible_powcone(s::AbstractVector{T},α::T) where {T}
 end
 
 # Returns true if s is dual feasible
-function is_dual_feasible_powcone(z::AbstractVector{T},α::T) where {T}
+function _is_dual_feasible_powcone(z::AbstractVector{T},α::T) where {T}
 
     if (z[1] > 0 && z[2] > 0)
         res = exp(2*α*logsafe(z[1]/α) + 2*(1-α)*logsafe(z[2]/(1-α))) - z[3]*z[3]
@@ -212,10 +243,10 @@ end
 
 # Compute the primal gradient of f(s) at s
 # solve it by the Newton-Raphson method
-function gradient_primal(
+function _gradient_primal(
     K::PowerCone{T},
-    s::AbstractVector{T},
-    g::AbstractVector{T}
+    s::Union{AbstractVector{T}, NTuple{3,T}},
+    g::Union{AbstractVector{T}, NTuple{3,T}}
 ) where {T}
 
     α = K.α
@@ -226,7 +257,7 @@ function gradient_primal(
     # obtain g3 from the Newton-Raphson method
     abs_s = abs(s[3])
     if abs_s > eps(T)
-        g[3] = newton_raphson(abs_s,ϕ,α)
+        g[3] = _newton_raphson_powcone(abs_s,ϕ,α)
         if s[3] < zero(T)
             g[3] = -g[3]
         end
@@ -241,11 +272,12 @@ function gradient_primal(
 end
 
 # Newton-Raphson method:
-# solve an one-dimensional equation f(x) = 0
+# solve a one-dimensional equation f(x) = 0
 # x(k+1) = x(k) - f(x(k))/f'(x(k))
 # When we initialize x0 such that 0 < x0 < x*, 
 # the Newton-Raphson method converges quadratically
-function newton_raphson(
+
+function _newton_raphson_powcone(
     s3::T,
     ϕ::T,
     α::T
@@ -295,7 +327,7 @@ end
 
 # 3rd-order correction at the point z 
 # w.r.t. directions u,v. Writes to η
-function higher_correction!(
+function _higher_correction!(
     K::PowerCone{T},
     η::AbstractVector{T},
     ds::AbstractVector{T},
@@ -392,7 +424,7 @@ end
 #    generated by BFGS, i.e. W^T W*[z,\tilde z] = [s,\tile s]
 #   \tilde z = -f'(s), \tilde s = - f*'(z)
 
-function update_grad_HBFGS(
+function _update_grad_HBFGS(
     K::PowerCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
@@ -451,7 +483,7 @@ function update_grad_HBFGS(
 
     # compute zt,st,μt locally
     # NB: zt,st have different sign convention wrt Mosek paper
-    gradient_primal(K,s,zt)
+    _gradient_primal(K,s,zt)
 
     μt = dot(zt,st)/3
 

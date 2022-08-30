@@ -195,14 +195,14 @@ end
 # unit initialization for asymmetric solves
 function unit_initialization!(
    K::PSDTriangleCone{T},
-   s::AbstractVector{T},
-   z::AbstractVector{T}
+   z::AbstractVector{T},
+   s::AbstractVector{T}
 ) where{T}
 
-    s .= zero(T)
     z .= zero(T)
-    add_scaled_e!(K,s,one(T))
+    s .= zero(T)
     add_scaled_e!(K,z,one(T))
+    add_scaled_e!(K,s,one(T))
 
    return nothing
 end
@@ -383,10 +383,10 @@ function _step_length_psd_component(
 
 end
 
-# function compute_centrality(
+# function compute_barrier(
 #     K::PSDTriangleCone{T},
+#     z::AbstractVector{T},
 #     s::AbstractVector{T},
-#     z::AbstractVector{T}
 # ) where {T}
 #     error("sdp barrier is computationally expensive")
 #     # return -log(det(s)) - log(det(z))

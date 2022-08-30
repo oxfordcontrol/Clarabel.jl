@@ -27,7 +27,7 @@ function update_scaling!(
     # update both gradient and Hessian for function f*(z) at the point z
     # NB: the update order can't be switched as we reuse memory in the 
     # Hessian computation Hessian update
-    update_grad_HBFGS(K,s,z,μ,scaling_strategy)
+    _update_grad_HBFGS(K,s,z,μ,scaling_strategy)
 
     # K.z .= z
     @inbounds for i = 1:3
@@ -63,8 +63,8 @@ end
 # unit initialization for asymmetric solves
 function unit_initialization!(
    K::ExponentialCone{T},
-   s::AbstractVector{T},
-   z::AbstractVector{T}
+   z::AbstractVector{T},
+   s::AbstractVector{T}
 ) where{T}
 
     s[1] = one(T)*(-1.051383945322714)
@@ -90,7 +90,7 @@ function combined_ds!(
     η = K.grad_work
 
     #3rd order correction requires input variables.z
-    higher_correction!(K,η,step_s,step_z)             
+    _higher_correction!(K,η,step_s,step_z)             
 
     @inbounds for i = 1:3
         dz[i] = K.grad[i]*σμ - η[i]
@@ -145,14 +145,38 @@ function step_length(
 
     backtrack = settings.linesearch_backtrack_step
 
-    αz = _step_length_expcone(K.vec_work, dz, z, αmax, backtrack, is_dual_feasible_expcone)
-    αs = _step_length_expcone(K.vec_work, ds, s, αmax, backtrack, is_primal_feasible_expcone)
+    αz = _step_length_expcone(K.vec_work, dz, z, αmax, backtrack, _is_dual_feasible_expcone)
+    αs = _step_length_expcone(K.vec_work, ds, s, αmax, backtrack, _is_primal_feasible_expcone)
 
     return (αz,αs)
 end
 
+function compute_barrier(
+    K::ExponentialCone{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T
+) where {T}
+
+    barrier = zero(T)
+
+    # we want to avoid allocating a vector for the intermediate 
+    # sums, so the two barrier functions are written to accept 
+    # both vectors and 3-element tuples. 
+    cur_z    = (z[1] + α*dz[1], z[2] + α*dz[2], z[3] + α*dz[3])
+    cur_s    = (s[1] + α*ds[1], s[2] + α*ds[2], s[3] + α*ds[3])
+
+    barrier += _barrier_dual(K, cur_z)
+    barrier += _barrier_primal(K, cur_s)
+
+    return barrier
+end
+
+
 # -----------------------------------------
-# Basic operations for exponential Cones
+# internal operations for exponential cones
 #
 # Primal exponential cone: s3 ≥ s2*e^(s1/s2), s3,s2 > 0
 # Dual exponential cone: z3 ≥ -z1*e^(z2/z1 - 1), z3 > 0, z1 < 0
@@ -161,32 +185,37 @@ end
 # -----------------------------------------
 
 
-function compute_centrality(
+@inline function _barrier_dual(
     K::ExponentialCone{T},
-    s::AbstractVector{T},
-    z::AbstractVector{T}
+    z::Union{AbstractVector{T}, NTuple{3,T}}
 ) where {T}
-
-    barrier = zero(T)
 
     # Dual barrier
     l = logsafe(-z[3]/z[1])
-    barrier += -logsafe(-z[3]*z[1]) - logsafe(z[2]-z[1]-z[1]*l) 
+    return -logsafe(-z[3]*z[1]) - logsafe(z[2]-z[1]-z[1]*l) 
+
+end 
+
+@inline function _barrier_primal(
+    K::ExponentialCone{T},
+    s::Union{AbstractVector{T}, NTuple{3,T}}
+) where {T}
 
     # Primal barrier: 
     # f(s) = ⟨s,g(s)⟩ - f*(-g(s))
     #      = -2*log(s2) - log(s3) - log((1-barω)^2/barω) - 3, 
     # where barω = ω(1 - s1/s2 - log(s2) - log(s3))
     # NB: ⟨s,g(s)⟩ = -3 = - ν
-    o = wright_omega(1-s[1]/s[2]-logsafe(s[2]/s[3]))
-    o = (o-1)*(o-1)/o
-    barrier += -logsafe(o)-2*logsafe(s[2])-logsafe(s[3]) - 3
 
-    return barrier
-end
+    ω = _wright_omega(1-s[1]/s[2]-logsafe(s[2]/s[3]))
+    ω = (ω-1)*(ω-1)/ω
+   return -logsafe(ω)-2*logsafe(s[2])-logsafe(s[3]) - 3
+end 
+
+
 
 # Returns true if s is primal feasible
-function is_primal_feasible_expcone(s::AbstractVector{T}) where {T}
+function _is_primal_feasible_expcone(s::AbstractVector{T}) where {T}
 
     if (s[3] > 0 && s[2] > 0)   #feasible
         res = s[2]*logsafe(s[3]/s[2]) - s[1]
@@ -199,7 +228,7 @@ function is_primal_feasible_expcone(s::AbstractVector{T}) where {T}
 end
 
 # Returns true if z is dual feasible
-function is_dual_feasible_expcone(z::AbstractVector{T}) where {T}
+function _is_dual_feasible_expcone(z::AbstractVector{T}) where {T}
 
     if (z[3] > 0 && z[1] < 0)
         res = z[2] - z[1] - z[1]*logsafe(-z[3]/z[1])
@@ -212,13 +241,13 @@ end
 
 # Compute the primal gradient of f(s) at s
 # solve it by the Newton-Raphson method
-function gradient_primal(
+function _gradient_primal(
     K::ExponentialCone{T},
     s::AbstractVector{T},
     g::AbstractVector{T}
 ) where {T}
 
-    ω = wright_omega(1-s[1]/s[2]-logsafe(s[2]/s[3]))
+    ω = _wright_omega(1-s[1]/s[2]-logsafe(s[2]/s[3]))
 
     g[1] = one(T)/((ω-1)*s[2])
     g[2] = g[1] + g[1]*logsafe(ω*s[2]/s[3]) - one(T)/s[2]
@@ -235,7 +264,7 @@ end
 #  Implementation for Problems with the Exponential Cone 
 #  https://web.stanford.edu/group/SOL/dissertations/ThesisAkleAdobe-augmented.pdf
 
-function wright_omega(z::T) where {T}
+function _wright_omega(z::T) where {T}
 
  	if(z< zero(T))
         throw(error("argument not in supported range : ", z)); 
@@ -295,7 +324,7 @@ end
 # 3rd-order correction at the point z, 
 # w.r.t. directions u,v and then save it to η
 
-function higher_correction!(
+function _higher_correction!(
     K::ExponentialCone{T},
     η::AbstractVector{T},
     ds::AbstractVector{T},
@@ -377,7 +406,7 @@ end
 
 
 # update the gradient and the HBFGS
-function update_grad_HBFGS(
+function _update_grad_HBFGS(
     K::ExponentialCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
@@ -431,7 +460,7 @@ function update_grad_HBFGS(
 
     # compute zt,st,μt locally
     # NB: zt,st have different sign convention wrt Mosek paper
-    gradient_primal(K,s,zt)
+    _gradient_primal(K,s,zt)
 
     μt = dot(zt,st)/3
 
