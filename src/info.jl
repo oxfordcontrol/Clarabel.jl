@@ -71,12 +71,18 @@ function info_check_termination!(
 
         if (info.res_dual > info.prev_res_dual || info.res_primal > info.prev_res_primal)
             # Poor progress at high tolerance.  
-            if info.ktratio < 100*eps(T) && (info.prev_gap_abs < settings.tol_gap_abs || info.prev_gap_rel < settings.tol_gap_rel)
+            if info.ktratio < 100*eps(T) && 
+                              ( info.prev_gap_abs < settings.tol_gap_abs || 
+                                info.prev_gap_rel < settings.tol_gap_rel
+                              )
                 info.status = INSUFFICIENT_PROGRESS
             end
 
-            # Going backwards. Stop immediately if residuals diverge out of the feasibility tolerance.
-            if (info.res_dual > settings.tol_feas && info.res_dual > 100*info.prev_res_dual) || (info.res_primal > settings.tol_feas && info.res_primal > 100*info.prev_res_primal)
+            # Going backwards. Stop immediately if residuals diverge out of feasibility tolerance.
+            if (info.res_dual > settings.tol_feas && 
+                info.res_dual > 100*info.prev_res_dual) || 
+               (info.res_primal > settings.tol_feas && 
+                info.res_primal > 100*info.prev_res_primal)
                 info.status = INSUFFICIENT_PROGRESS
             end
         end
@@ -103,18 +109,18 @@ function info_save_prev_iterate(
     variables::DefaultVariables{T},
     prev_variables::DefaultVariables{T}
 ) where {T}
-    info.prev_cost_primal    = info.cost_primal
-    info.prev_cost_dual      = info.cost_dual
-    info.prev_res_primal     = info.res_primal
-    info.prev_res_dual       = info.res_dual
-    info.prev_gap_abs        = info.gap_abs
-    info.prev_gap_rel        = info.gap_rel
+    info.prev_cost_primal = info.cost_primal
+    info.prev_cost_dual   = info.cost_dual
+    info.prev_res_primal  = info.res_primal
+    info.prev_res_dual    = info.res_dual
+    info.prev_gap_abs     = info.gap_abs
+    info.prev_gap_rel     = info.gap_rel
 
-    prev_variables.x    .= variables.x
-    prev_variables.s    .= variables.s
-    prev_variables.z    .= variables.z
-    prev_variables.τ     = variables.τ
-    prev_variables.κ     = variables.κ
+    prev_variables.x     .= variables.x
+    prev_variables.s     .= variables.s
+    prev_variables.z     .= variables.z
+    prev_variables.τ      = variables.τ
+    prev_variables.κ      = variables.κ
 end
 
 function info_reset_to_prev_iterates(
@@ -229,7 +235,7 @@ end
 
 function _check_convergence_almost(info,residuals,settings)
 
-    # "full" tolerances
+    # "almost" tolerances
     tol_gap_abs = settings.reduced_tol_gap_abs
     tol_gap_rel = settings.reduced_tol_gap_rel
     tol_feas    = settings.reduced_tol_feas
