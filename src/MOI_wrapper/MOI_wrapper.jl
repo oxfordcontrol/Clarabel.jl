@@ -200,6 +200,8 @@ function MOI.get(opt::Optimizer, attr::MOI.DualStatus)
 
 end
 
+MOI.supports(::Optimizer, ::MOI.ObjectiveSense) = true
+
 MOI.supports(::Optimizer, ::MOI.Silent) = true
 MOI.get(opt::Optimizer, ::MOI.Silent) = !opt.inner.settings.verbose
 MOI.set(opt::Optimizer, ::MOI.Silent, v::Bool) = (opt.inner.settings.verbose = !v)
