@@ -309,29 +309,10 @@ mutable struct Solver{T <: AbstractFloat}
     info::Union{AbstractInfo{T},Nothing}
     step_lhs::Union{AbstractVariables{T},Nothing}
     step_rhs::Union{AbstractVariables{T},Nothing}
+    prev_vars::Union{AbstractVariables{T},Nothing}
     solution::Union{AbstractSolution{T},Nothing}
     settings::Settings{T}
     timers::TimerOutput
-
-    # PJG: Do we need work_vars here, or can it be made
-    # data member one of the other fields?  It doesn't
-    # seem obvious that it is required for all possible
-    # interior point implementions or generic algorithms
-    # that we might construct.   It only seems to be required
-    # 1) within the step length calculation, and
-    # 2) for non-symmetric problems.
-    #
-    # Maybe it should be a field of Variables, and only
-    # initialized there if actually required.
-
-    #private / internal?
-
-    # YC: 1) Yes, it is only used when we are doing backtracking line search in the centrality check, 
-    #     and some vector sapces in the struct of ExponentialCone can be utilized instead of 
-    #     this work_vars variable.
-    #     2) Meanwhile, we use work_vars to store the previous iterates
-    #     3) scaling_strategy needs to be be reset after each solve
-    work_vars::Union{AbstractVariables{T},Nothing}
 
 end
 
@@ -347,7 +328,7 @@ function Solver{T}(settings::Settings{T}) where {T}
     reset_timer!(to["setup!"])
     reset_timer!(to["solve!"])
 
-    Solver{T}(ntuple(x->nothing, fieldcount(Solver)-3)...,settings,to,nothing)
+    Solver{T}(ntuple(x->nothing, fieldcount(Solver)-2)...,settings,to)
 end
 
 function Solver{T}() where {T}

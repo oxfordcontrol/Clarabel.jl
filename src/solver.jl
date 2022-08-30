@@ -8,7 +8,7 @@ function Solver(
     P::AbstractMatrix{T},
     c::Vector{T},
     A::AbstractMatrix{T},
-    b::Vector{T}, 
+    b::Vector{T},
     cones::Vector{<:SupportedCone},
     kwargs...
 ) where{T <: AbstractFloat}
@@ -113,7 +113,9 @@ function setup!(
         # work variables for assembling step direction LHS/RHS
         s.step_rhs  = DefaultVariables{T}(s.data.n,s.cones)
         s.step_lhs  = DefaultVariables{T}(s.data.n,s.cones)
-        s.work_vars = DefaultVariables{T}(s.data.n,s.cones)
+
+        # a saved copy of the previous iterate
+        s.prev_vars = DefaultVariables{T}(s.data.n,s.cones)
 
         # user facing results go here
         s.solution    = DefaultSolution{T}(s.data.m,s.data.n)
@@ -212,16 +214,16 @@ function solve!(
                 if !cones_is_symmetric(s.cones) &&
                     (scaling_strategy == PrimalDual::ScalingStrategy) &&
                     (s.info.status == INSUFFICIENT_PROGRESS )
-                
+
                     #recover old iterate if using an aggressive strategy and failing to progress
-                    info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
+                    info_reset_to_prev_iterates(s.info,s.variables,s.prev_vars)
                     scaling_strategy = Dual::ScalingStrategy
                     s.info.status = UNSOLVED
                     continue
                 else
                     #return old iterate if primal-dual residuals worsen
-                    if s.info.status == INSUFFICIENT_PROGRESS   
-                        info_reset_to_prev_iterates(s.info,s.variables,s.work_vars)
+                    if s.info.status == INSUFFICIENT_PROGRESS
+                        info_reset_to_prev_iterates(s.info,s.variables,s.prev_vars)
                     end
                     break
                 end
@@ -319,7 +321,7 @@ function solve!(
             end
 
             # Copy previous iterate in case the next one is a dud
-            info_save_prev_iterate(s.info,s.variables,s.work_vars)
+            info_save_prev_iterate(s.info,s.variables,s.prev_vars)
 
             variables_add_step!(s.variables,s.step_lhs,α)
 
@@ -368,19 +370,19 @@ end
 
 function solver_get_step_length(s::Solver{T},steptype::Symbol,scaling_strategy::ScalingStrategy) where{T}
 
-    # step length to stay within the cones 
+    # step length to stay within the cones
     α = variables_calc_step_length(
-        s.variables, s.step_lhs, s.work_vars,
+        s.variables, s.step_lhs,
         s.cones, s.settings, steptype, scaling_strategy
     )
 
-    # additional barrier function limits for asymmetric cones 
+    # additional barrier function limits for asymmetric cones
     if (!cones_is_symmetric(s.cones) && steptype == :combined && scaling_strategy == Dual)
         αinit = α
         α = solver_backtrack_step_to_barrier(s,αinit)
     end
     return α
-end 
+end
 
 
 # check the distance to the boundary for asymmetric cones
@@ -392,7 +394,7 @@ function solver_backtrack_step_to_barrier(
     α = αinit
 
     for j = 1:50
-        barrier = variables_compute_barrier(s.variables,s.step_lhs,α,s.cones,s.work_vars)
+        barrier = variables_compute_barrier(s.variables,s.step_lhs,α,s.cones)
         if barrier < one(T)
             return α
         else

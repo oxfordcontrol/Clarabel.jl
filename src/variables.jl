@@ -14,7 +14,6 @@ end
 function variables_calc_step_length(
     variables::DefaultVariables{T},
     step::DefaultVariables{T},
-    work_vars::DefaultVariables{T},
     cones::ConeSet{T},
     settings::Settings{T},
     steptype::Symbol,
@@ -28,21 +27,20 @@ function variables_calc_step_length(
 
     # Find a feasible step size for all cones
     α = cones_step_length(cones, step.z, step.s, variables.z, variables.s, settings, α, steptype)
-    
+
     return α
 end
 
 # check the distance to the boundary for asymmetric cones
-# PJG: This function should not take DefaultVariables as 
-# input, since the definition is problem dependent.  Instead 
-# it should take only ConicVectors like other functions in 
+# PJG: This function should not take DefaultVariables as
+# input, since the definition is problem dependent.  Instead
+# it should take only ConicVectors like other functions in
 # this file
 function variables_compute_barrier(
     variables::DefaultVariables{T},
     step::DefaultVariables{T},
     α::T,
     cones::ConeSet{T},
-    work::DefaultVariables{T},
 ) where {T}
 
     central_coef = cones.degree + 1
@@ -57,7 +55,7 @@ function variables_compute_barrier(
     # barrier terms from gap and scalars
     barrier = central_coef*logsafe(μ) - logsafe(cur_τ) - logsafe(cur_κ)
 
-    # barriers from the cones 
+    # barriers from the cones
     ( z, s) = (variables.z, variables.s)
     (dz,ds) = (step.z, step.s)
 
