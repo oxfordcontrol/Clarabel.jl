@@ -45,7 +45,7 @@ static\\_regularization\\_eps           | 1e-8      | KKT static regularization 
 dynamic\\_regularization\\_enable       | true      | enable KKT dynamic regularization
 dynamic\\_regularization\\_eps          | 1e-13     | KKT dynamic regularization threshold
 dynamic\\_regularization\\_delta        | 2e-7      | KKT dynamic regularization shift
-dynamic\\_proportional\\_eps            | eps(T)    | KKT proportionally dynamic regularization 
+dynamic\\_proportional\\_eps            | eps(T)    | KKT proportionally dynamic regularization
 iterative\\_refinement\\_enable         | true      | KKT solve with iterative refinement
 iterative\\_refinement\\_reltol         | 1e-10     | iterative refinement relative tolerance
 iterative\\_refinement\\_abstol         | 1e-10     | iterative refinement absolute tolerance
@@ -58,12 +58,15 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     max_iter::DefaultInt    = 50
     time_limit::T           = Inf
     verbose::Bool           = true
+    max_step_fraction::T    = 0.99
+
+    # full accuracy solution tolerances
     tol_gap_abs::T          = 1e-8
     tol_gap_rel::T          = 1e-8
     tol_feas::T             = 1e-8
 	tol_infeas_abs::T		= 1e-8
 	tol_infeas_rel::T		= 1e-8
-    max_step_fraction::T    = 0.99
+    tol_ktratio::T          = 1e-7
 
     # reduced accuracy solution tolerances
     reduced_tol_gap_abs::T          = 5e-5
@@ -71,6 +74,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     reduced_tol_feas::T             = 1e-4
     reduced_tol_infeas_abs::T		= 5e-5
 	reduced_tol_infeas_rel::T		= 5e-5
+    reduced_tol_ktratio::T          = 1e-4
 
 	#data equilibration
 	equilibrate_enable::Bool            = true
@@ -78,7 +82,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 	equilibrate_min_scaling::T          = 1e-4
 	equilibrate_max_scaling::T          = 1e+4
 
-    #cones and line search parameters 
+    #cones and line search parameters
     linesearch_backtrack_step::T        = 0.8     #PJG: Add to docs
     min_switch_step_length              = 1e-1    #PJG: disable PD step at this length
     min_terminate_step_length           = 1e-4    #PJG: terminate solver at this length
@@ -100,9 +104,9 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     #iterative refinement
     iterative_refinement_enable::Bool   = true
-    iterative_refinement_reltol::T      = 1e-8      #PJG: check docs
-    iterative_refinement_abstol::T      = 1e-10     #PJG: check docs
-    iterative_refinement_max_iter::Int  = 10    
+    iterative_refinement_reltol::T      = 1e-13      #PJG: check docs
+    iterative_refinement_abstol::T      = 1e-14     #PJG: check docs
+    iterative_refinement_max_iter::Int  = 10
     iterative_refinement_stop_ratio::T  = 5         #PJG: check docs
 
 end

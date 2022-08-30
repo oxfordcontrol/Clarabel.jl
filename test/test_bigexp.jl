@@ -85,10 +85,10 @@ end
 
 function run(index)
 
-    verbosity = true        
+    verbosity = true
     maxiter     = 100
 
-    model_clarabel = exp_model(index; optimizer = Clarabel.Optimizer) 
+    model_clarabel = exp_model(index; optimizer = Clarabel.Optimizer)
     set_optimizer_attribute(model_clarabel, "verbose", verbosity)
     set_optimizer_attribute(model_clarabel, "max_iter", maxiter)
     set_optimizer_attribute(model_clarabel, "equilibrate_enable", true)
@@ -96,17 +96,17 @@ function run(index)
     set_optimizer_attribute(model_clarabel, "static_regularization_proportional",eps()^(2))  #disables it?
     set_optimizer_attribute(model_clarabel, "linesearch_backtrack_step",0.80)  #matches ECOS
     set_optimizer_attribute(model_clarabel, "max_step_fraction",0.99);  #default 0.99
-    set_optimizer_attribute(model_clarabel, "min_primaldual_step_length", 0.2)
+    #set_optimizer_attribute(model_clarabel, "min_primaldual_step_length", 0.2)
     set_optimizer_attribute(model_clarabel, "static_regularization_enable",true)
     set_optimizer_attribute(model_clarabel, "direct_solve_method",:qdldl)
-    set_optimizer_attribute(model_clarabel, "iterative_refinement_reltol",1e-8 )   #default 1e-8
-    set_optimizer_attribute(model_clarabel, "iterative_refinement_abstol",1e-10)  #default 1e-10
-    optimize!(model_clarabel) 
+    set_optimizer_attribute(model_clarabel, "iterative_refinement_reltol",1e-13 )   #default 1e-8
+    set_optimizer_attribute(model_clarabel, "iterative_refinement_abstol",1e-14)  #default 1e-10
+    optimize!(model_clarabel)
 
-    #model_ecos = exp_model(index; optimizer = ECOS.Optimizer) 
+    #model_ecos = exp_model(index; optimizer = ECOS.Optimizer)
     #set_optimizer_attribute(model_ecos, "verbose", verbosity)
     #set_optimizer_attribute(model_ecos, "maxit", maxiter)
-    #optimize!(model_ecos) 
+    #optimize!(model_ecos)
 
     #println(solution_summary(model_clarabel))
     #println(solution_summary(model_ecos))
@@ -118,7 +118,7 @@ end
 function run_all()
 
     status_c = []
-    status_e = [] 
+    status_e = []
     for i = 1:32
         model_c = run(i)
         push!(status_c,solution_summary(model_c))
@@ -128,9 +128,9 @@ function run_all()
     println()
 
     for i = 1:length(status_c)
-        @printf("%i:  Clarabel: status %s.\t Iterations: %i. \t time: %e\n", 
+        @printf("%i:  Clarabel: status %s.\t Iterations: %i. \t time: %e\n",
         i, status_c[i].termination_status,status_c[i].barrier_iterations,status_c[i].solve_time)
-       #@printf("%i:  ECOS    : status %s.\t Iterations: %i. \t time: %e\n", 
+       #@printf("%i:  ECOS    : status %s.\t Iterations: %i. \t time: %e\n",
        #i, status_e[i].termination_status,status_e[i].barrier_iterations,status_e[i].solve_time)
        #println()
     end
@@ -141,7 +141,7 @@ function run_all()
 
 end
 
-#bad problems 
+#bad problems
 # 21 : infeasible.   Hits iteration limit?  Works with smaller regularization.
 # 19,32 fails.   Bad pivots, but nearly(?) solved.  ECOS solves both.
 # maybe need to switch to dual scaling sooner?

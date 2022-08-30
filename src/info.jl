@@ -76,7 +76,7 @@ function info_check_termination!(
                 info.status = INSUFFICIENT_PROGRESS
             end
             # Going backwards. Stop immediately.
-            if (info.res_dual > 100*info.prev_res_dual || info.res_primal > 100*info.prev_res_primal)
+            if iter > 4 && (info.res_dual > 100*info.prev_res_dual || info.res_primal > 100*info.prev_res_primal)
                 info.status = INSUFFICIENT_PROGRESS
             end
         end
@@ -183,66 +183,68 @@ function info_finalize!(
     timers::TimerOutput
 ) where {T}
 
-    # if there was an error or we ran out 
-    # or time or iterations, check for partial 
-    # convergence 
-    if (status_is_errored(info.status) || 
-        info.status == MAX_ITERATIONS  || 
-        info.status == MAX_TIME 
+    # if there was an error or we ran out
+    # or time or iterations, check for partial
+    # convergence
+    if (status_is_errored(info.status) ||
+        info.status == MAX_ITERATIONS  ||
+        info.status == MAX_TIME
     )
         _check_convergence_almost(info,residuals,settings)
-    end 
+    end
 
-    # final check of timers 
+    # final check of timers
     info_get_solve_time!(info,timers)
     return nothing
 end
 
 
 
-# utility functions for convergence checking 
+# utility functions for convergence checking
 
 function _check_convergence_full(info,residuals,settings)
 
-    # "full" tolerances 
-    tol_gap_abs = settings.tol_gap_abs 
-    tol_gap_rel = settings.tol_gap_rel 
-    tol_feas    = settings.tol_feas 
+    # "full" tolerances
+    tol_gap_abs = settings.tol_gap_abs
+    tol_gap_rel = settings.tol_gap_rel
+    tol_feas    = settings.tol_feas
     tol_infeas_abs = settings.tol_infeas_abs
-    tol_infeas_rel = settings.tol_infeas_rel 
+    tol_infeas_rel = settings.tol_infeas_rel
+    tol_ktratio    = settings.tol_ktratio
 
-    solved_status  = SOLVED  
+    solved_status  = SOLVED
     pinf_status    = PRIMAL_INFEASIBLE
     dinf_status    = DUAL_INFEASIBLE
 
     _check_convergence(info,residuals,
                        tol_gap_abs,tol_gap_rel,tol_feas,
-                       tol_infeas_abs,tol_infeas_rel,
+                       tol_infeas_abs,tol_infeas_rel,tol_ktratio,
                        solved_status,pinf_status,dinf_status)
 
-end 
+end
 
 
 function _check_convergence_almost(info,residuals,settings)
 
-    # "full" tolerances 
-    tol_gap_abs = settings.reduced_tol_gap_abs 
-    tol_gap_rel = settings.reduced_tol_gap_rel 
-    tol_feas    = settings.reduced_tol_feas 
+    # "full" tolerances
+    tol_gap_abs = settings.reduced_tol_gap_abs
+    tol_gap_rel = settings.reduced_tol_gap_rel
+    tol_feas    = settings.reduced_tol_feas
     tol_infeas_abs = settings.reduced_tol_infeas_abs
-    tol_infeas_rel = settings.reduced_tol_infeas_rel 
+    tol_infeas_rel = settings.reduced_tol_infeas_rel
+    tol_ktratio    = settings.reduced_tol_ktratio
 
-    solved_status  = ALMOST_SOLVED  
+    solved_status  = ALMOST_SOLVED
     pinf_status    = ALMOST_PRIMAL_INFEASIBLE
     dinf_status    = ALMOST_DUAL_INFEASIBLE
 
     _check_convergence(info,residuals,
                        tol_gap_abs,tol_gap_rel,tol_feas,
-                       tol_infeas_abs,tol_infeas_rel,
+                       tol_infeas_abs,tol_infeas_rel,tol_ktratio,
                        solved_status,pinf_status,dinf_status)
 
-end 
-    
+end
+
 
 function _check_convergence(
     info::DefaultInfo{T},
@@ -252,21 +254,22 @@ function _check_convergence(
     tol_feas::T,
     tol_infeas_abs::T,
     tol_infeas_rel::T,
-    solved_status::SolverStatus,  
-    pinf_status::SolverStatus, 
+    tol_ktratio::T,
+    solved_status::SolverStatus,
+    pinf_status::SolverStatus,
     dinf_status::SolverStatus,
 ) where {T}
 
-    if _is_solved(info, tol_gap_abs, tol_gap_rel, tol_feas)
-        info.status = solved_status 
-    elseif info.ktratio > one(T)
+    if info.ktratio < tol_ktratio && _is_solved(info, tol_gap_abs, tol_gap_rel, tol_feas)
+        info.status = solved_status
+    elseif info.ktratio > 1/tol_ktratio
         if _is_primal_infeasible(info, residuals, tol_infeas_abs, tol_infeas_rel)
             info.status = pinf_status
         elseif _is_dual_infeasible(info, residuals, tol_infeas_abs, tol_infeas_rel)
             info.status = dinf_status
         end
     end
-end 
+end
 
 
 
@@ -276,28 +279,28 @@ function _is_solved(info, tol_gap_abs, tol_gap_rel, tol_feas)
         && (info.res_primal < tol_feas)
         && (info.res_dual   < tol_feas)
     )
-        return true 
-    else 
-        return false 
-    end 
-end 
+        return true
+    else
+        return false
+    end
+end
 
 function _is_primal_infeasible(info, residuals, tol_infeas_abs, tol_infeas_rel)
 
     if (residuals.dot_bz < -tol_infeas_abs) &&
         (info.res_primal_inf < -tol_infeas_rel * residuals.dot_bz)
-        return true 
-    else 
-        return false 
-    end 
-end 
+        return true
+    else
+        return false
+    end
+end
 
 function _is_dual_infeasible(info, residuals, tol_infeas_abs, tol_infeas_rel)
 
     if (residuals.dot_qx < -tol_infeas_abs) &&
             (info.res_dual_inf < -tol_infeas_rel * residuals.dot_qx)
-        return true 
-    else 
-        return false 
+        return true
+    else
+        return false
     end
-end 
+end

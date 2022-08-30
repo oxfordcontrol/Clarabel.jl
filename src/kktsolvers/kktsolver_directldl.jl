@@ -12,7 +12,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     b::Vector{T}
 
     # internal workspace for IR scheme
-    # and static offsetting of KKT 
+    # and static offsetting of KKT
     work1::Vector{T}
     work2::Vector{T}
 
@@ -236,7 +236,7 @@ function _kktsolver_update_inner!(
 
 end
 
-function _kktsolver_regularize_and_refactor!(   
+function _kktsolver_regularize_and_refactor!(
     kktsolver::DirectLDLKKTSolver{T},
     ldlsolver::AbstractDirectLDLSolver{T}
 ) where{T}
@@ -245,11 +245,11 @@ function _kktsolver_regularize_and_refactor!(
     map           = kktsolver.map
     KKT           = kktsolver.KKT
     Dsigns        = kktsolver.Dsigns
-    diag_kkt      = kktsolver.work1 
+    diag_kkt      = kktsolver.work1
     diag_shifted  = kktsolver.work2
 
     if(settings.static_regularization_enable)
-        
+
         # hold a copy of the true KKT diagonal
         @views diag_kkt .= KKT.nzval[map.diag_full]
         ϵ = _compute_regularizer(diag_kkt, settings)
@@ -257,15 +257,15 @@ function _kktsolver_regularize_and_refactor!(
         # compute an offset version, accounting for signs
         diag_shifted .= diag_kkt
         @inbounds for i in eachindex(Dsigns)
-            if(Dsigns[i] == 1) diag_shifted[i] += ϵ 
-            else               diag_shifted[i] -= ϵ 
+            if(Dsigns[i] == 1) diag_shifted[i] += ϵ
+            else               diag_shifted[i] -= ϵ
             end
         end
-        # overwrite the diagonal of KKT and within the ldlsolver 
+        # overwrite the diagonal of KKT and within the ldlsolver
         _update_values!(ldlsolver,KKT,map.diag_full,diag_shifted)
 
         # remember the value we used.  Not needed,
-        # but possibly useful for debugging 
+        # but possibly useful for debugging
         kktsolver.diagonal_regularizer = ϵ
 
     end
@@ -273,10 +273,10 @@ function _kktsolver_regularize_and_refactor!(
     is_success = refactor!(ldlsolver,KKT)
 
     if(settings.static_regularization_enable)
-        
+
         # put our internal copy of the KKT matrix back the way
-        # it was. Not necessary to fix the ldlsolver copy because  
-        # this is only needed for our post-factorization IR scheme 
+        # it was. Not necessary to fix the ldlsolver copy because
+        # this is only needed for our post-factorization IR scheme
 
         _update_values_KKT!(KKT,map.diag_full,diag_kkt)
 
@@ -433,5 +433,3 @@ function _get_refine_error!(
     return norm(e,Inf)
 
 end
-
-
