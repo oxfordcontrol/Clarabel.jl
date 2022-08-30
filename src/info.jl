@@ -75,8 +75,8 @@ function info_check_termination!(
             if info.ktratio < 100*eps(T) && (info.prev_gap_abs < settings.tol_gap_abs || info.prev_gap_rel < settings.tol_gap_rel)
                 info.status = INSUFFICIENT_PROGRESS
             end
-            # Going backwards. Stop immediately.
-            if iter > 4 && (info.res_dual > 100*info.prev_res_dual || info.res_primal > 100*info.prev_res_primal)
+            # Going backwards. Stop immediately if residuals diverge out of the feasibility tolerance.
+            if (info.res_dual > settings.tol_feas && info.res_dual > 100*info.prev_res_dual) || (info.res_primal > settings.tol_feas && info.res_primal > 100*info.prev_res_primal)
                 info.status = INSUFFICIENT_PROGRESS
             end
         end
