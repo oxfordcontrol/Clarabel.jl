@@ -181,7 +181,18 @@ function rscale!(M::SparseMatrixCSC{T}, R::AbstractVector{T}) where {T <: Abstra
 	return M
 end
 
-lrscale!(L::AbstractVector,M::AbstractMatrix,R::AbstractVector) = lscale!(L, rscale!(M, R))
+# dense version 
+function lrscale!(L::AbstractVector{T},M::Matrix{T},R::AbstractVector{T}) where {T <: AbstractFloat}
+
+    m, n = size(M)
+    (n == length(R)) || throw(DimensionMismatch())
+    (m == length(L)) || throw(DimensionMismatch())
+
+    @inbounds for i = 1:m, j = 1:n
+            M[i,j] *= L[i]*R[j]
+    end
+    return M
+end 
 
 
 #Julia SparseArrays dot function is very slow for Symmtric
