@@ -40,6 +40,7 @@ function update_scaling!(
     f.λ           .= f.SVD.S
     f.Λisqrt.diag .= inv.(sqrt.(f.λ))
 
+    # PJG : allocating 
     f.R    .= L1*(f.SVD.V)*f.Λisqrt
     f.Rinv .= f.Λisqrt*(f.SVD.U)'*L2'
 
@@ -120,6 +121,7 @@ function circ_op!(
     (Y,Z) = (K.work.workmat1,K.work.workmat2)
     map((M,v)->_svec_to_mat!(M,v,K),(Y,Z),(y,z))
 
+    # PJG : allocating 
     Y  .= (Y*Z + Z*Y)/2
     _mat_to_svec!(x,Y,K)
 
@@ -222,6 +224,7 @@ function gemv_W!(
 
   R = K.work.R
 
+  # PJG : allocating 
   if is_transpose === :T
       Y .+= α*(R*X*R')  #W^T*x
   else  # :N
@@ -250,6 +253,7 @@ function gemv_Winv!(
 
     Rinv = K.work.Rinv
 
+    # PJG : allocating 
     if is_transpose === :T
         Y .+= α*(Rinv*X*Rinv')  #W^{-T}*x
     else # :N
@@ -364,8 +368,11 @@ function _step_length_psd_component(
     Δ = K.work.workmat1
     _svec_to_mat!(Δ,d,K)
 
-    #PJG:  allocates. slow AF
-    M = Symmetric(Λisqrt*Δ*Λisqrt)
+    # NB: this could be made faster since 
+    # we only need to populate the upper 
+    # triangle 
+    lrscale!(Λisqrt.diag,Δ,Λisqrt.diag)
+    M = Symmetric(Δ)
 
     γ = eigvals(M,1:1)[1] #minimum eigenvalue
     if γ < 0

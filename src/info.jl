@@ -61,36 +61,39 @@ function info_check_termination!(
 
     info.status = UNSOLVED  #ensure default state to start
 
-    #optimality or infeasibility
+    # optimality or infeasibility
     #---------------------
     _check_convergence_full(info,residuals,settings)
 
-    #poor progress, or time / iteration limits
+    # poor progress
     #----------------------
-    if info.status == UNSOLVED
+    if info.status == UNSOLVED && iter >= 5  # give time to settle
 
-        # Report poor progress when residuals diverge
-        if iter > 0 && (info.res_dual > info.prev_res_dual || info.res_primal > info.prev_res_primal)
-            #PJG: Not sure if this ktratio test is still relevant.
+        if (info.res_dual > info.prev_res_dual || info.res_primal > info.prev_res_primal)
+            # Poor progress at high tolerance.  
             if info.ktratio < 100*eps(T) && (info.prev_gap_abs < settings.tol_gap_abs || info.prev_gap_rel < settings.tol_gap_rel)
                 info.status = INSUFFICIENT_PROGRESS
             end
+
             # Going backwards. Stop immediately if residuals diverge out of the feasibility tolerance.
             if (info.res_dual > settings.tol_feas && info.res_dual > 100*info.prev_res_dual) || (info.res_primal > settings.tol_feas && info.res_primal > 100*info.prev_res_primal)
                 info.status = INSUFFICIENT_PROGRESS
             end
         end
+    end 
 
+    # time / iteration limits
+    #----------------------
+    if info.status == UNSOLVED 
         if settings.max_iter  == info.iterations
             info.status = MAX_ITERATIONS
 
         elseif info.solve_time > settings.time_limit
             info.status = MAX_TIME
-
         end
     end
 
-    #return TRUE if we settled on a final status
+    # return TRUE if we settled on a final status
     return is_done = info.status != UNSOLVED
 end
 
@@ -119,18 +122,18 @@ function info_reset_to_prev_iterates(
     variables::DefaultVariables{T},
     prev_variables::DefaultVariables{T}
 ) where {T}
-    info.cost_primal    = info.prev_cost_primal
-    info.cost_dual      = info.prev_cost_dual
-    info.res_primal     = info.prev_res_primal
-    info.res_dual       = info.prev_res_dual
-    info.gap_abs        = info.prev_gap_abs
-    info.gap_rel        = info.prev_gap_rel
+    info.cost_primal = info.prev_cost_primal
+    info.cost_dual   = info.prev_cost_dual
+    info.res_primal  = info.prev_res_primal
+    info.res_dual    = info.prev_res_dual
+    info.gap_abs     = info.prev_gap_abs
+    info.gap_rel     = info.prev_gap_rel
 
-    variables.x    .= prev_variables.x
-    variables.s    .= prev_variables.s
-    variables.z    .= prev_variables.z
-    variables.τ     = prev_variables.τ
-    variables.κ     = prev_variables.κ
+    variables.x     .= prev_variables.x
+    variables.s     .= prev_variables.s
+    variables.z     .= prev_variables.z
+    variables.τ      = prev_variables.τ
+    variables.κ      = prev_variables.κ
 end
 
 function info_save_scalars(
