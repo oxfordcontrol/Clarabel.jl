@@ -1,4 +1,3 @@
-abstract type AbstractKKTSolver{T <: AbstractFloat} end
 
 #update matrix data and factor
 function kktsolver_update!(linsys::AbstractKKTSolver{T},cones::ConeSet{T}) where{T}
@@ -23,3 +22,20 @@ function kktsolver_solve!(
 ) where{T}
     error("function not implemented")
 end
+
+
+# check whether the factorization is successful
+function kktsolver_checkfact!(
+    kktsolver::AbstractKKTSolver{T}
+) where{T}
+    error("function not implemented")
+end
+
+
+# check whether the condition number is poors
+function kktsolver_is_ill_conditioned!(
+    kktsolver::AbstractKKTSolver{T}
+) where{T}
+    error("function not implemented")
+end
+

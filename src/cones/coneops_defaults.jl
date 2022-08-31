@@ -14,6 +14,10 @@ dim(K::AbstractCone{T}) where {T} = K.dim
 degree(K::AbstractCone{T}) where {T} = dim(K)
 numel(K::AbstractCone{T}) where {T} = dim(K)
 
+#All cones default to symmetric unless overridden
+is_symmetric(::AbstractCone{T}) where {T} = true
+
+
 #NB: custom rectify functions should return
 #true unless δ == e on return
 function rectify_equilibration!(
@@ -46,7 +50,9 @@ end
 function update_scaling!(
     K::AbstractCone{T},
     s::AbstractVector{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    μ::T,
+    scaling_strategy::ScalingStrategy
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -77,12 +83,14 @@ function get_WtW_block!(
 
 end
 
-# returns x = λ∘λ.  The cone must have an internal mechanism
+# returns x = λ∘λ for symmetric cones and x = s for asymmetric cones
+# The cone must have an internal mechanism
 # for storing the scaled variable λ internally.  This variable
 # should be updated at the call to update_scaling!
-function λ_circ_λ!(
+function affine_ds!(
     K::AbstractCone{T},
-    x::AbstractVector{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -141,6 +149,17 @@ function shift_to_cone!(
 
 end
 
+# unit initialization for asymmetric solves
+function unit_initialization!(
+    K::AbstractCone{T},
+	z::AbstractVector{T},
+    s::AbstractVector{T}
+) where{T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
 # implements y = αWx + βy
 function gemv_W!(
     K::AbstractCone{T},
@@ -179,6 +198,43 @@ function add_scaled_e!(
 
 end
 
+# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - ds
+function combined_ds!(
+    K::AbstractCone{T},
+    dz::AbstractVector{T},
+    step_z::AbstractVector{T},
+    step_s::AbstractVector{T},
+    σμ::T
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
+# compute the generalized step Wᵀ(λ \ ds)
+function Wt_λ_inv_circ_ds!(
+    K::AbstractCone{T},
+    lz::AbstractVector{T},
+    rz::AbstractVector{T},
+    rs::AbstractVector{T},
+    Wtlinvds::AbstractVector{T}
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
+# compute the generalized step of -WᵀWΔz
+function WtW_Δz!(
+    K::AbstractCone{T},
+    lz::AbstractVector{T},
+    ls::AbstractVector{T},
+    workz::AbstractVector{T}
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
 
 #return maximum allowable step length while remaining in cone
 #should return a Tuple of allowable step lengths for each direction
@@ -188,9 +244,25 @@ function step_length(
     dz::AbstractVector{T},
     ds::AbstractVector{T},
      z::AbstractVector{T},
-     s::AbstractVector{T}
+     s::AbstractVector{T},
+     settings::Settings{T},
+     α::T
 ) where {T}
 
      error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
+# Computes f(s + α⋅ds) + f*(z + α⋅dz) for each cone as in §8.3 of Santiago's thesis
+function compute_barrier(
+    K::AbstractCone{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
 
 end

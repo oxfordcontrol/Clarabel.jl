@@ -17,6 +17,8 @@ function update_scaling!(
     K::PSDTriangleCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
+    μ::T,
+    scaling_strategy::ScalingStrategy
 ) where {T}
 
     f = K.work
@@ -38,6 +40,7 @@ function update_scaling!(
     f.λ           .= f.SVD.S
     f.Λisqrt.diag .= inv.(sqrt.(f.λ))
 
+    # PJG : allocating 
     f.R    .= L1*(f.SVD.V)*f.Λisqrt
     f.Rinv .= f.Λisqrt*(f.SVD.U)'*L2'
 
@@ -90,9 +93,10 @@ function get_WtW_block!(
 end
 
 # returns x = λ ∘ λ for the SDP cone
-function λ_circ_λ!(
+function affine_ds!(
     K::PSDTriangleCone{T},
-    x::AbstractVector{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
     #We have Λ = Diagonal(K.λ), so
@@ -117,6 +121,7 @@ function circ_op!(
     (Y,Z) = (K.work.workmat1,K.work.workmat2)
     map((M,v)->_svec_to_mat!(M,v,K),(Y,Z),(y,z))
 
+    # PJG : allocating 
     Y  .= (Y*Z + Z*Y)/2
     _mat_to_svec!(x,Y,K)
 
@@ -173,19 +178,34 @@ function shift_to_cone!(
 
     Z = K.work.workmat1
     _svec_to_mat!(Z,z,K)
-
+    
     α = eigvals(Symmetric(Z),1:1)[1]  #min eigenvalue
 
-    if(α < eps(T))
+    if(α < sqrt(eps(T)))
         #done in two stages since otherwise (1-α) = -α for
         #large α, which makes z exactly 0. (or worse, -0.0 )
         add_scaled_e!(K,z,-α)
         add_scaled_e!(K,z,one(T))
     end
 
+
     return nothing
 end
 
+# unit initialization for asymmetric solves
+function unit_initialization!(
+   K::PSDTriangleCone{T},
+   z::AbstractVector{T},
+   s::AbstractVector{T}
+) where{T}
+
+    z .= zero(T)
+    s .= zero(T)
+    add_scaled_e!(K,z,one(T))
+    add_scaled_e!(K,s,one(T))
+
+   return nothing
+end
 
 # implements y = αWx + βy for the PSD cone
 function gemv_W!(
@@ -204,6 +224,7 @@ function gemv_W!(
 
   R = K.work.R
 
+  # PJG : allocating 
   if is_transpose === :T
       Y .+= α*(R*X*R')  #W^T*x
   else  # :N
@@ -232,6 +253,7 @@ function gemv_Winv!(
 
     Rinv = K.work.Rinv
 
+    # PJG : allocating 
     if is_transpose === :T
         Y .+= α*(Rinv*X*Rinv')  #W^{-T}*x
     else # :N
@@ -260,6 +282,55 @@ function add_scaled_e!(
     return nothing
 end
 
+# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - ds
+function combined_ds!(
+    K::PSDTriangleCone{T},
+    dz::AbstractVector{T},
+    step_z::AbstractVector{T},
+    step_s::AbstractVector{T},
+    σμ::T
+) where {T}
+
+    tmp = dz                #alias
+    dz .= step_z            #copy for safe call to gemv_W
+    gemv_W!(K,:N,tmp,step_z,one(T),zero(T))         #Δz <- WΔz
+    tmp .= step_s           #copy for safe call to gemv_Winv
+    gemv_Winv!(K,:T,tmp,step_s,one(T),zero(T))      #Δs <- W⁻¹Δs
+    circ_op!(K,tmp,step_s,step_z)                   #tmp = W⁻¹Δs ∘ WΔz
+    add_scaled_e!(K,tmp,-σμ)                        #tmp = W⁻¹Δs ∘ WΔz - σμe
+
+    return nothing
+end
+
+# compute the generalized step Wᵀ(λ \ ds)
+function Wt_λ_inv_circ_ds!(
+    K::PSDTriangleCone{T},
+    lz::AbstractVector{T},
+    rz::AbstractVector{T},
+    rs::AbstractVector{T},
+    Wtlinvds::AbstractVector{T}
+) where {T}
+
+    tmp = lz;
+    @. tmp = rz  #Don't want to modify our RHS
+    λ_inv_circ_op!(K,tmp,rs)                  #tmp = λ \ ds
+    gemv_W!(K,:T,tmp,Wtlinvds,one(T),zero(T)) #Wᵀ(λ \ ds) = Wᵀ(tmp)
+
+    return nothing
+end
+
+# compute the generalized step of -WᵀWΔz
+function WtW_Δz!(
+    K::PSDTriangleCone{T},
+    lz::AbstractVector{T},
+    ls::AbstractVector{T},
+    workz::AbstractVector{T}
+) where {T}
+
+    gemv_W!(K,:N,lz,workz,one(T),zero(T))    #work = WΔz
+    gemv_W!(K,:T,workz,ls,-one(T),zero(T))   #Δs = -WᵀWΔz
+
+end
 
 ##return maximum allowable step length while remaining in the psd cone
 function step_length(
@@ -267,7 +338,9 @@ function step_length(
     dz::AbstractVector{T},
     ds::AbstractVector{T},
      z::AbstractVector{T},
-     s::AbstractVector{T}
+     s::AbstractVector{T},
+     settings::Settings{T},
+     αmax::T
 ) where {T}
 
     Λisqrt = K.work.Λisqrt
@@ -275,30 +348,59 @@ function step_length(
 
     #d = Δz̃ = WΔz
     gemv_W!(K, :N, dz, d, one(T), zero(T))
-    αz = _step_length_psd_component(K,d,Λisqrt)
+    αz = _step_length_psd_component(K,d,Λisqrt,αmax)
 
     #d = Δs̃ = W^{-T}Δs
     gemv_Winv!(K, :T, ds, d, one(T), zero(T))
-    αs = _step_length_psd_component(K,d,Λisqrt)
+    αs = _step_length_psd_component(K,d,Λisqrt,αmax)
 
     return (αz,αs)
 end
 
 
 function _step_length_psd_component(
-    K::PSDTriangleCone,
+    K::PSDTriangleCone{T},
     d::Vector{T},
-    Λisqrt::Diagonal{T}
+    Λisqrt::Diagonal{T},
+    αmax::T
 ) where {T}
 
     Δ = K.work.workmat1
     _svec_to_mat!(Δ,d,K)
 
-    #allocate.   Slow AF
-    M = Symmetric(Λisqrt*Δ*Λisqrt)
+    # NB: this could be made faster since 
+    # we only need to populate the upper 
+    # triangle 
+    lrscale!(Λisqrt.diag,Δ,Λisqrt.diag)
+    M = Symmetric(Δ)
 
     γ = eigvals(M,1:1)[1] #minimum eigenvalue
-    α = γ < 0 ? inv(-γ) : floatmax(T)
-    return α
+    if γ < 0
+        return min(inv(-γ),αmax)
+    else
+        return αmax
+    end
+
+end
+
+
+
+function compute_barrier(
+    K::PSDTriangleCone{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T
+) where {T}
+
+    # We should return this, but in a smarter way.
+    # This is not yet implemented, but would only 
+    # be required for problems mixing PSD and 
+    # asymmetric cones 
+    # 
+    # return -log(det(s)) - log(det(z))
+
+    error("Mixed PSD and Exponential/Power cones are not yet supported")
 
 end

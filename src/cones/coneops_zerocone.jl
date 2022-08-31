@@ -19,7 +19,9 @@ end
 function update_scaling!(
     K::ZeroCone{T},
     s::AbstractVector{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    μ::T,
+    scaling_strategy::ScalingStrategy
 ) where {T}
 
     #nothing to do.
@@ -49,9 +51,10 @@ function get_WtW_block!(
     return nothing
 end
 
-function λ_circ_λ!(
+function affine_ds!(
     K::ZeroCone{T},
-    x::AbstractVector{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
     x .= zero(T)
@@ -107,6 +110,19 @@ function shift_to_cone!(
     return nothing
 end
 
+# unit initialization for asymmetric solves
+function unit_initialization!(
+    K::ZeroCone{T},
+	z::AbstractVector{T},
+    s::AbstractVector{T}
+) where{T}
+
+    s .= zero(T)
+    z .= zero(T)
+
+    return nothing
+end
+
 # implements y = αWx + βy for the zero cone
 function gemv_W!(
     K::ZeroCone{T},
@@ -150,16 +166,80 @@ function add_scaled_e!(
 
 end
 
+# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - ds
+function combined_ds!(
+    K::ZeroCone{T},
+    dz::AbstractVector{T},
+    step_z::AbstractVector{T},
+    step_s::AbstractVector{T},
+    σμ::T
+) where {T}
+
+    tmp = dz                #alias
+    dz .= step_z            #copy for safe call to gemv_W
+    gemv_W!(K,:N,tmp,step_z,one(T),zero(T))         #Δz <- WΔz
+    tmp .= step_s           #copy for safe call to gemv_Winv
+    gemv_Winv!(K,:T,tmp,step_s,one(T),zero(T))      #Δs <- W⁻¹Δs
+    circ_op!(K,tmp,step_s,step_z)                   #tmp = W⁻¹Δs ∘ WΔz
+    add_scaled_e!(K,tmp,-σμ)                        #tmp = W⁻¹Δs ∘ WΔz - σμe
+
+    return nothing
+end
+
+# compute the generalized step Wᵀ(λ \ ds)
+function Wt_λ_inv_circ_ds!(
+    K::ZeroCone{T},
+    lz::AbstractVector{T},
+    rz::AbstractVector{T},
+    rs::AbstractVector{T},
+    Wtlinvds::AbstractVector{T}
+) where {T}
+
+    tmp = lz;
+    @. tmp = rz  #Don't want to modify our RHS
+    λ_inv_circ_op!(K,tmp,rs)                  #tmp = λ \ ds
+    gemv_W!(K,:T,tmp,Wtlinvds,one(T),zero(T)) #Wᵀ(λ \ ds) = Wᵀ(tmp)
+
+    return nothing
+end
+
+# compute the generalized step of -WᵀWΔz
+function WtW_Δz!(
+    K::ZeroCone{T},
+    lz::AbstractVector{T},
+    ls::AbstractVector{T},
+    workz::AbstractVector{T}
+) where {T}
+
+    gemv_W!(K,:N,lz,workz,one(T),zero(T))    #work = WΔz
+    gemv_W!(K,:T,workz,ls,-one(T),zero(T))   #Δs = -WᵀWΔz
+
+end
 
 function step_length(
      K::ZeroCone{T},
     dz::AbstractVector{T},
     ds::AbstractVector{T},
      z::AbstractVector{T},
-     s::AbstractVector{T}
+     s::AbstractVector{T},
+     settings::Settings{T},
+     αmax::T,
 ) where {T}
 
     #equality constraints allow arbitrary step length
-    huge = floatmax(T)
-    return (huge,huge)
+    return (αmax,αmax)
+end
+
+# no compute_centrality for Zerocone
+function compute_barrier(
+    K::ZeroCone{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T
+) where {T}
+
+    return zero(T)
+
 end

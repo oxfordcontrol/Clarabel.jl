@@ -3,7 +3,8 @@ function solution_finalize!(
 	solution::DefaultSolution{T},
 	data::DefaultProblemData{T},
 	variables::DefaultVariables{T},
-	info::DefaultInfo{T}
+	info::DefaultInfo{T},
+	settings::Settings{T}
 ) where {T}
 
 	solution.status  = info.status
@@ -17,7 +18,7 @@ function solution_finalize!(
     #if we have an infeasible problem, normalize
     #using κ to get an infeasibility certificate.
     #Otherwise use τ to get a solution.
-    if(info.status == PRIMAL_INFEASIBLE || info.status == DUAL_INFEASIBLE)
+    if status_is_infeasible(info.status)
         scaleinv = one(T) / variables.κ
 		solution.obj_val = NaN
     else

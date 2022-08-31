@@ -44,6 +44,14 @@ end
 
 DefaultVariables(args...) = DefaultVariables{DefaultFloat}(args...)
 
+# Scaling strategy for variables.  Defined
+# here to avoid errors due to order of includes
+
+@enum ScalingStrategy begin
+    PrimalDual = 0
+    Dual       = 1
+end
+
 
 # ---------------
 # equilibration data
@@ -72,7 +80,7 @@ struct DefaultEquilibration{T} <: AbstractEquilibration{T}
         dinv = ones(T,nvars)
 
         # PJG : note that this double initializes
-        # e / einv because the ConicVector constructor
+        # e and einv because the ConicVector constructor
         # first initializes to zero.   Could be improved.
         e    = ConicVector{T}(cones); e .= one(T)
         einv = ConicVector{T}(cones); einv .= one(T)
@@ -146,6 +154,9 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     m::DefaultInt
     equilibration::DefaultEquilibration{T}
 
+    normq::T
+    normb::T
+
     function DefaultProblemData{T}(
         P::AbstractMatrix{T},
         q::AbstractVector{T},
@@ -167,7 +178,10 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
 
         equilibration = DefaultEquilibration{T}(n,cones)
 
-        new(P,q,A,b,n,m,equilibration)
+        normq = norm(q, Inf)
+        normb = norm(b, Inf)
+
+        new(P,q,A,b,n,m,equilibration,normq,normb)
 
     end
 
@@ -176,41 +190,9 @@ end
 DefaultProblemData(args...) = DefaultProblemData{DefaultFloat}(args...)
 
 
-# ---------------
-# solver status
-# ---------------
-"""
-    SolverStatus
-An Enum of of possible conditions set by [`solve!`](@ref).
-
-If no call has been made to [`solve!`](@ref), then the `SolverStatus`
-is:
-* `UNSOLVED`: The algorithm has not started.
-
-Otherwise:
-* `SOLVED`              : Solver as terminated with a solution.
-* `PRIMAL_INFEASIBLE`   : Problem is primal infeasible.  Solution returned is a certificate of primal infeasibility.
-* `DUAL_INFEASIBLE`     : Problem is dual infeasible.  Solution returned is a certificate of dual infeasibility.
-* `MAX_ITERATIONS`      : Iteration limit reached before solution or infeasibility certificate found.
-* `MAX_TIME`            : Time limit reached before solution or infeasibility certificate found.
-"""
-@enum SolverStatus begin
-    UNSOLVED           = 0
-    SOLVED
-    PRIMAL_INFEASIBLE
-    DUAL_INFEASIBLE
-    MAX_ITERATIONS
-    MAX_TIME
-end
-
-const SolverStatusDict = Dict(
-    UNSOLVED            =>  "unsolved",
-    SOLVED              =>  "solved",
-    PRIMAL_INFEASIBLE   =>  "primal infeasible",
-    DUAL_INFEASIBLE     =>  "dual infeasible",
-    MAX_ITERATIONS      =>  "iteration limit",
-    MAX_TIME            =>  "time limit"
-)
+# ----------------------
+# progress info
+# ----------------------
 
 mutable struct DefaultInfo{T} <: AbstractInfo{T}
 
@@ -227,6 +209,15 @@ mutable struct DefaultInfo{T} <: AbstractInfo{T}
     gap_abs::T
     gap_rel::T
     ktratio::T
+
+    # previous iterates
+    prev_cost_primal::T
+    prev_cost_dual::T
+    prev_res_primal::T
+    prev_res_dual::T
+    prev_gap_abs::T
+    prev_gap_rel::T
+
     solve_time::T
     status::SolverStatus
 
@@ -318,6 +309,7 @@ mutable struct Solver{T <: AbstractFloat}
     info::Union{AbstractInfo{T},Nothing}
     step_lhs::Union{AbstractVariables{T},Nothing}
     step_rhs::Union{AbstractVariables{T},Nothing}
+    prev_vars::Union{AbstractVariables{T},Nothing}
     solution::Union{AbstractSolution{T},Nothing}
     settings::Settings{T}
     timers::TimerOutput

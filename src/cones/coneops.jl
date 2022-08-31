@@ -16,15 +16,15 @@ macro conedispatch(call)
     esc(_conedispatch(:cone, call))
 end
 
-#for debugging.  Replace @conedispatch with @noop
-#to disable the type expansion.
-macro noop(call)
-    esc(call)
-end
-
 # -----------------------------------------------------
 # dispatch operators for multiple cones
 # -----------------------------------------------------
+
+function cones_is_symmetric(cones::ConeSet{T}) where {T}
+    #true if all pieces are symmetric.  
+    #determined during obj construction
+    return cones._is_symmetric
+end
 
 function cones_rectify_equilibration!(
     cones::ConeSet{T},
@@ -46,15 +46,18 @@ function cones_rectify_equilibration!(
 end
 
 
-
 function cones_update_scaling!(
     cones::ConeSet{T},
     s::ConicVector{T},
     z::ConicVector{T},
+	μ::T,
+    scaling_strategy::ScalingStrategy
 ) where {T}
 
+    # update cone scalings by passing subview to each of
+    # the appropriate cone types.
     for (cone,si,zi) in zip(cones,s.views,z.views)
-        @conedispatch update_scaling!(cone,si,zi)
+        @conedispatch update_scaling!(cone,si,zi,μ,scaling_strategy)
     end
 
     return nothing
@@ -83,59 +86,19 @@ function cones_get_WtW_blocks!(
     return nothing
 end
 
-# x = λ ∘ λ
-function cones_λ_circ_λ!(
-    cones::ConeSet{T},
-    x::ConicVector{T}
-) where {T}
-
-    for (cone,xi) in zip(cones,x.views)
-        @conedispatch λ_circ_λ!(cone,xi)
-    end
-    return nothing
-end
-
-# x = y ∘ z
-function cones_circ_op!(
+# x = λ ∘ λ for symmetric cone and x = s for asymmetric cones
+function cones_affine_ds!(
     cones::ConeSet{T},
     x::ConicVector{T},
-    y::ConicVector{T},
-    z::ConicVector{T}
+    s::ConicVector{T}
 ) where {T}
 
-    for (cone,xi,yi,zi) in zip(cones, x.views, y.views, z.views)
-        @conedispatch circ_op!(cone,xi,yi,zi)
+    for (cone,xi,si) in zip(cones,x.views,s.views)
+        @conedispatch affine_ds!(cone,xi,si)
     end
     return nothing
 end
 
-# x = λ \ z,  where λ is scaled internal
-# variable for each cone
-function cones_λ_inv_circ_op!(
-    cones::ConeSet{T},
-    x::ConicVector{T},
-    z::ConicVector{T}
-) where {T}
-
-    for (cone,xi,zi) in zip(cones, x.views, z.views)
-        @conedispatch λ_inv_circ_op!(cone,xi,zi)
-    end
-    return nothing
-end
-
-# x = y \ z
-function cones_inv_circ_op!(
-    cones::ConeSet{T},
-    x::ConicVector{T},
-    y::ConicVector{T},
-    z::ConicVector{T}
-) where {T}
-
-    for (cone,xi,yi,zi) in zip(cones, x.views, y.views, z.views)
-        @conedispatch inv_circ_op!(cone,xi,yi,zi)
-    end
-    return nothing
-end
 
 # place a vector to some nearby point in the cone
 function cones_shift_to_cone!(
@@ -143,78 +106,146 @@ function cones_shift_to_cone!(
     z::ConicVector{T}
 ) where {T}
 
-    for (cone,zi) in zip(cones, z.views)
+    for (cone,zi) in zip(cones,z.views)
         @conedispatch shift_to_cone!(cone,zi)
     end
     return nothing
 end
 
-# computes y = αWx + βy, or y = αWᵀx + βy, i.e.
-# similar to the BLAS gemv interface.
-#Warning: x must not alias y.
-function cones_gemv_W!(
+# unit initialization for asymmetric solves
+function cones_unit_initialization!(
     cones::ConeSet{T},
-    is_transpose::Symbol,
-    x::ConicVector{T},
-    y::ConicVector{T},
-    α::T,
-    β::T
+    z::ConicVector{T},
+    s::ConicVector{T}
 ) where {T}
 
-    for (cone,xi,yi) in zip(cones, x.views, y.views)
-        @conedispatch gemv_W!(cone,is_transpose,xi,yi,α,β)
+    for (cone,zi,si) in zip(cones,z.views,s.views)
+        @conedispatch unit_initialization!(cone,zi,si)
     end
     return nothing
 end
 
-# computes y = αW^{-1}x + βy, or y = αW⁻ᵀx + βy, i.e.
-# similar to the BLAS gemv interface.
-#Warning: x must not alias y.
-function cones_gemv_Winv!(
+# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - ds
+function cones_combined_ds!(
     cones::ConeSet{T},
-    is_transpose::Symbol,
-    x::ConicVector{T},
-    y::ConicVector{T},
-    α::T,
-    β::T
+    dz::ConicVector{T},
+    ds::ConicVector{T},
+    step_z::ConicVector{T},
+    step_s::ConicVector{T},
+    σμ::T
 ) where {T}
 
-    for (cone,xi,yi) in zip(cones, x.views, y.views)
-        @conedispatch gemv_Winv!(cone,is_transpose,xi,yi,α,β)
+    for (cone,dzi,zi,si) in zip(cones,dz.views,step_z.views,step_s.views)
+
+        # compute the centering and the higher order correction parts in ds and save it in dz
+        @conedispatch combined_ds!(cone,dzi,zi,si,σμ)
     end
+
+    #We are relying on d.s = λ ◦ λ (symmetric) or d.s = s (asymmetric) already from the affine step here
+    ds .+= dz
+
     return nothing
 end
 
-#computes y = y + αe
-function cones_add_scaled_e!(
+# compute the generalized step Wᵀ(λ \ ds)
+function cones_Wt_λ_inv_circ_ds!(
     cones::ConeSet{T},
-    x::ConicVector{T},
-    α::T
+    lz::ConicVector{T},
+    rz::ConicVector{T},
+    rs::ConicVector{T},
+    Wtlinvds::ConicVector
 ) where {T}
 
-    for (cone,xi) in zip(cones, x.views)
-        @conedispatch add_scaled_e!(cone,xi,α)
+    for (cone,lzi,rzi,rsi,Wtlinvdsi) in zip(cones,lz.views,rz.views,rs.views,Wtlinvds.views)
+        @conedispatch Wt_λ_inv_circ_ds!(cone,lzi,rzi,rsi,Wtlinvdsi)
     end
+
+    return nothing
+end
+
+# compute the generalized step of -WᵀWΔz
+function cones_WtW_Δz!(
+    cones::ConeSet{T},
+    lz::ConicVector{T},
+    ls::ConicVector{T},
+    workz::ConicVector{T}
+) where {T}
+
+    for (cone,lzi,lsi,workzi) in zip(cones,lz.views,ls.views,workz.views)
+        @conedispatch WtW_Δz!(cone,lzi,lsi,workzi)
+    end
+
     return nothing
 end
 
 # maximum allowed step length over all cones
 function cones_step_length(
-    cones::ConeSet{T},
-    dz::ConicVector{T},
-    ds::ConicVector{T},
-     z::ConicVector{T},
-     s::ConicVector{T}
+     cones::ConeSet{T},
+        dz::ConicVector{T},
+        ds::ConicVector{T},
+         z::ConicVector{T},
+         s::ConicVector{T},
+  settings::Settings{T},
+         α::T,
+         steptype::Symbol
 ) where {T}
 
-    huge    = floatmax(T)
-    (αz,αs) = (huge, huge)
+    dz    = dz.views
+    ds    = ds.views
+    z     = z.views
+    s     = s.views
 
-    for (cone,dzi,dsi,zi,si) in zip(cones,dz.views,ds.views,z.views,s.views)
-        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si)
-        αz = min(αz, nextαz)
-        αs = min(αs, nextαs)
+    # Force symmetric cones first.   
+    for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
+
+        if !is_symmetric(cone) continue end
+        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
+        α = min(α,nextαz,nextαs)
+    end
+        
+    #if we have any nonsymmetric cones, then back off from full steps slightly
+    #so that centrality checks and logarithms don't fail right at the boundaries
+    if(!cones_is_symmetric(cones))
+        α = min(α,0.99)
     end
 
-    return (αz,αs)
+    # Force asymmetric cones last.  
+    for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
+
+        if is_symmetric(cone) continue end
+        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
+        α = min(α,nextαz,nextαs)
+    end
+
+    if(steptype == :combined)
+        α *= settings.max_step_fraction
+    end
+
+    return α
 end
+
+
+# compute the total barrier function at the point (z + α⋅dz, s + α⋅ds)
+function cones_compute_barrier(
+    cones::ConeSet{T},
+    z::ConicVector{T},
+    s::ConicVector{T},
+    dz::ConicVector{T},
+    ds::ConicVector{T},
+    α::T
+) where {T}
+
+    dz    = dz.views
+    ds    = ds.views
+    z     = z.views
+    s     = s.views
+
+    barrier = zero(T)
+
+    for (cone,zi,si,dzi,dsi) in zip(cones,z,s,dz,ds)
+        @conedispatch barrier += compute_barrier(cone,zi,si,dzi,dsi,α)
+    end
+
+    return barrier
+end
+

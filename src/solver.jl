@@ -1,3 +1,5 @@
+using Printf
+
 # -------------------------------------
 # utility constructor that includes
 # both object creation and setup
@@ -7,12 +9,12 @@ function Solver(
     c::Vector{T},
     A::AbstractMatrix{T},
     b::Vector{T},
-    cone_types::Vector{<:SupportedCone},
+    cones::Vector{<:SupportedCone},
     kwargs...
 ) where{T <: AbstractFloat}
 
     s = Solver{T}()
-    setup!(s,P,c,A,b,cone_types,kwargs...)
+    setup!(s,P,c,A,b,cones,kwargs...)
     return s
 end
 
@@ -60,16 +62,16 @@ setup!(model, P, q, A, b, cones, settings)
 
 To solve the problem, you must make a subsequent call to [`solve!`](@ref)
 """
-function setup!(s,P,c,A,b,cone_types,settings::Settings)
+function setup!(s,P,c,A,b,cones,settings::Settings)
     #this allows total override of settings during setup
     s.settings = settings
-    setup!(s,P,c,A,b,cone_types)
+    setup!(s,P,c,A,b,cones)
 end
 
-function setup!(s,P,c,A,b,cone_types; kwargs...)
+function setup!(s,P,c,A,b,cones; kwargs...)
     #this allows override of individual settings during setup
     settings_populate!(s.settings, Dict(kwargs))
-    setup!(s,P,c,A,b,cone_types)
+    setup!(s,P,c,A,b,cones)
 end
 
 # main setup function
@@ -79,18 +81,18 @@ function setup!(
     q::Vector{T},
     A::AbstractMatrix{T},
     b::Vector{T},
-    cone_types::Vector{<:SupportedCone},
+    cones::Vector{<:SupportedCone},
 ) where{T}
 
     #sanity check problem dimensions
-    _check_dimensions(P,q,A,b,cone_types)
+    _check_dimensions(P,q,A,b,cones)
 
     #make this first to create the timers
     s.info    = DefaultInfo{T}()
 
     @timeit s.timers "setup!" begin
 
-        s.cones  = ConeSet{T}(cone_types)
+        s.cones  = ConeSet{T}(cones)
         s.data   = DefaultProblemData{T}(P,q,A,b,s.cones)
         s.data.m == s.cones.numel || throw(DimensionMismatch())
 
@@ -112,6 +114,9 @@ function setup!(
         s.step_rhs  = DefaultVariables{T}(s.data.n,s.cones)
         s.step_lhs  = DefaultVariables{T}(s.data.n,s.cones)
 
+        # a saved copy of the previous iterate
+        s.prev_vars = DefaultVariables{T}(s.data.n,s.cones)
+
         # user facing results go here
         s.solution    = DefaultSolution{T}(s.data.m,s.data.n)
 
@@ -122,11 +127,11 @@ end
 
 # sanity check problem dimensions passed by user
 
-function _check_dimensions(P,q,A,b,cone_types)
+function _check_dimensions(P,q,A,b,cones)
 
     n = length(q)
     m = length(b)
-    p = sum(cone -> nvars(cone), cone_types; init = 0)
+    p = sum(cone -> nvars(cone), cones; init = 0)
 
     m == size(A)[1] || throw(DimensionMismatch("A and b incompatible dimensions."))
     p == m          || throw(DimensionMismatch("Constraint dimensions inconsistent with size of cones."))
@@ -134,6 +139,14 @@ function _check_dimensions(P,q,A,b,cone_types)
     n == size(P)[1] || throw(DimensionMismatch("P and q incompatible dimensions."))
     size(P)[1] == size(P)[2] || throw(DimensionMismatch("P not square."))
 
+end
+
+
+# an enum for reporting strategy checkpointing
+@enum StrategyCheckpointResult begin 
+    Update = 0   # Checkpoint is suggesting a new ScalingStrategy
+    NoUpdate     # Checkpoint recommends no change to ScalingStrategy
+    Fail         # Checkpoint found a problem but no more ScalingStrategies to try
 end
 
 
@@ -179,6 +192,10 @@ function solve!(
         #----------
         # main loop
         #----------
+
+        # Initialize the scaling strategy to be PrimalDual
+        scaling_strategy = PrimalDual::ScalingStrategy
+
         while true
 
             #update the residuals
@@ -187,68 +204,108 @@ function solve!(
 
             #calculate duality gap (scaled)
             #--------------
-            μ = calc_mu(s.variables, s.residuals, s.cones)
+            μ = variables_calc_mu(s.variables, s.residuals, s.cones)
 
             #convergence check and printing
             #--------------
-            begin
-                info_update!(
-                    s.info,s.data,s.variables,
-                    s.residuals,s.settings,s.timers
-                )
-                isdone = info_check_termination!(s.info,s.residuals,s.settings)
+
+            info_update!(
+                s.info,s.data,s.variables,
+                s.residuals,s.settings,s.timers
+            )
+            isdone = info_check_termination!(s.info,s.residuals,s.settings,iter)
+
+            # check for termination due to slow progress and update strategy
+            if isdone
+                (action,scaling_strategy) = _strategy_checkpoint_insufficient_progress(s,scaling_strategy) 
+                if action === NoUpdate || action === Fail  
+                    break 
+                end  # allow continuation if action === Update
             end
-            iter += 1
+
+            #increment counter here because we only count
+            #iterations that produce a KKT update 
             @notimeit info_print_status(s.info,s.settings)
-            isdone && break
+            iter += 1
 
             #update the scalings
             #--------------
-            variables_scale_cones!(s.variables,s.cones)
+            variables_scale_cones!(s.variables,s.cones,μ,scaling_strategy)
 
-            #update the KKT system and the constant
-            #parts of its solution
+
+            #update the KKT system and the constant parts of its solution.
+            #Keep track of the success of each step that calls KKT
             #--------------
-            @timeit s.timers "kkt update" kkt_update!(s.kktsystem,s.data,s.cones)
+
+            @timeit s.timers "kkt update" begin
+            is_kkt_solve_success = kkt_update!(s.kktsystem,s.data,s.cones)
+            end
 
             #calculate the affine step
             #--------------
-            calc_affine_step_rhs!(
+            variables_affine_step_rhs!(
                 s.step_rhs, s.residuals,
                 s.variables, s.cones
             )
 
+
             @timeit s.timers "kkt solve" begin
+            is_kkt_solve_success = is_kkt_solve_success && 
                 kkt_solve!(
                     s.kktsystem, s.step_lhs, s.step_rhs,
                     s.data, s.variables, s.cones, :affine
                 )
             end
 
-            #calculate step length and centering parameter
-            #--------------
-            α = calc_step_length(s.variables,s.step_lhs,s.cones)
-            σ = calc_centering_parameter(α)
+            # combined step only on affine step success 
+            if is_kkt_solve_success
 
-            #calculate the combined step and length
-            #--------------
-            calc_combined_step_rhs!(
-                s.step_rhs, s.residuals,
-                s.variables, s.cones,
-                s.step_lhs, σ, μ
-            )
+                #calculate step length and centering parameter
+                #--------------
+                α = solver_get_step_length(s,:affine,scaling_strategy)
+                σ = _calc_centering_parameter(α)
 
-            @timeit s.timers "kkt solve" begin
-                kkt_solve!(
-                    s.kktsystem, s.step_lhs, s.step_rhs,
-                    s.data, s.variables, s.cones, :combined
+                #calculate the combined step and length
+                #--------------
+                variables_combined_step_rhs!(
+                    s.step_rhs, s.residuals,
+                    s.variables, s.cones,
+                    s.step_lhs, σ, μ
                 )
+
+                @timeit s.timers "kkt solve" begin
+                is_kkt_solve_success =
+                    kkt_solve!(
+                        s.kktsystem, s.step_lhs, s.step_rhs,
+                        s.data, s.variables, s.cones, :combined
+                    )
+                end
+
+            end
+
+            # check for numerical failure and update strategy
+            if !is_kkt_solve_success
+                info_save_scalars(s.info,μ,zero(T),one(T),iter)
+                (action,scaling_strategy) = _strategy_checkpoint_numerical_error(s,scaling_strategy) 
+                if action === Update; continue; end 
+                if action === Fail; break; end 
             end
 
             #compute final step length and update the current iterate
             #--------------
-            α = calc_step_length(s.variables,s.step_lhs,s.cones)
-            α *= s.settings.max_step_fraction
+            α = solver_get_step_length(s,:combined,scaling_strategy)
+
+            # check for undersized step and update strategy
+            (action,scaling_strategy) = _strategy_checkpoint_small_step(s, α, scaling_strategy)
+            if action === Update || action === Fail  
+                info_save_scalars(s.info,μ,zero(T),one(T),iter)
+                if action === Update; continue; end 
+                if action === Fail; break; end 
+            end 
+            #
+
+            # Copy previous iterate in case the next one is a dud
+            info_save_prev_iterate(s.info,s.variables,s.prev_vars)
 
             variables_add_step!(s.variables,s.step_lhs,α)
 
@@ -263,8 +320,8 @@ function solve!(
 
     end #end solve! timer
 
-    info_finalize!(s.info,s.timers)  #halts timers
-    solution_finalize!(s.solution,s.data,s.variables,s.info)
+    info_finalize!(s.info,s.residuals,s.settings,s.timers)  #halts timers
+    solution_finalize!(s.solution,s.data,s.variables,s.info,s.settings)
 
     @notimeit info_print_footer(s.info,s.settings)
 
@@ -272,27 +329,128 @@ function solve!(
 end
 
 
+function solver_default_start!(s::Solver{T}) where {T}
+
+    # If there are only symmetric cones, use CVXOPT style initilization
+    # Otherwise, initialize along central rays
+
+    if (cones_is_symmetric(s.cones))
+        #set all scalings to identity (or zero for the zero cone)
+        cones_set_identity_scaling!(s.cones)
+        #Refactor
+        kkt_update!(s.kktsystem,s.data,s.cones)
+        #solve for primal/dual initial points via KKT
+        kkt_solve_initial_point!(s.kktsystem,s.variables,s.data)
+        #fix up (z,s) so that they are in the cone
+        variables_shift_to_cone!(s.variables, s.cones)
+
+    else
+        asymmetric_init_cone!(s.variables, s.cones)
+    end
+
+    return nothing
+end
+
+
+function solver_get_step_length(s::Solver{T},steptype::Symbol,scaling_strategy::ScalingStrategy) where{T}
+
+    # step length to stay within the cones
+    α = variables_calc_step_length(
+        s.variables, s.step_lhs,
+        s.cones, s.settings, steptype, scaling_strategy
+    )
+
+    # additional barrier function limits for asymmetric cones
+    if (!cones_is_symmetric(s.cones) && steptype == :combined && scaling_strategy == Dual)
+        αinit = α
+        α = solver_backtrack_step_to_barrier(s,αinit)
+    end
+    return α
+end
+
+
+# check the distance to the boundary for asymmetric cones
+function solver_backtrack_step_to_barrier(
+    s::Solver{T}, αinit::T
+) where {T}
+
+    backtrack = s.settings.linesearch_backtrack_step
+    α = αinit
+
+    for j = 1:50
+        barrier = variables_compute_barrier(s.variables,s.step_lhs,α,s.cones)
+        if barrier < one(T)
+            return α
+        else
+            α = backtrack*α   #backtrack line search
+        end
+    end
+
+    return α
+end
+
+
 # Mehrotra heuristic
-function calc_centering_parameter(α::T) where{T}
+function _calc_centering_parameter(α::T) where{T}
 
     return σ = (1-α)^3
 end
 
 
-function solver_default_start!(s::Solver{T}) where {T}
 
-    #set all scalings to identity (or zero for the zero cone)
-    cones_set_identity_scaling!(s.cones)
-    #Refactor
-    kkt_update!(s.kktsystem,s.data,s.cones)
-    #solve for primal/dual initial points via KKT
-    kkt_solve_initial_point!(s.kktsystem,s.variables,s.data)
-    #fix up (z,s) so that they are in the cone
-    variables_shift_to_cone!(s.variables, s.cones)
+function _strategy_checkpoint_insufficient_progress(s::Solver{T},scaling_strategy::ScalingStrategy) where {T} 
 
-    return nothing
-end
+    if s.info.status == INSUFFICIENT_PROGRESS
+        #recover old iterate since "insufficient progress" often 
+        #involves actual degradation of results 
+        info_reset_to_prev_iterates(s.info,s.variables,s.prev_vars)
+    else 
+        # there is no problem, so nothing to do
+        return (NoUpdate::StrategyCheckpointResult, scaling_strategy)
+    end 
 
+    # If problem is asymmetric, we can try to continue with the dual-only strategy
+    if !cones_is_symmetric(s.cones) && (scaling_strategy == PrimalDual::ScalingStrategy)
+        s.info.status = UNSOLVED
+        return (Update::StrategyCheckpointResult, Dual::ScalingStrategy)
+    else
+        return (Fail::StrategyCheckpointResult, scaling_strategy)
+    end
+
+end 
+
+
+function _strategy_checkpoint_numerical_error(s::Solver{T},scaling_strategy::ScalingStrategy) where {T}
+
+    # If problem is asymmetric, we can try to continue with the dual-only strategy
+    if !cones_is_symmetric(s.cones) && (scaling_strategy == PrimalDual::ScalingStrategy)
+        return (Update::StrategyCheckpointResult, Dual::ScalingStrategy)
+    else
+        #out of tricks.  Bail out with an error
+        s.info.status = NUMERICAL_ERROR
+        return (Fail::StrategyCheckpointResult,scaling_strategy)
+    end
+    return (NoUpdate::StrategyCheckpointResult,scaling_strategy)
+end 
+
+
+function _strategy_checkpoint_small_step(s::Solver{T}, α::T, scaling_strategy::ScalingStrategy) where {T}
+
+    if !cones_is_symmetric(s.cones) &&
+        scaling_strategy == PrimalDual::ScalingStrategy && α < s.settings.min_switch_step_length
+        return (Update::StrategyCheckpointResult, Dual::ScalingStrategy)
+
+    elseif α < s.settings.min_terminate_step_length
+        s.info.status = INSUFFICIENT_PROGRESS
+        return (Fail::StrategyCheckpointResult,scaling_strategy)
+    end
+
+    return (NoUpdate::StrategyCheckpointResult,scaling_strategy)
+
+end 
+
+
+# printing 
 
 function Base.show(io::IO, solver::Clarabel.Solver{T}) where {T}
     println(io, "Clarabel model with Float precision: $(T)")

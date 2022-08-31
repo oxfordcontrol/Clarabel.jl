@@ -35,14 +35,6 @@ function update_values!(
 
     #Update values that are stored within
     #the reordered copy held internally by QDLDL.
-
-    #PJG: an alternative implementation would be
-    #to just overwrite the complete KKT data
-    #upon a call to refactor, which would avoid
-    #this step and make the QDLDL implementation
-    #much simpler (i.e. no update or offset methods
-    #would be needed).   Need to test how slow a
-    #complete permuted updated would be though
     QDLDL.update_values!(ldlsolver.factors,index,values)
 
 end
@@ -59,27 +51,17 @@ function scale_values!(
 
 end
 
-#offset entries in the KKT matrix using the
-#given index into its CSC representation and
-#an optional vector of signs
-function offset_values!(
-    ldlsolver::QDLDLDirectLDLSolver{T},
-    index::AbstractVector{Int},
-    offset::T,
-    signs::AbstractVector{<:Integer}
-) where{T}
-
-    QDLDL.offset_values!(ldlsolver.factors, index, offset, signs)
-
-end
 
 #refactor the linear system
 function refactor!(ldlsolver::QDLDLDirectLDLSolver{T}, K::SparseMatrixCSC) where{T}
 
-    #PJG: K is not used because QDLDL maintains
-    #the update matrix entries for itself using the
-    #offset/update methods implemented above.
+    # K is not used because QDLDL maintains
+    # the update matrix entries for itself using the
+    # offset/update methods implemented above.
     QDLDL.refactor!(ldlsolver.factors)
+
+    return all(isfinite, ldlsolver.factors.Dinv.diag)
+
 end
 
 
@@ -90,9 +72,8 @@ function solve!(
     b::Vector{T}
 ) where{T}
 
-    #make an initial solve (solves in place)
-    x .= b
+    #solve in place 
+    @. x = b
     QDLDL.solve!(ldlsolver.factors,x)
 
-    return nothing
 end

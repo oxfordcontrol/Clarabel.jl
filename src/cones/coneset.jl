@@ -10,6 +10,7 @@ struct ConeSet{T}
 
     #API type specs and count of each cone type
     cone_specs::Vector{SupportedCone}
+    types::Vector{DataType}
     type_counts::Dict{DataType,Int}
 
     #overall size of the composite cone
@@ -19,6 +20,9 @@ struct ConeSet{T}
     #a vector showing the overall index of the
     #first element in each cone.  For convenience
     headidx::Vector{Int}
+
+    # the flag for symmetric cone check
+    _is_symmetric::Bool
 
     function ConeSet{T}(cone_specs::Vector{<:SupportedCone}) where {T}
 
@@ -30,16 +34,29 @@ struct ConeSet{T}
 
         ncones = length(cone_specs)
         cones  = Vector{AbstractCone{T}}(undef,ncones)
-
-        #create cones with the given dims
-        for i in eachindex(cone_specs)
-            cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].dim)
-        end
+        types = Vector{DataType}(undef,ncones)
 
         #count the number of each cone type
         type_counts = Dict{DataType,Int}()
         for coneT in keys(ConeDict)
             type_counts[coneT] = count(C->isa(C,coneT), cone_specs)
+        end
+
+        #assumed symmetric to start
+        _is_symmetric = true
+
+        #create cones with the given dims
+        for i in eachindex(cone_specs)
+            types[i] = typeof(cone_specs[i])
+            if types[i] == ExponentialConeT
+                cones[i] = ConeDict[typeof(cone_specs[i])]{T}()
+                _is_symmetric = false
+            elseif types[i] == PowerConeT
+                cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].α)
+                _is_symmetric = false
+            else
+                cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].dim)
+            end
         end
 
         #count up elements and degree
@@ -51,7 +68,7 @@ struct ConeSet{T}
         headidx = Vector{Int}(undef,length(cones))
         _coneset_make_headidx!(headidx,cones)
 
-        return new(cones,cone_specs,type_counts,numel,degree,headidx)
+        return new(cones,cone_specs,types,type_counts,numel,degree,headidx,_is_symmetric)
     end
 end
 

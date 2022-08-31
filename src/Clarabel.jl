@@ -18,6 +18,7 @@ module Clarabel
     #core solver components
     include("./settings.jl")
     include("./conicvector.jl")
+    include("./statuscodes.jl")
     include("./types.jl")
     include("./variables.jl")
     include("./residuals.jl")
@@ -39,12 +40,15 @@ module Clarabel
 
     #conic constraints.  Additional
     #cone implementations go here
+    include("./cones/cone_utils.jl")
     include("./cones/coneops.jl")
     include("./cones/coneops_defaults.jl")
     include("./cones/coneops_zerocone.jl")
     include("./cones/coneops_nncone.jl")
     include("./cones/coneops_socone.jl")
     include("./cones/coneops_psdtrianglecone.jl")
+    include("./cones/coneops_expcone.jl")
+    include("./cones/coneops_powcone.jl")
 
     #various algebraic utilities
     include("./utils/mathutils.jl")

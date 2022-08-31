@@ -8,12 +8,14 @@ degree(K::SecondOrderCone{T}) where {T} = 1
 function update_scaling!(
     K::SecondOrderCone{T},
     s::AbstractVector{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    μ::T,
+    scaling_strategy::ScalingStrategy
 ) where {T}
 
     #first calculate the scaled vector w
-    @views zscale = sqrt(z[1]^2 - dot(z[2:end],z[2:end]))
-    @views sscale = sqrt(s[1]^2 - dot(s[2:end],s[2:end]))
+    @views zscale = sqrt(_soc_residual(z))
+    @views sscale = sqrt(_soc_residual(s))
     gamma  = sqrt((1 + dot(s,z)/(zscale*sscale) ) / 2)
 
     w = K.w
@@ -87,9 +89,10 @@ end
 
 
 # returns x = λ ∘ λ for the socone
-function λ_circ_λ!(
+function affine_ds!(
     K::SecondOrderCone{T},
-    x::AbstractVector{T}
+    x::AbstractVector{T},
+    y::AbstractVector{T}
 ) where {T}
 
     circ_op!(K,x,K.λ,K.λ)
@@ -136,7 +139,7 @@ function inv_circ_op!(
     z::AbstractVector{T}
 ) where {T}
 
-    @views p = (y[1]^2 - dot(y[2:end],y[2:end]))
+    @views p = _soc_residual(y)
     pinv = 1/p
     @views v = dot(y[2:end],z[2:end])
 
@@ -154,8 +157,8 @@ function shift_to_cone!(
 
     z[1] = max(z[1],0)
 
-    @views α = z[1]^2 - dot(z[2:end],z[2:end])
-    if(α < eps(T))
+    @views α = _soc_residual(z)
+    if(α < sqrt(eps(T)))
         #done in two stages since otherwise (1.-α) = -α for
         #large α, which makes z exactly 0.0 (or worse, -0.0 )
         z[1] -=  α
@@ -163,6 +166,21 @@ function shift_to_cone!(
     end
 
     return nothing
+end
+
+# unit initialization for asymmetric solves
+function unit_initialization!(
+   K::SecondOrderCone{T},
+   z::AbstractVector{T},
+   s::AbstractVector{T}
+) where{T}
+
+    z .= zero(T)
+    s .= zero(T)
+    add_scaled_e!(K,z,one(T))
+    add_scaled_e!(K,s,one(T))
+
+   return nothing
 end
 
 # implements y = αWx + βy for the socone
@@ -218,7 +236,7 @@ end
 
 # implements y = y + αe for the socone
 function add_scaled_e!(
-    K::SecondOrderCone,
+    K::SecondOrderCone{T},
     x::AbstractVector{T},α::T
 ) where {T}
 
@@ -228,6 +246,55 @@ function add_scaled_e!(
     return nothing
 end
 
+# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - ds
+function combined_ds!(
+    K::SecondOrderCone{T},
+    dz::AbstractVector{T},
+    step_z::AbstractVector{T},
+    step_s::AbstractVector{T},
+    σμ::T
+) where {T}
+
+    tmp = dz                #alias
+    dz .= step_z            #copy for safe call to gemv_W
+    gemv_W!(K,:N,tmp,step_z,one(T),zero(T))         #Δz <- WΔz
+    tmp .= step_s           #copy for safe call to gemv_Winv
+    gemv_Winv!(K,:T,tmp,step_s,one(T),zero(T))      #Δs <- W⁻¹Δs
+    circ_op!(K,tmp,step_s,step_z)                   #tmp = W⁻¹Δs ∘ WΔz
+    add_scaled_e!(K,tmp,-σμ)                        #tmp = W⁻¹Δs ∘ WΔz - σμe
+
+    return nothing
+end
+
+# compute the generalized step Wᵀ(λ \ ds)
+function Wt_λ_inv_circ_ds!(
+    K::SecondOrderCone{T},
+    lz::AbstractVector{T},
+    rz::AbstractVector{T},
+    rs::AbstractVector{T},
+    Wtlinvds::AbstractVector{T}
+) where {T}
+
+    tmp = lz;
+    @. tmp = rz  #Don't want to modify our RHS
+    λ_inv_circ_op!(K,tmp,rs)                  #tmp = λ \ ds
+    gemv_W!(K,:T,tmp,Wtlinvds,one(T),zero(T)) #Wᵀ(λ \ ds) = Wᵀ(tmp)
+
+    return nothing
+end
+
+# compute the generalized step of -WᵀWΔz
+function WtW_Δz!(
+    K::SecondOrderCone{T},
+    lz::AbstractVector{T},
+    ls::AbstractVector{T},
+    workz::AbstractVector{T}
+) where {T}
+
+    gemv_W!(K,:N,lz,workz,one(T),zero(T))    #work = WΔz
+    gemv_W!(K,:T,workz,ls,-one(T),zero(T))   #Δs = -WᵀWΔz
+
+end
 
 #return maximum allowable step length while remaining in the socone
 function step_length(
@@ -235,11 +302,13 @@ function step_length(
     dz::AbstractVector{T},
     ds::AbstractVector{T},
      z::AbstractVector{T},
-     s::AbstractVector{T}
+     s::AbstractVector{T},
+     settings::Settings{T},
+     αmax::T
 ) where {T}
 
-    αz   = _step_length_soc_component(dz,z)
-    αs   = _step_length_soc_component(ds,s)
+    αz   = _step_length_soc_component(dz,z,αmax)
+    αs   = _step_length_soc_component(ds,s,αmax)
 
     return (αz,αs)
 end
@@ -248,7 +317,8 @@ end
 # x + αy stays in the SOC
 function _step_length_soc_component(
     y::AbstractVector{T},
-    x::AbstractVector{T}
+    x::AbstractVector{T},
+    αmax::T
 ) where {T}
 
     # assume that x is in the SOC, and
@@ -256,9 +326,9 @@ function _step_length_soc_component(
     # the quadratic equation:
     # ||x₁+αy₁||^2 = (x₀ + αy₀)^2
 
-    @views a = y[1]^2 - dot(y[2:end],y[2:end])
+    @views a = _soc_residual(y)
     @views b = 2*(x[1]*y[1] - dot(x[2:end],y[2:end]))
-    @views c = x[1]^2 - dot(x[2:end],x[2:end])  #should be ≥0
+    @views c = _soc_residual(x) #should be ≥0
     d = b^2 - 4*a*c
 
     if(c < 0)
@@ -268,16 +338,69 @@ function _step_length_soc_component(
     if( (a > 0 && b > 0) || d < 0)
         #all negative roots / complex root pair
         #-> infinite step length
-        return floatmax(T)
+        return αmax
+
+    elseif a == 0
+        #edge case where quadratic becomes linear  
+        return (b < 0 ? -c/b : αmax)
 
     else
         sqrtd = sqrt(d)
         r1 = (-b + sqrtd)/(2*a)
         r2 = (-b - sqrtd)/(2*a)
-        #return the minimum positive root
-        r1 = r1 < 0 ? floatmax(T) : r1
-        r2 = r2 < 0 ? floatmax(T) : r2
+
+        #return the minimum positive root, up to αmax
+        r1 = r1 < 0 ? αmax : r1
+        r2 = r2 < 0 ? αmax : r2
+
         return min(r1,r2)
     end
 
 end
+
+function compute_barrier(
+    K::SecondOrderCone{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T
+) where {T}
+
+    res_s = _soc_residual_shifted(s,ds,α)
+    res_z = _soc_residual_shifted(z,dz,α)
+
+    # avoid numerical issue if res_s <= 0 or res_z <= 0
+    if res_s > 0 && res_z > 0
+        return -logsafe(res_s*res_z)/2
+    else
+        return Inf
+    end
+end
+
+
+
+# ------------------------------------------------
+# internal operations for second order cones 
+
+@inline function _soc_residual(z:: AbstractVector{T}) where {T} 
+    @views res = z[1]*z[1] - dot(z[2:end],z[2:end])
+end 
+
+
+#compute the residual at z + \alpha dz 
+#with storing the intermediate vector
+@inline function _soc_residual_shifted(
+    z::AbstractVector{T}, 
+    dz::AbstractVector{T}, 
+    α::T
+) where {T} 
+    
+    z1 = z[1] + α*z[1]
+        
+    @views res = z1*z1 -  dot_shifted(z[2:end],s[2:end],dz[2:end],ds[2:end],α)
+
+
+    return res
+end 
+
