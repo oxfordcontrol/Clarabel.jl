@@ -338,16 +338,22 @@ function _step_length_soc_component(
     if( (a > 0 && b > 0) || d < 0)
         #all negative roots / complex root pair
         #-> infinite step length
-        return floatmax(T)
+        return αmax
+
+    elseif a == 0
+        #edge case where quadratic becomes linear  
+        return (b < 0 ? -c/b : αmax)
 
     else
         sqrtd = sqrt(d)
         r1 = (-b + sqrtd)/(2*a)
         r2 = (-b - sqrtd)/(2*a)
-        #return the minimum positive root
-        r1 = r1 < 0 ? floatmax(T) : r1
-        r2 = r2 < 0 ? floatmax(T) : r2
-        return min(αmax,r1,r2)
+
+        #return the minimum positive root, up to αmax
+        r1 = r1 < 0 ? αmax : r1
+        r2 = r2 < 0 ? αmax : r2
+
+        return min(r1,r2)
     end
 
 end
