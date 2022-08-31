@@ -142,6 +142,14 @@ function _check_dimensions(P,q,A,b,cones)
 end
 
 
+# an enum for reporting strategy checkpointing
+@enum StrategyCheckpointResult begin 
+    Update = 0
+    NoUpdate 
+    Fail
+end
+
+
 # -------------------------------------
 # solve!
 # -------------------------------------
@@ -207,38 +215,33 @@ function solve!(
             )
             isdone = info_check_termination!(s.info,s.residuals,s.settings,iter)
 
-            @notimeit info_print_status(s.info,s.settings)
-
+            # check for termination due to slow progress and update strategy
             if isdone
-                # If there are some asymmetric cones
-                if !cones_is_symmetric(s.cones) &&
-                    (scaling_strategy == PrimalDual::ScalingStrategy) &&
-                    (s.info.status == INSUFFICIENT_PROGRESS )
-
-                    #recover old iterate if using an aggressive strategy and failing to progress
-                    info_reset_to_prev_iterates(s.info,s.variables,s.prev_vars)
-                    scaling_strategy = Dual::ScalingStrategy
-                    s.info.status = UNSOLVED
-                    continue
-                else
-                    #return old iterate if primal-dual residuals worsen
-                    if s.info.status == INSUFFICIENT_PROGRESS
-                        info_reset_to_prev_iterates(s.info,s.variables,s.prev_vars)
-                    end
-                    break
-                end
+                (action,scaling_strategy) = _strategy_checkpoint_insufficient_progress(s,scaling_strategy) 
+                if action === NoUpdate || action === Fail  
+                    break 
+                end  # allow continuation if action === Update
             end
 
+            #increment counter here because we only count
+            #iterations that produce a KKT update 
+            @notimeit info_print_status(s.info,s.settings)
             iter += 1
-
-            #PJG: Come back here and fix ordering.  Factor, Affine 
-            #step, then solve.  Skip combinedd solve if first 
-            #factor failed
-
 
             #update the scalings
             #--------------
             variables_scale_cones!(s.variables,s.cones,μ,scaling_strategy)
+
+
+            #update the KKT system and the constant parts of its solution.
+            #Keep track of the success of each step that calls KKT
+            #--------------
+            is_kkt_solve_success = true
+
+            @timeit s.timers "kkt update" begin
+            is_kkt_solve_success &=
+                kkt_update!(s.kktsystem,s.data,s.cones)
+            end
 
             #calculate the affine step
             #--------------
@@ -247,14 +250,6 @@ function solve!(
                 s.variables, s.cones
             )
 
-            #update the KKT system and the constant parts of its solution.
-            #Keep track of the success of each step that calls KKT
-            #--------------
-            is_kkt_solve_success = true
-            @timeit s.timers "kkt update" begin
-            is_kkt_solve_success &=
-                kkt_update!(s.kktsystem,s.data,s.cones)
-            end
 
             @timeit s.timers "kkt solve" begin
             is_kkt_solve_success &=
@@ -264,12 +259,12 @@ function solve!(
                 )
             end
 
+            # combined step only on affine step success 
             if is_kkt_solve_success
 
                 #calculate step length and centering parameter
                 #--------------
                 α = solver_get_step_length(s,:affine,scaling_strategy)
-
                 σ = _calc_centering_parameter(α)
 
                 #calculate the combined step and length
@@ -279,51 +274,37 @@ function solve!(
                     s.variables, s.cones,
                     s.step_lhs, σ, μ
                 )
-            end
 
-            @timeit s.timers "kkt solve" begin
-            is_kkt_solve_success &=
-                kkt_solve!(
-                    s.kktsystem, s.step_lhs, s.step_rhs,
-                    s.data, s.variables, s.cones, :combined
-                )
-            end
-
-            # Change scaling strategy on numerical error.
-
-            if !is_kkt_solve_success
-                # save scalars indicating no step
-                info_save_scalars(s.info,μ,zero(T),one(T),iter)
-                if (!cones_is_symmetric(s.cones) &&
-                    scaling_strategy == PrimalDual::ScalingStrategy)
-
-                    scaling_strategy = Dual::ScalingStrategy
-                    continue
-                else
-                    #out of tricks.  Bail out with an error
-                    s.info.status = NUMERICAL_ERROR
-                    break
+                @timeit s.timers "kkt solve" begin
+                is_kkt_solve_success &=
+                    kkt_solve!(
+                        s.kktsystem, s.step_lhs, s.step_rhs,
+                        s.data, s.variables, s.cones, :combined
+                    )
                 end
+
+            end
+
+            # check for numerical failure and update strategy
+            if !is_kkt_solve_success
+                info_save_scalars(s.info,μ,zero(T),one(T),iter)
+                (action,scaling_strategy) = _strategy_checkpoint_numerical_error(s,scaling_strategy) 
+                if action === Update; continue; end 
+                if action === Fail; break; end 
             end
 
             #compute final step length and update the current iterate
             #--------------
             α = solver_get_step_length(s,:combined,scaling_strategy)
 
-            if !cones_is_symmetric(s.cones) &&
-                scaling_strategy == PrimalDual::ScalingStrategy &&
-                α < s.settings.min_switch_step_length
-                   scaling_strategy = Dual::ScalingStrategy
-                   info_save_scalars(s.info,μ,zero(T),one(T),iter)
-                   continue
-
-
-            elseif α < s.settings.min_terminate_step_length
-                    s.info.status = INSUFFICIENT_PROGRESS
-                    # save scalars indicating no step
-                    info_save_scalars(s.info,μ,zero(T),one(T),iter)
-                    break
-            end
+            # check for undersized step and update strategy
+            (action,scaling_strategy) = _strategy_checkpoint_small_steps(s, α, scaling_strategy)
+            if action === Update || action === Fail  
+                info_save_scalars(s.info,μ,zero(T),one(T),iter)
+                if action === Update; continue; end 
+                if action === Fail; break; end 
+            end 
+            #
 
             # Copy previous iterate in case the next one is a dud
             info_save_prev_iterate(s.info,s.variables,s.prev_vars)
@@ -411,13 +392,67 @@ function solver_backtrack_step_to_barrier(
 end
 
 
-
 # Mehrotra heuristic
 function _calc_centering_parameter(α::T) where{T}
 
     return σ = (1-α)^3
 end
 
+
+
+function _strategy_checkpoint_insufficient_progress(s::Solver{T},scaling_strategy::ScalingStrategy) where {T} 
+
+    if s.info.status == INSUFFICIENT_PROGRESS
+        #recover old iterate since "insufficient progress" often 
+        #involves actual degradation of results 
+        info_reset_to_prev_iterates(s.info,s.variables,s.prev_vars)
+    else 
+        # there is no problem, so nothing to do
+        return (NoUpdate::StrategyCheckpointResult, scaling_strategy)
+    end 
+
+    # If problem is asymmetric, we can try to continue with the dual-only strategy
+    if !cones_is_symmetric(s.cones) && (scaling_strategy == PrimalDual::ScalingStrategy)
+        s.info.status = UNSOLVED
+        return (Update::StrategyCheckpointResult, Dual::ScalingStrategy)
+    else
+        return (Fail::StrategyCheckpointResult, scaling_strategy)
+    end
+
+end 
+
+
+function _strategy_checkpoint_numerical_error(s::Solver{T},scaling_strategy::ScalingStrategy) where {T}
+
+    # If problem is asymmetric, we can try to continue with the dual-only strategy
+    if !cones_is_symmetric(s.cones) && (scaling_strategy == PrimalDual::ScalingStrategy)
+        return (Update::StrategyCheckpointResult, Dual::ScalingStrategy)
+    else
+        #out of tricks.  Bail out with an error
+        s.info.status = NUMERICAL_ERROR
+        return (Fail::StrategyCheckpointResult,scaling_strategy)
+    end
+    return (NoUpdate::StrategyCheckpointResult,scaling_strategy)
+end 
+
+
+function _strategy_checkpoint_small_steps(s::Solver{T}, α::T, scaling_strategy::ScalingStrategy) where {T}
+
+    if !cones_is_symmetric(s.cones) &&
+        scaling_strategy == PrimalDual::ScalingStrategy && α < s.settings.min_switch_step_length
+        return (Update::StrategyCheckpointResult, Dual::ScalingStrategy)
+
+    elseif α < s.settings.min_terminate_step_length
+        s.info.status = INSUFFICIENT_PROGRESS
+        return (Fail::StrategyCheckpointResult,scaling_strategy)
+    end
+
+    return (NoUpdate::StrategyCheckpointResult,scaling_strategy)
+
+end 
+
+
+# printing 
 
 function Base.show(io::IO, solver::Clarabel.Solver{T}) where {T}
     println(io, "Clarabel model with Float precision: $(T)")
