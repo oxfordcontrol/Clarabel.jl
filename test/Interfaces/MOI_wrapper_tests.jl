@@ -71,11 +71,11 @@ function test_MOI_standard()
         MYCONFIG,
         #include = String["<individual_test_here_for_debug>"],
         exclude = String[
-            #: solves to slightly less than tols
+            # PJG: solves to slightly less than tols
             "test_conic_RotatedSecondOrderCone_INFEASIBLE_2",
-            #: gives different results on ubuntu vs windows.
-            #: different tranforms to SOC, expcone or powcone
-            #: depending on MOI version
+            # PJG: gives different results on ubuntu vs windows.
+            # Uses different tranforms to SOC, expcone or powcone
+            # depending on MOI version
             "test_conic_GeometricMeanCone_",
         ],
         # This argument is useful to prevent tests from failing on future
