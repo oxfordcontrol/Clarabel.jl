@@ -39,6 +39,14 @@ const MOItoClarabelCones = Dict([
     MOI.PowerCone       => Clarabel.PowerConeT,
 ])
 
+# PJG: PrimalStatus/DualStatus just reported as "NEARLY_FEASIBLE"
+# in the "ALMOST_SOLVED" cases, and do not currently attempt 
+# to distinguish cases that were only "almost" due to duality 
+# gap / primal feasibility / dual feasibility.   The solver 
+# convergence checks could be be written more finely to allow 
+# separation of these different cases.  Note COSMO does 
+# something along those lines .
+
 const ClarabeltoMOITerminationStatus = Dict([
     Clarabel.SOLVED             =>  MOI.OPTIMAL,
     Clarabel.MAX_ITERATIONS     =>  MOI.ITERATION_LIMIT,
@@ -52,22 +60,22 @@ const ClarabeltoMOITerminationStatus = Dict([
 
 const ClarabeltoMOIPrimalStatus = Dict([
     Clarabel.SOLVED             =>  MOI.FEASIBLE_POINT,
-    Clarabel.MAX_ITERATIONS     =>  MOI.NEARLY_FEASIBLE_POINT,
-    Clarabel.MAX_TIME           =>  MOI.NEARLY_FEASIBLE_POINT,
     Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBLE_POINT,
     Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBILITY_CERTIFICATE,
     Clarabel.ALMOST_SOLVED      =>  MOI.NEARLY_FEASIBLE_POINT,
+    Clarabel.MAX_ITERATIONS     =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.MAX_TIME           =>  MOI.OTHER_RESULT_STATUS,
     Clarabel.NUMERICAL_ERROR    =>  MOI.OTHER_RESULT_STATUS,
     Clarabel.INSUFFICIENT_PROGRESS => MOI.OTHER_RESULT_STATUS,
 ])
 
 const ClarabeltoMOIDualStatus = Dict([
     Clarabel.SOLVED             =>  MOI.FEASIBLE_POINT,
-    Clarabel.MAX_ITERATIONS     =>  MOI.NEARLY_FEASIBLE_POINT,
-    Clarabel.MAX_TIME           =>  MOI.NEARLY_FEASIBLE_POINT,
     Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBILITY_CERTIFICATE,
     Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBLE_POINT,
     Clarabel.ALMOST_SOLVED      =>  MOI.NEARLY_FEASIBLE_POINT,
+    Clarabel.MAX_ITERATIONS     =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.MAX_TIME           =>  MOI.OTHER_RESULT_STATUS,
     Clarabel.NUMERICAL_ERROR    =>  MOI.OTHER_RESULT_STATUS,
     Clarabel.INSUFFICIENT_PROGRESS => MOI.OTHER_RESULT_STATUS,
 ])
