@@ -28,8 +28,8 @@ function options_pricing_test(cone::SumOfSquares.PolyJuMP.PolynomialSet,
 
 end
 
-for K in [30, 35, 40, 45, 50]
-    for cone = [SOSCone(),SDSOSCone(),DSOSCone()]
+for K in [40, 45, 50] #[30, 35, 40, 45, 50]
+    for cone = [SDSOSCone()]  #[SOSCone(),SDSOSCone(),DSOSCone()]
 
         println("Cone is type : ", typeof(cone))
         println("K = ", K)
