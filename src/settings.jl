@@ -94,9 +94,9 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 	equilibrate_max_scaling::T          = 1e+4
 
     #cones and line search parameters
-    linesearch_backtrack_step::T        = 0.8     #PJG: Add to docs
-    min_switch_step_length::T           = 1e-1    #PJG: disable PD step at this length
-    min_terminate_step_length::T        = 1e-4    #PJG: terminate solver at this length
+    linesearch_backtrack_step::T        = 0.8     
+    min_switch_step_length::T           = 1e-1   
+    min_terminate_step_length::T        = 1e-4    
 
     #the direct linear solver to use
     #can be :qdldl or :mkl
@@ -105,8 +105,8 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     #static regularization parameters
     static_regularization_enable::Bool    = true
-    static_regularization_constant::T     = 1e-7     #PJG: Add to docs
-    static_regularization_proportional::T = eps(T)^2 #PJG: Add to docs
+    static_regularization_constant::T     = 1e-7     
+    static_regularization_proportional::T = eps(T)^2 
 
     #dynamic regularization parameters
     dynamic_regularization_enable::Bool = true
@@ -115,10 +115,10 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     #iterative refinement
     iterative_refinement_enable::Bool   = true
-    iterative_refinement_reltol::T      = 1e-13      #PJG: check docs
-    iterative_refinement_abstol::T      = 1e-14     #PJG: check docs
+    iterative_refinement_reltol::T      = 1e-13      
+    iterative_refinement_abstol::T      = 1e-14     
     iterative_refinement_max_iter::Int  = 10
-    iterative_refinement_stop_ratio::T  = 5         #PJG: check docs
+    iterative_refinement_stop_ratio::T  = 5        
 
 end
 

@@ -40,12 +40,12 @@ const MOItoClarabelCones = Dict([
 ])
 
 # PJG: PrimalStatus/DualStatus just reported as "NEARLY_FEASIBLE"
-# in the "ALMOST_SOLVED" cases, and do not currently attempt 
+# in the "ALMOST_SOLVED" cases.  We do not currently attempt 
 # to distinguish cases that were only "almost" due to duality 
 # gap / primal feasibility / dual feasibility.   The solver 
 # convergence checks could be be written more finely to allow 
 # separation of these different cases.  Note COSMO does 
-# something along those lines .
+# something along those lines.
 
 const ClarabeltoMOITerminationStatus = Dict([
     Clarabel.SOLVED             =>  MOI.OPTIMAL,

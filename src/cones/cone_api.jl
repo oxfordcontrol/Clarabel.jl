@@ -47,10 +47,6 @@ end
 
 function nvars(cone:: SupportedCone)
 
-    #PJG: this would be better as a multiple conedispatch
-    #operation on SupportedCone.   match statement on
-    #an enum in Rust is closer to this though.
-
     if isa(cone, PSDTriangleConeT)
         (cone.dim*(cone.dim+1)) >> 1
     elseif isa(cone, ExponentialConeT)

@@ -144,9 +144,9 @@ end
 
 # an enum for reporting strategy checkpointing
 @enum StrategyCheckpointResult begin 
-    Update = 0
-    NoUpdate 
-    Fail
+    Update = 0   # Checkpoint is suggesting a new ScalingStrategy
+    NoUpdate     # Checkpoint recommends no change to ScalingStrategy
+    Fail         # Checkpoint found a problem but no more ScalingStrategies to try
 end
 
 
@@ -236,11 +236,9 @@ function solve!(
             #update the KKT system and the constant parts of its solution.
             #Keep track of the success of each step that calls KKT
             #--------------
-            is_kkt_solve_success = true
 
             @timeit s.timers "kkt update" begin
-            is_kkt_solve_success &=
-                kkt_update!(s.kktsystem,s.data,s.cones)
+            is_kkt_solve_success = kkt_update!(s.kktsystem,s.data,s.cones)
             end
 
             #calculate the affine step
@@ -252,7 +250,7 @@ function solve!(
 
 
             @timeit s.timers "kkt solve" begin
-            is_kkt_solve_success &=
+            is_kkt_solve_success = is_kkt_solve_success && 
                 kkt_solve!(
                     s.kktsystem, s.step_lhs, s.step_rhs,
                     s.data, s.variables, s.cones, :affine
@@ -276,7 +274,7 @@ function solve!(
                 )
 
                 @timeit s.timers "kkt solve" begin
-                is_kkt_solve_success &=
+                is_kkt_solve_success =
                     kkt_solve!(
                         s.kktsystem, s.step_lhs, s.step_rhs,
                         s.data, s.variables, s.cones, :combined
@@ -298,7 +296,7 @@ function solve!(
             α = solver_get_step_length(s,:combined,scaling_strategy)
 
             # check for undersized step and update strategy
-            (action,scaling_strategy) = _strategy_checkpoint_small_steps(s, α, scaling_strategy)
+            (action,scaling_strategy) = _strategy_checkpoint_small_step(s, α, scaling_strategy)
             if action === Update || action === Fail  
                 info_save_scalars(s.info,μ,zero(T),one(T),iter)
                 if action === Update; continue; end 
@@ -436,7 +434,7 @@ function _strategy_checkpoint_numerical_error(s::Solver{T},scaling_strategy::Sca
 end 
 
 
-function _strategy_checkpoint_small_steps(s::Solver{T}, α::T, scaling_strategy::ScalingStrategy) where {T}
+function _strategy_checkpoint_small_step(s::Solver{T}, α::T, scaling_strategy::ScalingStrategy) where {T}
 
     if !cones_is_symmetric(s.cones) &&
         scaling_strategy == PrimalDual::ScalingStrategy && α < s.settings.min_switch_step_length

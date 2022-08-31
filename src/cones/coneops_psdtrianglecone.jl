@@ -383,11 +383,24 @@ function _step_length_psd_component(
 
 end
 
-# function compute_barrier(
-#     K::PSDTriangleCone{T},
-#     z::AbstractVector{T},
-#     s::AbstractVector{T},
-# ) where {T}
-#     error("sdp barrier is computationally expensive")
-#     # return -log(det(s)) - log(det(z))
-# end
+
+
+function compute_barrier(
+    K::PSDTriangleCone{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T
+) where {T}
+
+    # We should return this, but in a smarter way.
+    # This is not yet implemented, but would only 
+    # be required for problems mixing PSD and 
+    # asymmetric cones 
+    # 
+    # return -log(det(s)) - log(det(z))
+
+    error("Mixed PSD and Exponential/Power cones are not yet supported")
+
+end

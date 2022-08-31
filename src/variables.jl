@@ -31,11 +31,7 @@ function variables_calc_step_length(
     return α
 end
 
-# check the distance to the boundary for asymmetric cones
-# PJG: This function should not take DefaultVariables as
-# input, since the definition is problem dependent.  Instead
-# it should take only ConicVectors like other functions in
-# this file
+
 function variables_compute_barrier(
     variables::DefaultVariables{T},
     step::DefaultVariables{T},
