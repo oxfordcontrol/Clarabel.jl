@@ -68,7 +68,6 @@ function kkt_update!(
     is_success || return is_success
 
     #calculate KKT solution for constant terms
-    # YC: kkt_constant_status for checking numerical stability
     is_success = _kkt_solve_constant_rhs!(kktsystem,data)
 
     return is_success
