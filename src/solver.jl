@@ -231,6 +231,11 @@ function solve!(
 
             iter += 1
 
+            #PJG: Come back here and fix ordering.  Factor, Affine 
+            #step, then solve.  Skip combinedd solve if first 
+            #factor failed
+
+
             #update the scalings
             #--------------
             variables_scale_cones!(s.variables,s.cones,μ,scaling_strategy)
