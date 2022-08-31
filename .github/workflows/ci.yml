@@ -13,6 +13,9 @@ jobs:
             os: ubuntu-latest
             arch: x64
           - version: '1.7'
+            os: macos-latest
+            arch: x64
+          - version: '1.7'
             os: windows-latest
             arch: x64
     steps:
@@ -34,6 +37,6 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
-      - uses: codecov/codecov-action@v1
-        with:
-          file: lcov.info
+      - uses: codecov/codecov-action@v3
+      
+      
