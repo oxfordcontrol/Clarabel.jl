@@ -35,14 +35,6 @@ function update_values!(
 
     #Update values that are stored within
     #the reordered copy held internally by QDLDL.
-
-    #PJG: an alternative implementation would be
-    #to just overwrite the complete KKT data
-    #upon a call to refactor, which would avoid
-    #this step and make the QDLDL implementation
-    #much simpler (i.e. no update or offset methods
-    #would be needed).   Need to test how slow a
-    #complete permuted updated would be though
     QDLDL.update_values!(ldlsolver.factors,index,values)
 
 end
