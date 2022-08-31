@@ -106,7 +106,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     #static regularization parameters
     static_regularization_enable::Bool    = true
     static_regularization_constant::T     = 1e-7     
-    static_regularization_proportional::T = eps(T)^2 
+    static_regularization_proportional::T = eps()^2 
 
     #dynamic regularization parameters
     dynamic_regularization_enable::Bool = true
