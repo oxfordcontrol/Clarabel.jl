@@ -145,8 +145,8 @@ function step_length(
 
     backtrack = settings.linesearch_backtrack_step
 
-    αz = _step_length_expcone(K.vec_work, dz, z, αmax, backtrack, _is_dual_feasible_expcone)
-    αs = _step_length_expcone(K.vec_work, ds, s, αmax, backtrack, _is_primal_feasible_expcone)
+    αz = _step_length_3d_cone(K.vec_work, dz, z, αmax, backtrack, _is_dual_feasible_expcone)
+    αs = _step_length_3d_cone(K.vec_work, ds, s, αmax, backtrack, _is_primal_feasible_expcone)
 
     return (αz,αs)
 end
