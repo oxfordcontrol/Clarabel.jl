@@ -14,8 +14,8 @@ Argument | Default Value | Description
 ||
 __Main Algorithm Settings__||
 ||
-max_iter                                | 50        | maximum number of iterations
-time_limit                              | Inf       | maximum run time (seconds)
+max\\_iter                              | 50        | maximum number of iterations
+time\\_limit                            | Inf       | maximum run time (seconds)
 verbose                                 | true      | verbose printing
 max\\_step\\_fraction                   | 0.99      | maximum interior point step length
 ||
@@ -43,9 +43,9 @@ equilibrate\\_min\\_scaling             | 1e-4      | minimum equilibration scal
 equilibrate\\_max\\_scaling             | 1e+4      | maximum equilibration scaling allowed
 ||
 __Step Size Settings__||
-linesearch_backtrack_step               | 0.8       | linesearch backtracking
-min_switch_step_length                  | 1e-1      | minimum step size allowed for asymmetric cones with PrimalDual scaling
-min_terminate_step_length               | 1e-4      | minimum step size allowed for symmetric cones && asymmetric cones with Dual scaling
+linesearch\\_backtrack\\_step           | 0.8       | linesearch backtracking
+min\\_switch\\_step\\_length            | 1e-1      | minimum step size allowed for asymmetric cones with PrimalDual scaling
+min\\_terminate\\_step\\_length         | 1e-4      | minimum step size allowed for symmetric cones && asymmetric cones with Dual scaling
 ||
 __Linear Solver Settings__||
 ||
@@ -123,7 +123,6 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 end
 
 Settings(args...) = Settings{DefaultFloat}(args...)
-#Settings() = Settings{DefaultFloat}()
 
 function Settings(d::Dict)
 
