@@ -82,9 +82,9 @@ function unit_initialization!(
 end
 
 # compute ds in the combined step where μH(z)Δz + Δs = - ds
-function combined_ds!(
+function combined_ds_shift!(
     K::PowerCone{T},
-    dz::AbstractVector{T},
+    shift::AbstractVector{T},
     step_z::AbstractVector{T},
     step_s::AbstractVector{T},
     σμ::T
@@ -93,7 +93,7 @@ function combined_ds!(
     η = K.grad_work      
     _higher_correction!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
     @inbounds for i = 1:3
-        dz[i] = K.grad[i]*σμ - η[i]
+        shift[i] = K.grad[i]*σμ - η[i]
     end
 
     return nothing
@@ -128,7 +128,7 @@ function mul_WtW!(
     # mul!(ls,K.HBFGS,lz,-one(T),zero(T))
     H = K.HBFGS
     @inbounds for i = 1:3
-        ls[i] =  c * (H[i,1]*lz[1] + H[i,2]*lz[2] + H[i,3]*lz[3])
+        y[i] =  c * (H[i,1]*x[1] + H[i,2]*x[2] + H[i,3]*x[3])
     end
 
 end
@@ -159,7 +159,7 @@ function step_length(
 end
 
 
-function barrier(
+function compute_barrier(
     K::PowerCone{T},
     z::AbstractVector{T},
     s::AbstractVector{T},

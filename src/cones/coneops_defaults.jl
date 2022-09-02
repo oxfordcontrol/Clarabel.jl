@@ -97,6 +97,20 @@ function affine_ds!(
 
 end
 
+# PJG fix documentation
+# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - (ds_affine + ds_shift)
+function combined_ds_shift!(
+    K::AbstractCone{T},
+    shift::AbstractVector{T},
+    step_z::AbstractVector{T},
+    step_s::AbstractVector{T},
+    σμ::T
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
 # place vector into the cone
 function shift_to_cone!(
     K::AbstractCone{T},
@@ -158,18 +172,7 @@ function add_scaled_e!(
 
 end
 
-# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - ds
-function combined_ds!(
-    K::AbstractCone{T},
-    dz::AbstractVector{T},
-    step_z::AbstractVector{T},
-    step_s::AbstractVector{T},
-    σμ::T
-) where {T}
 
-    error("Incomplete cone operation specification: ",typeof(K))
-
-end
 
 # compute the generalized step Wᵀ(λ \ ds)
 function Wt_λ_inv_circ_ds!(
@@ -203,7 +206,7 @@ function step_length(
 end
 
 # Computes f(s + α⋅ds) + f*(z + α⋅dz) for each cone as in §8.3 of Santiago's thesis
-function barrier(
+function compute_barrier(
     K::AbstractCone{T},
     z::AbstractVector{T},
     s::AbstractVector{T},

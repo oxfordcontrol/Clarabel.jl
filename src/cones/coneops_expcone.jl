@@ -79,10 +79,11 @@ function unit_initialization!(
    return nothing
 end
 
+# PJG: fix documentation
 # compute ds in the combined step where μH(z)Δz + Δs = - ds
-function combined_ds!(
+function combined_ds_shift!(
     K::ExponentialCone{T},
-    dz::AbstractVector{T},
+    shift::AbstractVector{T},
     step_z::AbstractVector{T},
     step_s::AbstractVector{T},
     σμ::T
@@ -93,7 +94,7 @@ function combined_ds!(
     _higher_correction!(K,η,step_s,step_z)             
 
     @inbounds for i = 1:3
-        dz[i] = K.grad[i]*σμ - η[i]
+        shift[i] = K.grad[i]*σμ - η[i]
     end
 
     return nothing
@@ -156,7 +157,7 @@ function step_length(
     return (αz,αs)
 end
 
-function barrier(
+function compute_barrier(
     K::ExponentialCone{T},
     z::AbstractVector{T},
     s::AbstractVector{T},

@@ -46,16 +46,15 @@ function affine_ds!(
 end
 
 
-# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - ds
-function combined_ds!(
+function combined_ds_shift!(
     K::ZeroCone{T},
-    dz::AbstractVector{T},
+    shift::AbstractVector{T},
     step_z::AbstractVector{T},
     step_s::AbstractVector{T},
     σμ::T
 ) where {T}
 
-    dz .= zero(T)
+    shift .= zero(T)
     return nothing
 end
 
@@ -182,7 +181,7 @@ function step_length(
 end
 
 # no compute_centrality for Zerocone
-function barrier(
+function compute_barrier(
     K::ZeroCone{T},
     z::AbstractVector{T},
     s::AbstractVector{T},

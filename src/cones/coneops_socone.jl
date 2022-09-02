@@ -100,6 +100,17 @@ function affine_ds!(
     return nothing
 end
 
+# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - ds
+function combined_ds_shift!(
+    K::SecondOrderCone{T},
+    shift::AbstractVector{T},
+    step_z::AbstractVector{T},
+    step_s::AbstractVector{T},
+    σμ::T
+) where {T}
+
+    _combined_ds_shift_symmetric!(K,shift,step_z,step_s,σμ);
+end
 
 # implements x = y ∘ z for socone
 function circ_op!(
@@ -246,25 +257,7 @@ function add_scaled_e!(
     return nothing
 end
 
-# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - ds
-function combined_ds!(
-    K::SecondOrderCone{T},
-    dz::AbstractVector{T},
-    step_z::AbstractVector{T},
-    step_s::AbstractVector{T},
-    σμ::T
-) where {T}
 
-    tmp = dz                #alias
-    dz .= step_z            #copy for safe call to gemv_W
-    mul_W!(K,:N,step_z,tmp,one(T),zero(T))         #Δz <- WΔz
-    tmp .= step_s           #copy for safe call to gemv_Winv
-    mul_Winv!(K,:T,step_s,tmp,one(T),zero(T))      #Δs <- W⁻¹Δs
-    circ_op!(K,tmp,step_s,step_z)                   #tmp = W⁻¹Δs ∘ WΔz
-    add_scaled_e!(K,tmp,-σμ)                        #tmp = W⁻¹Δs ∘ WΔz - σμe
-
-    return nothing
-end
 
 # compute the generalized step Wᵀ(λ \ ds)
 function Wt_λ_inv_circ_ds!(
@@ -359,7 +352,7 @@ function _step_length_soc_component(
 
 end
 
-function barrier(
+function compute_barrier(
     K::SecondOrderCone{T},
     z::AbstractVector{T},
     s::AbstractVector{T},

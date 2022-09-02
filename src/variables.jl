@@ -55,7 +55,7 @@ function variables_barrier(
     ( z, s) = (variables.z, variables.s)
     (dz,ds) = (step.z, step.s)
 
-    barrier += cones_barrier(cones, z, s, dz, ds, α)
+    barrier += cones_compute_barrier(cones, z, s, dz, ds, α)
 
     return barrier
 end
@@ -121,18 +121,13 @@ function variables_combined_step_rhs!(
        d.τ  = (one(T) - σ)*r.rτ
        d.κ  = - dotσμ + step.τ * step.κ + variables.τ * variables.κ
 
-    # d.s must be assembled carefully if we want to be economical with
-    # allocated memory.  Will modify the step.z and step.s in place since
-    # they are from the affine step and not needed anymore.
-    #
-    # Will also use d.z as a temporary work vector here. Note that we don't
-    # want to have aliasing vector arguments to gemv_W or gemv_Winv, so we
-    # need to copy into a temporary variable to assign #Δz = WΔz and Δs = W⁻¹Δs
-    #
     # ds is different for symmetric and asymmetric cones:
     # Symmetric cones: d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
     # Asymmetric cones: d.s = s + σμ*g(z)
-    cones_combined_ds!(cones,d.z,d.s,step.z,step.s,dotσμ)
+    cones_combined_ds_shift!(cones,d.z,step.z,step.s,dotσμ)
+
+    #We are relying on d.s = λ ◦ λ (symmetric) or d.s = s (asymmetric) already from the affine step here
+    d.s .+= d.z
 
     # now we copy the scaled res for rz and d.z is no longer work
     @. d.z .= (1 - σ)*r.rz

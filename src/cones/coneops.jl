@@ -99,6 +99,23 @@ function cones_affine_ds!(
     return nothing
 end
 
+function cones_combined_ds_shift!(
+    cones::ConeSet{T},
+    shift::ConicVector{T},
+    step_z::ConicVector{T},
+    step_s::ConicVector{T},
+    σμ::T
+) where {T}
+
+    for (cone,shifti,step_zi,step_si) in zip(cones,shift.views,step_z.views,step_s.views)
+
+        # compute the centering and the higher order correction parts in ds and save it in dz
+        @conedispatch combined_ds_shift!(cone,shifti,step_zi,step_si,σμ)
+    end
+
+    return nothing
+end
+
 
 # place a vector to some nearby point in the cone
 function cones_shift_to_cone!(
@@ -125,27 +142,7 @@ function cones_unit_initialization!(
     return nothing
 end
 
-# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - ds
-function cones_combined_ds!(
-    cones::ConeSet{T},
-    dz::ConicVector{T},
-    ds::ConicVector{T},
-    step_z::ConicVector{T},
-    step_s::ConicVector{T},
-    σμ::T
-) where {T}
 
-    for (cone,dzi,zi,si) in zip(cones,dz.views,step_z.views,step_s.views)
-
-        # compute the centering and the higher order correction parts in ds and save it in dz
-        @conedispatch combined_ds!(cone,dzi,zi,si,σμ)
-    end
-
-    #We are relying on d.s = λ ◦ λ (symmetric) or d.s = s (asymmetric) already from the affine step here
-    ds .+= dz
-
-    return nothing
-end
 
 # compute the generalized step Wᵀ(λ \ ds)
 function cones_Wt_λ_inv_circ_ds!(
@@ -230,7 +227,7 @@ end
 
 
 # compute the total barrier function at the point (z + α⋅dz, s + α⋅ds)
-function cones_barrier(
+function cones_compute_barrier(
     cones::ConeSet{T},
     z::ConicVector{T},
     s::ConicVector{T},

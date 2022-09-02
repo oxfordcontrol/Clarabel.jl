@@ -34,3 +34,41 @@ function _step_length_3d_cone(
     return α
 end
 
+
+
+# compute shift in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - (affine_ds + shift)
+# The affine term (computed in affine_ds!) is λ ∘ λ
+# The shift term is W⁻¹Δs ∘ WΔz - σμe
+
+function _combined_ds_shift_symmetric!(
+    K::Union{NonnegativeCone{T},SecondOrderCone{T},PSDTriangleCone{T}},
+    shift::AbstractVector{T},
+    step_z::AbstractVector{T},
+    step_s::AbstractVector{T},
+    σμ::T
+) where {T}
+
+    # The shift must be assembled carefully if we want to be economical with
+    # allocated memory.  Will modify the step.z and step.s in place since
+    # they are from the affine step and not needed anymore.
+    #
+    # We can't have aliasing vector arguments to gemv_W or gemv_Winv, so 
+    # we need a temporary variable to assign #Δz <= WΔz and Δs <= W⁻¹Δs
+
+    #shift vector used as workspace for a few steps 
+    tmp = shift              
+
+     #Δz <- Wdz
+    tmp .= step_z         
+    mul_W!(K,:N,step_z,tmp,one(T),zero(T))        
+
+    #Δs <- W⁻¹Δs
+    tmp .= step_s           
+    mul_Winv!(K,:T,step_s,tmp,one(T),zero(T))      
+
+    #shift = W⁻¹Δs ∘ WΔz - σμe
+    circ_op!(K,shift,step_s,step_z)                 
+    add_scaled_e!(K,shift,-σμ)                       
+
+    return nothing
+end
