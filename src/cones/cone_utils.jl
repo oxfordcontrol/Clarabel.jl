@@ -78,7 +78,7 @@ end
 # compute the constant part of Δs when written as a function of Δz
 # in the solution of a KKT system 
 
-@inline function Wt_λ_inv_circ_ds_symmetric!(
+@inline function _Wt_λ_inv_circ_ds_symmetric!(
     K::Union{NonnegativeCone{T},SecondOrderCone{T},PSDTriangleCone{T}},
     out::AbstractVector{T},
     ds::AbstractVector{T},

@@ -167,7 +167,7 @@ function Wt_λ_inv_circ_ds!(
     work::AbstractVector{T}
 ) where {T}
 
-    Wt_λ_inv_circ_ds_symmetric!(K,out,ds,work);
+    _Wt_λ_inv_circ_ds_symmetric!(K,out,ds,work);
 end
 
 #return maximum allowable step length while remaining in the socone

@@ -126,7 +126,7 @@ function Wt_λ_inv_circ_ds!(
     work::AbstractVector{T}
 ) where {T}
 
-    Wt_λ_inv_circ_ds_symmetric!(K,out,rs,work);
+    _Wt_λ_inv_circ_ds_symmetric!(K,out,rs,work);
 end
 
 #return maximum allowable step length while remaining in the nn cone
