@@ -36,7 +36,7 @@ function update_scaling!(
 end
 
 # return μH*(z) for exponential cone
-function get_WtW_block!(
+function get_WtW!(
     K::ExponentialCone{T},
     WtWblock::AbstractVector{T}
 ) where {T}
@@ -116,21 +116,25 @@ function Wt_λ_inv_circ_ds!(
     return nothing
 end
 
-# compute the generalized step of -μH(z)Δz
-function WtW_Δz!(
+#// PJG : not clear if notation is H(z) or H(s)
+# compute the product y = c ⋅ μH(z)x
+function mul_WtW!(
     K::ExponentialCone{T},
-    lz::AbstractVector{T},
-    ls::AbstractVector{T},
+    y::AbstractVector{T},
+    x::AbstractVector{T},
+    c::T,
     workz::AbstractVector{T}
 ) where {T}
 
     # mul!(ls,K.HBFGS,lz,-one(T),zero(T))
     H = K.HBFGS
     @inbounds for i = 1:3
-        ls[i] = - H[i,1]*lz[1] - H[i,2]*lz[2] - H[i,3]*lz[3]
+        y[i] =  c * (H[i,1]*x[1] + H[i,2]*x[2] + H[i,3]*x[3])
     end
 
 end
+
+
 
 #return maximum step length while staying in exponential cone
 function step_length(
@@ -152,7 +156,7 @@ function step_length(
     return (αz,αs)
 end
 
-function compute_barrier(
+function barrier(
     K::ExponentialCone{T},
     z::AbstractVector{T},
     s::AbstractVector{T},

@@ -184,8 +184,8 @@ function kkt_solve!(
     #solve for Δs = -Wᵀ(λ \ dₛ + WΔz) = -Wᵀ(λ \ dₛ) - WᵀWΔz
     #where the first part is already in Wtlinvds
     #-------------
-    # compute the generalized step of -WᵀWΔz, where -WᵀW is set to -μH(z) for asymmetric cones
-    cones_WtW_Δz!(cones,lhs.z,lhs.s,workz)
+    # compute the generalized step of -WᵀWΔz, where WᵀW is set to μH(z) for asymmetric cones
+    cones_mul_WtW!(cones,lhs.s,lhs.z,-one(T),workz)
 
     @. lhs.s -= Wtlinvds
 

@@ -68,13 +68,13 @@ function set_identity_scaling!(
 
 end
 
-#populates WtWblock with :
+#populates WtW with :
 # - the diagonal entries of W^TW, if WtW_is_diagonal(K) == true for this cone
 # - the upper triangular entries of W^TW, reported columnwise
 #
 # Note this function should return W^TW, not -W^TW.  Any change of sign
 # required by a linear solver is implemented within the solver object.
-function get_WtW_block!(
+function get_WtW!(
     K::AbstractCone{T},
     WtWblock::AbstractVector{T}
 ) where {T}
@@ -91,48 +91,6 @@ function affine_ds!(
     K::AbstractCone{T},
     x::AbstractVector{T},
     y::AbstractVector{T}
-) where {T}
-
-    error("Incomplete cone operation specification: ",typeof(K))
-
-end
-
-# implements x = y ∘ z
-function circ_op!(
-    K::AbstractCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T},
-    z::AbstractVector{T}
-) where {T}
-
-    error("Incomplete cone operation specification: ",typeof(K))
-
-end
-
-
-# implements x = λ \ z, where λ is the internally
-# maintained scaling variable.
-function λ_inv_circ_op!(
-    K::AbstractCone{T},
-    x::AbstractVector{T},
-    z::AbstractVector{T}
-) where {T}
-
-    error("Incomplete cone operation specification: ",typeof(K))
-
-end
-
-# implements x = y \ z.  Note that this function is
-# a more general version of λ_inv_circ_op! and is
-# not required directly anywhere by the solver. SOC and
-# NN cones (for example) implement this function and then
-# call it from λ_inv_circ_op! using their internal scaling
-# variable, but it is not compulsory to do it that way.
-function inv_circ_op!(
-    K::AbstractCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T},
-    z::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -160,12 +118,13 @@ function unit_initialization!(
 
 end
 
+
 # implements y = αWx + βy
-function gemv_W!(
+function mul_W!(
     K::AbstractCone{T},
     is_transpose::Symbol,  #:T for transpose, :N otherwise
-    x::AbstractVector{T},
     y::AbstractVector{T},
+    x::AbstractVector{T},
     α::T,
     β::T
 ) where {T}
@@ -174,12 +133,13 @@ function gemv_W!(
 
 end
 
+
 # implements y = αW^{-1}x + βy
-function gemv_Winv!(
+function mul_W!(
     K::AbstractCone{T},
     is_transpose::Symbol,  #:T for transpose, :N otherwise
-    x::AbstractVector{T},
     y::AbstractVector{T},
+    x::AbstractVector{T},
     α::T,
     β::T
 ) where {T}
@@ -224,17 +184,6 @@ function Wt_λ_inv_circ_ds!(
 
 end
 
-# compute the generalized step of -WᵀWΔz
-function WtW_Δz!(
-    K::AbstractCone{T},
-    lz::AbstractVector{T},
-    ls::AbstractVector{T},
-    workz::AbstractVector{T}
-) where {T}
-
-    error("Incomplete cone operation specification: ",typeof(K))
-
-end
 
 #return maximum allowable step length while remaining in cone
 #should return a Tuple of allowable step lengths for each direction
@@ -254,13 +203,64 @@ function step_length(
 end
 
 # Computes f(s + α⋅ds) + f*(z + α⋅dz) for each cone as in §8.3 of Santiago's thesis
-function compute_barrier(
+function barrier(
     K::AbstractCone{T},
     z::AbstractVector{T},
     s::AbstractVector{T},
     dz::AbstractVector{T},
     ds::AbstractVector{T},
     α::T
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
+
+
+# ---------------------------------------------
+# Only Symmetric cones should implement 
+# Jordan algebra operations 
+# ---------------------------------------------
+
+# implements x = y ∘ z
+function circ_op!(
+    K::AbstractCone{T},
+    x::AbstractVector{T},
+    y::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
+# implements x = y \ z.  Note that this function is
+# a more general version of λ_inv_circ_op! and is
+# not required directly anywhere by the solver. SOC and
+# NN cones (for example) implement this function and then
+# call it from λ_inv_circ_op! using their internal scaling
+# variable, but it is not compulsory to do it that way.
+function inv_circ_op!(
+    K::AbstractCone{T},
+    x::AbstractVector{T},
+    y::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
+
+#PJG: I think this should maybe be dropped 
+
+# implements x = λ \ z, where λ is the internally
+# maintained scaling variable.
+function λ_inv_circ_op!(
+    K::AbstractCone{T},
+    x::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))

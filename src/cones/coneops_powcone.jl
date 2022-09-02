@@ -35,7 +35,7 @@ function update_scaling!(
 end
 
 # return μH*(z) for power cone
-function get_WtW_block!(
+function get_WtW!(
     K::PowerCone{T},
     WtWblock::AbstractVector{T}
 ) where {T}
@@ -116,18 +116,19 @@ function Wt_λ_inv_circ_ds!(
     return nothing
 end
 
-# compute the generalized step of -μH(z)Δz
-function WtW_Δz!(
+# compute the product y = c ⋅ μH(z)x
+function mul_WtW!(
     K::PowerCone{T},
-    lz::AbstractVector{T},
-    ls::AbstractVector{T},
+    y::AbstractVector{T},
+    x::AbstractVector{T},
+    c::T,
     workz::AbstractVector{T}
 ) where {T}
 
     # mul!(ls,K.HBFGS,lz,-one(T),zero(T))
     H = K.HBFGS
     @inbounds for i = 1:3
-        ls[i] = - H[i,1]*lz[1] - H[i,2]*lz[2] - H[i,3]*lz[3]
+        ls[i] =  c * (H[i,1]*lz[1] + H[i,2]*lz[2] + H[i,3]*lz[3])
     end
 
 end
@@ -158,7 +159,7 @@ function step_length(
 end
 
 
-function compute_barrier(
+function barrier(
     K::PowerCone{T},
     z::AbstractVector{T},
     s::AbstractVector{T},

@@ -215,19 +215,19 @@ FloatT = Float64
         Clarabel.update_scaling!(K,s,z,μ,strategy)
 
         #check W^{-T}s = Wz = λ (λ is Diagonal)
-        Clarabel.gemv_W!(K,:N,z,v1,one(FloatT),zero(FloatT)) #v1 = Wz
-        Clarabel.gemv_Winv!(K,:T,s,v2,one(FloatT),zero(FloatT)) #v2 = W^{-T}s
+        Clarabel.mul_W!(K,:N,v1,z,one(FloatT),zero(FloatT)) #v1 = Wz
+        Clarabel.mul_Winv!(K,:T,v2,s,one(FloatT),zero(FloatT)) #v2 = W^{-T}s
         @test norm(v1-v2) ≈ 0   atol = 1e-10
 
         #check W^TW Z = S
-        Clarabel.gemv_W!(K,:N,z,v1,one(FloatT),zero(FloatT)) #v1 = Wz
-        Clarabel.gemv_W!(K,:T,v1,v2,one(FloatT),zero(FloatT)) #v2 = W^Tv1 = W^TWz
+        Clarabel.mul_W!(K,:N,v1,z,one(FloatT),zero(FloatT)) #v1 = Wz
+        Clarabel.mul_W!(K,:T,v2,v1,one(FloatT),zero(FloatT)) #v2 = W^Tv1 = W^TWz
         @test norm(v2-s) ≈ 0   atol = 1e-10
 
         #check W^Tλ = s
         Λ = Matrix(Diagonal(K.work.λ))
         λ = Λ[triu(ones(n,n)) .== true]  #upper triangle (diagonal only)
-        Clarabel.gemv_W!(K,:T,λ,v1,one(FloatT),zero(FloatT)) #v1 = W^Tλ
+        Clarabel.mul_W!(K,:T,v1,λ,one(FloatT),zero(FloatT)) #v1 = W^Tλ
         @test norm(v1-s) ≈ 0   atol = 1e-10
 
 
@@ -252,23 +252,23 @@ FloatT = Float64
 
         #compare different ways of multiplying v by W and W^T
         # v2 = W*v1
-        Clarabel.gemv_W!(K,:N,v1,v2,one(FloatT),zero(FloatT))
+        Clarabel.mul_W!(K,:N,v2,v1,one(FloatT),zero(FloatT))
         # v3 = W^T*v2
-        Clarabel.gemv_W!(K,:T,v2,v3,one(FloatT),zero(FloatT))
+        Clarabel.mul_W!(K,:T,v3,v2,one(FloatT),zero(FloatT))
 
         WtW = triu(ones(K.numel,K.numel))
         idxWtW = findall(WtW .!= 0)
         vecWtW = zeros(FloatT,length(idxWtW))
-        Clarabel.get_WtW_block!(K,vecWtW)
+        Clarabel.get_WtW!(K,vecWtW)
         WtW[idxWtW] = vecWtW
         #make Symmetric for products
         WtWsym = Symmetric(WtW)
 
         @test norm(WtWsym*v1 - v3) ≈ 0   atol = 1e-8
         #now the inverse
-        Clarabel.gemv_Winv!(K,:T,v1,v2,one(FloatT),zero(FloatT))
+        Clarabel.mul_Winv!(K,:T,v2,v1,one(FloatT),zero(FloatT))
         # v3 = W^T*v2
-        Clarabel.gemv_Winv!(K,:N,v2,v3,one(FloatT),zero(FloatT))
+        Clarabel.mul_Winv!(K,:N,v3,v2,one(FloatT),zero(FloatT))
         @test norm(WtWsym\v1 - v3) ≈ 0   atol = 1e-8
 
     end

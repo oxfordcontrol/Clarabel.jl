@@ -37,7 +37,7 @@ function set_identity_scaling!(
     return nothing
 end
 
-function get_WtW_block!(
+function get_WtW!(
     K::NonnegativeCone{T},
     WtWblock::AbstractVector{T}
 ) where {T}
@@ -130,11 +130,11 @@ function unit_initialization!(
 end
 
 # implements y = αWx + βy for the nn cone
-function gemv_W!(
+function mul_W!(
     K::NonnegativeCone{T},
     is_transpose::Symbol,
-    x::AbstractVector{T},
     y::AbstractVector{T},
+    x::AbstractVector{T},
     α::T,
     β::T
 ) where {T}
@@ -149,11 +149,11 @@ function gemv_W!(
 end
 
 # implements y = αW^{-1}x + βy for the nn cone
-function gemv_Winv!(
+function mul_Winv!(
     K::NonnegativeCone{T},
     is_transpose::Symbol,
-    x::AbstractVector{T},
     y::AbstractVector{T},
+    x::AbstractVector{T},
     α::T,
     β::T
 ) where {T}
@@ -190,9 +190,9 @@ function combined_ds!(
 
     tmp = dz                #alias
     dz .= step_z            #copy for safe call to gemv_W
-    gemv_W!(K,:N,tmp,step_z,one(T),zero(T))         #Δz <- WΔz
+    mul_W!(K,:N,step_z,tmp,one(T),zero(T))         #Δz <- Wdz
     tmp .= step_s           #copy for safe call to gemv_Winv
-    gemv_Winv!(K,:T,tmp,step_s,one(T),zero(T))      #Δs <- W⁻¹Δs
+    mul_Winv!(K,:T,step_s,tmp,one(T),zero(T))      #Δs <- W⁻¹Δs
     circ_op!(K,tmp,step_s,step_z)                   #tmp = W⁻¹Δs ∘ WΔz
     add_scaled_e!(K,tmp,-σμ)                        #tmp = W⁻¹Δs ∘ WΔz - σμe
 
@@ -211,23 +211,26 @@ function Wt_λ_inv_circ_ds!(
     tmp = lz;
     @. tmp = rz  #Don't want to modify our RHS
     λ_inv_circ_op!(K,tmp,rs)                  #tmp = λ \ ds
-    gemv_W!(K,:T,tmp,Wtlinvds,one(T),zero(T)) #Wᵀ(λ \ ds) = Wᵀ(tmp)
+    mul_W!(K,:T,Wtlinvds,tmp,one(T),zero(T)) #Wᵀ(λ \ ds) = Wᵀ(tmp)
 
     return nothing
 end
 
-# compute the generalized step of -WᵀWΔz
-function WtW_Δz!(
+
+# compute the product y = c ⋅ WᵀWx
+function mul_WtW!(
     K::NonnegativeCone{T},
-    lz::AbstractVector{T},
-    ls::AbstractVector{T},
-    workz::AbstractVector{T}
+    y::AbstractVector{T},
+    x::AbstractVector{T},
+    c::T,
+    work::AbstractVector{T}
 ) where {T}
 
-    gemv_W!(K,:N,lz,workz,one(T),zero(T))    #work = WΔz
-    gemv_W!(K,:T,workz,ls,-one(T),zero(T))   #Δs = -WᵀWΔz
+    #NB : sensitive to order of multiplication
+    @. y = (K.w * (c * K.w * x))
 
 end
+
 
 #return maximum allowable step length while remaining in the nn cone
 function step_length(
@@ -251,7 +254,7 @@ function step_length(
     return (αz,αs)
 end
 
-function compute_barrier(
+function barrier(
     K::NonnegativeCone{T},
     z::AbstractVector{T},
     s::AbstractVector{T},

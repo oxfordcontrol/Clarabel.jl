@@ -81,7 +81,7 @@ function cones_get_WtW_blocks!(
 ) where {T}
 
     for (cone, block) in zip(cones,WtWblocks)
-        @conedispatch get_WtW_block!(cone,block)
+        @conedispatch get_WtW!(cone,block)
     end
     return nothing
 end
@@ -163,16 +163,20 @@ function cones_Wt_λ_inv_circ_ds!(
     return nothing
 end
 
-# compute the generalized step of -WᵀWΔz
-function cones_WtW_Δz!(
+# compute the generalized product :
+# c⋅ WᵀWx for symmetric cones 
+# c⋅ μH(s)x for symmetric cones
+
+function cones_mul_WtW!(
     cones::ConeSet{T},
-    lz::ConicVector{T},
-    ls::ConicVector{T},
-    workz::ConicVector{T}
+    y::ConicVector{T},
+    x::ConicVector{T},
+    c::T,
+    work::ConicVector{T}
 ) where {T}
 
-    for (cone,lzi,lsi,workzi) in zip(cones,lz.views,ls.views,workz.views)
-        @conedispatch WtW_Δz!(cone,lzi,lsi,workzi)
+    for (cone,yi,xi,worki) in zip(cones,y.views,x.views,work.views)
+        @conedispatch mul_WtW!(cone,yi,xi,c,worki)
     end
 
     return nothing
@@ -226,7 +230,7 @@ end
 
 
 # compute the total barrier function at the point (z + α⋅dz, s + α⋅ds)
-function cones_compute_barrier(
+function cones_barrier(
     cones::ConeSet{T},
     z::ConicVector{T},
     s::ConicVector{T},

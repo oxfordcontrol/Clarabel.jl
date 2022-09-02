@@ -378,7 +378,7 @@ function solver_backtrack_step_to_barrier(
     α = αinit
 
     for j = 1:50
-        barrier = variables_compute_barrier(s.variables,s.step_lhs,α,s.cones)
+        barrier = variables_barrier(s.variables,s.step_lhs,α,s.cones)
         if barrier < one(T)
             return α
         else

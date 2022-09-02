@@ -32,7 +32,7 @@ function variables_calc_step_length(
 end
 
 
-function variables_compute_barrier(
+function variables_barrier(
     variables::DefaultVariables{T},
     step::DefaultVariables{T},
     α::T,
@@ -55,7 +55,7 @@ function variables_compute_barrier(
     ( z, s) = (variables.z, variables.s)
     (dz,ds) = (step.z, step.s)
 
-    barrier += cones_compute_barrier(cones, z, s, dz, ds, α)
+    barrier += cones_barrier(cones, z, s, dz, ds, α)
 
     return barrier
 end
