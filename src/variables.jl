@@ -204,3 +204,19 @@ function variables_finalize!(
     @. variables.s *=  einv
 
 end
+
+
+function variables_rescale!(variables)
+
+    vars = variables
+    τ     = vars.τ
+    κ     = vars.κ
+    scale = max(τ,κ)
+    
+    vars.x ./= scale
+    vars.z.vec ./= scale
+    vars.s.vec ./= scale
+    vars.τ /= scale
+    vars.κ /= scale
+    
+end
