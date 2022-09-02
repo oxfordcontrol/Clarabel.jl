@@ -18,8 +18,10 @@ numel(K::AbstractCone{T}) where {T} = dim(K)
 is_symmetric(::AbstractCone{T}) where {T} = true
 
 
-#NB: custom rectify functions should return
-#true unless δ == e on return
+# converts an elementwise scaling into
+# a scaling that preserves cone memership
+# NB:custom rectify functions should return
+# true unless δ == e on return
 function rectify_equilibration!(
     K::AbstractCone{T},
     δ::AbstractVector{T},
@@ -34,18 +36,41 @@ function rectify_equilibration!(
     return true
 end
 
-#All cones have diagonal WtW blocks
-#unless specifically overridden
-function WtW_is_diagonal(
-    K::AbstractCone{T}
-) where{T}
-    return true
-end
-
 # All other operations will throw an error
 # if a type specific implementation has been
 # defined.   To define a new cone, you must
 # define implementations for each function below.
+
+# functions relating to unit vectors and cone initialization
+
+function shift_to_cone!(
+    K::AbstractCone{T},
+    z::AbstractVector{T}
+) where{T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
+function unit_initialization!(
+    K::AbstractCone{T},
+	z::AbstractVector{T},
+    s::AbstractVector{T}
+) where{T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
+# Compute scaling points 
+
+function set_identity_scaling!(
+    K::AbstractCone{T}
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
 
 function update_scaling!(
     K::AbstractCone{T},
@@ -59,46 +84,50 @@ function update_scaling!(
 
 end
 
-#configure cone internals to provide W = I scaling
-function set_identity_scaling!(
+# operations on the Hessian of the centrality condition
+# : W^TW for symmmetric cones 
+# : μH(s) for nonsymmetric cones  
+
+#All cones have diagonal WtW blocks #unless specifically overridden
+function WtW_is_diagonal(
     K::AbstractCone{T}
-) where {T}
-
-    error("Incomplete cone operation specification: ",typeof(K))
-
+) where{T}
+    return true
 end
 
-#populates WtW with :
-# - the diagonal entries of W^TW, if WtW_is_diagonal(K) == true for this cone
-# - the upper triangular entries of W^TW, reported columnwise
-#
-# Note this function should return W^TW, not -W^TW.  Any change of sign
-# required by a linear solver is implemented within the solver object.
 function get_WtW!(
     K::AbstractCone{T},
     WtWblock::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
-
 end
 
-# returns x = λ∘λ for symmetric cones and x = s for asymmetric cones
-# The cone must have an internal mechanism
-# for storing the scaled variable λ internally.  This variable
-# should be updated at the call to update_scaling!
+function mul_WtW!(
+    K::AbstractCone{T},
+    y::AbstractVector{T},
+    x::AbstractVector{T},
+    c::T,
+    work::AbstractVector{T}
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+end
+
+# PJG : need to complete equation documentation here 
+# Residual for centrality condition in step equations 
+# For symmetric cones: ds = λ∘λ 
+# For nonsymmetric cones: ds = s 
 function affine_ds!(
     K::AbstractCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T}
+    ds::AbstractVector{T},
+    s::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
 
 end
 
-# PJG fix documentation
-# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - (ds_affine + ds_shift)
 function combined_ds_shift!(
     K::AbstractCone{T},
     shift::AbstractVector{T},
@@ -111,86 +140,20 @@ function combined_ds_shift!(
 
 end
 
-# place vector into the cone
-function shift_to_cone!(
-    K::AbstractCone{T},
-    z::AbstractVector{T}
-) where{T}
-
-    error("Incomplete cone operation specification: ",typeof(K))
-
-end
-
-# unit initialization for asymmetric solves
-function unit_initialization!(
-    K::AbstractCone{T},
-	z::AbstractVector{T},
-    s::AbstractVector{T}
-) where{T}
-
-    error("Incomplete cone operation specification: ",typeof(K))
-
-end
-
-
-# implements y = αWx + βy
-function mul_W!(
-    K::AbstractCone{T},
-    is_transpose::Symbol,  #:T for transpose, :N otherwise
-    y::AbstractVector{T},
-    x::AbstractVector{T},
-    α::T,
-    β::T
-) where {T}
-
-    error("Incomplete cone operation specification: ",typeof(K))
-
-end
-
-
-# implements y = αW^{-1}x + βy
-function mul_W!(
-    K::AbstractCone{T},
-    is_transpose::Symbol,  #:T for transpose, :N otherwise
-    y::AbstractVector{T},
-    x::AbstractVector{T},
-    α::T,
-    β::T
-) where {T}
-
-  error("Incomplete cone operation specification: ",typeof(K))
-
-end
-
-# implements y = y + αe
-function add_scaled_e!(
-    K::AbstractCone{T},
-    x::AbstractVector{T},α::T
-) where {T}
-
-    error("Incomplete cone operation specification: ",typeof(K))
-
-end
-
-
-
+# PJG: This needs a new name 
 # compute the generalized step Wᵀ(λ \ ds)
 function Wt_λ_inv_circ_ds!(
     K::AbstractCone{T},
-    lz::AbstractVector{T},
-    rz::AbstractVector{T},
-    rs::AbstractVector{T},
-    Wtlinvds::AbstractVector{T}
+    out::AbstractVector{T},
+    ds::AbstractVector{T},
+    work::AbstractVector{T},
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
 
 end
 
-
-#return maximum allowable step length while remaining in cone
-#should return a Tuple of allowable step lengths for each direction
-#, i.e. (step_z, step_s)
+# Find the maximum step length in some search direction
 function step_length(
      K::AbstractCone{T},
     dz::AbstractVector{T},
@@ -222,8 +185,61 @@ end
 
 
 # ---------------------------------------------
-# Only Symmetric cones should implement 
-# Jordan algebra operations 
+# operations supported by symmetric cones only 
+# ---------------------------------------------
+
+# Add the scaled identity element e
+function add_scaled_e!(
+    K::AbstractCone{T},
+    x::AbstractVector{T},α::T
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
+# implements y = αWx + βy
+function mul_W!(
+    K::AbstractCone{T},
+    is_transpose::Symbol,  #:T for transpose, :N otherwise
+    y::AbstractVector{T},
+    x::AbstractVector{T},
+    α::T,
+    β::T
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+end
+
+
+# implements y = αW^{-1}x + βy
+function mul_Winv!(
+    K::AbstractCone{T},
+    is_transpose::Symbol,  #:T for transpose, :N otherwise
+    y::AbstractVector{T},
+    x::AbstractVector{T},
+    α::T,
+    β::T
+) where {T}
+
+  error("Incomplete cone operation specification: ",typeof(K))
+end
+
+# x = λ \ z
+# Included as a special case since q \ z for general q is difficult
+# to implement for general q i PSD cone and never actually needed. 
+function λ_inv_circ_op!(
+    K::AbstractCone{T},
+    x::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+end
+
+
+# ---------------------------------------------
+# Jordan algebra operations for symmetric cones 
 # ---------------------------------------------
 
 # implements x = y ∘ z
@@ -238,12 +254,6 @@ function circ_op!(
 
 end
 
-# implements x = y \ z.  Note that this function is
-# a more general version of λ_inv_circ_op! and is
-# not required directly anywhere by the solver. SOC and
-# NN cones (for example) implement this function and then
-# call it from λ_inv_circ_op! using their internal scaling
-# variable, but it is not compulsory to do it that way.
 function inv_circ_op!(
     K::AbstractCone{T},
     x::AbstractVector{T},
@@ -256,16 +266,3 @@ function inv_circ_op!(
 end
 
 
-#PJG: I think this should maybe be dropped 
-
-# implements x = λ \ z, where λ is the internally
-# maintained scaling variable.
-function λ_inv_circ_op!(
-    K::AbstractCone{T},
-    x::AbstractVector{T},
-    z::AbstractVector{T}
-) where {T}
-
-    error("Incomplete cone operation specification: ",typeof(K))
-
-end

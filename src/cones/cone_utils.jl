@@ -36,11 +36,12 @@ end
 
 
 
-# compute shift in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - (affine_ds + shift)
+# compute shift in the combined step :
+#     λ ∘ (WΔz + W^{-⊤}Δs) = - (affine_ds + shift)
 # The affine term (computed in affine_ds!) is λ ∘ λ
 # The shift term is W⁻¹Δs ∘ WΔz - σμe
 
-function _combined_ds_shift_symmetric!(
+@inline function _combined_ds_shift_symmetric!(
     K::Union{NonnegativeCone{T},SecondOrderCone{T},PSDTriangleCone{T}},
     shift::AbstractVector{T},
     step_z::AbstractVector{T},
@@ -71,4 +72,23 @@ function _combined_ds_shift_symmetric!(
     add_scaled_e!(K,shift,-σμ)                       
 
     return nothing
+end
+
+
+# compute the constant part of Δs when written as a function of Δz
+# in the solution of a KKT system 
+
+@inline function Wt_λ_inv_circ_ds_symmetric!(
+    K::Union{NonnegativeCone{T},SecondOrderCone{T},PSDTriangleCone{T}},
+    out::AbstractVector{T},
+    ds::AbstractVector{T},
+    work::AbstractVector{T}
+) where {T}
+
+    #tmp = λ \ ds 
+    λ_inv_circ_op!(K,work,ds) 
+
+    #out = Wᵀ(λ \ ds) = Wᵀ(work) 
+    mul_W!(K,:T,out,work,one(T),zero(T))
+
 end

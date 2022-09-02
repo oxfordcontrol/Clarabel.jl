@@ -144,7 +144,7 @@ function kkt_solve!(
         #we can use the overall LHS output as additional workspace for the moment
 
         # compute the generalized step of Wᵀ(λ \ ds), where Wᵀ(λ \ ds) is set to ds for asymmetric cones
-        cones_Wt_λ_inv_circ_ds!(cones,lhs.z,rhs.z,rhs.s,Wtlinvds)
+        cones_Wt_λ_inv_circ_ds!(cones,Wtlinvds,rhs.s,lhs.z)
     end
 
     @. workz = Wtlinvds - rhs.z

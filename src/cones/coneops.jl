@@ -89,12 +89,12 @@ end
 # x = λ ∘ λ for symmetric cone and x = s for asymmetric cones
 function cones_affine_ds!(
     cones::ConeSet{T},
-    x::ConicVector{T},
+    ds::ConicVector{T},
     s::ConicVector{T}
 ) where {T}
 
-    for (cone,xi,si) in zip(cones,x.views,s.views)
-        @conedispatch affine_ds!(cone,xi,si)
+    for (cone,dsi,si) in zip(cones,ds.views,s.views)
+        @conedispatch affine_ds!(cone,dsi,si)
     end
     return nothing
 end
@@ -147,14 +147,13 @@ end
 # compute the generalized step Wᵀ(λ \ ds)
 function cones_Wt_λ_inv_circ_ds!(
     cones::ConeSet{T},
-    lz::ConicVector{T},
-    rz::ConicVector{T},
-    rs::ConicVector{T},
-    Wtlinvds::ConicVector
+    out::ConicVector{T},
+    ds::ConicVector{T},
+    work::ConicVector{T}
 ) where {T}
 
-    for (cone,lzi,rzi,rsi,Wtlinvdsi) in zip(cones,lz.views,rz.views,rs.views,Wtlinvds.views)
-        @conedispatch Wt_λ_inv_circ_ds!(cone,lzi,rzi,rsi,Wtlinvdsi)
+    for (cone,outi,dsi,worki) in zip(cones,out.views,ds.views,work.views)
+        @conedispatch Wt_λ_inv_circ_ds!(cone,outi,dsi,worki)
     end
 
     return nothing

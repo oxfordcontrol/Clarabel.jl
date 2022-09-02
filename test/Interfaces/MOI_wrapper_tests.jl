@@ -71,12 +71,7 @@ function test_MOI_standard()
         MYCONFIG,
         #include = String["<individual_test_here_for_debug>"],
         exclude = String[
-            # PJG: solves to slightly less than tols
-            "test_conic_RotatedSecondOrderCone_INFEASIBLE_2",
-            # PJG: gives different results on ubuntu vs windows.
-            # Uses different tranforms to SOC, expcone or powcone
-            # depending on MOI version
-            "test_conic_GeometricMeanCone_",
+            # "<put_problem_test_cases_here>"
         ],
         # This argument is useful to prevent tests from failing on future
         # releases of MOI that add new tests.

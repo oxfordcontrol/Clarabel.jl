@@ -9,11 +9,42 @@ numel(K::ExponentialCone{T}) where {T} = dim(K)
 
 is_symmetric(::ExponentialCone{T}) where {T} = false
 
-#exponential cone returns a dense WtW block
-function WtW_is_diagonal(
-    K::ExponentialCone{T}
+function shift_to_cone!(
+    K::ExponentialCone{T},
+    z::AbstractVector{T}
 ) where{T}
-    return false
+
+    # We should never end up shifting to this cone, since 
+    # asymmetric problems should always use unit_initialization!
+    error("This function should never be reached.");
+    # 
+end
+
+function unit_initialization!(
+   K::ExponentialCone{T},
+   z::AbstractVector{T},
+   s::AbstractVector{T}
+) where{T}
+
+    s[1] = T(-1.051383945322714)
+    s[2] = T(0.556409619469370)
+    s[3] = T(1.258967884768947)
+
+    #@. z = s
+    @inbounds for i = 1:3
+        z[i] = s[i]
+    end
+
+   return nothing
+end
+
+function set_identity_scaling!(
+    K::ExponentialCone{T},
+) where {T}
+
+    # We should never use identity scaling because 
+    # we never want to allow symmetric initialization
+    error("This function should never be reached.");
 end
 
 function update_scaling!(
@@ -35,6 +66,12 @@ function update_scaling!(
     end
 end
 
+function WtW_is_diagonal(
+    K::ExponentialCone{T}
+) where{T}
+    return false
+end
+
 # return μH*(z) for exponential cone
 function get_WtW!(
     K::ExponentialCone{T},
@@ -46,37 +83,35 @@ function get_WtW!(
 
 end
 
-# return x = y for asymmetric cones
-function affine_ds!(
+# compute the product y = c ⋅ μH(z)x
+function mul_WtW!(
     K::ExponentialCone{T},
+    y::AbstractVector{T},
     x::AbstractVector{T},
-    y::AbstractVector{T}
+    c::T,
+    workz::AbstractVector{T}
 ) where {T}
 
-    # @. x = y
+    # mul!(ls,K.HBFGS,lz,-one(T),zero(T))
+    H = K.HBFGS
     @inbounds for i = 1:3
-        x[i] = y[i]
+        y[i] =  c * (H[i,1]*x[1] + H[i,2]*x[2] + H[i,3]*x[3])
     end
 
 end
 
-# unit initialization for asymmetric solves
-function unit_initialization!(
-   K::ExponentialCone{T},
-   z::AbstractVector{T},
-   s::AbstractVector{T}
-) where{T}
+# return x = y for asymmetric cones
+function affine_ds!(
+    K::ExponentialCone{T},
+    ds::AbstractVector{T},
+    s::AbstractVector{T}
+) where {T}
 
-    s[1] = one(T)*(-1.051383945322714)
-    s[2] = one(T)*(0.556409619469370)
-    s[3] = one(T)*(1.258967884768947)
-
-    #@. z = s
+    # @. x = y
     @inbounds for i = 1:3
-        z[i] = s[i]
+        ds[i] = s[i]
     end
 
-   return nothing
 end
 
 # PJG: fix documentation
@@ -103,39 +138,18 @@ end
 # compute the generalized step ds
 function Wt_λ_inv_circ_ds!(
     K::ExponentialCone{T},
-    lz::AbstractVector{T},
-    rz::AbstractVector{T},
-    rs::AbstractVector{T},
-    Wtlinvds::AbstractVector{T}
+    out::AbstractVector{T},
+    ds::AbstractVector{T},
+    work::AbstractVector{T}
 ) where {T}
 
     # @. Wtlinvds = rs    #Wᵀ(λ \ ds) <- ds
     @inbounds for i = 1:3
-        Wtlinvds[i] = rs[i]
+        out[i] = ds[i]
     end
 
     return nothing
 end
-
-#// PJG : not clear if notation is H(z) or H(s)
-# compute the product y = c ⋅ μH(z)x
-function mul_WtW!(
-    K::ExponentialCone{T},
-    y::AbstractVector{T},
-    x::AbstractVector{T},
-    c::T,
-    workz::AbstractVector{T}
-) where {T}
-
-    # mul!(ls,K.HBFGS,lz,-one(T),zero(T))
-    H = K.HBFGS
-    @inbounds for i = 1:3
-        y[i] =  c * (H[i,1]*x[1] + H[i,2]*x[2] + H[i,3]*x[3])
-    end
-
-end
-
-
 
 #return maximum step length while staying in exponential cone
 function step_length(

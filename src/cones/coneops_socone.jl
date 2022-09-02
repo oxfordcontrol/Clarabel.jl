@@ -5,6 +5,54 @@
 #degree = 1 for SOC, since e'*e = 1
 degree(K::SecondOrderCone{T}) where {T} = 1
 
+# place vector into socone
+function shift_to_cone!(
+    K::SecondOrderCone{T},
+    z::AbstractVector{T}
+) where{T}
+
+    z[1] = max(z[1],0)
+
+    @views α = _soc_residual(z)
+    if(α < sqrt(eps(T)))
+        #done in two stages since otherwise (1.-α) = -α for
+        #large α, which makes z exactly 0.0 (or worse, -0.0 )
+        z[1] -=  α
+        z[1] +=  one(T)
+    end
+
+    return nothing
+end
+
+# unit initialization for asymmetric solves
+function unit_initialization!(
+    K::SecondOrderCone{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T}
+) where{T}
+ 
+     z .= zero(T)
+     s .= zero(T)
+     add_scaled_e!(K,z,one(T))
+     add_scaled_e!(K,s,one(T))
+ 
+    return nothing
+end 
+
+# configure cone internals to provide W = I scaling
+function set_identity_scaling!(
+    K::SecondOrderCone{T}
+) where {T}
+
+    K.d  = one(T)
+    K.u .= zero(T)
+    K.v .= zero(T)
+    K.η  = one(T)
+    K.w .= zero(T)
+
+    return nothing
+end
+
 function update_scaling!(
     K::SecondOrderCone{T},
     s::AbstractVector{T},
@@ -56,20 +104,6 @@ function update_scaling!(
     return nothing
 end
 
-#configure cone internals to provide W = I scaling
-function set_identity_scaling!(
-    K::SecondOrderCone{T}
-) where {T}
-
-    K.d  = one(T)
-    K.u .= zero(T)
-    K.v .= zero(T)
-    K.η  = one(T)
-    K.w .= zero(T)
-
-    return nothing
-end
-
 function get_WtW!(
     K::SecondOrderCone{T},
     WtWblock::AbstractVector{T}
@@ -87,15 +121,28 @@ function get_WtW!(
     return nothing
 end
 
+# compute the product y = c ⋅ WᵀWx
+function mul_WtW!(
+    K::SecondOrderCone{T},
+    y::AbstractVector{T},
+    x::AbstractVector{T},
+    c::T,
+    work::AbstractVector{T}
+) where {T}
+
+    mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
+    mul_W!(K,:T,y,work,c,zero(T))         #y = c Wᵀwork = W^TWx
+
+end
 
 # returns x = λ ∘ λ for the socone
 function affine_ds!(
     K::SecondOrderCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T}
+    ds::AbstractVector{T},
+    s::AbstractVector{T}
 ) where {T}
 
-    circ_op!(K,x,K.λ,K.λ)
+    circ_op!(K,ds,K.λ,K.λ)
 
     return nothing
 end
@@ -112,86 +159,68 @@ function combined_ds_shift!(
     _combined_ds_shift_symmetric!(K,shift,step_z,step_s,σμ);
 end
 
-# implements x = y ∘ z for socone
-function circ_op!(
+# compute the generalized step Wᵀ(λ \ ds)
+function Wt_λ_inv_circ_ds!(
     K::SecondOrderCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T},
-    z::AbstractVector{T}
+    out::AbstractVector{T},
+    ds::AbstractVector{T},
+    work::AbstractVector{T}
 ) where {T}
 
-    x[1] = dot(y,z)
-    y0   = y[1]
-    z0   = z[1]
-    for i = 2:length(x)
-        x[i] = y0*z[i] + z0*y[i]
+    Wt_λ_inv_circ_ds_symmetric!(K,out,ds,work);
+end
+
+#return maximum allowable step length while remaining in the socone
+function step_length(
+    K::SecondOrderCone{T},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+     z::AbstractVector{T},
+     s::AbstractVector{T},
+     settings::Settings{T},
+     αmax::T
+) where {T}
+
+    αz   = _step_length_soc_component(dz,z,αmax)
+    αs   = _step_length_soc_component(ds,s,αmax)
+
+    return (αz,αs)
+end
+
+function compute_barrier(
+    K::SecondOrderCone{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T
+) where {T}
+
+    res_s = _soc_residual_shifted(s,ds,α)
+    res_z = _soc_residual_shifted(z,dz,α)
+
+    # avoid numerical issue if res_s <= 0 or res_z <= 0
+    if res_s > 0 && res_z > 0
+        return -logsafe(res_s*res_z)/2
+    else
+        return Inf
     end
-
-    return nothing
 end
 
-# implements x = λ \ z for the socone, where λ
-# is the internally maintained scaling variable.
-function λ_inv_circ_op!(
+# ---------------------------------------------
+# operations supported by symmetric cones only 
+# ---------------------------------------------
+
+# implements y = y + αe for the socone
+function add_scaled_e!(
     K::SecondOrderCone{T},
-    x::AbstractVector{T},
-    z::AbstractVector{T}
+    x::AbstractVector{T},α::T
 ) where {T}
 
-    inv_circ_op!(K, x, K.λ, z)
-
-end
-
-# implements x = y \ z for the socone
-function inv_circ_op!(
-    K::SecondOrderCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T},
-    z::AbstractVector{T}
-) where {T}
-
-    @views p = _soc_residual(y)
-    pinv = 1/p
-    @views v = dot(y[2:end],z[2:end])
-
-    x[1]      = (y[1]*z[1] - v)*pinv
-    @views x[2:end] .= pinv*(v/y[1] - z[1]).*y[2:end] + (1/y[1]).*z[2:end]
+    #e is (1,0.0..0)
+    x[1] += α
 
     return nothing
-end
-
-# place vector into socone
-function shift_to_cone!(
-    K::SecondOrderCone{T},
-    z::AbstractVector{T}
-) where{T}
-
-    z[1] = max(z[1],0)
-
-    @views α = _soc_residual(z)
-    if(α < sqrt(eps(T)))
-        #done in two stages since otherwise (1.-α) = -α for
-        #large α, which makes z exactly 0.0 (or worse, -0.0 )
-        z[1] -=  α
-        z[1] +=  one(T)
-    end
-
-    return nothing
-end
-
-# unit initialization for asymmetric solves
-function unit_initialization!(
-   K::SecondOrderCone{T},
-   z::AbstractVector{T},
-   s::AbstractVector{T}
-) where{T}
-
-    z .= zero(T)
-    s .= zero(T)
-    add_scaled_e!(K,z,one(T))
-    add_scaled_e!(K,s,one(T))
-
-   return nothing
 end
 
 # implements y = αWx + βy for the socone
@@ -244,68 +273,61 @@ function mul_Winv!(
     return nothing
 end
 
-
-# implements y = y + αe for the socone
-function add_scaled_e!(
+# implements x = λ \ z for the socone, where λ
+# is the internally maintained scaling variable.
+function λ_inv_circ_op!(
     K::SecondOrderCone{T},
-    x::AbstractVector{T},α::T
-) where {T}
-
-    #e is (1,0.0..0)
-    x[1] += α
-
-    return nothing
-end
-
-
-
-# compute the generalized step Wᵀ(λ \ ds)
-function Wt_λ_inv_circ_ds!(
-    K::SecondOrderCone{T},
-    lz::AbstractVector{T},
-    rz::AbstractVector{T},
-    rs::AbstractVector{T},
-    Wtlinvds::AbstractVector{T}
-) where {T}
-
-    tmp = lz;
-    @. tmp = rz  #Don't want to modify our RHS
-    λ_inv_circ_op!(K,tmp,rs)                  #tmp = λ \ ds
-    mul_W!(K,:T,Wtlinvds,tmp,one(T),zero(T)) #Wᵀ(λ \ ds) = Wᵀ(tmp)
-
-    return nothing
-end
-
-# compute the product y = c ⋅ WᵀWx
-function mul_WtW!(
-    K::SecondOrderCone{T},
-    y::AbstractVector{T},
     x::AbstractVector{T},
-    c::T,
-    work::AbstractVector{T}
+    z::AbstractVector{T}
 ) where {T}
 
-    mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
-    mul_W!(K,:T,y,work,c,zero(T))         #y = c Wᵀwork = W^TWx
+    inv_circ_op!(K, x, K.λ, z)
 
 end
 
-#return maximum allowable step length while remaining in the socone
-function step_length(
+# ---------------------------------------------
+# Jordan algebra operations for symmetric cones 
+# ---------------------------------------------
+
+# implements x = y ∘ z for socone
+function circ_op!(
     K::SecondOrderCone{T},
-    dz::AbstractVector{T},
-    ds::AbstractVector{T},
-     z::AbstractVector{T},
-     s::AbstractVector{T},
-     settings::Settings{T},
-     αmax::T
+    x::AbstractVector{T},
+    y::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
-    αz   = _step_length_soc_component(dz,z,αmax)
-    αs   = _step_length_soc_component(ds,s,αmax)
+    x[1] = dot(y,z)
+    y0   = y[1]
+    z0   = z[1]
+    for i = 2:length(x)
+        x[i] = y0*z[i] + z0*y[i]
+    end
 
-    return (αz,αs)
+    return nothing
 end
+
+# implements x = y \ z for the socone
+function inv_circ_op!(
+    K::SecondOrderCone{T},
+    x::AbstractVector{T},
+    y::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+
+    @views p = _soc_residual(y)
+    pinv = 1/p
+    @views v = dot(y[2:end],z[2:end])
+
+    x[1]      = (y[1]*z[1] - v)*pinv
+    @views x[2:end] .= pinv*(v/y[1] - z[1]).*y[2:end] + (1/y[1]).*z[2:end]
+
+    return nothing
+end
+
+# ---------------------------------------------
+# internal operations for second order cones 
+# ---------------------------------------------
 
 # find the maximum step length α≥0 so that
 # x + αy stays in the SOC
@@ -352,35 +374,9 @@ function _step_length_soc_component(
 
 end
 
-function compute_barrier(
-    K::SecondOrderCone{T},
-    z::AbstractVector{T},
-    s::AbstractVector{T},
-    dz::AbstractVector{T},
-    ds::AbstractVector{T},
-    α::T
-) where {T}
-
-    res_s = _soc_residual_shifted(s,ds,α)
-    res_z = _soc_residual_shifted(z,dz,α)
-
-    # avoid numerical issue if res_s <= 0 or res_z <= 0
-    if res_s > 0 && res_z > 0
-        return -logsafe(res_s*res_z)/2
-    else
-        return Inf
-    end
-end
-
-
-
-# ------------------------------------------------
-# internal operations for second order cones 
-
 @inline function _soc_residual(z:: AbstractVector{T}) where {T} 
     @views res = z[1]*z[1] - dot(z[2:end],z[2:end])
 end 
-
 
 #compute the residual at z + \alpha dz 
 #with storing the intermediate vector
@@ -392,7 +388,7 @@ end
     
     z1 = z[1] + α*z[1]
         
-    @views res = z1*z1 -  dot_shifted(z[2:end],s[2:end],dz[2:end],ds[2:end],α)
+    @views res = z1*z1 -  dot_shifted(z[2:end],z[2:end],dz[2:end],dz[2:end],α)
 
 
     return res

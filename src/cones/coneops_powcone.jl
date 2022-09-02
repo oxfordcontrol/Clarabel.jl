@@ -9,11 +9,62 @@ numel(K::PowerCone{T}) where {T} = dim(K)
 
 is_symmetric(::PowerCone{T}) where {T} = false
 
-#Power cone returns a dense WtW block
-function WtW_is_diagonal(
-    K::PowerCone{T}
+function shift_to_cone!(
+    K::PowerCone{T},
+    z::AbstractVector{T}
 ) where{T}
-    return false
+
+    # We should never end up shifting to this cone, since 
+    # asymmetric problems should always use unit_initialization!
+    error("This function should never be reached.");
+    # 
+end
+
+function unit_initialization!(
+    K::PowerCone{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T}
+ ) where{T}
+ 
+     α = K.α
+ 
+     s[1] = one(T)*sqrt(one(T)+α)
+     s[2] = one(T)*sqrt(one(T)+((one(T)-α)))
+     s[3] = zero(T)
+ 
+     #@. z = s
+     @inbounds for i = 1:3
+         z[i] = s[i]
+     end
+ 
+    return nothing
+ end
+
+ function update_scaling!(
+    K::PowerCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T},
+    μ::T,
+    scaling_strategy::ScalingStrategy
+) where {T}
+    # update both gradient and Hessian for function f*(z) at the point z
+    # NB: the update order can't be switched as we reuse memory in the 
+    # Hessian update
+    _update_grad_HBFGS(K,s,z,μ,scaling_strategy)
+
+    # K.z .= z
+    @inbounds for i = 1:3
+        K.z[i] = z[i]
+    end
+end
+
+function set_identity_scaling!(
+    K::PowerCone{T},
+) where {T}
+
+    # We should never use identity scaling because 
+    # we never want to allow symmetric initialization
+    error("This function should never be reached.");
 end
 
 function update_scaling!(
@@ -34,6 +85,12 @@ function update_scaling!(
     end
 end
 
+function WtW_is_diagonal(
+    K::PowerCone{T}
+) where{T}
+    return false
+end
+
 # return μH*(z) for power cone
 function get_WtW!(
     K::PowerCone{T},
@@ -44,76 +101,6 @@ function get_WtW!(
     # _pack_triu(WtWblock,K.μH)
     _pack_triu(WtWblock,K.HBFGS)
 
-end
-
-# return x = y for asymmetric cones
-function affine_ds!(
-    K::PowerCone{T},
-    x::AbstractVector{T},
-    y::AbstractVector{T}
-) where {T}
-
-    # @. x = y
-    @inbounds for i = 1:3
-        x[i] = y[i]
-    end
-
-end
-
-# unit initialization for asymmetric solves
-function unit_initialization!(
-   K::PowerCone{T},
-   z::AbstractVector{T},
-   s::AbstractVector{T}
-) where{T}
-
-    α = K.α
-
-    s[1] = one(T)*sqrt(1+α)
-    s[2] = one(T)*sqrt(1+(1-α))
-    s[3] = zero(T)
-
-    #@. z = s
-    @inbounds for i = 1:3
-        z[i] = s[i]
-    end
-
-   return nothing
-end
-
-# compute ds in the combined step where μH(z)Δz + Δs = - ds
-function combined_ds_shift!(
-    K::PowerCone{T},
-    shift::AbstractVector{T},
-    step_z::AbstractVector{T},
-    step_s::AbstractVector{T},
-    σμ::T
-) where {T}
-
-    η = K.grad_work      
-    _higher_correction!(K,η,step_s,step_z)             #3rd order correction requires input variables.z
-    @inbounds for i = 1:3
-        shift[i] = K.grad[i]*σμ - η[i]
-    end
-
-    return nothing
-end
-
-# compute the generalized step ds
-function Wt_λ_inv_circ_ds!(
-    K::PowerCone{T},
-    lz::AbstractVector{T},
-    rz::AbstractVector{T},
-    rs::AbstractVector{T},
-    Wtlinvds::AbstractVector{T}
-) where {T}
-
-    # @. Wtlinvds = rs    #Wᵀ(λ \ ds) <- ds
-    @inbounds for i = 1:3
-        Wtlinvds[i] = rs[i]
-    end
-
-    return nothing
 end
 
 # compute the product y = c ⋅ μH(z)x
@@ -131,6 +118,54 @@ function mul_WtW!(
         y[i] =  c * (H[i,1]*x[1] + H[i,2]*x[2] + H[i,3]*x[3])
     end
 
+end
+
+# return rs = s for asymmetric cones
+function affine_ds!(
+    K::PowerCone{T},
+    ds::AbstractVector{T},
+    s::AbstractVector{T}
+) where {T}
+
+    # @. x = y
+    @inbounds for i = 1:3
+        ds[i] = s[i]
+    end
+
+end
+
+# compute ds in the combined step where μH(z)Δz + Δs = - ds
+function combined_ds_shift!(
+    K::PowerCone{T},
+    shift::AbstractVector{T},
+    step_z::AbstractVector{T},
+    step_s::AbstractVector{T},
+    σμ::T
+) where {T}
+
+    η = K.grad_work      
+    _higher_correction!(K,η,step_s,step_z)         
+    @inbounds for i = 1:3
+        shift[i] = K.grad[i]*σμ - η[i]
+    end
+
+    return nothing
+end
+
+# compute the generalized step ds
+function Wt_λ_inv_circ_ds!(
+    K::PowerCone{T},
+    out::AbstractVector{T},
+    ds::AbstractVector{T},
+    work::AbstractVector{T}
+) where {T}
+
+    # @. Wtlinvds = rs    #Wᵀ(λ \ ds) <- ds
+    @inbounds for i = 1:3
+        out[i] = ds[i]
+    end
+
+    return nothing
 end
 
 #return maximum allowable step length while remaining in the Power cone
@@ -157,7 +192,6 @@ function step_length(
 
     return (αz,αs)
 end
-
 
 function compute_barrier(
     K::PowerCone{T},
