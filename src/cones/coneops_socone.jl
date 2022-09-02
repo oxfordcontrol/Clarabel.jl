@@ -181,8 +181,8 @@ function step_length(
      αmax::T
 ) where {T}
 
-    αz   = _step_length_soc_component(dz,z,αmax)
-    αs   = _step_length_soc_component(ds,s,αmax)
+    αz   = _step_length_soc_component(z,dz,αmax)
+    αs   = _step_length_soc_component(s,ds,αmax)
 
     return (αz,αs)
 end
@@ -329,51 +329,6 @@ end
 # internal operations for second order cones 
 # ---------------------------------------------
 
-# find the maximum step length α≥0 so that
-# x + αy stays in the SOC
-function _step_length_soc_component(
-    y::AbstractVector{T},
-    x::AbstractVector{T},
-    αmax::T
-) where {T}
-
-    # assume that x is in the SOC, and
-    # find the minimum positive root of
-    # the quadratic equation:
-    # ||x₁+αy₁||^2 = (x₀ + αy₀)^2
-
-    @views a = _soc_residual(y)
-    @views b = 2*(x[1]*y[1] - dot(x[2:end],y[2:end]))
-    @views c = _soc_residual(x) #should be ≥0
-    d = b^2 - 4*a*c
-
-    if(c < 0)
-        throw(DomainError(c, "starting point of line search not in SOC"))
-    end
-
-    if( (a > 0 && b > 0) || d < 0)
-        #all negative roots / complex root pair
-        #-> infinite step length
-        return αmax
-
-    elseif a == 0
-        #edge case where quadratic becomes linear  
-        return (b < 0 ? -c/b : αmax)
-
-    else
-        sqrtd = sqrt(d)
-        r1 = (-b + sqrtd)/(2*a)
-        r2 = (-b - sqrtd)/(2*a)
-
-        #return the minimum positive root, up to αmax
-        r1 = r1 < 0 ? αmax : r1
-        r2 = r2 < 0 ? αmax : r2
-
-        return min(r1,r2)
-    end
-
-end
-
 @inline function _soc_residual(z:: AbstractVector{T}) where {T} 
     @views res = z[1]*z[1] - dot(z[2:end],z[2:end])
 end 
@@ -394,3 +349,68 @@ end
     return res
 end 
 
+# find the maximum step length α≥0 so that
+# x + αy stays in the SOC
+function _step_length_soc_component(
+    x::AbstractVector{T},
+    y::AbstractVector{T},
+    αmax::T
+) where {T}
+
+    # assume that x is in the SOC, and find the minimum positive root
+    # of the quadratic equation:  ||x₁+αy₁||^2 = (x₀ + αy₀)^2
+
+    @views a = _soc_residual(y)
+    @views b = 2*(x[1]*y[1] - dot(x[2:end],y[2:end]))
+    @views c = _soc_residual(x) #should be ≥0
+    d = b^2 - 4*a*c
+
+    if(c < 0)
+        throw(DomainError(c, "starting point of line search not in SOC"))
+    end
+
+    if( (a > 0 && b > 0) || d < 0)
+        #all negative roots / complex root pair
+        #-> infinite step length
+        return αmax
+
+    elseif a == 0
+        #edge case with only one root.  This corresponds to
+        #the case where the search direction is exactly on the 
+        #cone boundary.   The root should be -c/b, but b can't 
+        #be negative since both (x,y) are in the cone and it is 
+        #self dual, so <x,y> \ge 0 necessarily.
+        return αmax
+
+    elseif c == 0
+        #Edge case with one of the roots at 0.   This corresponds 
+        #to the case where the initial point is exactly on the 
+        #cone boundary.  The other root is -b/a.   If the search 
+        #direction is in the cone, then a >= 0 and b can't be 
+        #negative due to self-duality.  If a < 0, then the 
+        #direction is outside the cone and b can't be positive.
+        #Either way, step length is determined by whether or not 
+        #the search direction is in the cone.
+
+        return (a >= 0 ? αmax : zero(T)) 
+    end 
+
+
+    # if we got this far then we need to calculate a pair 
+    # of real roots and choose the smallest positive one.  
+    # We need to be cautious about cancellations though.  
+    # See §1.4: Goldberg, ACM Computing Surveys, 1991 
+    # https://dl.acm.org/doi/pdf/10.1145/103162.103163
+
+    t = (b >= 0) ? (-b - sqrt(d)) : (-b + sqrt(d))
+
+    r1 = (2*c)/t;
+    r2 = t/(2*a);
+
+    #return the minimum positive root, up to αmax
+    r1 = r1 < 0 ? floatmax(T) : r1
+    r2 = r2 < 0 ? floatmax(T) : r2
+
+    return min(αmax,r1,r2)
+
+end
