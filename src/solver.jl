@@ -213,6 +213,7 @@ function solve!(
                 s.info,s.data,s.variables,
                 s.residuals,s.settings,s.timers
             )
+            @notimeit info_print_status(s.info,s.settings)
             isdone = info_check_termination!(s.info,s.residuals,s.settings,iter)
 
             # check for termination due to slow progress and update strategy
@@ -225,7 +226,6 @@ function solve!(
 
             #increment counter here because we only count
             #iterations that produce a KKT update 
-            @notimeit info_print_status(s.info,s.settings)
             iter += 1
 
             #update the scalings
@@ -264,7 +264,7 @@ function solve!(
                 #--------------
                 α = solver_get_step_length(s,:affine,scaling_strategy)
                 σ = _calc_centering_parameter(α)
-
+  
                 #calculate the combined step and length
                 #--------------
                 variables_combined_step_rhs!(
