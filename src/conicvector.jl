@@ -13,7 +13,7 @@ struct ConicVector{T<:AbstractFloat} <: AbstractVector{T}
     #array of data views of type Vector{T}
     views::Vector{VectorView{T}}
 
-    function ConicVector{T}(S::ConeSet{T}) where {T}
+    function ConicVector{T}(S::CompositeCone{T}) where {T}
 
         #undef initialization would possibly result
         #in Infs or NaNs, causing failure in gemv!

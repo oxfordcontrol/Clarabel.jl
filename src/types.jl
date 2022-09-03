@@ -29,7 +29,9 @@ mutable struct DefaultVariables{T} <: AbstractVariables{T}
     κ::T
 
     function DefaultVariables{T}(
-        n::Integer, cones::ConeSet) where {T}
+        n::Integer, 
+        cones::CompositeCone{T}
+    ) where {T}
 
         x = Vector{T}(undef,n)
         s = ConicVector{T}(cones)
@@ -72,7 +74,7 @@ struct DefaultEquilibration{T} <: AbstractEquilibration{T}
 
     function DefaultEquilibration{T}(
         nvars::Int,
-        cones::ConeSet{T},
+        cones::CompositeCone{T},
     ) where {T}
 
         #Left/Right diagonal scaling for problem data
@@ -162,7 +164,7 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
         q::AbstractVector{T},
         A::AbstractMatrix{T},
         b::AbstractVector{T},
-        cones::ConeSet{T}
+        cones::CompositeCone{T}
     ) where {T}
 
         # dimension checks will have already been
@@ -303,7 +305,7 @@ mutable struct Solver{T <: AbstractFloat}
 
     data::Union{AbstractProblemData{T},Nothing}
     variables::Union{AbstractVariables{T},Nothing}
-    cones::Union{ConeSet{T},Nothing}
+    cones::Union{CompositeCone{T},Nothing}
     residuals::Union{AbstractResiduals{T},Nothing}
     kktsystem::Union{AbstractKKTSystem{T},Nothing}
     info::Union{AbstractInfo{T},Nothing}

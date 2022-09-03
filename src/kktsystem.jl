@@ -22,7 +22,7 @@ mutable struct DefaultKKTSystem{T} <: AbstractKKTSystem{T}
 
         function DefaultKKTSystem{T}(
             data::DefaultProblemData{T},
-            cones::ConeSet{T},
+            cones::CompositeCone{T},
             settings::Settings{T}
         ) where {T}
 
@@ -58,7 +58,7 @@ DefaultKKTSystem(args...) = DefaultKKTSystem{DefaultFloat}(args...)
 function kkt_update!(
     kktsystem::DefaultKKTSystem{T},
     data::DefaultProblemData{T},
-    cones::ConeSet{T}
+    cones::CompositeCone{T}
 ) where {T}
 
     #update the linear solver with new cones
@@ -122,7 +122,7 @@ function kkt_solve!(
     rhs::DefaultVariables{T},
     data::DefaultProblemData{T},
     variables::DefaultVariables{T},
-    cones::ConeSet{T},
+    cones::CompositeCone{T},
     steptype::Symbol   #:affine or :combined
 ) where{T}
 
@@ -144,7 +144,7 @@ function kkt_solve!(
         #we can use the overall LHS output as additional workspace for the moment
 
         # compute the generalized step of Wᵀ(λ \ ds), where Wᵀ(λ \ ds) is set to ds for asymmetric cones
-        cones_Δs_from_Δz_offset!(cones,Wtlinvds,rhs.s,lhs.z)
+        Δs_from_Δz_offset!(cones,Wtlinvds,rhs.s,lhs.z)
     end
 
     @. workz = Wtlinvds - rhs.z
@@ -185,7 +185,7 @@ function kkt_solve!(
     #where the first part is already in Wtlinvds
     #-------------
     # compute the generalized step of -WᵀWΔz, where WᵀW is set to μH(z) for asymmetric cones
-    cones_mul_WtW!(cones,lhs.s,lhs.z,-one(T),workz)
+    mul_WtW!(cones,lhs.s,lhs.z,-one(T),workz)
 
     @. lhs.s -= Wtlinvds
 

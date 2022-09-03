@@ -174,7 +174,7 @@ end
 
 function kktsolver_update!(
     kktsolver::DirectLDLKKTSolver{T},
-    cones::ConeSet{T}
+    cones::CompositeCone{T}
 ) where {T}
 
     # the internal ldlsolver is type unstable, so multiple
@@ -189,7 +189,7 @@ end
 function _kktsolver_update_inner!(
     kktsolver::DirectLDLKKTSolver{T},
     ldlsolver::AbstractDirectLDLSolver{T},
-    cones::ConeSet{T}
+    cones::CompositeCone{T}
 ) where {T}
 
     #real implementation is here, and now ldlsolver
@@ -200,7 +200,7 @@ function _kktsolver_update_inner!(
     KKT       = kktsolver.KKT
 
     #Set the elements the W^tW blocks in the KKT matrix.
-    cones_get_WtW!(cones,kktsolver.WtWblocks)
+    get_WtW!(cones,kktsolver.WtWblocks)
 
     for (index, values) in zip(map.WtWblocks,kktsolver.WtWblocks)
         #change signs to get -W^TW

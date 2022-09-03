@@ -8,6 +8,12 @@
 # -----------------------------------------------------
 
 function _conedispatch(x, call)
+
+    # We do not set thetypes = subtypes(AbstractCone), but 
+    # rather to entries in our dictionary of primitive cone
+    # types.   This avoids adding CompositeCone itself to the
+    # switchyard we construct here, but would also prevent 
+    # the use of nested CompositeCones.  
     thetypes = collect(values(ConeDict))
     foldr((t, tail) -> :(if $x isa $t; $call else $tail end), thetypes, init=Expr(:block))
 end
@@ -16,22 +22,22 @@ macro conedispatch(call)
     esc(_conedispatch(:cone, call))
 end
 
-dim(::ConeSet{T}) where {T} = error("dim() not well defined for the ConeSet");
-degree(cones::ConeSet) = cones.degree
-numel(cones::ConeSet)  = cones.numel
+dim(::CompositeCone{T}) where {T} = error("dim() not well defined for the CompositeCone");
+degree(cones::CompositeCone{T}) where {T} = cones.degree
+numel(cones::CompositeCone{T}) where {T}  = cones.numel
 
 # -----------------------------------------------------
 # dispatch operators for multiple cones
 # -----------------------------------------------------
 
-function cones_is_symmetric(cones::ConeSet{T}) where {T}
+function is_symmetric(cones::CompositeCone{T}) where {T}
     #true if all pieces are symmetric.  
     #determined during obj construction
     return cones._is_symmetric
 end
 
-function cones_rectify_equilibration!(
-    cones::ConeSet{T},
+function rectify_equilibration!(
+    cones::CompositeCone{T},
      δ::ConicVector{T},
      e::ConicVector{T}
 ) where{T}
@@ -50,8 +56,8 @@ function cones_rectify_equilibration!(
 end
 
 # place a vector to some nearby point in the cone
-function cones_shift_to_cone!(
-    cones::ConeSet{T},
+function shift_to_cone!(
+    cones::CompositeCone{T},
     z::ConicVector{T}
 ) where {T}
 
@@ -62,8 +68,8 @@ function cones_shift_to_cone!(
 end
 
 # unit initialization for asymmetric solves
-function cones_unit_initialization!(
-    cones::ConeSet{T},
+function unit_initialization!(
+    cones::CompositeCone{T},
     z::ConicVector{T},
     s::ConicVector{T}
 ) where {T}
@@ -74,8 +80,8 @@ function cones_unit_initialization!(
     return nothing
 end
 
-function cones_set_identity_scaling!(
-    cones::ConeSet{T}
+function set_identity_scaling!(
+    cones::CompositeCone{T}
 ) where {T}
 
     for cone in cones
@@ -85,8 +91,8 @@ function cones_set_identity_scaling!(
     return nothing
 end
 
-function cones_update_scaling!(
-    cones::ConeSet{T},
+function update_scaling!(
+    cones::CompositeCone{T},
     s::ConicVector{T},
     z::ConicVector{T},
 	μ::T,
@@ -103,8 +109,8 @@ function cones_update_scaling!(
 end
 
 # The WtW block for each cone.
-function cones_get_WtW!(
-    cones::ConeSet{T},
+function get_WtW!(
+    cones::CompositeCone{T},
     WtWblocks::Vector{Vector{T}}
 ) where {T}
 
@@ -118,8 +124,8 @@ end
 # c⋅ WᵀWx for symmetric cones 
 # c⋅ μH(s)x for symmetric cones
 
-function cones_mul_WtW!(
-    cones::ConeSet{T},
+function mul_WtW!(
+    cones::CompositeCone{T},
     y::ConicVector{T},
     x::ConicVector{T},
     c::T,
@@ -134,8 +140,8 @@ function cones_mul_WtW!(
 end
 
 # x = λ ∘ λ for symmetric cone and x = s for asymmetric cones
-function cones_affine_ds!(
-    cones::ConeSet{T},
+function affine_ds!(
+    cones::CompositeCone{T},
     ds::ConicVector{T},
     s::ConicVector{T}
 ) where {T}
@@ -146,8 +152,8 @@ function cones_affine_ds!(
     return nothing
 end
 
-function cones_combined_ds_shift!(
-    cones::ConeSet{T},
+function combined_ds_shift!(
+    cones::CompositeCone{T},
     shift::ConicVector{T},
     step_z::ConicVector{T},
     step_s::ConicVector{T},
@@ -163,8 +169,8 @@ function cones_combined_ds_shift!(
     return nothing
 end
 
-function cones_Δs_from_Δz_offset!(
-    cones::ConeSet{T},
+function Δs_from_Δz_offset!(
+    cones::CompositeCone{T},
     out::ConicVector{T},
     ds::ConicVector{T},
     work::ConicVector{T}
@@ -178,8 +184,8 @@ function cones_Δs_from_Δz_offset!(
 end
 
 # maximum allowed step length over all cones
-function cones_step_length(
-     cones::ConeSet{T},
+function step_length(
+     cones::CompositeCone{T},
         dz::ConicVector{T},
         ds::ConicVector{T},
          z::ConicVector{T},
@@ -204,7 +210,7 @@ function cones_step_length(
         
     #if we have any nonsymmetric cones, then back off from full steps slightly
     #so that centrality checks and logarithms don't fail right at the boundaries
-    if(!cones_is_symmetric(cones))
+    if(!is_symmetric(cones))
         α = min(α,0.99)
     end
 
@@ -224,8 +230,8 @@ function cones_step_length(
 end
 
 # compute the total barrier function at the point (z + α⋅dz, s + α⋅ds)
-function cones_compute_barrier(
-    cones::ConeSet{T},
+function compute_barrier(
+    cones::CompositeCone{T},
     z::ConicVector{T},
     s::ConicVector{T},
     dz::ConicVector{T},

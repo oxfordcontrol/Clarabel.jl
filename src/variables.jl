@@ -2,7 +2,7 @@
 function variables_calc_mu(
     variables::DefaultVariables{T},
     residuals::DefaultResiduals{T},
-    cones::ConeSet{T}
+    cones::CompositeCone{T}
 ) where {T}
 
   μ = (residuals.dot_sz + variables.τ * variables.κ)/(cones.degree + 1)
@@ -14,7 +14,7 @@ end
 function variables_calc_step_length(
     variables::DefaultVariables{T},
     step::DefaultVariables{T},
-    cones::ConeSet{T},
+    cones::CompositeCone{T},
     settings::Settings{T},
     steptype::Symbol,
     scaling_strategy::ScalingStrategy
@@ -26,7 +26,7 @@ function variables_calc_step_length(
     α = min(ατ,ακ,one(T))
 
     # Find a feasible step size for all cones
-    α = cones_step_length(cones, step.z, step.s, variables.z, variables.s, settings, α, steptype)
+    α = step_length(cones, step.z, step.s, variables.z, variables.s, settings, α, steptype)
 
     return α
 end
@@ -36,7 +36,7 @@ function variables_barrier(
     variables::DefaultVariables{T},
     step::DefaultVariables{T},
     α::T,
-    cones::ConeSet{T},
+    cones::CompositeCone{T},
 ) where {T}
 
     central_coef = cones.degree + 1
@@ -55,7 +55,7 @@ function variables_barrier(
     ( z, s) = (variables.z, variables.s)
     (dz,ds) = (step.z, step.s)
 
-    barrier += cones_compute_barrier(cones, z, s, dz, ds, α)
+    barrier += compute_barrier(cones, z, s, dz, ds, α)
 
     return barrier
 end
@@ -63,12 +63,12 @@ end
 
 function variables_scale_cones!(
     variables::DefaultVariables{T},
-    cones::ConeSet{T},
+    cones::CompositeCone{T},
 	μ::T,
     scaling_strategy::ScalingStrategy
 ) where {T}
 
-    cones_update_scaling!(cones,variables.s,variables.z,μ,scaling_strategy)
+    update_scaling!(cones,variables.s,variables.z,μ,scaling_strategy)
     return nothing
 end
 
@@ -92,12 +92,12 @@ function variables_affine_step_rhs!(
     d::DefaultVariables{T},
     r::DefaultResiduals{T},
     variables::DefaultVariables{T},
-    cones::ConeSet{T}
+    cones::CompositeCone{T}
 ) where{T}
 
     @. d.x    .=  r.rx
     @. d.z     =  r.rz
-    cones_affine_ds!(cones, d.s, variables.s)    # asymmetric cones need value of s
+    affine_ds!(cones, d.s, variables.s)    # asymmetric cones need value of s
     d.τ        =  r.rτ
     d.κ        =  variables.τ * variables.κ
 
@@ -109,7 +109,7 @@ function variables_combined_step_rhs!(
     d::DefaultVariables{T},
     r::DefaultResiduals{T},
     variables::DefaultVariables{T},
-    cones::ConeSet{T},
+    cones::CompositeCone{T},
     step::DefaultVariables{T},
     σ::T,
     μ::T
@@ -124,7 +124,7 @@ function variables_combined_step_rhs!(
     # ds is different for symmetric and asymmetric cones:
     # Symmetric cones: d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
     # Asymmetric cones: d.s = s + σμ*g(z)
-    cones_combined_ds_shift!(cones,d.z,step.z,step.s,dotσμ)
+    combined_ds_shift!(cones,d.z,step.z,step.s,dotσμ)
 
     #We are relying on d.s = λ ◦ λ (symmetric) or d.s = s (asymmetric) already from the affine step here
     d.s .+= d.z
@@ -137,11 +137,11 @@ end
 
 function variables_shift_to_cone!(
     variables::DefaultVariables{T},
-    cones::ConeSet{T}
+    cones::CompositeCone{T}
 ) where {T}
 
-    cones_shift_to_cone!(cones,variables.s)
-    cones_shift_to_cone!(cones,variables.z)
+    shift_to_cone!(cones,variables.s)
+    shift_to_cone!(cones,variables.z)
 
     variables.τ = 1
     variables.κ = 1
@@ -158,11 +158,11 @@ end
 # for semidefinite cones, e is the identity matrix.
 function asymmetric_init_cone!(
     variables::DefaultVariables{T},
-    cones::ConeSet{T}
+    cones::CompositeCone{T}
 ) where {T}
 
     #set conic variables to units and x to 0
-    cones_unit_initialization!(cones,variables.z,variables.s)
+    unit_initialization!(cones,variables.z,variables.s)
 
     variables.x .= zero(T)
     variables.τ = one(T)

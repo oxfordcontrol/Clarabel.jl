@@ -92,7 +92,7 @@ function setup!(
 
     @timeit s.timers "setup!" begin
 
-        s.cones  = ConeSet{T}(cones)
+        s.cones  = CompositeCone{T}(cones)
         s.data   = DefaultProblemData{T}(P,q,A,b,s.cones)
         s.data.m == s.cones.numel || throw(DimensionMismatch())
 
@@ -334,9 +334,9 @@ function solver_default_start!(s::Solver{T}) where {T}
     # If there are only symmetric cones, use CVXOPT style initilization
     # Otherwise, initialize along central rays
 
-    if (cones_is_symmetric(s.cones))
+    if (is_symmetric(s.cones))
         #set all scalings to identity (or zero for the zero cone)
-        cones_set_identity_scaling!(s.cones)
+        set_identity_scaling!(s.cones)
         #Refactor
         kkt_update!(s.kktsystem,s.data,s.cones)
         #solve for primal/dual initial points via KKT
@@ -361,7 +361,7 @@ function solver_get_step_length(s::Solver{T},steptype::Symbol,scaling_strategy::
     )
 
     # additional barrier function limits for asymmetric cones
-    if (!cones_is_symmetric(s.cones) && steptype == :combined && scaling_strategy == Dual)
+    if (!is_symmetric(s.cones) && steptype == :combined && scaling_strategy == Dual)
         αinit = α
         α = solver_backtrack_step_to_barrier(s,αinit)
     end
@@ -410,7 +410,7 @@ function _strategy_checkpoint_insufficient_progress(s::Solver{T},scaling_strateg
     end 
 
     # If problem is asymmetric, we can try to continue with the dual-only strategy
-    if !cones_is_symmetric(s.cones) && (scaling_strategy == PrimalDual::ScalingStrategy)
+    if !is_symmetric(s.cones) && (scaling_strategy == PrimalDual::ScalingStrategy)
         s.info.status = UNSOLVED
         return (Update::StrategyCheckpointResult, Dual::ScalingStrategy)
     else
@@ -423,7 +423,7 @@ end
 function _strategy_checkpoint_numerical_error(s::Solver{T},scaling_strategy::ScalingStrategy) where {T}
 
     # If problem is asymmetric, we can try to continue with the dual-only strategy
-    if !cones_is_symmetric(s.cones) && (scaling_strategy == PrimalDual::ScalingStrategy)
+    if !is_symmetric(s.cones) && (scaling_strategy == PrimalDual::ScalingStrategy)
         return (Update::StrategyCheckpointResult, Dual::ScalingStrategy)
     else
         #out of tricks.  Bail out with an error
@@ -436,7 +436,7 @@ end
 
 function _strategy_checkpoint_small_step(s::Solver{T}, α::T, scaling_strategy::ScalingStrategy) where {T}
 
-    if !cones_is_symmetric(s.cones) &&
+    if !is_symmetric(s.cones) &&
         scaling_strategy == PrimalDual::ScalingStrategy && α < s.settings.min_switch_step_length
         return (Update::StrategyCheckpointResult, Dual::ScalingStrategy)
 

@@ -1,8 +1,7 @@
-    # -------------------------------------
+# -------------------------------------
 # abstract type defs
 # -------------------------------------
-abstract type AbstractCone{T} end
-abstract type AbstractCone{T} end
+abstract type AbstractCone{T <: AbstractFloat} end
 
 # -------------------------------------
 # Zero Cone

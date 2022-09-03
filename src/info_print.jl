@@ -12,7 +12,7 @@ function info_print_configuration(
     info::DefaultInfo{T},
     settings::Settings,
     data::DefaultProblemData{T},
-    cones::ConeSet{T}
+    cones::CompositeCone{T}
 ) where {T}
 
     if(settings.verbose == false) return end
@@ -164,7 +164,7 @@ get_precision_string(T::Type{<:Real}) = string(T)
 get_precision_string(T::Type{<:BigFloat}) = string(T," (", precision(T), " bit)")
 
 
-function print_conedims_by_type(cones::ConeSet{T}, type) where {T}
+function print_conedims_by_type(cones::CompositeCone{T}, type) where {T}
 
     maxlistlen = 5
 

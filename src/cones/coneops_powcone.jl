@@ -40,24 +40,6 @@ function unit_initialization!(
     return nothing
  end
 
- function update_scaling!(
-    K::PowerCone{T},
-    s::AbstractVector{T},
-    z::AbstractVector{T},
-    μ::T,
-    scaling_strategy::ScalingStrategy
-) where {T}
-    # update both gradient and Hessian for function f*(z) at the point z
-    # NB: the update order can't be switched as we reuse memory in the 
-    # Hessian update
-    _update_grad_HBFGS(K,s,z,μ,scaling_strategy)
-
-    # K.z .= z
-    @inbounds for i = 1:3
-        K.z[i] = z[i]
-    end
-end
-
 function set_identity_scaling!(
     K::PowerCone{T},
 ) where {T}

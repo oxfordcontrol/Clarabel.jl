@@ -78,7 +78,7 @@ end
 function _assemble_kkt_matrix(
     P::SparseMatrixCSC{T},
     A::SparseMatrixCSC{T},
-    cones::ConeSet{T},
+    cones::CompositeCone{T},
     shape::Symbol = :triu  #or tril
 ) where{T}
 
