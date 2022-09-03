@@ -231,9 +231,9 @@ end
 # Returns true if s is primal feasible
 function _is_primal_feasible_expcone(s::AbstractVector{T}) where {T}
 
-    if (s[3] > 0 && s[2] > 0)   #feasible
+    if (s[3] > 0 && s[2] > zero(T))   #feasible
         res = s[2]*logsafe(s[3]/s[2]) - s[1]
-        if (res > 0)
+        if (res > zero(T))
             return true
         end
     end
@@ -244,9 +244,9 @@ end
 # Returns true if z is dual feasible
 function _is_dual_feasible_expcone(z::AbstractVector{T}) where {T}
 
-    if (z[3] > 0 && z[1] < 0)
+    if (z[3] > 0 && z[1] < zero(T))
         res = z[2] - z[1] - z[1]*logsafe(-z[3]/z[1])
-        if (res > 0)
+        if (res > zero(T))
             return true
         end
     end
@@ -264,7 +264,7 @@ function _gradient_primal(
 
     ω = _wright_omega(1-s[1]/s[2]-logsafe(s[2]/s[3]))
 
-    g[1] = one(T)/((ω-1)*s[2])
+    g[1] = one(T)/((ω-one(T))*s[2])
     g[2] = g[1] + g[1]*logsafe(ω*s[2]/s[3]) - one(T)/s[2]
     g[3] = ω/((one(T) - ω)*s[3])
 
@@ -287,15 +287,16 @@ function _wright_omega(z::T) where {T}
 
 	if(z<one(T)+π)      
         #Initialize with the taylor series
-        p = z-1            #(z-1)
+        zm1 = z - one(T)
+        p = zm1            #(z-1)
         w = 1+0.5*p
-        p *= (z-1)         #(z-1)^2
+        p *= zm1         #(z-1)^2
         w += (1/16.0)*p
-        p *= (z-1)          #(z-1)^3
+        p *= zm1          #(z-1)^3
         w -= (1/192.0)*p
-        p *= (z-1)          #(z-1)^4
+        p *= zm1          #(z-1)^4
         w -= (1/3072.0)*p
-        p *= (z-1)          #(z-1)^5
+        p *= zm1         #(z-1)^5
         w += (13/61440.0)*p
     else
         # Initialize with:
@@ -314,11 +315,11 @@ function _wright_omega(z::T) where {T}
 
         # add log(z)/z^2(log(z)/2-1)
         q *= zinv      # log(z)/(z^2) 
-        w += q * (logz/2 - 1)
+        w += q * (logz/2 - one(T))
 
         # add log(z)/z^3(1/3log(z)^2-3/2log(z)+1)
         q * zinv       # log(z)/(z^3) 
-        w += q * (logz*logz/3 - (3/2)*logz + 1)
+        w += q * (logz*logz/3. - (3/2.)*logz + one(T))
 
     end
 
@@ -327,7 +328,7 @@ function _wright_omega(z::T) where {T}
 
     # Santiago suggests two refinement iterations only
     for i = 1:2
-        wp1 = (1+w)
+        wp1 = (w + one(T))
         t = wp1 * (wp1 + (2. * r)/3.0 )
         w *= 1 + (r/wp1) * ( t - 0.5 * r) / (t - r)
         r = (2*w*w-8*w-1)/(72.0*(wp1*wp1*wp1*wp1*wp1*wp1))*r*r*r*r
@@ -396,7 +397,7 @@ function _higher_correction!(
         η[i] *= coef
     end
 
-    inv_ψ2 = 1/ψ/ψ
+    inv_ψ2 = one(T)/ψ/ψ
 
     # efficient implementation for η above
     η[1] += (1/ψ - 2/z[1])*u[1]*v[1]/(z[1]*z[1]) - u[3]*v[3]/(z[3]*z[3])/ψ + dotψu*inv_ψ2*(v[1]/z[1] - v[3]/z[3]) + dotψv*inv_ψ2*(u[1]/z[1] - u[3]/z[3])
