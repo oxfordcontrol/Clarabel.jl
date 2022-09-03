@@ -338,9 +338,9 @@ end
     α::T
 ) where {T} 
     
-    z1 = z[1] + α*z[1]
+    sc = z[1] + α * dz[1];
         
-    @views res = z1*z1 -  dot_shifted(z[2:end],z[2:end],dz[2:end],dz[2:end],α)
+    @views res = sc * sc -  dot_shifted(z[2:end],z[2:end],dz[2:end],dz[2:end],α)
 
 
     return res
