@@ -490,7 +490,7 @@ function _update_grad_HBFGS(
     if(scaling_strategy == Dual::ScalingStrategy)
         # HBFGS .= μ*H
         @inbounds for i = 1:3
-            @inbounds for j = 1:3
+            @inbounds for j = i:3
                 HBFGS[i,j] = μ*H[i,j]
             end
         end
@@ -524,7 +524,7 @@ function _update_grad_HBFGS(
     if !(abs(de1) > eps(T) && abs(de2) > eps(T))
         # HBFGS when s,z are on the central path
         @inbounds for i = 1:3
-            @inbounds for j = 1:3
+            @inbounds for j = i:3
                 HBFGS[i,j] = μ*H[i,j]
             end
         end
