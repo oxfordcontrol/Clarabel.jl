@@ -114,10 +114,49 @@ function mul_WtW!(
     error("Incomplete cone operation specification: ",typeof(K))
 end
 
-# PJG : need to complete equation documentation here 
-# Residual for centrality condition in step equations 
-# For symmetric cones: ds = λ∘λ 
-# For nonsymmetric cones: ds = s 
+# ---------------------------------------------------------
+# Linearized centrality condition functions 
+#
+# For nonsymmetric cones:
+# -----------------------
+#
+# The centrality condition is : s = -μg(z)
+#
+# The linearized version is : 
+#     Δs + μH(z)Δz = -ds = -(affine_ds + combined_ds_shift)
+#
+# The affine term (computed in affine_ds!) is s
+# The shift term is μg(z) plus any higher order corrections 
+#
+# # To recover Δs from Δz, we can write 
+#     Δs = - (ds + μHΔz)
+# The "offset" in Δs_from_Δz_offset! is then just ds 
+# 
+# For symmetric cones: 
+# --------------------
+# 
+# The centrality condition is : (W(z + Δz) ∘ W⁻ᵀ(s + Δs) = μe
+#
+# The linearized version is :   
+#     λ ∘ (WΔz + WᵀΔs) = -ds = - (affine_ds + combined_ds_shift)
+#
+# The affine term (computed in affine_ds!) is λ ∘ λ
+# The shift term is W⁻¹Δs_aff ∘ WΔz_aff - σμe, where the terms  
+# Δs_aff an Δz_aff are from the affine KKT solve, i.e. they 
+# are the Mehrotra correction terms.
+#
+# To recover Δs from Δz, we can write 
+#     Δs = - ( Wᵀ(λ \ ds) + WᵀW Δz)
+# The "offset" in Δs_from_Δz_offset! is then Wᵀ(λ \ ds)
+#
+# Not that the Δs_from_Δz_offset! function is only needed in the 
+# general combined step direction.   In the affine step direction,
+# we have the identity Wᵀ(λ \ (λ ∘ λ )) = s.  The symmetric and 
+# nonsymmetric cases coincide and offset is taken directly as s. 
+#
+# ---------------------------------------------------------
+
+
 function affine_ds!(
     K::AbstractCone{T},
     ds::AbstractVector{T},
@@ -140,9 +179,7 @@ function combined_ds_shift!(
 
 end
 
-# PJG: This needs a new name 
-# compute the generalized step Wᵀ(λ \ ds)
-function Wt_λ_inv_circ_ds!(
+function Δs_from_Δz_offset!(
     K::AbstractCone{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},
@@ -181,8 +218,6 @@ function compute_barrier(
     error("Incomplete cone operation specification: ",typeof(K))
 
 end
-
-
 
 # ---------------------------------------------
 # operations supported by symmetric cones only 

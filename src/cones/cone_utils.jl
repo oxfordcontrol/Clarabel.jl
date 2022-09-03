@@ -35,12 +35,7 @@ function _step_length_3d_cone(
 end
 
 
-
-# compute shift in the combined step :
-#     λ ∘ (WΔz + W^{-⊤}Δs) = - (affine_ds + shift)
-# The affine term (computed in affine_ds!) is λ ∘ λ
-# The shift term is W⁻¹Δs ∘ WΔz - σμe
-
+# shift = W⁻¹Δs ∘ WΔz - σμe
 @inline function _combined_ds_shift_symmetric!(
     K::Union{NonnegativeCone{T},SecondOrderCone{T},PSDTriangleCone{T}},
     shift::AbstractVector{T},
@@ -75,10 +70,8 @@ end
 end
 
 
-# compute the constant part of Δs when written as a function of Δz
-# in the solution of a KKT system 
-
-@inline function _Wt_λ_inv_circ_ds_symmetric!(
+# out = Wᵀ(λ \ ds)
+@inline function _Δs_from_Δz_offset_symmetric!(
     K::Union{NonnegativeCone{T},SecondOrderCone{T},PSDTriangleCone{T}},
     out::AbstractVector{T},
     ds::AbstractVector{T},

@@ -163,7 +163,6 @@ function affine_ds!(
 
 end
 
-# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - ds
 function combined_ds_shift!(
     K::PSDTriangleCone{T},
     dz::AbstractVector{T},
@@ -175,15 +174,14 @@ function combined_ds_shift!(
     _combined_ds_shift_symmetric!(K,dz,step_z,step_s,σμ);
 end
 
-# compute the generalized step Wᵀ(λ \ ds)
-function Wt_λ_inv_circ_ds!(
+function Δs_from_Δz_offset!(
     K::PSDTriangleCone{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},
     work::AbstractVector{T}
 ) where {T}
 
-    _Wt_λ_inv_circ_ds_symmetric!(K,out,ds,work);
+    _Δs_from_Δz_offset_symmetric!(K,out,ds,work);
 end
 
 ##return maximum allowable step length while remaining in the psd cone

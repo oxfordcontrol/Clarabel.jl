@@ -114,8 +114,7 @@ function combined_ds_shift!(
     return nothing
 end
 
-# compute the generalized step Wᵀ(λ \ ds)
-function Wt_λ_inv_circ_ds!(
+function Δs_from_Δz_offset!(
     K::ZeroCone{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},

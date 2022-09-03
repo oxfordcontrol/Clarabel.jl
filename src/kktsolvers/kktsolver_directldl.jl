@@ -200,7 +200,7 @@ function _kktsolver_update_inner!(
     KKT       = kktsolver.KKT
 
     #Set the elements the W^tW blocks in the KKT matrix.
-    cones_get_WtW_blocks!(cones,kktsolver.WtWblocks)
+    cones_get_WtW!(cones,kktsolver.WtWblocks)
 
     for (index, values) in zip(map.WtWblocks,kktsolver.WtWblocks)
         #change signs to get -W^TW

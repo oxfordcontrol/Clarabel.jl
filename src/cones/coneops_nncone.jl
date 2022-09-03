@@ -88,7 +88,7 @@ function mul_WtW!(
     work::AbstractVector{T}
 ) where {T}
 
-    #NB : sensitive to order of multiplication
+    #NB : seemingly sensitive to order of multiplication
     @. y = (K.w * (c * K.w * x))
 
 end
@@ -105,7 +105,6 @@ function affine_ds!(
     return nothing
 end
 
-# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - ds
 function combined_ds_shift!(
     K::NonnegativeCone{T},
     dz::AbstractVector{T},
@@ -118,15 +117,14 @@ function combined_ds_shift!(
 
 end
 
-# compute the generalized step Wᵀ(λ \ ds)
-function Wt_λ_inv_circ_ds!(
+function Δs_from_Δz_offset!(
     K::NonnegativeCone{T},
     out::AbstractVector{T},
     rs::AbstractVector{T},
     work::AbstractVector{T}
 ) where {T}
 
-    _Wt_λ_inv_circ_ds_symmetric!(K,out,rs,work);
+    _Δs_from_Δz_offset_symmetric!(K,out,rs,work);
 end
 
 #return maximum allowable step length while remaining in the nn cone

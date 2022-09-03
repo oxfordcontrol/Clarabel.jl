@@ -147,7 +147,6 @@ function affine_ds!(
     return nothing
 end
 
-# compute ds in the combined step where λ ∘ (WΔz + W^{-⊤}Δs) = - ds
 function combined_ds_shift!(
     K::SecondOrderCone{T},
     shift::AbstractVector{T},
@@ -159,15 +158,14 @@ function combined_ds_shift!(
     _combined_ds_shift_symmetric!(K,shift,step_z,step_s,σμ);
 end
 
-# compute the generalized step Wᵀ(λ \ ds)
-function Wt_λ_inv_circ_ds!(
+function Δs_from_Δz_offset!(
     K::SecondOrderCone{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},
     work::AbstractVector{T}
 ) where {T}
 
-    _Wt_λ_inv_circ_ds_symmetric!(K,out,ds,work);
+    _Δs_from_Δz_offset_symmetric!(K,out,ds,work);
 end
 
 #return maximum allowable step length while remaining in the socone
@@ -315,7 +313,7 @@ function inv_circ_op!(
     z::AbstractVector{T}
 ) where {T}
 
-    @views p = _soc_residual(y)
+    p = _soc_residual(y)
     pinv = 1/p
     @views v = dot(y[2:end],z[2:end])
 
@@ -334,7 +332,7 @@ end
 end 
 
 #compute the residual at z + \alpha dz 
-#with storing the intermediate vector
+#without storing the intermediate vector
 @inline function _soc_residual_shifted(
     z::AbstractVector{T}, 
     dz::AbstractVector{T}, 

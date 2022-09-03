@@ -120,7 +120,6 @@ function mul_WtW!(
 
 end
 
-# return rs = s for asymmetric cones
 function affine_ds!(
     K::PowerCone{T},
     ds::AbstractVector{T},
@@ -134,7 +133,6 @@ function affine_ds!(
 
 end
 
-# compute ds in the combined step where μH(z)Δz + Δs = - ds
 function combined_ds_shift!(
     K::PowerCone{T},
     shift::AbstractVector{T},
@@ -152,15 +150,13 @@ function combined_ds_shift!(
     return nothing
 end
 
-# compute the generalized step ds
-function Wt_λ_inv_circ_ds!(
+function Δs_from_Δz_offset!(
     K::PowerCone{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},
     work::AbstractVector{T}
 ) where {T}
 
-    # @. Wtlinvds = rs    #Wᵀ(λ \ ds) <- ds
     @inbounds for i = 1:3
         out[i] = ds[i]
     end
@@ -250,7 +246,7 @@ end
     g = K.vec_work
     α = K.α
 
-    _gradient_primal(K,s,g)     #compute g(s)
+    _gradient_primal(K,g,s)     #compute g(s)
     return logsafe((-g[1]/α)^(2*α) * (-g[2]/(1-α))^(2-2*α) - g[3]*g[3]) + (1-α)*logsafe(-g[1]) + α*logsafe(-g[2]) - 3
 end 
 
@@ -286,8 +282,8 @@ end
 # solve it by the Newton-Raphson method
 function _gradient_primal(
     K::PowerCone{T},
+    g::Union{AbstractVector{T}, NTuple{3,T}},
     s::Union{AbstractVector{T}, NTuple{3,T}},
-    g::Union{AbstractVector{T}, NTuple{3,T}}
 ) where {T}
 
     α = K.α
@@ -524,7 +520,7 @@ function _update_grad_HBFGS(
 
     # compute zt,st,μt locally
     # NB: zt,st have different sign convention wrt Mosek paper
-    _gradient_primal(K,s,zt)
+    _gradient_primal(K,zt,s)
 
     μt = dot(zt,st)/3
 

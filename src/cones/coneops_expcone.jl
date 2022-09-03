@@ -100,7 +100,6 @@ function mul_WtW!(
 
 end
 
-# return x = y for asymmetric cones
 function affine_ds!(
     K::ExponentialCone{T},
     ds::AbstractVector{T},
@@ -114,8 +113,6 @@ function affine_ds!(
 
 end
 
-# PJG: fix documentation
-# compute ds in the combined step where μH(z)Δz + Δs = - ds
 function combined_ds_shift!(
     K::ExponentialCone{T},
     shift::AbstractVector{T},
@@ -135,15 +132,13 @@ function combined_ds_shift!(
     return nothing
 end
 
-# compute the generalized step ds
-function Wt_λ_inv_circ_ds!(
+function Δs_from_Δz_offset!(
     K::ExponentialCone{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},
     work::AbstractVector{T}
 ) where {T}
 
-    # @. Wtlinvds = rs    #Wᵀ(λ \ ds) <- ds
     @inbounds for i = 1:3
         out[i] = ds[i]
     end
@@ -259,12 +254,13 @@ function _is_dual_feasible_expcone(z::AbstractVector{T}) where {T}
     return false
 end
 
+# PJG: reverse arguments.  Here, in expcone and Rust
 # Compute the primal gradient of f(s) at s
 # solve it by the Newton-Raphson method
 function _gradient_primal(
     K::ExponentialCone{T},
-    s::AbstractVector{T},
-    g::AbstractVector{T}
+    g::Union{AbstractVector{T}, NTuple{3,T}},
+    s::Union{AbstractVector{T}, NTuple{3,T}},
 ) where {T}
 
     ω = _wright_omega(1-s[1]/s[2]-logsafe(s[2]/s[3]))
@@ -317,7 +313,7 @@ function _wright_omega(z::T) where {T}
         q = logz*zinv  # log(z)/z 
         w += q
 
-        # add log(z)/z^2(log(z)/2-1
+        # add log(z)/z^2(log(z)/2-1)
         q *= zinv      # log(z)/(z^2) 
         w += q * (logz/2 - 1)
 
@@ -446,7 +442,7 @@ function _update_grad_HBFGS(
     r = -z[1]*l-z[1]+z[2]
 
     # compute the gradient at z
-    # gradient_f(K,z,st)  #st (K.grad) is indeed the gradient at z
+    # gradient_f(K,st,z)  #st (K.grad) is indeed the gradient at z
     c2 = one(T)/r
 
     st[1] = c2*l - 1/z[1]
@@ -480,7 +476,7 @@ function _update_grad_HBFGS(
 
     # compute zt,st,μt locally
     # NB: zt,st have different sign convention wrt Mosek paper
-    _gradient_primal(K,s,zt)
+    _gradient_primal(K,zt,s)
 
     μt = dot(zt,st)/3
 
