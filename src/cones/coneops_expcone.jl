@@ -66,36 +66,35 @@ function update_scaling!(
     end
 end
 
-function WtW_is_diagonal(
+function Hs_is_diagonal(
     K::ExponentialCone{T}
 ) where{T}
     return false
 end
 
 # return μH*(z) for exponential cone
-function get_WtW!(
+function get_Hs!(
     K::ExponentialCone{T},
-    WtWblock::AbstractVector{T}
+    Hsblock::AbstractVector{T}
 ) where {T}
 
     #Vectorize triu(K.HBFGS)
-    _pack_triu(WtWblock,K.HBFGS)
+    _pack_triu(Hsblock,K.HBFGS)
 
 end
 
-# compute the product y = c ⋅ μH(z)x
-function mul_WtW!(
+# compute the product y = Hₛx = μH(z)x
+function mul_Hs!(
     K::ExponentialCone{T},
     y::AbstractVector{T},
     x::AbstractVector{T},
-    c::T,
     workz::AbstractVector{T}
 ) where {T}
 
     # mul!(ls,K.HBFGS,lz,-one(T),zero(T))
     H = K.HBFGS
     @inbounds for i = 1:3
-        y[i] =  c * (H[i,1]*x[1] + H[i,2]*x[2] + H[i,3]*x[3])
+        y[i] =  H[i,1]*x[1] + H[i,2]*x[2] + H[i,3]*x[3]
     end
 
 end

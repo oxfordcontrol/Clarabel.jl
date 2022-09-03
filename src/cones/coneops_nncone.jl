@@ -67,29 +67,28 @@ function update_scaling!(
     return nothing
 end
 
-function get_WtW!(
+function get_Hs!(
     K::NonnegativeCone{T},
-    WtWblock::AbstractVector{T}
+    Hsblock::AbstractVector{T}
 ) where {T}
 
     #this block is diagonal, and we expect here
     #to receive only the diagonal elements to fill
-    @. WtWblock = K.w^2
+    @. Hsblock = K.w^2
 
     return nothing
 end
 
-# compute the product y = c ⋅ WᵀWx
-function mul_WtW!(
+# compute the product y = WᵀWx
+function mul_Hs!(
     K::NonnegativeCone{T},
     y::AbstractVector{T},
     x::AbstractVector{T},
-    c::T,
     work::AbstractVector{T}
 ) where {T}
 
     #NB : seemingly sensitive to order of multiplication
-    @. y = (K.w * (c * K.w * x))
+    @. y = (K.w * (K.w * x))
 
 end
 

@@ -98,7 +98,7 @@ mutable struct PSDConeWork{T}
     Rinv::Matrix{T}
     kronRR::Matrix{T}
     B::Matrix{T}
-    WtW::Matrix{T}
+    Hs::Matrix{T}
 
     #workspace for various internal use
     workmat1::Matrix{T}
@@ -117,14 +117,14 @@ mutable struct PSDConeWork{T}
         Rinv   = zeros(T,n,n)
         kronRR = zeros(T,n^2,n^2)
         B      = zeros(T,((n+1)*n)>>1,n^2)
-        WtW    = zeros(T,size(B,1),size(B,1))
+        Hs    = zeros(T,size(B,1),size(B,1))
 
         workmat1 = zeros(T,n,n)
         workmat2 = zeros(T,n,n)
         workvec  = zeros(T,(n*(n+1))>>1)
 
         return new(cholS,cholZ,SVD,λ,Λisqrt,R,Rinv,
-                   kronRR,B,WtW,workmat1,workmat2,workvec)
+                   kronRR,B,Hs,workmat1,workmat2,workvec)
     end
 end
 

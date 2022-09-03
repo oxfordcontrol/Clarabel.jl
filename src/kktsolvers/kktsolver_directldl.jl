@@ -22,9 +22,9 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     #the expected signs of D in KKT = LDL^T
     Dsigns::Vector{Int}
 
-    # a vector for storing the WtW blocks
+    # a vector for storing the Hs blocks
     # on the in the KKT matrix block diagonal
-    WtWblocks::Vector{Vector{T}}
+    Hsblocks::Vector{Vector{T}}
 
     #unpermuted KKT matrix
     KKT::SparseMatrixCSC{T,Int}
@@ -61,7 +61,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
         #updates to the diagonal of KKT will be
         #assigned here before updating matrix entries
-        WtWblocks = _allocate_kkt_WtW_blocks(T, cones)
+        Hsblocks = _allocate_kkt_Hsblocks(T, cones)
 
         #which LDL solver should I use?
         ldlsolverT = _get_ldlsolver_type(settings.direct_solve_method)
@@ -80,7 +80,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         ldlsolver = ldlsolverT{T}(KKT,Dsigns,settings)
 
         return new(m,n,p,x,b,
-                   work_e,work_dx,map,Dsigns,WtWblocks,
+                   work_e,work_dx,map,Dsigns,Hsblocks,
                    KKT,KKTsym,settings,ldlsolver,
                    diagonal_regularizer)
     end
@@ -200,9 +200,9 @@ function _kktsolver_update_inner!(
     KKT       = kktsolver.KKT
 
     #Set the elements the W^tW blocks in the KKT matrix.
-    get_WtW!(cones,kktsolver.WtWblocks)
+    get_Hs!(cones,kktsolver.Hsblocks)
 
-    for (index, values) in zip(map.WtWblocks,kktsolver.WtWblocks)
+    for (index, values) in zip(map.Hsblocks,kktsolver.Hsblocks)
         #change signs to get -W^TW
         # values .= -values
         @. values *= -one(T)

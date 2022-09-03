@@ -134,20 +134,19 @@ function kkt_solve!(
     #-----------
     @. workx = rhs.x
 
-    #compute Wᵀ(λ \ ds), with shortcut in affine case
-    Wtlinvds = kktsystem.work_conic
+    # compute the vector c in the step equation HₛΔz + Δs = -c,  
+    # with shortcut in affine case
+    Δs_const_term = kktsystem.work_conic
 
     if steptype == :affine
-        @. Wtlinvds = variables.s
+        @. Δs_const_term = variables.s
 
     else  #:combined expected, but any general RHS should do this
         #we can use the overall LHS output as additional workspace for the moment
-
-        # compute the generalized step of Wᵀ(λ \ ds), where Wᵀ(λ \ ds) is set to ds for asymmetric cones
-        Δs_from_Δz_offset!(cones,Wtlinvds,rhs.s,lhs.z)
+        Δs_from_Δz_offset!(cones,Δs_const_term,rhs.s,lhs.z)
     end
 
-    @. workz = Wtlinvds - rhs.z
+    @. workz = Δs_const_term - rhs.z
 
 
     #---------------------------------------------------
@@ -181,13 +180,12 @@ function kkt_solve!(
     @. lhs.z = z1 + lhs.τ * z2
 
 
-    #solve for Δs = -Wᵀ(λ \ dₛ + WΔz) = -Wᵀ(λ \ dₛ) - WᵀWΔz
-    #where the first part is already in Wtlinvds
+    #solve for Δs
     #-------------
-    # compute the generalized step of -WᵀWΔz, where WᵀW is set to μH(z) for asymmetric cones
-    mul_WtW!(cones,lhs.s,lhs.z,-one(T),workz)
-
-    @. lhs.s -= Wtlinvds
+    # compute the linear term HₛΔz, where Hs = WᵀW for symmetric
+    # cones and Hs = μH(z) for asymmetric cones
+    mul_Hs!(cones,lhs.s,lhs.z,workz)
+    @. lhs.s = -(lhs.s + Δs_const_term)
 
     #solve for Δκ
     #--------------

@@ -233,7 +233,7 @@ FloatT = Float64
 
     end
 
-    @testset "test_coneops_psdtrianglecone_WtW_operations!" begin
+    @testset "test_coneops_psdtrianglecone_Hs_operations!" begin
 
         n = 5
         K = Clarabel.PSDTriangleCone(n)
@@ -256,20 +256,20 @@ FloatT = Float64
         # v3 = W^T*v2
         Clarabel.mul_W!(K,:T,v3,v2,one(FloatT),zero(FloatT))
 
-        WtW = triu(ones(K.numel,K.numel))
-        idxWtW = findall(WtW .!= 0)
-        vecWtW = zeros(FloatT,length(idxWtW))
-        Clarabel.get_WtW!(K,vecWtW)
-        WtW[idxWtW] = vecWtW
+        Hs = triu(ones(K.numel,K.numel))
+        idxHs = findall(Hs .!= 0)
+        vecHs = zeros(FloatT,length(idxHs))
+        Clarabel.get_Hs!(K,vecHs)
+        Hs[idxHs] = vecHs
         #make Symmetric for products
-        WtWsym = Symmetric(WtW)
+        Hssym = Symmetric(Hs)
 
-        @test norm(WtWsym*v1 - v3) ≈ 0   atol = 1e-8
+        @test norm(Hssym*v1 - v3) ≈ 0   atol = 1e-8
         #now the inverse
         Clarabel.mul_Winv!(K,:T,v2,v1,one(FloatT),zero(FloatT))
         # v3 = W^T*v2
         Clarabel.mul_Winv!(K,:N,v3,v2,one(FloatT),zero(FloatT))
-        @test norm(WtWsym\v1 - v3) ≈ 0   atol = 1e-8
+        @test norm(Hssym\v1 - v3) ≈ 0   atol = 1e-8
 
     end
 

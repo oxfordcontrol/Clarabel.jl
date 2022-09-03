@@ -67,25 +67,24 @@ function update_scaling!(
     return nothing
 end
 
-function get_WtW!(
+function get_Hs!(
     K::ZeroCone{T},
-    WtWblock::AbstractVector{T}
+    Hsblock::AbstractVector{T}
 ) where {T}
 
     #expecting only a diagonal here, and
     #setting it to zero since this is an
     #equality condition
-    WtWblock .= zero(T)
+    Hsblock .= zero(T)
 
     return nothing
 end
 
-# compute the product y = c ⋅ WᵀWx
-function mul_WtW!(
+# compute the product y = WᵀWx
+function mul_Hs!(
     K::ZeroCone{T},
     y::AbstractVector{T},
     x::AbstractVector{T},
-    c::T,
     work::AbstractVector{T}
 ) where {T}
 

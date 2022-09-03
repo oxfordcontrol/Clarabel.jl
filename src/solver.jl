@@ -1,5 +1,3 @@
-using Printf
-
 # -------------------------------------
 # utility constructor that includes
 # both object creation and setup

@@ -108,32 +108,31 @@ function update_scaling!(
     return nothing
 end
 
-# The WtW block for each cone.
-function get_WtW!(
+# The Hs block for each cone.
+function get_Hs!(
     cones::CompositeCone{T},
-    WtWblocks::Vector{Vector{T}}
+    Hsblocks::Vector{Vector{T}}
 ) where {T}
 
-    for (cone, block) in zip(cones,WtWblocks)
-        @conedispatch get_WtW!(cone,block)
+    for (cone, block) in zip(cones,Hsblocks)
+        @conedispatch get_Hs!(cone,block)
     end
     return nothing
 end
 
 # compute the generalized product :
-# c⋅ WᵀWx for symmetric cones 
-# c⋅ μH(s)x for symmetric cones
+# WᵀWx for symmetric cones 
+# μH(s)x for symmetric cones
 
-function mul_WtW!(
+function mul_Hs!(
     cones::CompositeCone{T},
     y::ConicVector{T},
     x::ConicVector{T},
-    c::T,
     work::ConicVector{T}
 ) where {T}
 
     for (cone,yi,xi,worki) in zip(cones,y.views,x.views,work.views)
-        @conedispatch mul_WtW!(cone,yi,xi,c,worki)
+        @conedispatch mul_Hs!(cone,yi,xi,worki)
     end
 
     return nothing

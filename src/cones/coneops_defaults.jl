@@ -88,26 +88,25 @@ end
 # : W^TW for symmmetric cones 
 # : μH(s) for nonsymmetric cones  
 
-#All cones have diagonal WtW blocks #unless specifically overridden
-function WtW_is_diagonal(
+#All cones have diagonal Hs blocks #unless specifically overridden
+function Hs_is_diagonal(
     K::AbstractCone{T}
 ) where{T}
     return true
 end
 
-function get_WtW!(
+function get_Hs!(
     K::AbstractCone{T},
-    WtWblock::AbstractVector{T}
+    Hsblock::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
 end
 
-function mul_WtW!(
+function mul_Hs!(
     K::AbstractCone{T},
     y::AbstractVector{T},
     x::AbstractVector{T},
-    c::T,
     work::AbstractVector{T}
 ) where {T}
 

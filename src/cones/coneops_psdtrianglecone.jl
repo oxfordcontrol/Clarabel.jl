@@ -58,7 +58,7 @@ function unit_initialization!(
     return nothing
 end
 
-function WtW_is_diagonal(
+function Hs_is_diagonal(
     K::PSDTriangleCone{T}
 ) where{T}
     return false
@@ -99,9 +99,9 @@ function update_scaling!(
     return nothing
 end
 
-function get_WtW!(
+function get_Hs!(
     K::PSDTriangleCone{T},
-    WtWblock::AbstractVector{T}
+    Hsblock::AbstractVector{T}
 ) where {T}
 
     # we should return here the upper triangular part
@@ -112,7 +112,7 @@ function get_WtW!(
     R   = K.work.R
     kRR = K.work.kronRR
     B   = K.work.B
-    WtW = K.work.WtW
+    Hs = K.work.Hs
     @inbounds kron!(kRR,R,R)
 
     #B .= Q'*kRR, where Q' is the svec operator
@@ -123,25 +123,24 @@ function get_WtW!(
         _mat_to_svec!(b,M,K)
     end
 
-    #compute WtW = triu(B*B')
-    LinearAlgebra.BLAS.syrk!('U', 'N', one(T), B, zero(T), WtW)
+    #compute Hs = triu(B*B')
+    LinearAlgebra.BLAS.syrk!('U', 'N', one(T), B, zero(T), Hs)
 
-    _pack_triu(WtWblock,WtW)
+    _pack_triu(Hsblock,Hs)
 
     return nothing
 end
 
-# compute the product y = c ⋅ WᵀWx
-function mul_WtW!(
+# compute the product y = WᵀWx
+function mul_Hs!(
     K::PSDTriangleCone{T},
     y::AbstractVector{T},
     x::AbstractVector{T},
-    c::T,
     work::AbstractVector{T}
 ) where {T}
 
     mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
-    mul_W!(K,:T,y,work,c,zero(T))         #y = c Wᵀwork = W^TWx
+    mul_W!(K,:T,y,work,one(T),zero(T))    #y = Wᵀwork = W^TWx
 
 end
 
