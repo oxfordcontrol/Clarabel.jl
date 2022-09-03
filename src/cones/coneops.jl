@@ -16,6 +16,10 @@ macro conedispatch(call)
     esc(_conedispatch(:cone, call))
 end
 
+dim(::ConeSet{T}) where {T} = error("dim() not well defined for the ConeSet");
+degree(cones::ConeSet) = cones.degree
+numel(cones::ConeSet)  = cones.numel
+
 # -----------------------------------------------------
 # dispatch operators for multiple cones
 # -----------------------------------------------------
@@ -45,6 +49,41 @@ function cones_rectify_equilibration!(
     return any_changed
 end
 
+# place a vector to some nearby point in the cone
+function cones_shift_to_cone!(
+    cones::ConeSet{T},
+    z::ConicVector{T}
+) where {T}
+
+    for (cone,zi) in zip(cones,z.views)
+        @conedispatch shift_to_cone!(cone,zi)
+    end
+    return nothing
+end
+
+# unit initialization for asymmetric solves
+function cones_unit_initialization!(
+    cones::ConeSet{T},
+    z::ConicVector{T},
+    s::ConicVector{T}
+) where {T}
+
+    for (cone,zi,si) in zip(cones,z.views,s.views)
+        @conedispatch unit_initialization!(cone,zi,si)
+    end
+    return nothing
+end
+
+function cones_set_identity_scaling!(
+    cones::ConeSet{T}
+) where {T}
+
+    for cone in cones
+        @conedispatch set_identity_scaling!(cone)
+    end
+
+    return nothing
+end
 
 function cones_update_scaling!(
     cones::ConeSet{T},
@@ -63,19 +102,8 @@ function cones_update_scaling!(
     return nothing
 end
 
-function cones_set_identity_scaling!(
-    cones::ConeSet{T}
-) where {T}
-
-    for cone in cones
-        @conedispatch set_identity_scaling!(cone)
-    end
-
-    return nothing
-end
-
 # The WtW block for each cone.
-function cones_get_WtW_blocks!(
+function cones_get_WtW!(
     cones::ConeSet{T},
     WtWblocks::Vector{Vector{T}}
 ) where {T}
@@ -83,6 +111,25 @@ function cones_get_WtW_blocks!(
     for (cone, block) in zip(cones,WtWblocks)
         @conedispatch get_WtW!(cone,block)
     end
+    return nothing
+end
+
+# compute the generalized product :
+# c⋅ WᵀWx for symmetric cones 
+# c⋅ μH(s)x for symmetric cones
+
+function cones_mul_WtW!(
+    cones::ConeSet{T},
+    y::ConicVector{T},
+    x::ConicVector{T},
+    c::T,
+    work::ConicVector{T}
+) where {T}
+
+    for (cone,yi,xi,worki) in zip(cones,y.views,x.views,work.views)
+        @conedispatch mul_WtW!(cone,yi,xi,c,worki)
+    end
+
     return nothing
 end
 
@@ -116,36 +163,7 @@ function cones_combined_ds_shift!(
     return nothing
 end
 
-
-# place a vector to some nearby point in the cone
-function cones_shift_to_cone!(
-    cones::ConeSet{T},
-    z::ConicVector{T}
-) where {T}
-
-    for (cone,zi) in zip(cones,z.views)
-        @conedispatch shift_to_cone!(cone,zi)
-    end
-    return nothing
-end
-
-# unit initialization for asymmetric solves
-function cones_unit_initialization!(
-    cones::ConeSet{T},
-    z::ConicVector{T},
-    s::ConicVector{T}
-) where {T}
-
-    for (cone,zi,si) in zip(cones,z.views,s.views)
-        @conedispatch unit_initialization!(cone,zi,si)
-    end
-    return nothing
-end
-
-
-
-# compute the generalized step Wᵀ(λ \ ds)
-function cones_Wt_λ_inv_circ_ds!(
+function cones_Δs_from_Δz_offset!(
     cones::ConeSet{T},
     out::ConicVector{T},
     ds::ConicVector{T},
@@ -153,26 +171,7 @@ function cones_Wt_λ_inv_circ_ds!(
 ) where {T}
 
     for (cone,outi,dsi,worki) in zip(cones,out.views,ds.views,work.views)
-        @conedispatch Wt_λ_inv_circ_ds!(cone,outi,dsi,worki)
-    end
-
-    return nothing
-end
-
-# compute the generalized product :
-# c⋅ WᵀWx for symmetric cones 
-# c⋅ μH(s)x for symmetric cones
-
-function cones_mul_WtW!(
-    cones::ConeSet{T},
-    y::ConicVector{T},
-    x::ConicVector{T},
-    c::T,
-    work::ConicVector{T}
-) where {T}
-
-    for (cone,yi,xi,worki) in zip(cones,y.views,x.views,work.views)
-        @conedispatch mul_WtW!(cone,yi,xi,c,worki)
+        @conedispatch Δs_from_Δz_offset!(cone,outi,dsi,worki) 
     end
 
     return nothing
@@ -223,7 +222,6 @@ function cones_step_length(
 
     return α
 end
-
 
 # compute the total barrier function at the point (z + α⋅dz, s + α⋅ds)
 function cones_compute_barrier(
