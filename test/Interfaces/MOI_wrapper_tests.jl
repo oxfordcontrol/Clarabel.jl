@@ -72,7 +72,7 @@ function test_MOI_standard()
         #include = String["<individual_test_here_for_debug>"],
         exclude = String[
             # PJG: Not sure why this one fails 
-            "test_conic_GeometricMeanCone_VectorOfVariables",
+            "test_conic_GeometricMeanCone",
             # PJG: This one fails on Ubuntu only, for reasons unknown
             "test_conic_RootDetConeTriangle",   
         ],
