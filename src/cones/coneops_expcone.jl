@@ -326,7 +326,7 @@ function _wright_omega(z::T) where {T}
     r = z - w - logsafe(w)
 
     # Santiago suggests two refinement iterations only
-    for i = 1:2
+    @inbounds for i = 1:2
         wp1 = (w + one(T))
         t = wp1 * (wp1 + (2. * r)/3.0 )
         w *= 1 + (r/wp1) * ( t - 0.5 * r) / (t - r)
@@ -514,7 +514,7 @@ function _update_grad_HBFGS(
         # HBFGS as a workspace
         copyto!(HBFGS,H)
         @inbounds for i = 1:3
-            @inbounds for j = 1:3
+            @inbounds for j = i:3
                 HBFGS[i,j] -= st[i]*st[j]/3 + tmp[i]*tmp[j]/de2
             end
         end
