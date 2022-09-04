@@ -72,7 +72,7 @@ function test_MOI_standard()
         #include = String["<individual_test_here_for_debug>"],
         exclude = String[
             # PJG: Not sure why this one fails 
-            "test_conic_GeometricMeanCone", 
+            # "test_conic_GeometricMeanCone", 
         ],
         # This argument is useful to prevent tests from failing on future
         # releases of MOI that add new tests.
