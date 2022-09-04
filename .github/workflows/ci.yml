@@ -1,4 +1,8 @@
 name: ci
+
+env:
+  JULIA_VERSION: '1.8'
+
 on:
   - pull_request
 jobs:
@@ -9,13 +13,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - version: '1.7'
+          - version: ${{ env.JULIA_VERSION }}
             os: ubuntu-latest
             arch: x64
-          - version: '1.7'
+          - version: ${{ env.JULIA_VERSION }}
             os: macos-latest
             arch: x64
-          - version: '1.7'
+          - version: ${{ env.JULIA_VERSION }}
             os: windows-latest
             arch: x64
     steps:
