@@ -71,6 +71,13 @@ function variables_barrier(
     return barrier
 end
 
+function variables_copy_from(dest::DefaultVariables{T},src::DefaultVariables{T}) where {T}
+    dest.x .= src.x
+    dest.s .= src.s
+    dest.z .= src.z
+    dest.τ  = src.τ
+    dest.κ  = src.κ
+end 
 
 function variables_scale_cones!(
     variables::DefaultVariables{T},
@@ -126,6 +133,8 @@ function variables_combined_step_rhs!(
     μ::T
 ) where {T}
 
+    dotσμ = σ*μ
+
     @. d.x  = (one(T) - σ)*r.rx
        d.τ  = (one(T) - σ)*r.rτ
        d.κ  = - dotσμ + step.τ * step.κ + variables.τ * variables.κ
@@ -133,7 +142,7 @@ function variables_combined_step_rhs!(
     # ds is different for symmetric and asymmetric cones:
     # Symmetric cones: d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
     # Asymmetric cones: d.s = s + σμ*g(z)
-    combined_ds_shift!(cones,d.z,step.z,step.s,σ*μ)
+    combined_ds_shift!(cones,d.z,step.z,step.s,dotσμ)
 
     #We are relying on d.s = affine_ds already here
     d.s .+= d.z
