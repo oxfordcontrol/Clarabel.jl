@@ -72,8 +72,8 @@ function test_MOI_standard()
         #include = String["<individual_test_here_for_debug>"],
         exclude = String[
             # PJG: This test fails on Windows only during CI tests 
-            # for reasons unknown.  It's not clear why it's numerical 
-            # behaviour differs - possibly an MOI version issue
+            # for reasons unknown.  It's not clear why its numerical 
+            # behaviour differs - possibly an MOI version issue?
             "test_conic_GeometricMeanCone_VectorAffineFunction",
         ],
         # This argument is useful to prevent tests from failing on future
