@@ -10,11 +10,16 @@ is:
 * `UNSOLVED`: The algorithm has not started.
 
 Otherwise:
-* `SOLVED`              : Solver as terminated with a solution.
-* `PRIMAL_INFEASIBLE`   : Problem is primal infeasible.  Solution returned is a certificate of primal infeasibility.
-* `DUAL_INFEASIBLE`     : Problem is dual infeasible.  Solution returned is a certificate of dual infeasibility.
-* `MAX_ITERATIONS`      : Iteration limit reached before solution or infeasibility certificate found.
-* `MAX_TIME`            : Time limit reached before solution or infeasibility certificate found.
+* `SOLVED`                      : Solver terminated with a solution.
+* `PRIMAL_INFEASIBLE`           : Problem is primal infeasible.  Solution returned is a certificate of primal infeasibility.
+* `DUAL_INFEASIBLE`             : Problem is dual infeasible.  Solution returned is a certificate of dual infeasibility.
+* `ALMOST_SOLVED`               : Solver terminated with a solution (reduced accuracy).
+* `ALMOST_PRIMAL_INFEASIBLE`    : Problem is primal infeasible.  Solution returned is a certificate of primal infeasibility (reduced accuracy).
+* `ALMOST_DUAL_INFEASIBLE`      : Problem is dual infeasible.  Solution returned is a certificate of dual infeasibility (reduced accuracy).
+* `MAX_ITERATIONS`              : Iteration limit reached before solution or infeasibility certificate found.
+* `MAX_TIME`                    : Time limit reached before solution or infeasibility certificate found.
+* `NUMERICAL_ERROR`             : Solver terminated with a numerical error.
+* `INSUFFICIENT_PROGRESS`       : Solver terminated due to lack of progress.
 """
 @enum SolverStatus begin
     UNSOLVED           = 0

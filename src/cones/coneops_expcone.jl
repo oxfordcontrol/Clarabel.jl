@@ -253,7 +253,6 @@ function _is_dual_feasible_expcone(z::AbstractVector{T}) where {T}
     return false
 end
 
-# PJG: reverse arguments.  Here, in expcone and Rust
 # Compute the primal gradient of f(s) at s
 # solve it by the Newton-Raphson method
 function _gradient_primal(

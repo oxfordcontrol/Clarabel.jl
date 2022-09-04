@@ -154,7 +154,7 @@ function kkt_solve!(
     kktsolver_setrhs!(kktsystem.kktsolver, workx, workz)
     is_success = kktsolver_solve!(kktsystem.kktsolver,x1,z1)
 
-    if !is_success return is_success end
+    if !is_success return false end
 
     #solve for Δτ.
     #-----------

@@ -16,17 +16,28 @@ function variables_calc_step_length(
     step::DefaultVariables{T},
     cones::CompositeCone{T},
     settings::Settings{T},
-    steptype::Symbol,
-    scaling_strategy::ScalingStrategy
+    steptype::Symbol
 ) where {T}
 
     ατ    = step.τ < 0 ? -variables.τ / step.τ : floatmax(T)
     ακ    = step.κ < 0 ? -variables.κ / step.κ : floatmax(T)
 
-    α = min(ατ,ακ,one(T))
-
     # Find a feasible step size for all cones
-    α = step_length(cones, step.z, step.s, variables.z, variables.s, settings, α, steptype)
+    α = min(ατ,ακ,one(T))
+    (αz,αs) = step_length(cones, step.z, step.s, variables.z, variables.s, settings, α)
+
+    # We have partly preserved the option of implementing 
+    # split length steps, but at present step_length
+    # itself only allows for a single maximum value.  
+    # To enable split lengths, we need to also pass a 
+    # tuple of limits to the step_length function of 
+    # every cone 
+    α = min(αz, αs)
+
+    if(steptype == :combined)
+        α *= settings.max_step_fraction
+    end
+
 
     return α
 end
@@ -115,8 +126,6 @@ function variables_combined_step_rhs!(
     μ::T
 ) where {T}
 
-    dotσμ = σ*μ
-
     @. d.x  = (one(T) - σ)*r.rx
        d.τ  = (one(T) - σ)*r.rτ
        d.κ  = - dotσμ + step.τ * step.κ + variables.τ * variables.κ
@@ -124,9 +133,9 @@ function variables_combined_step_rhs!(
     # ds is different for symmetric and asymmetric cones:
     # Symmetric cones: d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
     # Asymmetric cones: d.s = s + σμ*g(z)
-    combined_ds_shift!(cones,d.z,step.z,step.s,dotσμ)
+    combined_ds_shift!(cones,d.z,step.z,step.s,σ*μ)
 
-    #We are relying on d.s = λ ◦ λ (symmetric) or d.s = s (asymmetric) already from the affine step here
+    #We are relying on d.s = affine_ds already here
     d.s .+= d.z
 
     # now we copy the scaled res for rz and d.z is no longer work

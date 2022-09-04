@@ -191,7 +191,6 @@ function step_length(
          s::ConicVector{T},
   settings::Settings{T},
          α::T,
-         steptype::Symbol
 ) where {T}
 
     dz    = dz.views
@@ -209,6 +208,7 @@ function step_length(
         
     #if we have any nonsymmetric cones, then back off from full steps slightly
     #so that centrality checks and logarithms don't fail right at the boundaries
+    #PJG: is this still necessary?
     if(!is_symmetric(cones))
         α = min(α,0.99)
     end
@@ -221,11 +221,7 @@ function step_length(
         α = min(α,nextαz,nextαs)
     end
 
-    if(steptype == :combined)
-        α *= settings.max_step_fraction
-    end
-
-    return α
+    return (α,α)
 end
 
 # compute the total barrier function at the point (z + α⋅dz, s + α⋅ds)

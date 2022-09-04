@@ -129,8 +129,9 @@ function mul_Hs!(
     work::AbstractVector{T}
 ) where {T}
 
+    #PJG : could be done faster than this
     mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
-    mul_W!(K,:T,y,work,one(T),zero(T))         #y = c Wᵀwork = W^TWx
+    mul_W!(K,:T,y,work,one(T),zero(T))    #y = c Wᵀwork = W^TWx
 
 end
 

@@ -231,7 +231,7 @@ function solve!(
             variables_scale_cones!(s.variables,s.cones,μ,scaling_strategy)
 
 
-            #update the KKT system and the constant parts of its solution.
+            #Update the KKT system and the constant parts of its solution.
             #Keep track of the success of each step that calls KKT
             #--------------
 
@@ -245,7 +245,6 @@ function solve!(
                 s.step_rhs, s.residuals,
                 s.variables, s.cones
             )
-
 
             @timeit s.timers "kkt solve" begin
             is_kkt_solve_success = is_kkt_solve_success && 
@@ -294,13 +293,18 @@ function solve!(
             α = solver_get_step_length(s,:combined,scaling_strategy)
 
             # check for undersized step and update strategy
+
+            #PJG: There is no point updating the scalars on Fail here 
+            #because the values will never be printed.   Need a way to 
+            #ensure that we print a full report on the break case, both 
+            #here and above.   I moved scalar recording the top and 
+            #simplified the flow logic a bit, but I don't know if it works
             (action,scaling_strategy) = _strategy_checkpoint_small_step(s, α, scaling_strategy)
             if action === Update || action === Fail  
                 info_save_scalars(s.info,μ,zero(T),one(T),iter)
                 if action === Update; continue; end 
                 if action === Fail; break; end 
             end 
-            #
 
             # Copy previous iterate in case the next one is a dud
             info_save_prev_iterate(s.info,s.variables,s.prev_vars)
@@ -317,6 +321,11 @@ function solve!(
         end #end IP iteration timer
 
     end #end solve! timer
+
+    # PJG: Sometimes it seems we should have an extra print statement here 
+    # to record that the final step we calculated was not taken.  Scalars 
+    # for that failed step should also be recorded.   Maybe if α = 0 we 
+    # take that to mean an aborted final step, record all value and print
 
     info_finalize!(s.info,s.residuals,s.settings,s.timers)  #halts timers
     solution_finalize!(s.solution,s.data,s.variables,s.info,s.settings)
@@ -355,7 +364,7 @@ function solver_get_step_length(s::Solver{T},steptype::Symbol,scaling_strategy::
     # step length to stay within the cones
     α = variables_calc_step_length(
         s.variables, s.step_lhs,
-        s.cones, s.settings, steptype, scaling_strategy
+        s.cones, s.settings, steptype
     )
 
     # additional barrier function limits for asymmetric cones
@@ -401,7 +410,7 @@ function _strategy_checkpoint_insufficient_progress(s::Solver{T},scaling_strateg
     if s.info.status == INSUFFICIENT_PROGRESS
         #recover old iterate since "insufficient progress" often 
         #involves actual degradation of results 
-        info_reset_to_prev_iterates(s.info,s.variables,s.prev_vars)
+        info_reset_to_prev_iterate(s.info,s.variables,s.prev_vars)
     else 
         # there is no problem, so nothing to do
         return (NoUpdate::StrategyCheckpointResult, scaling_strategy)
@@ -428,7 +437,6 @@ function _strategy_checkpoint_numerical_error(s::Solver{T},scaling_strategy::Sca
         s.info.status = NUMERICAL_ERROR
         return (Fail::StrategyCheckpointResult,scaling_strategy)
     end
-    return (NoUpdate::StrategyCheckpointResult,scaling_strategy)
 end 
 
 
@@ -441,9 +449,10 @@ function _strategy_checkpoint_small_step(s::Solver{T}, α::T, scaling_strategy::
     elseif α < s.settings.min_terminate_step_length
         s.info.status = INSUFFICIENT_PROGRESS
         return (Fail::StrategyCheckpointResult,scaling_strategy)
-    end
-
-    return (NoUpdate::StrategyCheckpointResult,scaling_strategy)
+        
+    else
+        return (NoUpdate::StrategyCheckpointResult,scaling_strategy)
+    end 
 
 end 
 

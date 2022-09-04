@@ -109,6 +109,7 @@ function info_save_prev_iterate(
     variables::DefaultVariables{T},
     prev_variables::DefaultVariables{T}
 ) where {T}
+
     info.prev_cost_primal = info.cost_primal
     info.prev_cost_dual   = info.cost_dual
     info.prev_res_primal  = info.res_primal
@@ -116,6 +117,8 @@ function info_save_prev_iterate(
     info.prev_gap_abs     = info.gap_abs
     info.prev_gap_rel     = info.gap_rel
 
+    #PJG : Rust version implements a copy_from for this, 
+    # which should also be done here. 
     prev_variables.x     .= variables.x
     prev_variables.s     .= variables.s
     prev_variables.z     .= variables.z
@@ -123,7 +126,7 @@ function info_save_prev_iterate(
     prev_variables.κ      = variables.κ
 end
 
-function info_reset_to_prev_iterates(
+function info_reset_to_prev_iterate(
     info::DefaultInfo{T},
     variables::DefaultVariables{T},
     prev_variables::DefaultVariables{T}
@@ -135,6 +138,8 @@ function info_reset_to_prev_iterates(
     info.gap_abs     = info.prev_gap_abs
     info.gap_rel     = info.prev_gap_rel
 
+    #PJG : Rust version implements a copy_from for this, 
+    # which should also be done here. 
     variables.x     .= prev_variables.x
     variables.s     .= prev_variables.s
     variables.z     .= prev_variables.z
