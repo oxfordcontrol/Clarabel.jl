@@ -141,7 +141,7 @@ end
 
 
 # an enum for reporting strategy checkpointing
-@enum StrategyCheckpointResult begin 
+@enum StrategyCheckpoint begin 
     Update = 0   # Checkpoint is suggesting a new ScalingStrategy
     NoUpdate     # Checkpoint recommends no change to ScalingStrategy
     Fail         # Checkpoint found a problem but no more ScalingStrategies to try
@@ -161,16 +161,14 @@ function solve!(
     s::Solver{T}
 ) where{T}
 
-    #various initializations
+    # initialization needed for first loop pass 
     iter   = 0
-    isdone = false
+    σ = one(T) 
+    α = zero(T)
+    μ = typemax(T)
 
-    #initial residuals and duality gap
-    gap       = T(0)
-    sigma     = T(0)
-
-    #solver release info, solver config
-    #problem dimensions, cone type etc
+    # solver release info, solver config
+    # problem dimensions, cone type etc
     @notimeit begin
         print_banner(s.settings.verbose)
         info_print_configuration(s.info,s.settings,s.data,s.cones)
@@ -181,18 +179,17 @@ function solve!(
 
     @timeit s.timers "solve!" begin
 
-        #initialize variables to some reasonable starting point
-        #@timeit_debug timers "default start"
+        # initialize variables to some reasonable starting point
+        # @timeit_debug timers "default start"
         @timeit s.timers "default start" solver_default_start!(s)
 
         @timeit s.timers "IP iteration" begin
 
-        #----------
-        # main loop
-        #----------
+        # ----------
+        #  main loop
+        # ----------
 
-        # Initialize the scaling strategy to be PrimalDual
-        scaling_strategy = PrimalDual::ScalingStrategy
+        scaling = PrimalDual::ScalingStrategy
 
         while true
 
@@ -203,6 +200,10 @@ function solve!(
             #calculate duality gap (scaled)
             #--------------
             μ = variables_calc_mu(s.variables, s.residuals, s.cones)
+
+            # record scalar values from most recent iteration.
+            # This captures μ at iteration zero.  
+            info_save_scalars(s.info, μ, α, σ, iter)
 
             #convergence check and printing
             #--------------
@@ -216,11 +217,11 @@ function solve!(
 
             # check for termination due to slow progress and update strategy
             if isdone
-                (action,scaling_strategy) = _strategy_checkpoint_insufficient_progress(s,scaling_strategy) 
-                if action === NoUpdate || action === Fail  
-                    break 
-                end  # allow continuation if action === Update
-            end
+                (action,scaling) = _strategy_checkpoint_insufficient_progress(s,scaling) 
+                if     action ∈ [NoUpdate,Fail]; break;
+                elseif action === Update; continue; 
+                end
+            end # allows continuation if new strategy provided
 
             #increment counter here because we only count
             #iterations that produce a KKT update 
@@ -228,7 +229,7 @@ function solve!(
 
             #update the scalings
             #--------------
-            variables_scale_cones!(s.variables,s.cones,μ,scaling_strategy)
+            variables_scale_cones!(s.variables,s.cones,μ,scaling)
 
 
             #Update the KKT system and the constant parts of its solution.
@@ -259,7 +260,7 @@ function solve!(
 
                 #calculate step length and centering parameter
                 #--------------
-                α = solver_get_step_length(s,:affine,scaling_strategy)
+                α = solver_get_step_length(s,:affine,scaling)
                 σ = _calc_centering_parameter(α)
   
                 #calculate the combined step and length
@@ -281,16 +282,16 @@ function solve!(
             end
 
             # check for numerical failure and update strategy
-            if !is_kkt_solve_success
-                info_save_scalars(s.info,μ,zero(T),one(T),iter)
-                (action,scaling_strategy) = _strategy_checkpoint_numerical_error(s,scaling_strategy) 
-                if action === Update; continue; end 
-                if action === Fail; break; end 
+            (action,scaling) = _strategy_checkpoint_numerical_error(s, is_kkt_solve_success, scaling) 
+            if     action === NoUpdate; ();  #just keep going 
+            elseif action === Update; α = zero(T); continue; 
+            elseif action === Fail;   α = zero(T); break; 
             end
+    
 
             #compute final step length and update the current iterate
             #--------------
-            α = solver_get_step_length(s,:combined,scaling_strategy)
+            α = solver_get_step_length(s,:combined,scaling)
 
             # check for undersized step and update strategy
 
@@ -299,20 +300,16 @@ function solve!(
             #ensure that we print a full report on the break case, both 
             #here and above.   I moved scalar recording the top and 
             #simplified the flow logic a bit, but I don't know if it works
-            (action,scaling_strategy) = _strategy_checkpoint_small_step(s, α, scaling_strategy)
-            if action === Update || action === Fail  
-                info_save_scalars(s.info,μ,zero(T),one(T),iter)
-                if action === Update; continue; end 
-                if action === Fail; break; end 
+            (action,scaling) = _strategy_checkpoint_small_step(s, α, scaling)
+            if     action === NoUpdate; ();  #just keep going 
+            elseif action === Update; α = zero(T); continue; 
+            elseif action === Fail;   α = zero(T); break; 
             end 
 
             # Copy previous iterate in case the next one is a dud
             info_save_prev_iterate(s.info,s.variables,s.prev_vars)
 
             variables_add_step!(s.variables,s.step_lhs,α)
-
-            #record scalar values from this iteration
-            info_save_scalars(s.info,μ,α,σ,iter)
 
         end  #end while
         #----------
@@ -322,10 +319,12 @@ function solve!(
 
     end #end solve! timer
 
-    # PJG: Sometimes it seems we should have an extra print statement here 
-    # to record that the final step we calculated was not taken.  Scalars 
-    # for that failed step should also be recorded.   Maybe if α = 0 we 
-    # take that to mean an aborted final step, record all value and print
+    # Check we if actually took a final step.  If not, we need 
+    # to recapture the scalars and print one last line 
+    if(α == zero(T))
+        info_save_scalars(s.info, μ, α, σ, iter)
+        @notimeit info_print_status(s.info,s.settings)
+    end 
 
     info_finalize!(s.info,s.residuals,s.settings,s.timers)  #halts timers
     solution_finalize!(s.solution,s.data,s.variables,s.info,s.settings)
@@ -359,7 +358,7 @@ function solver_default_start!(s::Solver{T}) where {T}
 end
 
 
-function solver_get_step_length(s::Solver{T},steptype::Symbol,scaling_strategy::ScalingStrategy) where{T}
+function solver_get_step_length(s::Solver{T},steptype::Symbol,scaling::ScalingStrategy) where{T}
 
     # step length to stay within the cones
     α = variables_calc_step_length(
@@ -368,7 +367,7 @@ function solver_get_step_length(s::Solver{T},steptype::Symbol,scaling_strategy::
     )
 
     # additional barrier function limits for asymmetric cones
-    if (!is_symmetric(s.cones) && steptype == :combined && scaling_strategy == Dual)
+    if (!is_symmetric(s.cones) && steptype == :combined && scaling == Dual)
         αinit = α
         α = solver_backtrack_step_to_barrier(s,αinit)
     end
@@ -405,7 +404,7 @@ end
 
 
 
-function _strategy_checkpoint_insufficient_progress(s::Solver{T},scaling_strategy::ScalingStrategy) where {T} 
+function _strategy_checkpoint_insufficient_progress(s::Solver{T},scaling::ScalingStrategy) where {T} 
 
     if s.info.status == INSUFFICIENT_PROGRESS
         #recover old iterate since "insufficient progress" often 
@@ -413,47 +412,50 @@ function _strategy_checkpoint_insufficient_progress(s::Solver{T},scaling_strateg
         info_reset_to_prev_iterate(s.info,s.variables,s.prev_vars)
     else 
         # there is no problem, so nothing to do
-        return (NoUpdate::StrategyCheckpointResult, scaling_strategy)
+        return (NoUpdate::StrategyCheckpoint, scaling)
     end 
 
     # If problem is asymmetric, we can try to continue with the dual-only strategy
-    if !is_symmetric(s.cones) && (scaling_strategy == PrimalDual::ScalingStrategy)
+    if !is_symmetric(s.cones) && (scaling == PrimalDual::ScalingStrategy)
         s.info.status = UNSOLVED
-        return (Update::StrategyCheckpointResult, Dual::ScalingStrategy)
+        return (Update::StrategyCheckpoint, Dual::ScalingStrategy)
     else
-        return (Fail::StrategyCheckpointResult, scaling_strategy)
+        return (Fail::StrategyCheckpoint, scaling)
     end
 
 end 
 
 
-function _strategy_checkpoint_numerical_error(s::Solver{T},scaling_strategy::ScalingStrategy) where {T}
+function _strategy_checkpoint_numerical_error(s::Solver{T}, is_kkt_solve_success::Bool, scaling::ScalingStrategy) where {T}
 
+    # if kkt was successful, then there is nothing to do 
+    if is_kkt_solve_success
+        return (NoUpdate::StrategyCheckpoint, scaling)
+    end
     # If problem is asymmetric, we can try to continue with the dual-only strategy
-    if !is_symmetric(s.cones) && (scaling_strategy == PrimalDual::ScalingStrategy)
-        return (Update::StrategyCheckpointResult, Dual::ScalingStrategy)
+    if !is_symmetric(s.cones) && (scaling == PrimalDual::ScalingStrategy)
+        return (Update::StrategyCheckpoint, Dual::ScalingStrategy)
     else
         #out of tricks.  Bail out with an error
         s.info.status = NUMERICAL_ERROR
-        return (Fail::StrategyCheckpointResult,scaling_strategy)
+        return (Fail::StrategyCheckpoint,scaling)
     end
 end 
 
 
-function _strategy_checkpoint_small_step(s::Solver{T}, α::T, scaling_strategy::ScalingStrategy) where {T}
+function _strategy_checkpoint_small_step(s::Solver{T}, α::T, scaling::ScalingStrategy) where {T}
 
     if !is_symmetric(s.cones) &&
-        scaling_strategy == PrimalDual::ScalingStrategy && α < s.settings.min_switch_step_length
-        return (Update::StrategyCheckpointResult, Dual::ScalingStrategy)
+        scaling == PrimalDual::ScalingStrategy && α < s.settings.min_switch_step_length
+        return (Update::StrategyCheckpoint, Dual::ScalingStrategy)
 
-    elseif α < s.settings.min_terminate_step_length
+    elseif α <= min(zero(T), s.settings.min_terminate_step_length)
         s.info.status = INSUFFICIENT_PROGRESS
-        return (Fail::StrategyCheckpointResult,scaling_strategy)
-        
-    else
-        return (NoUpdate::StrategyCheckpointResult,scaling_strategy)
-    end 
+        return (Fail::StrategyCheckpoint,scaling)
 
+    else
+        return (NoUpdate::StrategyCheckpoint,scaling)
+    end 
 end 
 
 
