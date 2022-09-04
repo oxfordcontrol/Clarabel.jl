@@ -1,11 +1,6 @@
 name: ci
-
 on:
   - pull_request
-
-env:
-  JULIA_VERSION: '1.7'
-  
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
@@ -14,13 +9,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - version: ${{ env.JULIA_VERSION }}
+          - version: '1.8'
             os: ubuntu-latest
             arch: x64
-          - version: ${{ env.JULIA_VERSION }}
+          - version: '1.8'
             os: macos-latest
             arch: x64
-          - version: ${{ env.JULIA_VERSION }}
+          - version: '1.8'
             os: windows-latest
             arch: x64
     steps:
