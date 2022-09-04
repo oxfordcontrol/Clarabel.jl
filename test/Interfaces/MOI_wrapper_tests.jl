@@ -74,7 +74,7 @@ function test_MOI_standard()
             # PJG: Not sure why this one fails 
             "test_conic_GeometricMeanCone",
             # PJG: This one fails on Ubuntu only, for reasons unknown
-            "test_conic_RootDetConeTriangle",   
+            # "test_conic_RootDetConeTriangle",   
         ],
         # This argument is useful to prevent tests from failing on future
         # releases of MOI that add new tests.

@@ -225,7 +225,10 @@ mutable struct DefaultInfo{T} <: AbstractInfo{T}
 
     function DefaultInfo{T}() where {T}
 
-        new( (ntuple(x->0, fieldcount(DefaultInfo)-1)...,UNSOLVED)...)
+        #here we set the first set of fields to zero (it doesn't matter),
+        #but the previous iterates to Inf to avoid weird edge cases 
+        prevvals = ntuple(x->floatmax(T), 6);
+        new((ntuple(x->0, fieldcount(DefaultInfo)-6-1)...,prevvals...,UNSOLVED)...)
     end
 
 end
