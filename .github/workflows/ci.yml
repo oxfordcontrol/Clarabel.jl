@@ -1,7 +1,7 @@
 name: ci
 
 env:
-  JULIA_VERSION: '1.8'
+  JULIA_VERSION: "1.8"
 
 on:
   - pull_request
