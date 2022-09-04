@@ -489,10 +489,8 @@ function _update_grad_HBFGS(
     #we use the global one 
     if(scaling_strategy == Dual::ScalingStrategy)
         # HBFGS .= μ*H
-        @inbounds for i = 1:3
-            @inbounds for j = i:3
-                HBFGS[i,j] = μ*H[i,j]
-            end
+        @inbounds for i = 1:(3*3)
+            HBFGS[i] = μ*H[i]
         end
         return nothing
     end 
@@ -522,11 +520,9 @@ function _update_grad_HBFGS(
     de2 = dot(zt,H,zt) - 3*μt*μt
 
     if !(abs(de1) > eps(T) && abs(de2) > eps(T))
-        # HBFGS when s,z are on the central path
-        @inbounds for i = 1:3
-            @inbounds for j = i:3
-                HBFGS[i,j] = μ*H[i,j]
-            end
+        # HBFGS = μ*H when s,z are on the central path
+        @inbounds for i = 1:(3*3)
+            HBFGS[i] = μ*H[i]
         end
         return nothing
     else
@@ -565,7 +561,6 @@ function _update_grad_HBFGS(
                 HBFGS[i,j] = s[i]*s[j]/dot_sz + δs[i]*δs[j]/dot_δsz + t*axis_z[i]*axis_z[j]
             end
         end
-
         # symmetrize matrix
         HBFGS[2,1] = HBFGS[1,2]
         HBFGS[3,1] = HBFGS[1,3]

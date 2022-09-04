@@ -518,6 +518,11 @@ function _update_grad_HBFGS(
                 HBFGS[i,j] -= st[i]*st[j]/3 + tmp[i]*tmp[j]/de2
             end
         end
+        # symmetrize matrix
+        HBFGS[2,1] = HBFGS[1,2]
+        HBFGS[3,1] = HBFGS[1,3]
+        HBFGS[3,2] = HBFGS[2,3]
+        
 
         t = μ*norm(HBFGS)  #Frobenius norm
 
@@ -539,7 +544,6 @@ function _update_grad_HBFGS(
                 HBFGS[i,j] = s[i]*s[j]/dot_sz + δs[i]*δs[j]/dot_δsz + t*axis_z[i]*axis_z[j]
             end
         end
-
         # symmetrize matrix
         HBFGS[2,1] = HBFGS[1,2]
         HBFGS[3,1] = HBFGS[1,3]
