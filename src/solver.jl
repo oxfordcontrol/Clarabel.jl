@@ -406,21 +406,21 @@ end
 
 function _strategy_checkpoint_insufficient_progress(s::Solver{T},scaling::ScalingStrategy) where {T} 
 
-    if s.info.status == INSUFFICIENT_PROGRESS
+    if s.info.status != INSUFFICIENT_PROGRESS
+        # there is no problem, so nothing to do
+        return (NoUpdate::StrategyCheckpoint, scaling)
+    else 
         #recover old iterate since "insufficient progress" often 
         #involves actual degradation of results 
         info_reset_to_prev_iterate(s.info,s.variables,s.prev_vars)
-    else 
-        # there is no problem, so nothing to do
-        return (NoUpdate::StrategyCheckpoint, scaling)
-    end 
 
-    # If problem is asymmetric, we can try to continue with the dual-only strategy
-    if !is_symmetric(s.cones) && (scaling == PrimalDual::ScalingStrategy)
-        s.info.status = UNSOLVED
-        return (Update::StrategyCheckpoint, Dual::ScalingStrategy)
-    else
-        return (Fail::StrategyCheckpoint, scaling)
+        # If problem is asymmetric, we can try to continue with the dual-only strategy
+        if !is_symmetric(s.cones) && (scaling == PrimalDual::ScalingStrategy)
+            s.info.status = UNSOLVED
+            return (Update::StrategyCheckpoint, Dual::ScalingStrategy)
+        else
+            return (Fail::StrategyCheckpoint, scaling)
+        end
     end
 
 end 
