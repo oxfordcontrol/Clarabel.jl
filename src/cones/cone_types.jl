@@ -180,7 +180,6 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
         z = @MVector zeros(T,3)
         cholH = @MMatrix zeros(T,3,3)
 
-
         return new(H,grad,HBFGS,grad_work,vec_work,z,cholH)
     end
 end

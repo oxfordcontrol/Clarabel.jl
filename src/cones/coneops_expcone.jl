@@ -158,7 +158,7 @@ function step_length(
 
     backtrack = settings.linesearch_backtrack_step
     αmin      = settings.min_terminate_step_length
-
+    
     αz = _step_length_3d_cone(K.vec_work, dz, z, αmax, αmin,  backtrack, _is_dual_feasible_expcone)
     αs = _step_length_3d_cone(K.vec_work, ds, s, αmax, αmin,  backtrack, _is_primal_feasible_expcone)
 
@@ -478,7 +478,7 @@ function _update_grad_HBFGS(
     _gradient_primal(K,zt,s)
 
     μt = dot(zt,st)/3
-
+    
     # δs = s + μ*st
     # δz = z + μ*zt     
 
@@ -495,7 +495,8 @@ function _update_grad_HBFGS(
     de1 = μ*μt-1
     de2 = dot(zt,H,zt) - 3*μt*μt
 
-    if !(abs(de1) > eps(T) && abs(de2) > eps(T))
+    #if !(abs(de1) > eps(T) && abs(de2) > eps(T))
+    if !(min(abs(de1),abs(de2),abs(dot_sz),abs(dot_δsz)) > eps(T))
 
         # HBFGS when s,z are on the central path
         @inbounds for i = 1:3
