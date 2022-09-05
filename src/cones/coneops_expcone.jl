@@ -435,7 +435,7 @@ function _update_grad_HBFGS(
     zt = @MVector zeros(T,3)
     δs = @MVector zeros(T,3)
 
-    #shared workspace for δz, tmp, axis_z
+    #shared for δz, tmp, axis_z
     tmp = @MVector zeros(T,3)
     H = K.H
     HBFGS = K.HBFGS

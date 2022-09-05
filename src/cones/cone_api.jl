@@ -10,7 +10,7 @@ The currently supported concrete types are:
 * `NonnegativeConeT`: The nonnegative orthant.
 * `SecondOrderConeT`: The second order / Lorentz / ice-cream cone.
 * `PSDTriangleConeT`: The positive semidefinite cone (triangular format).
-* `ExponentialConeT`: The exponential cone (in R^3)
+* `ExponentialConeT`:         The exponential cone (in R^3)
 * `PowerConeT`      : The power cone with power \alpha (in R^3)
 
 """

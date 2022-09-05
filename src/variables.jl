@@ -153,7 +153,10 @@ function variables_combined_step_rhs!(
     return nothing
 end
 
-function variables_shift_to_cone!(
+# Calls shift_to_cone on all conic variables and does not 
+# touch the primal variables. Used for symmetric problems.
+
+function variables_symmetric_initialization!(
     variables::DefaultVariables{T},
     cones::CompositeCone{T}
 ) where {T}
@@ -166,15 +169,9 @@ function variables_shift_to_cone!(
 end
 
 
-# Set the initial point to the jordan algebra identity e times scaling (now is 1.) for the symmetric cones
-# and the central ray for the exponential cone, scaled by scaling (now is 1.)
-
-# For symmetric cones, e is the identity in the Jordan algebra where the cone
-# is defined. This corresponds to the following:
-# for the nonnegative cones, e is the vector of all ones;
-# for the second-order cones, e = (1; 0; ... ; 0) where the 1 corresponds to the first variable;
-# for semidefinite cones, e is the identity matrix.
-function asymmetric_init_cone!(
+# Calls unit initialization on all conic variables and zeros 
+# the primal variables.   Used for nonsymmetric problems.
+function variables_unit_initialization!(
     variables::DefaultVariables{T},
     cones::CompositeCone{T}
 ) where {T}
