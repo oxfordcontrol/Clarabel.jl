@@ -119,9 +119,10 @@ function combined_ds_shift!(
     step_s::AbstractVector{T},
     σμ::T
 ) where {T}
-    η = K.grad_work
+    #η = K.grad_work
+    η = @MVector zeros(T,3)
 
-    #3rd order correction requires input variables.z
+    #3rd order correction requires input variables z
     _higher_correction!(K,η,step_s,step_z)             
 
     @inbounds for i = 1:3
@@ -159,8 +160,8 @@ function step_length(
     backtrack = settings.linesearch_backtrack_step
     αmin      = settings.min_terminate_step_length
     
-    αz = _step_length_3d_cone(K.vec_work, dz, z, αmax, αmin,  backtrack, _is_dual_feasible_expcone)
-    αs = _step_length_3d_cone(K.vec_work, ds, s, αmax, αmin,  backtrack, _is_primal_feasible_expcone)
+    αz = _step_length_3d_cone(dz, z, αmax, αmin,  backtrack, _is_dual_feasible_expcone)
+    αs = _step_length_3d_cone(ds, s, αmax, αmin,  backtrack, _is_primal_feasible_expcone)
 
     return (αz,αs)
 end
@@ -348,7 +349,8 @@ function _higher_correction!(
 
     # u for H^{-1}*Δs
     H = K.H
-    u = K.vec_work
+    #u = K.vec_work
+    u = @MVector zeros(T,3)
     z = K.z
  
     #solve H*u = ds
@@ -428,11 +430,13 @@ function _update_grad_HBFGS(
     μ::T,
     scaling_strategy::ScalingStrategy
 ) where {T}
-    # reuse memory
+
     st = K.grad
-    zt = K.vec_work
-    δs = K.grad_work
-    tmp = K.z   #shared workspace for δz, tmp, axis_z
+    zt = @MVector zeros(T,3)
+    δs = @MVector zeros(T,3)
+
+    #shared workspace for δz, tmp, axis_z
+    tmp = @MVector zeros(T,3)
     H = K.H
     HBFGS = K.HBFGS
 

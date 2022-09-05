@@ -163,9 +163,7 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
 
     # workspace for centrality check
     HBFGS::MMatrix{3,3,T,9}
-    grad_work::MVector{3,T}
-    vec_work::MVector{3,T}
-    z::MVector{3,T}        # temporary storage for current z
+    z::MVector{3,T}           #holds copy of z at scaling point
 
     cholH::MMatrix{3,3,T,9}
 
@@ -180,7 +178,7 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
         z = @MVector zeros(T,3)
         cholH = @MMatrix zeros(T,3,3)
 
-        return new(H,grad,HBFGS,grad_work,vec_work,z,cholH)
+        return new(H,grad,HBFGS,z,cholH)
     end
 end
 
