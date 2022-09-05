@@ -1,3 +1,4 @@
+using StaticArrays
 # -------------------------------------
 # abstract type defs
 # -------------------------------------
@@ -157,27 +158,27 @@ PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 # gradient and Hessian for the dual barrier function
 mutable struct ExponentialCone{T} <: AbstractCone{T}
 
-    H::Matrix{T}       #μ*H for the linear system
-    grad::Vector{T}
+    H::MMatrix{3,3,T,9}       #μ*H for the linear system
+    grad::MVector{3,T}
 
     # workspace for centrality check
-    HBFGS::Matrix{T}
-    grad_work::Vector{T}
-    vec_work::Vector{T}
-    z::Vector{T}        # temporary storage for current z
+    HBFGS::MMatrix{3,3,T,9}
+    grad_work::MVector{3,T}
+    vec_work::MVector{3,T}
+    z::MVector{3,T}        # temporary storage for current z
 
-    cholH::Matrix{T}
+    cholH::MMatrix{3,3,T,9}
 
     function ExponentialCone{T}() where {T}
 
-        H = Matrix{T}(undef,3,3)
-        grad = Vector{T}(undef,3)
+        H = @MMatrix zeros(T,3,3)
+        grad = @MVector zeros(T,3)
 
-        HBFGS = Matrix{T}(undef,3,3)
-        grad_work = Vector{T}(undef,3)
-        vec_work = Vector{T}(undef,3)
-        z = Vector{T}(undef,3)
-        cholH = zeros(T,3,3)
+        HBFGS = @MMatrix zeros(T,3,3)
+        grad_work = @MVector zeros(T,3)
+        vec_work = @MVector zeros(T,3)
+        z = @MVector zeros(T,3)
+        cholH = @MMatrix zeros(T,3,3)
 
 
         return new(H,grad,HBFGS,grad_work,vec_work,z,cholH)

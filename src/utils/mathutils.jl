@@ -286,7 +286,7 @@ end
 #n*(n+1)/2 into the upper triangle of an
 #nxn matrix.   It does NOT perform any scaling
 #of the vector entries.
-function _pack_triu(v::Vector{T},A::Matrix{T}) where T
+function _pack_triu(v::AbstractVector{T},A::AbstractMatrix{T}) where T
     n     = LinearAlgebra.checksquare(A)
     numel = (n*(n+1))>>1
     length(v) == numel || throw(DimensionMismatch())
