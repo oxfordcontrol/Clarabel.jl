@@ -359,7 +359,7 @@ function cholesky_3x3_explicit_factor!(L,A)
 
     if t <= 0; return false; end
 
-    L[1,1] = sqrt(A[1,1])
+    L[1,1] = sqrt(t)
     L[2,1] = A[2,1]/L[1,1]
 
     t = A[2,2] - L[2,1]*L[2,1]

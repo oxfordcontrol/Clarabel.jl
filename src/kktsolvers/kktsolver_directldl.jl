@@ -382,7 +382,6 @@ function  _iterative_refinement(
     #compute the initial error
     norme = _get_refine_error!(e,b,KKTsym,x)
 
-    ctr = 0
     for i = 1:IR_maxiter
 
         # bail on numerical error
@@ -393,8 +392,6 @@ function  _iterative_refinement(
             break
         end
         lastnorme = norme
-
-        ctr = i  #counts the re-solves
 
         #make a refinement and continue
         solve!(ldlsolver,dx,e)

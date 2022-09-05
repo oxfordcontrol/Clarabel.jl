@@ -38,8 +38,8 @@ function info_update!(
 
     #absolute and relative gaps
     info.gap_abs    = abs(info.cost_primal - info.cost_dual)
-    if(info.cost_primal > 0 && info.cost_dual < 0)
-        info.gap_rel = 1/eps()
+    if(info.cost_primal > zero(T) && info.cost_dual < zero(T))
+        info.gap_rel = floatmax(T)
     else
         info.gap_rel = info.gap_abs / max(one(T),min(abs(info.cost_primal),abs(info.cost_dual)))
     end
@@ -67,26 +67,30 @@ function info_check_termination!(
 
     # poor progress
     #----------------------
-    if info.status == UNSOLVED && iter > 0 
-
-        if (info.res_dual > info.prev_res_dual || info.res_primal > info.prev_res_primal)
-            # Poor progress at high tolerance.  
-            if info.ktratio < 100*eps(T) && 
-                              ( info.prev_gap_abs < settings.tol_gap_abs || 
-                                info.prev_gap_rel < settings.tol_gap_rel
-                              )
-                info.status = INSUFFICIENT_PROGRESS
-            end
-
-            # Going backwards. Stop immediately if residuals diverge out of feasibility tolerance.
-            if (info.res_dual > settings.tol_feas && 
-                info.res_dual > 100*info.prev_res_dual) || 
-               (info.res_primal > settings.tol_feas && 
-                info.res_primal > 100*info.prev_res_primal)
-                info.status = INSUFFICIENT_PROGRESS
-            end
+    if info.status == UNSOLVED && iter > 0 &&
+        ( info.res_dual > info.prev_res_dual || 
+          info.res_primal > info.prev_res_primal
+        )
+           
+        # Poor progress at high tolerance.  
+        if info.ktratio < 100*eps(T) && 
+            ( info.prev_gap_abs < settings.tol_gap_abs || 
+              info.prev_gap_rel < settings.tol_gap_rel
+            )
+            info.status = INSUFFICIENT_PROGRESS
         end
-    end 
+
+        # Going backwards. Stop immediately if residuals diverge out of feasibility tolerance.
+        if ( info.res_dual > settings.tol_feas && 
+             info.res_dual > 100*info.prev_res_dual
+           ) || 
+           ( info.res_primal > settings.tol_feas && 
+             info.res_primal > 100*info.prev_res_primal
+           )
+             info.status = INSUFFICIENT_PROGRESS
+        end
+    end
+
 
     # time / iteration limits
     #----------------------
@@ -186,9 +190,9 @@ function info_finalize!(
     timers::TimerOutput
 ) where {T}
 
-    # if there was an error or we ran out
-    # or time or iterations, check for partial
-    # convergence
+    # if there was an error or we ran out of time
+    # or iterations, check for partial convergence
+    
     if (status_is_errored(info.status) ||
         info.status == MAX_ITERATIONS  ||
         info.status == MAX_TIME

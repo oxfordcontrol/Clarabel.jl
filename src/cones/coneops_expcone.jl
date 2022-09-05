@@ -78,7 +78,7 @@ function get_Hs!(
     Hsblock::AbstractVector{T}
 ) where {T}
 
-    #Vectorize triu(K.HBFGS)
+    # stores triu(K.HBFGS) into a vector
     _pack_triu(Hsblock,K.HBFGS)
 
 end

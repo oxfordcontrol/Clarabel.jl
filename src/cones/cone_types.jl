@@ -157,34 +157,30 @@ PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 # gradient and Hessian for the dual barrier function
 mutable struct ExponentialCone{T} <: AbstractCone{T}
 
-    H::Matrix{T}       #μ*H for the linear sysmtem
-    Hsym::Symmetric{T, Matrix{T}}
+    H::Matrix{T}       #μ*H for the linear system
     grad::Vector{T}
 
     # workspace for centrality check
     HBFGS::Matrix{T}
-    HBFGSsym::Symmetric{T, Matrix{T}}
     grad_work::Vector{T}
     vec_work::Vector{T}
-    z::Vector{T}            # temporary storage for current z
+    z::Vector{T}        # temporary storage for current z
 
     cholH::Matrix{T}
 
     function ExponentialCone{T}() where {T}
 
         H = Matrix{T}(undef,3,3)
-        Hsym = Symmetric(H)
         grad = Vector{T}(undef,3)
 
         HBFGS = Matrix{T}(undef,3,3)
-        HBFGSsym = Symmetric(HBFGS)
         grad_work = Vector{T}(undef,3)
         vec_work = Vector{T}(undef,3)
         z = Vector{T}(undef,3)
         cholH = zeros(T,3,3)
 
 
-        return new(H,Hsym,grad,HBFGS,HBFGSsym,grad_work,vec_work,z,cholH)
+        return new(H,grad,HBFGS,grad_work,vec_work,z,cholH)
     end
 end
 
