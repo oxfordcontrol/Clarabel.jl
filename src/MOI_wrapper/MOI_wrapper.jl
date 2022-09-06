@@ -514,13 +514,13 @@ end
 
 scalecoef(v,::Type{<:MOI.AbstractVectorSet})     = v #default don't scale
 scalecoef(v,idx,::Type{<:MOI.AbstractVectorSet}) = v #default don't scale
-scalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = _triangle_unscaled_to_svec(v)
-scalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = _triangle_unscaled_to_svec(v,idx)
+scalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = Clarabel._triangle_unscaled_to_svec(v)
+scalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = Clarabel._triangle_unscaled_to_svec(v,idx)
 
 unscalecoef(v,::Type{<:MOI.AbstractVectorSet})     = v #default don't scale
 unscalecoef(v,idx,::Type{<:MOI.AbstractVectorSet}) = v #default don't scale
-unscalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = _triangle_svec_to_unscaled(v)
-unscalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = _triangle_svec_to_unscaled(v,idx)
+unscalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = Clarabel._triangle_svec_to_unscaled(v)
+unscalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = Clarabel._triangle_svec_to_unscaled(v,idx)
 
 
 function push_constraint_constant!(
