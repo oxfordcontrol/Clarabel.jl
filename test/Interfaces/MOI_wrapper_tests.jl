@@ -76,7 +76,7 @@ function test_MOI_standard()
         ],
         # This argument is useful to prevent tests from failing on future
         # releases of MOI that add new tests.
-        #exclude_tests_after = VersionNumber(Clarabel.moi_version()),
+        exclude_tests_after = VersionNumber(Clarabel.moi_version()),
     )
     return
 end
