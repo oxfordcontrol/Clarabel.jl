@@ -21,7 +21,7 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 [compat]
 AMD = "0.4, 0.5"
 DataFrames = "1"
-MathOptInterface = "~0.10.7, 1"
+MathOptInterface = "1.2"
 Pardiso = "0.5"
 PrettyTables = "0.12, 1"
 QDLDL = "0.3"

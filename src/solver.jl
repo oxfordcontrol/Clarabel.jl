@@ -464,3 +464,16 @@ end
 function Base.show(io::IO, solver::Clarabel.Solver{T}) where {T}
     println(io, "Clarabel model with Float precision: $(T)")
 end
+
+
+
+# -------------------------------------
+# getters accessing individual fields via function calls.
+# this is necessary because it allows us to use multiple
+# dispatch through these calls to access internal solver
+# data within the MOI interface, which must also support
+# the ClarabelRs wrappers
+# -------------------------------------
+
+get_solution(s::Solver{T}) where {T} = s.solution
+get_info(s::Solver{T}) where {T} = s.info

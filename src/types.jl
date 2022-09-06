@@ -11,6 +11,7 @@ abstract type AbstractKKTSystem{T <: AbstractFloat} end
 abstract type AbstractKKTSolver{T <: AbstractFloat} end
 abstract type AbstractInfo{T <: AbstractFloat} end
 abstract type AbstractSolution{T <: AbstractFloat} end
+abstract type AbstractSolver{T <: AbstractFloat}   end
 
 # -------------------------------------
 # default solver subcomponent implementations
@@ -201,7 +202,7 @@ mutable struct DefaultInfo{T} <: AbstractInfo{T}
     μ::T
     sigma::T
     step_length::T
-    iterations::DefaultInt
+    iterations::UInt32
     cost_primal::T
     cost_dual::T
     res_primal::T
@@ -220,7 +221,7 @@ mutable struct DefaultInfo{T} <: AbstractInfo{T}
     prev_gap_abs::T
     prev_gap_rel::T
 
-    solve_time::T
+    solve_time::Float64
     status::SolverStatus
 
     function DefaultInfo{T}() where {T}
@@ -267,27 +268,27 @@ mutable struct DefaultSolution{T} <: AbstractSolution{T}
     status::SolverStatus
     obj_val::T
     solve_time::T
-    iterations::Int
+    iterations::UInt32
     r_prim::T
     r_dual::T
 
-    function DefaultSolution{T}(m,n) where {T <: AbstractFloat}
+end
 
-        x = Vector{T}(undef,n)
-        z = Vector{T}(undef,m)
-        s = Vector{T}(undef,m)
+function DefaultSolution{T}(m,n) where {T <: AbstractFloat}
 
-        # seemingly reasonable defaults
-        status  = UNSOLVED
-        obj_val = T(NaN)
-        solve_time = zero(T)
-        iterations = 0
-        r_prim     = T(NaN)
-        r_dual     = T(NaN)
+    x = Vector{T}(undef,n)
+    z = Vector{T}(undef,m)
+    s = Vector{T}(undef,m)
 
-      return new(x,z,s,status,obj_val,solve_time,iterations,r_prim,r_dual)
-    end
+    # seemingly reasonable defaults
+    status  = UNSOLVED
+    obj_val = T(NaN)
+    solve_time = zero(T)
+    iterations = 0
+    r_prim     = T(NaN)
+    r_dual     = T(NaN)
 
+  return DefaultSolution{T}(x,z,s,status,obj_val,solve_time,iterations,r_prim,r_dual)
 end
 
 DefaultSolution(args...) = DefaultSolution{DefaultFloat}(args...)
@@ -304,7 +305,7 @@ Initializes an empty Clarabel solver that can be filled with problem data using:
     setup!(solver, P, q, A, b, cones, [settings]).
 
 """
-mutable struct Solver{T <: AbstractFloat}
+mutable struct Solver{T <: AbstractFloat} <: AbstractSolver{T}
 
     data::Union{AbstractProblemData{T},Nothing}
     variables::Union{AbstractVariables{T},Nothing}
