@@ -64,7 +64,7 @@ This function runs all the tests in MathOptInterface.Test.
 Pass arguments to `exclude` to skip tests for functionality that is not
 implemented or that your solver doesn't support.
 """
-function __test_MOI_standard()
+function test_MOI_standard()
 
     MOI.Test.runtests(
         BRIDGED,
@@ -76,7 +76,7 @@ function __test_MOI_standard()
         ],
         # This argument is useful to prevent tests from failing on future
         # releases of MOI that add new tests.
-        exclude_tests_after = VersionNumber(Clarabel.moi_version()),
+        #exclude_tests_after = VersionNumber(Clarabel.moi_version()),
     )
     return
 end
