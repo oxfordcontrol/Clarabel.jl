@@ -64,14 +64,14 @@ This function runs all the tests in MathOptInterface.Test.
 Pass arguments to `exclude` to skip tests for functionality that is not
 implemented or that your solver doesn't support.
 """
-function test_MOI_standard()
+function __test_MOI_standard()
 
     MOI.Test.runtests(
         BRIDGED,
         MYCONFIG,
         #include = String["<individual_test_here_for_debug>"],
         exclude = String[
-            # PJG: Not sure why this one fails 
+            # fails occasionally in some platform dependent way
             # "test_conic_GeometricMeanCone", 
         ],
         # This argument is useful to prevent tests from failing on future
@@ -94,7 +94,7 @@ end
 
 function test_passing_settings()
     optimizer = Clarabel.Optimizer{T}(; verbose=false)
-    @test optimizer.inner.settings.verbose === false
+    @test optimizer.solver_settings.verbose === false
     return
 end
 
