@@ -54,28 +54,25 @@ function scale_values!(
     #passed to refactor!
 end
 
-#offset entries in the KKT matrix using the
-#given index into its CSC representation and
-#an optional vector of signs
-function offset_values!(
-    ldlsolver::PardisoDirectLDLSolver{T},
-    index::AbstractVector{Int},
-    offset::T,
-    signs::AbstractVector{<:Integer}
-) where{T}
-
-    #no-op.  Will just use KKT matrix as it as
-    #passed to refactor!
-
-end
-
 
 #refactor the linear system
 function refactor!(ldlsolver::PardisoDirectLDLSolver{T},K::SparseMatrixCSC{T}) where{T}
 
+    # MKL is quite robust and will usually produce some 
+    # kind of factorization unless there is an explicit 
+    # zero pivot or some other nastiness.   "success" 
+    # here just means that it didn't fail outright, although 
+    # the factorization could still be garbage 
+
     # Recompute the numeric factorization susing fake RHS
-    Pardiso.set_phase!(ldlsolver.ps, Pardiso.NUM_FACT)
-    Pardiso.pardiso(ldlsolver.ps, K, [1.])
+    try 
+        Pardiso.set_phase!(ldlsolver.ps, Pardiso.NUM_FACT)
+        Pardiso.pardiso(ldlsolver.ps, K, [1.])
+        return is_success = true
+    catch 
+        return is_success = false
+    end
+     
 end
 
 
@@ -96,4 +93,5 @@ function solve!(
 
     Pardiso.set_phase!(ps, Pardiso.SOLVE_ITERATIVE_REFINE)
     Pardiso.pardiso(ps, x, KKTdummy, b)
+
 end

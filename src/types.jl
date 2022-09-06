@@ -30,7 +30,9 @@ mutable struct DefaultVariables{T} <: AbstractVariables{T}
     κ::T
 
     function DefaultVariables{T}(
-        n::Integer, cones::ConeSet) where {T}
+        n::Integer, 
+        cones::CompositeCone{T}
+    ) where {T}
 
         x = Vector{T}(undef,n)
         s = ConicVector{T}(cones)
@@ -44,6 +46,14 @@ mutable struct DefaultVariables{T} <: AbstractVariables{T}
 end
 
 DefaultVariables(args...) = DefaultVariables{DefaultFloat}(args...)
+
+# Scaling strategy for variables.  Defined
+# here to avoid errors due to order of includes
+
+@enum ScalingStrategy begin
+    PrimalDual = 0
+    Dual       = 1
+end
 
 
 # ---------------
@@ -65,7 +75,7 @@ struct DefaultEquilibration{T} <: AbstractEquilibration{T}
 
     function DefaultEquilibration{T}(
         nvars::Int,
-        cones::ConeSet{T},
+        cones::CompositeCone{T},
     ) where {T}
 
         #Left/Right diagonal scaling for problem data
@@ -73,7 +83,7 @@ struct DefaultEquilibration{T} <: AbstractEquilibration{T}
         dinv = ones(T,nvars)
 
         # PJG : note that this double initializes
-        # e / einv because the ConicVector constructor
+        # e and einv because the ConicVector constructor
         # first initializes to zero.   Could be improved.
         e    = ConicVector{T}(cones); e .= one(T)
         einv = ConicVector{T}(cones); einv .= one(T)
@@ -147,12 +157,15 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     m::DefaultInt
     equilibration::DefaultEquilibration{T}
 
+    normq::T
+    normb::T
+
     function DefaultProblemData{T}(
         P::AbstractMatrix{T},
         q::AbstractVector{T},
         A::AbstractMatrix{T},
         b::AbstractVector{T},
-        cones::ConeSet{T}
+        cones::CompositeCone{T}
     ) where {T}
 
         # dimension checks will have already been
@@ -168,7 +181,10 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
 
         equilibration = DefaultEquilibration{T}(n,cones)
 
-        new(P,q,A,b,n,m,equilibration)
+        normq = norm(q, Inf)
+        normb = norm(b, Inf)
+
+        new(P,q,A,b,n,m,equilibration,normq,normb)
 
     end
 
@@ -177,41 +193,9 @@ end
 DefaultProblemData(args...) = DefaultProblemData{DefaultFloat}(args...)
 
 
-# ---------------
-# solver status
-# ---------------
-"""
-    SolverStatus
-An Enum of of possible conditions set by [`solve!`](@ref).
-
-If no call has been made to [`solve!`](@ref), then the `SolverStatus`
-is:
-* `UNSOLVED`: The algorithm has not started.
-
-Otherwise:
-* `SOLVED`              : Solver as terminated with a solution.
-* `PRIMAL_INFEASIBLE`   : Problem is primal infeasible.  Solution returned is a certificate of primal infeasibility.
-* `DUAL_INFEASIBLE`     : Problem is dual infeasible.  Solution returned is a certificate of dual infeasibility.
-* `MAX_ITERATIONS`      : Iteration limit reached before solution or infeasibility certificate found.
-* `MAX_TIME`            : Time limit reached before solution or infeasibility certificate found.
-"""
-@enum SolverStatus begin
-    UNSOLVED           = 0
-    SOLVED
-    PRIMAL_INFEASIBLE
-    DUAL_INFEASIBLE
-    MAX_ITERATIONS
-    MAX_TIME
-end
-
-const SolverStatusDict = Dict(
-    UNSOLVED            =>  "unsolved",
-    SOLVED              =>  "solved",
-    PRIMAL_INFEASIBLE   =>  "primal infeasible",
-    DUAL_INFEASIBLE     =>  "dual infeasible",
-    MAX_ITERATIONS      =>  "iteration limit",
-    MAX_TIME            =>  "time limit"
-)
+# ----------------------
+# progress info
+# ----------------------
 
 mutable struct DefaultInfo{T} <: AbstractInfo{T}
 
@@ -228,12 +212,24 @@ mutable struct DefaultInfo{T} <: AbstractInfo{T}
     gap_abs::T
     gap_rel::T
     ktratio::T
+
+    # previous iterate
+    prev_cost_primal::T
+    prev_cost_dual::T
+    prev_res_primal::T
+    prev_res_dual::T
+    prev_gap_abs::T
+    prev_gap_rel::T
+
     solve_time::Float64
     status::SolverStatus
 
     function DefaultInfo{T}() where {T}
 
-        new( (ntuple(x->0, fieldcount(DefaultInfo)-1)...,UNSOLVED)...)
+        #here we set the first set of fields to zero (it doesn't matter),
+        #but the previous iterates to Inf to avoid weird edge cases 
+        prevvals = ntuple(x->floatmax(T), 6);
+        new((ntuple(x->0, fieldcount(DefaultInfo)-6-1)...,prevvals...,UNSOLVED)...)
     end
 
 end
@@ -313,12 +309,13 @@ mutable struct Solver{T <: AbstractFloat} <: AbstractSolver{T}
 
     data::Union{AbstractProblemData{T},Nothing}
     variables::Union{AbstractVariables{T},Nothing}
-    cones::Union{ConeSet{T},Nothing}
+    cones::Union{CompositeCone{T},Nothing}
     residuals::Union{AbstractResiduals{T},Nothing}
     kktsystem::Union{AbstractKKTSystem{T},Nothing}
     info::Union{AbstractInfo{T},Nothing}
     step_lhs::Union{AbstractVariables{T},Nothing}
     step_rhs::Union{AbstractVariables{T},Nothing}
+    prev_vars::Union{AbstractVariables{T},Nothing}
     solution::Union{AbstractSolution{T},Nothing}
     settings::Settings{T}
     timers::TimerOutput

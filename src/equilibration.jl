@@ -5,7 +5,7 @@ import Statistics: mean
 
 function data_equilibrate!(
         data::DefaultProblemData{T},
-        cones::ConeSet{T},
+        cones::CompositeCone{T},
         settings::Settings{T}
 ) where {T}
 
@@ -72,7 +72,7 @@ function data_equilibrate!(
 
 	# fix scalings in cones for which elementwise
     # scaling can't be applied
-	if cones_rectify_equilibration!(cones, ework, e)
+	if rectify_equilibration!(cones, ework, e)
 		#only rescale again if some cones were rectified
 		scale_data!(P, A, q, b, nothing, ework)
 		@. e *= ework

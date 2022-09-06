@@ -11,7 +11,7 @@ const MOI = MathOptInterface
 
 T = Float64
 optimizer = Clarabel.Optimizer{T}()
-MOI.set(optimizer,MOI.Silent(),true)
+MOI.set(optimizer,MOI.Silent(),false)
 
 BRIDGED = MOI.Bridges.full_bridge_optimizer(
     MOI.Utilities.CachingOptimizer(
@@ -22,7 +22,7 @@ BRIDGED = MOI.Bridges.full_bridge_optimizer(
 )
 
 # See the docstring of MOI.Test.Config for other arguments.
-const CONFIG = MOI.Test.Config(
+MYCONFIG = MOI.Test.Config(
     # Modify tolerances as necessary.
     atol = 1e-4,
     rtol = 1e-4,
@@ -31,8 +31,12 @@ const CONFIG = MOI.Test.Config(
     # Pass attributes or MOI functions to `exclude` to skip tests that
     # rely on this functionality.
     exclude = Any[MOI.VariableName,
+                  MOI.ConstraintName,
+                  MOI.VariableBasisStatus,
+                  MOI.ConstraintBasisStatus,
                   MOI.delete,
-                  MOI.ObjectiveBound],
+                  MOI.ObjectiveBound,
+                  ],
 )
 
 """
@@ -62,16 +66,13 @@ implemented or that your solver doesn't support.
 """
 function __test_MOI_standard()
 
-    MOI.Test.Config(
-        exclude = Any[
-            # MOI.VariableName
-    ])
-
     MOI.Test.runtests(
         BRIDGED,
-        CONFIG,
+        MYCONFIG,
+        #include = String["<individual_test_here_for_debug>"],
         exclude = String[
-        #    "test_model_UpperBoundAlreadySet",   #fixed in https://github.com/jump-dev/MathOptInterface.jl/pull/1775,
+            # fails occasionally in some platform dependent way
+            # "test_conic_GeometricMeanCone", 
         ],
         # This argument is useful to prevent tests from failing on future
         # releases of MOI that add new tests.

@@ -12,7 +12,7 @@ function info_print_configuration(
     info::DefaultInfo{T},
     settings::Settings,
     data::DefaultProblemData{T},
-    cones::ConeSet{T}
+    cones::CompositeCone{T}
 ) where {T}
 
     if(settings.verbose == false) return end
@@ -27,6 +27,8 @@ function info_print_configuration(
     print_conedims_by_type(cones, NonnegativeConeT)
     print_conedims_by_type(cones, SecondOrderConeT)
     print_conedims_by_type(cones, PSDTriangleConeT)
+    print_conedims_by_type(cones, PowerConeT)
+    print_conedims_by_type(cones, ExponentialConeT)
     print_settings(settings, T)
     @printf("\n")
 
@@ -44,13 +46,14 @@ function info_print_status_header(
     @printf("%s", "iter    ")
     @printf("%s", "pcost        ")
     @printf("%s", "dcost       ")
+    @printf("%s", "gap       ")
     @printf("%s", "pres      ")
     @printf("%s", "dres      ")
     @printf("%s", "k/t       ")
     @printf("%s", " μ       ")
     @printf("%s", "step      ")
     @printf("\n")
-    println("-----------------------------------------------------------------------------------")
+    println("---------------------------------------------------------------------------------------------")
 
     return nothing
 end
@@ -65,6 +68,7 @@ function info_print_status(
     @printf("%3d  ", info.iterations)
     @printf("% .4e  ", info.cost_primal)
     @printf("% .4e  ", info.cost_dual)
+    @printf("%.2e  ", min(info.gap_abs,info.gap_rel))
     @printf("%.2e  ", info.res_primal)
     @printf("%.2e  ", info.res_dual)
     @printf("%.2e  ", info.ktratio)
@@ -88,7 +92,7 @@ function info_print_footer(
 
     if(settings.verbose == false) return end
 
-    println("-----------------------------------------------------------------------------------")
+    println("---------------------------------------------------------------------------------------------")
     @printf("Terminated with status = %s\n",SolverStatusDict[info.status])
     @printf("solve time = %s\n",TimerOutputs.prettytime(info.solve_time*1e9))
 
@@ -123,9 +127,11 @@ function print_settings(settings::Settings, T::DataType)
         set.tol_gap_rel
     )
 
-    @printf("  static reg : %s, ϵ = %0.1e\n",
+    @printf("  static reg : %s, ϵ1 = %0.1e, ϵ2 = %0.1e\n",
         bool_on_off(set.static_regularization_enable),
-        set.static_regularization_eps
+        set.static_regularization_constant,
+        set.static_regularization_proportional,
+
     )
     #
     @printf("  dynamic reg: %s, ϵ = %0.1e, δ = %0.1e\n",
@@ -158,7 +164,7 @@ get_precision_string(T::Type{<:Real}) = string(T)
 get_precision_string(T::Type{<:BigFloat}) = string(T," (", precision(T), " bit)")
 
 
-function print_conedims_by_type(cones::ConeSet{T}, type) where {T}
+function print_conedims_by_type(cones::CompositeCone{T}, type) where {T}
 
     maxlistlen = 5
 

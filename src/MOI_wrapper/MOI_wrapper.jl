@@ -21,10 +21,8 @@ const OptimizerSupportedMOICones{T} = Union{
     MOI.Nonnegatives,
     MOI.SecondOrderCone,
     MOI.PositiveSemidefiniteConeTriangle,
-    _DummyConeType{T},    #<-placeholder until PowerCone{T} is added
-    # MOI.PowerCone{T},
-    # MOI.DualPowerCone{T},
-    # MOI.ExponentialCone,
+    MOI.ExponentialCone,
+    MOI.PowerCone{T},
 } where {T}
 
 #Optimizer will consolidate cones of these types if possible
@@ -37,31 +35,50 @@ const MOItoClarabelCones = Dict([
     MOI.Zeros           => Clarabel.ZeroConeT,
     MOI.Nonnegatives    => Clarabel.NonnegativeConeT,
     MOI.SecondOrderCone => Clarabel.SecondOrderConeT,
-    MOI.PositiveSemidefiniteConeTriangle => Clarabel.PSDTriangleConeT
+    MOI.PositiveSemidefiniteConeTriangle => Clarabel.PSDTriangleConeT,
+    MOI.ExponentialCone => Clarabel.ExponentialConeT,
+    MOI.PowerCone       => Clarabel.PowerConeT,
 ])
+
+# PJG: PrimalStatus/DualStatus just reported as "NEARLY_FEASIBLE"
+# in the "ALMOST_SOLVED" cases.  We do not currently attempt 
+# to distinguish cases that were only "almost" due to duality 
+# gap / primal feasibility / dual feasibility.   The solver 
+# convergence checks could be be written more finely to allow 
+# separation of these different cases.  Note COSMO does 
+# something along those lines.
 
 const ClarabeltoMOITerminationStatus = Dict([
     Clarabel.SOLVED             =>  MOI.OPTIMAL,
     Clarabel.MAX_ITERATIONS     =>  MOI.ITERATION_LIMIT,
     Clarabel.MAX_TIME           =>  MOI.TIME_LIMIT,
     Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBLE,
-    Clarabel.DUAL_INFEASIBLE    =>  MOI.DUAL_INFEASIBLE
+    Clarabel.DUAL_INFEASIBLE    =>  MOI.DUAL_INFEASIBLE,
+    Clarabel.ALMOST_SOLVED      =>  MOI.ALMOST_OPTIMAL,
+    Clarabel.NUMERICAL_ERROR    =>  MOI.NUMERICAL_ERROR,
+    Clarabel.INSUFFICIENT_PROGRESS    =>  MOI.NUMERICAL_ERROR
 ])
 
 const ClarabeltoMOIPrimalStatus = Dict([
     Clarabel.SOLVED             =>  MOI.FEASIBLE_POINT,
-    Clarabel.MAX_ITERATIONS     =>  MOI.NEARLY_FEASIBLE_POINT,
-    Clarabel.MAX_TIME           =>  MOI.NEARLY_FEASIBLE_POINT,
     Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBLE_POINT,
-    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBILITY_CERTIFICATE
+    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBILITY_CERTIFICATE,
+    Clarabel.ALMOST_SOLVED      =>  MOI.NEARLY_FEASIBLE_POINT,
+    Clarabel.MAX_ITERATIONS     =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.MAX_TIME           =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.NUMERICAL_ERROR    =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.INSUFFICIENT_PROGRESS => MOI.OTHER_RESULT_STATUS,
 ])
 
 const ClarabeltoMOIDualStatus = Dict([
     Clarabel.SOLVED             =>  MOI.FEASIBLE_POINT,
-    Clarabel.MAX_ITERATIONS     =>  MOI.NEARLY_FEASIBLE_POINT,
-    Clarabel.MAX_TIME           =>  MOI.NEARLY_FEASIBLE_POINT,
     Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBILITY_CERTIFICATE,
-    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBLE_POINT
+    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBLE_POINT,
+    Clarabel.ALMOST_SOLVED      =>  MOI.NEARLY_FEASIBLE_POINT,
+    Clarabel.MAX_ITERATIONS     =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.MAX_TIME           =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.NUMERICAL_ERROR    =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.INSUFFICIENT_PROGRESS => MOI.OTHER_RESULT_STATUS,
 ])
 
 #-----------------------------
@@ -195,9 +212,12 @@ MOI.supports(::Optimizer, a::MOI.DualStatus) = true
 function MOI.get(opt::Optimizer, attr::MOI.DualStatus)
     if isnothing(opt.solver_solution) || attr.result_index != 1
         return MOI.NO_SOLUTION
+    else
+        return ClarabeltoMOIDualStatus[opt.solver_info.status]
     end
-    return ClarabeltoMOIDualStatus[opt.solver_info.status]
 end
+
+MOI.supports(::Optimizer, ::MOI.ObjectiveSense) = true
 
 MOI.supports(::Optimizer, ::MOI.Silent) = true
 MOI.get(opt::Optimizer, ::MOI.Silent) = !opt.solver_settings.verbose
@@ -570,13 +590,32 @@ function push_constraint_set!(
     s::OptimizerSupportedMOICones{T},
 ) where {T}
 
+    #we need to handle PowerCones differently here because
+    # 1) they have a power and not a a dimension (always 3),
+    # 2) we can't use [typeof(s)] as a key into MOItoClarabelCones
+    # because typeof(s) = MOI.PowerCone{T} and the dictionary
+    # has keys with the *unparametrized* types
+    if isa(s,MOI.PowerCone)
+        pow_cone_type = MOItoClarabelCones[MOI.PowerCone]
+        push!(cone_spec, pow_cone_type(s.exponent))
+        return nothing
+    end
+
+    # handle ExponentialCone differently because it
+    # doesn't take dimension as a parameter (always 3)
+    if isa(s,MOI.ExponentialCone)
+        pow_cone_type = MOItoClarabelCones[MOI.ExponentialCone]
+        push!(cone_spec, pow_cone_type())
+        return nothing
+    end
+
+    next_type = MOItoClarabelCones[typeof(s)]
+    next_dim  = _to_optimizer_conedim(length(rows),typeof(s))
+
     # merge cones together where :
     # 1) cones of the same type appear consecutively and
     # 2) those cones are 1-D.
     # This is just the zero and nonnegative cones
-
-    next_type = MOItoClarabelCones[typeof(s)]
-    next_dim  = _to_optimizer_conedim(length(rows),typeof(s))
 
     if isempty(cone_spec) || next_type ∉ OptimizerMergeableTypes || next_type != typeof(cone_spec[end])
         push!(cone_spec, next_type(next_dim))

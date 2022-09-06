@@ -48,20 +48,6 @@ function scale_values!(
 
 end
 
-#offset entries in the KKT matrix using the
-#given index into its CSC representation and
-#an optional vector of signs
-function offset_values!(
-    ldlsolver::CholmodDirectLDLSolver{T},
-    index::AbstractVector{Int},
-    offset::T,
-    signs::AbstractVector{<:Integer}
-) where{T}
-
-    #no-op.  Will just use KKT matrix as it as
-    #passed to refactor!
-end
-
 
 #refactor the linear system
 function refactor!(ldlsolver::CholmodDirectLDLSolver{T}, K::SparseMatrixCSC{T}) where{T}
@@ -75,6 +61,8 @@ function refactor!(ldlsolver::CholmodDirectLDLSolver{T}, K::SparseMatrixCSC{T}) 
         #this reuses the symbolic factorization
         ldlt!(ldlsolver.F, Symmetric(K))
     end
+
+    return issuccess(ldlsolver.F)
 end
 
 

@@ -1,7 +1,7 @@
-    # -------------------------------------
+# -------------------------------------
 # abstract type defs
 # -------------------------------------
-abstract type AbstractCone{T} end
+abstract type AbstractCone{T <: AbstractFloat} end
 
 # -------------------------------------
 # Zero Cone
@@ -98,7 +98,7 @@ mutable struct PSDConeWork{T}
     Rinv::Matrix{T}
     kronRR::Matrix{T}
     B::Matrix{T}
-    WtW::Matrix{T}
+    Hs::Matrix{T}
 
     #workspace for various internal use
     workmat1::Matrix{T}
@@ -117,14 +117,14 @@ mutable struct PSDConeWork{T}
         Rinv   = zeros(T,n,n)
         kronRR = zeros(T,n^2,n^2)
         B      = zeros(T,((n+1)*n)>>1,n^2)
-        WtW    = zeros(T,size(B,1),size(B,1))
+        Hs    = zeros(T,size(B,1),size(B,1))
 
         workmat1 = zeros(T,n,n)
         workmat2 = zeros(T,n,n)
         workvec  = zeros(T,(n*(n+1))>>1)
 
         return new(cholS,cholZ,SVD,λ,Λisqrt,R,Rinv,
-                   kronRR,B,WtW,workmat1,workmat2,workvec)
+                   kronRR,B,Hs,workmat1,workmat2,workvec)
     end
 end
 
@@ -150,10 +150,78 @@ end
 PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 
 
--# -------------------------------------
--# Dict mapping user API types to internal
- # cone data types
--# -------------------------------------
+# ------------------------------------
+# Exponential Cone
+# ------------------------------------
+
+# gradient and Hessian for the dual barrier function
+mutable struct ExponentialCone{T} <: AbstractCone{T}
+
+    H::Matrix{T}       #μ*H for the linear system
+    grad::Vector{T}
+
+    # workspace for centrality check
+    HBFGS::Matrix{T}
+    grad_work::Vector{T}
+    vec_work::Vector{T}
+    z::Vector{T}        # temporary storage for current z
+
+    cholH::Matrix{T}
+
+    function ExponentialCone{T}() where {T}
+
+        H = Matrix{T}(undef,3,3)
+        grad = Vector{T}(undef,3)
+
+        HBFGS = Matrix{T}(undef,3,3)
+        grad_work = Vector{T}(undef,3)
+        vec_work = Vector{T}(undef,3)
+        z = Vector{T}(undef,3)
+        cholH = zeros(T,3,3)
+
+
+        return new(H,grad,HBFGS,grad_work,vec_work,z,cholH)
+    end
+end
+
+ExponentialCone(args...) = ExponentialCone{DefaultFloat}(args...)
+
+# # ------------------------------------
+# # Power Cone
+# # ------------------------------------
+
+# gradient and Hessian for the dual barrier function
+mutable struct PowerCone{T} <: AbstractCone{T}
+
+    α::T
+    H::Matrix{T}       #μ*H for the linear system
+    grad::Vector{T}
+
+    # workspace for centrality check
+    HBFGS::Matrix{T}
+    grad_work::Vector{T}
+    vec_work::Vector{T}
+    vec_work_2::Vector{T}
+    z::Vector{T}            # temporary storage for current z
+    cholH::Matrix{T} 
+
+    function PowerCone{T}(α::T) where {T}
+
+        H = Matrix{T}(undef,3,3)
+        grad = Vector{T}(undef,3)
+        HBFGS = Matrix{T}(undef,3,3)
+        grad_work = Vector{T}(undef,3)
+        vec_work = Vector{T}(undef,3)
+        vec_work_2 = Vector{T}(undef,3)
+        z = Vector{T}(undef,3)
+        cholH = zeros(T,3,3)
+        
+        return new(α,H,grad,HBFGS,grad_work,vec_work,vec_work_2,z,cholH)
+    end
+end
+
+PowerCone(args...) = PowerCone{DefaultFloat}(args...)
+
 
 """
     ConeDict
@@ -165,4 +233,6 @@ const ConeDict = Dict(
     NonnegativeConeT => NonnegativeCone,
     SecondOrderConeT => SecondOrderCone,
     PSDTriangleConeT => PSDTriangleCone,
+    ExponentialConeT => ExponentialCone,
+          PowerConeT => PowerCone,
 )

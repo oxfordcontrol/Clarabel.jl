@@ -22,7 +22,7 @@ mutable struct DefaultKKTSystem{T} <: AbstractKKTSystem{T}
 
         function DefaultKKTSystem{T}(
             data::DefaultProblemData{T},
-            cones::ConeSet{T},
+            cones::CompositeCone{T},
             settings::Settings{T}
         ) where {T}
 
@@ -55,20 +55,22 @@ end
 
 DefaultKKTSystem(args...) = DefaultKKTSystem{DefaultFloat}(args...)
 
-
 function kkt_update!(
     kktsystem::DefaultKKTSystem{T},
     data::DefaultProblemData{T},
-    cones::ConeSet{T}
+    cones::CompositeCone{T}
 ) where {T}
 
     #update the linear solver with new cones
-    kktsolver_update!(kktsystem.kktsolver,cones)
+    is_success  = kktsolver_update!(kktsystem.kktsolver,cones)
+
+    #bail if the factorization has failed 
+    is_success || return is_success
 
     #calculate KKT solution for constant terms
-    _kkt_solve_constant_rhs!(kktsystem,data)
+    is_success = _kkt_solve_constant_rhs!(kktsystem,data)
 
-    return nothing
+    return is_success
 end
 
 function _kkt_solve_constant_rhs!(
@@ -76,11 +78,13 @@ function _kkt_solve_constant_rhs!(
     data::DefaultProblemData{T}
 ) where {T}
 
-    kktsystem.workx .= -data.q;
-    kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, data.b)
-    kktsolver_solve!(kktsystem.kktsolver, kktsystem.x2, kktsystem.z2)
+    @. kktsystem.workx = -data.q;
 
-    return nothing
+    kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, data.b)
+    is_success = kktsolver_solve!(kktsystem.kktsolver, kktsystem.x2, kktsystem.z2)
+
+    return is_success
+
 end
 
 
@@ -95,17 +99,20 @@ function kkt_solve_initial_point!(
     kktsystem.workx .= zero(T)
     kktsystem.workz .= data.b
     kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
-    kktsolver_solve!(kktsystem.kktsolver, variables.x, variables.s)
+    is_success = kktsolver_solve!(kktsystem.kktsolver, variables.x, variables.s)
+
+    if !is_success return is_success end
 
     # solve with [-q;0] as a RHS to get z initializer
     # zero out any sparse cone variables at end
-    kktsystem.workx .= -data.q
+    @. kktsystem.workx = -data.q
     kktsystem.workz .=  zero(T)
 
     kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
-    kktsolver_solve!(kktsystem.kktsolver, nothing, variables.z)
+    is_success = kktsolver_solve!(kktsystem.kktsolver, nothing, variables.z)
 
-    return nothing
+    return is_success
+
 end
 
 
@@ -115,7 +122,7 @@ function kkt_solve!(
     rhs::DefaultVariables{T},
     data::DefaultProblemData{T},
     variables::DefaultVariables{T},
-    cones::ConeSet{T},
+    cones::CompositeCone{T},
     steptype::Symbol   #:affine or :combined
 ) where{T}
 
@@ -127,38 +134,41 @@ function kkt_solve!(
     #-----------
     @. workx = rhs.x
 
-    #compute Wᵀ(λ \ ds), with shortcut in affine case
-    Wtlinvds = kktsystem.work_conic
+    # compute the vector c in the step equation HₛΔz + Δs = -c,  
+    # with shortcut in affine case
+    Δs_const_term = kktsystem.work_conic
 
     if steptype == :affine
-        @. Wtlinvds = variables.s
+        @. Δs_const_term = variables.s
 
     else  #:combined expected, but any general RHS should do this
-        #we can use the overall LHS output as
-        #additional workspace for the moment
-        tmp = lhs.z;
-        @. tmp = rhs.z  #Don't want to modify our RHS
-        cones_λ_inv_circ_op!(cones, tmp, rhs.s)                  #tmp = λ \ ds
-        cones_gemv_W!(cones, :T, tmp, Wtlinvds, one(T), zero(T)) #Wᵀ(λ \ ds) = Wᵀ(tmp)
+        #we can use the overall LHS output as additional workspace for the moment
+        Δs_from_Δz_offset!(cones,Δs_const_term,rhs.s,lhs.z)
     end
-    @. workz = Wtlinvds - rhs.z
 
+    @. workz = Δs_const_term - rhs.z
+
+
+    #---------------------------------------------------
     #this solves the variable part of reduced KKT system
     kktsolver_setrhs!(kktsystem.kktsolver, workx, workz)
-    kktsolver_solve!(kktsystem.kktsolver,x1,z1)
+    is_success = kktsolver_solve!(kktsystem.kktsolver,x1,z1)
+
+    if !is_success return false end
 
     #solve for Δτ.
     #-----------
     # Numerator first
     ξ   = workx
-    ξ  .= variables.x / variables.τ
+    @. ξ = variables.x / variables.τ
+
     P   = Symmetric(data.P)
 
     tau_num = rhs.τ - rhs.κ/variables.τ + dot(data.q,x1) + dot(data.b,z1) + 2*quad_form(ξ,P,x1)
 
     #offset ξ for the quadratic form in the denominator
     ξ_minus_x2    = ξ   #alias to ξ, same as workx
-    ξ_minus_x2  .-= x2
+    @. ξ_minus_x2  -= x2
 
     tau_den  = variables.κ/variables.τ - dot(data.q,x2) - dot(data.b,z2)
     tau_den += quad_form(ξ_minus_x2,P,ξ_minus_x2) - quad_form(x2,P,x2)
@@ -169,16 +179,21 @@ function kkt_solve!(
     @. lhs.x = x1 + lhs.τ * x2
     @. lhs.z = z1 + lhs.τ * z2
 
-    #solve for Δs = -Wᵀ(λ \ dₛ + WΔz) = -Wᵀ(λ \ dₛ) - WᵀWΔz
-    #where the first part is already in work_conic
+
+    #solve for Δs
     #-------------
-    cones_gemv_W!(cones, :N, lhs.z, workz,  one(T), zero(T))    #work = WΔz
-    cones_gemv_W!(cones, :T, workz, lhs.s, -one(T), zero(T))    #Δs = -WᵀWΔz
-    @. lhs.s -= Wtlinvds
+    # compute the linear term HₛΔz, where Hs = WᵀW for symmetric
+    # cones and Hs = μH(z) for asymmetric cones
+    mul_Hs!(cones,lhs.s,lhs.z,workz)
+    @. lhs.s = -(lhs.s + Δs_const_term)
 
     #solve for Δκ
     #--------------
     lhs.κ = -(rhs.κ + variables.κ * lhs.τ) / variables.τ
 
-    return nothing
+    # we don't check the validity of anything
+    # after the KKT solve, so just return is_success
+    # without further validation
+    return is_success
+
 end
