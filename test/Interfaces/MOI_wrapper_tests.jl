@@ -60,7 +60,7 @@ This function runs all the tests in MathOptInterface.Test.
 Pass arguments to `exclude` to skip tests for functionality that is not
 implemented or that your solver doesn't support.
 """
-function test_MOI_standard()
+function __test_MOI_standard()
 
     MOI.Test.Config(
         exclude = Any[
@@ -71,7 +71,7 @@ function test_MOI_standard()
         BRIDGED,
         CONFIG,
         exclude = String[
-            "test_model_UpperBoundAlreadySet",   #fixed in https://github.com/jump-dev/MathOptInterface.jl/pull/1775,  waiting for it to be merged to next MOI release.
+        #    "test_model_UpperBoundAlreadySet",   #fixed in https://github.com/jump-dev/MathOptInterface.jl/pull/1775,
         ],
         # This argument is useful to prevent tests from failing on future
         # releases of MOI that add new tests.
@@ -93,7 +93,7 @@ end
 
 function test_passing_settings()
     optimizer = Clarabel.Optimizer{T}(; verbose=false)
-    @test optimizer.inner.settings.verbose === false
+    @test optimizer.solver_settings.verbose === false
     return
 end
 
