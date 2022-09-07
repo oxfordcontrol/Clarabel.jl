@@ -179,7 +179,7 @@ MOI.get(opt::Optimizer, ::MOI.ResultCount)       = Int(!isnothing(opt.solver_sol
 MOI.get(opt::Optimizer, ::MOI.NumberOfVariables) = opt.solver_nvars
 MOI.get(opt::Optimizer, ::MOI.SolveTimeSec)      = opt.solver_info.solve_time
 MOI.get(opt::Optimizer, ::MOI.RawStatusString)   = string(opt.solver_info.status)
-MOI.get(opt::Optimizer, ::MOI.BarrierIterations) = opt.solver_info.iterations
+MOI.get(opt::Optimizer, ::MOI.BarrierIterations) = Int(opt.solver_info.iterations)
 
 function MOI.get(opt::Optimizer, a::MOI.ObjectiveValue)
     MOI.check_result_index_bounds(opt, a)
