@@ -1,4 +1,4 @@
-using StaticArrays
+using StaticArrays, StaticArraysCore
 # -------------------------------------
 # abstract type defs
 # -------------------------------------
@@ -158,27 +158,21 @@ PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 # gradient and Hessian for the dual barrier function
 mutable struct ExponentialCone{T} <: AbstractCone{T}
 
-    H::MMatrix{3,3,T,9}       #μ*H for the linear system
-    grad::MVector{3,T}
-
-    # workspace for centrality check
-    HBFGS::MMatrix{3,3,T,9}
-    z::MVector{3,T}           #holds copy of z at scaling point
-
-    cholH::MMatrix{3,3,T,9}
+    H_dual::MMatrix{3,3,T,9}        #Hessian of the dual barrier at z 
+    Hs::MMatrix{3,3,T,9}            #scaling matrix
+    grad::MVector{3,T}              #gradient of the dual barrier at z 
+    z::MVector{3,T}                 #holds copy of z at scaling point
+    cholH::MMatrix{3,3,T,9}         # workspace for 3x3 Cholesky factorization
 
     function ExponentialCone{T}() where {T}
 
-        H = @MMatrix zeros(T,3,3)
+        H_dual = @MMatrix zeros(T,3,3)
+        Hs = @MMatrix zeros(T,3,3)
         grad = @MVector zeros(T,3)
-
-        HBFGS = @MMatrix zeros(T,3,3)
-        grad_work = @MVector zeros(T,3)
-        vec_work = @MVector zeros(T,3)
         z = @MVector zeros(T,3)
         cholH = @MMatrix zeros(T,3,3)
 
-        return new(H,grad,HBFGS,z,cholH)
+        return new(H_dual,Hs,grad,z,cholH)
     end
 end
 

@@ -56,9 +56,10 @@ function update_scaling!(
 ) where {T}
 
     # update both gradient and Hessian for function f*(z) at the point z
-    # NB: the update order can't be switched as we reuse memory in the 
-    # Hessian computation Hessian update
-    _update_grad_HBFGS(K,s,z,μ,scaling_strategy)
+    _update_dual_grad_H(K,z)
+
+    # update the scaling matrix Hs
+    _update_Hs(K,s,z,μ,scaling_strategy)
 
     # K.z .= z
     @inbounds for i = 1:3
@@ -78,8 +79,8 @@ function get_Hs!(
     Hsblock::AbstractVector{T}
 ) where {T}
 
-    # stores triu(K.HBFGS) into a vector
-    _pack_triu(Hsblock,K.HBFGS)
+    # stores triu(K.Hs) into a vector
+    _pack_triu(Hsblock,K.Hs)
 
 end
 
@@ -91,10 +92,9 @@ function mul_Hs!(
     workz::AbstractVector{T}
 ) where {T}
 
-    # mul!(ls,K.HBFGS,lz,-one(T),zero(T))
-    H = K.HBFGS
+    Hs = K.Hs
     @inbounds for i = 1:3
-        y[i] =  H[i,1]*x[1] + H[i,2]*x[2] + H[i,3]*x[3]
+        y[i] =  Hs[i,1]*x[1] + Hs[i,2]*x[2] + Hs[i,3]*x[3]
     end
 
 end
@@ -348,7 +348,7 @@ function _higher_correction!(
 ) where {T}
 
     # u for H^{-1}*Δs
-    H = K.H
+    H = K.H_dual
     #u = K.vec_work
     u = @MVector zeros(T,3)
     z = K.z
@@ -422,8 +422,8 @@ end
 #   \tilde z = -f'(s), \tilde s = - f*'(z)
 
 
-# update the gradient and the HBFGS
-function _update_grad_HBFGS(
+# update the scaling matrix Hs
+function _update_Hs(
     K::ExponentialCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
@@ -431,28 +431,36 @@ function _update_grad_HBFGS(
     scaling_strategy::ScalingStrategy
 ) where {T}
 
-    st = K.grad
-    zt = @MVector zeros(T,3)
-    δs = @MVector zeros(T,3)
+    #Choose the scaling strategy
+    if(scaling_strategy == Dual::ScalingStrategy)
+        # Dual scaling: Hs = μ*H
+        _use_dual_scaling(K,K.Hs,K.H_dual,μ)
+    else
+        # Primal-dual scaling
+        _use_primal_dual_scaling(K,K.Hs,K.H_dual,s,z)
+    end 
 
-    #shared for δz, tmp, axis_z
-    tmp = @MVector zeros(T,3)
-    H = K.H
-    HBFGS = K.HBFGS
+end
 
-    # Hessian computation, compute μ locally
+# update gradient and Hessian at dual z
+function _update_dual_grad_H(
+    K::ExponentialCone{T},
+    z::AbstractVector{T}
+) where {T}
+    grad = K.grad
+    H = K.H_dual
+
     l = logsafe(-z[3]/z[1])
     r = -z[1]*l-z[1]+z[2]
 
     # compute the gradient at z
-    # gradient_f(K,st,z)  #st (K.grad) is indeed the gradient at z
     c2 = one(T)/r
 
-    st[1] = c2*l - 1/z[1]
-    st[2] = -c2
-    st[3] = (c2*z[1]-1)/z[3]
+    grad[1] = c2*l - 1/z[1]
+    grad[2] = -c2
+    grad[3] = (c2*z[1]-1)/z[3]
 
-    # compute_Hessian(K,z,H)
+    # compute the Hessian at z
     H[1,1] = ((r*r-z[1]*r+l*l*z[1]*z[1])/(r*z[1]*z[1]*r))
     H[1,2] = (-l/(r*r))
     H[2,1] = H[1,2]
@@ -461,31 +469,46 @@ function _update_grad_HBFGS(
     H[3,1] = H[1,3]
     H[2,3] = (-z[1]/(r*r*z[3]))
     H[3,2] = H[2,3]
-    H[3,3] = ((r*r-z[1]*r+z[1]*z[1])/(r*r*z[3]*z[3]))    
+    H[3,3] = ((r*r-z[1]*r+z[1]*z[1])/(r*r*z[3]*z[3])) 
+    
+    return nothing
+end
 
-    #Use the local mu with primal dual strategy.  Otherwise 
-    #we use the global one 
-    if(scaling_strategy == Dual::ScalingStrategy)
-        # HBFGS .= μ*H
-        @inbounds for i = 1:3
-            @inbounds for j = 1:3
-                HBFGS[i,j] = μ*H[i,j]
-            end
-        end
-        return nothing
-    end 
-    dot_sz = dot(z,s)
-    μ = dot_sz/3
+# use the dual scaling strategy
+function _use_dual_scaling(
+    K::ExponentialCone{T},
+    Hs::AbstractMatrix{T},
+    H_dual::AbstractMatrix{T},
+    μ::T
+) where {T}
+    @inbounds for i = 1:9
+        Hs[i] = μ*H_dual[i]
+    end
+end
+
+# use the primal-dual scaling strategy
+function _use_primal_dual_scaling(
+    K::ExponentialCone{T},
+    Hs::AbstractMatrix{T},
+    H_dual::AbstractMatrix{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+
+    zt = @MVector zeros(T,3)
+    st = K.grad
+    δs = @MVector zeros(T,3)
+    tmp = @MVector zeros(T,3) #shared for δz, tmp, axis_z
 
     # compute zt,st,μt locally
     # NB: zt,st have different sign convention wrt Mosek paper
     _gradient_primal(K,zt,s)
-
+    dot_sz = dot(z,s)
+    μ = dot_sz/3
     μt = dot(zt,st)/3
-    
+
     # δs = s + μ*st
     # δz = z + μ*zt     
-
     @inbounds for i = 1:3
         δs[i] = s[i] + μ*st[i]
     end
@@ -497,39 +520,35 @@ function _update_grad_HBFGS(
     dot_δsz = dot(δs,δz)
 
     de1 = μ*μt-1
-    de2 = dot(zt,H,zt) - 3*μt*μt
+    de2 = dot(zt,H_dual,zt) - 3*μt*μt
 
     #if !(abs(de1) > eps(T) && abs(de2) > eps(T))
-    if !(min(abs(de1),abs(de2),abs(dot_sz),abs(dot_δsz)) > eps(T))
+    # if !(min(abs(de1),abs(de2),abs(dot_sz),abs(dot_δsz)) > eps(T))
+    if abs(de1) < sqrt(eps(T))
+        # Hs = μH when s,z are on the central path
+        _use_dual_scaling(K,Hs,H_dual,μ)
 
-        # HBFGS when s,z are on the central path
-        @inbounds for i = 1:3
-            @inbounds for j = 1:3
-                HBFGS[i,j] = μ*H[i,j]
-            end
-        end
         return nothing
     else
         # compute t
         # tmp = μt*st - H*zt
         @inbounds for i = 1:3
-            tmp[i] = μt*st[i] - H[i,1]*zt[1] - H[i,2]*zt[2] - H[i,3]*zt[3]
+            tmp[i] = μt*st[i] - H_dual[i,1]*zt[1] - H_dual[i,2]*zt[2] - H_dual[i,3]*zt[3]
         end
 
-        # HBFGS as a workspace
-        copyto!(HBFGS,H)
+        # Hs as a workspace
+        copyto!(Hs,H_dual)
         @inbounds for i = 1:3
             @inbounds for j = i:3
-                HBFGS[i,j] -= st[i]*st[j]/3 + tmp[i]*tmp[j]/de2
+                Hs[i,j] -= st[i]*st[j]/3 + tmp[i]*tmp[j]/de2
             end
         end
         # symmetrize matrix
-        HBFGS[2,1] = HBFGS[1,2]
-        HBFGS[3,1] = HBFGS[1,3]
-        HBFGS[3,2] = HBFGS[2,3]
+        Hs[2,1] = Hs[1,2]
+        Hs[3,1] = Hs[1,3]
+        Hs[3,2] = Hs[2,3]
         
-
-        t = μ*norm(HBFGS)  #Frobenius norm
+        t = μ*norm(Hs)  #Frobenius norm
 
         @assert dot_sz > 0
         @assert dot_δsz > 0
@@ -543,16 +562,16 @@ function _update_grad_HBFGS(
         axis_z[3] = z[1]*zt[2] - z[2]*zt[1]
         normalize!(axis_z)
 
-        # HBFGS = s*s'/⟨s,z⟩ + δs*δs'/⟨δs,δz⟩ + t*axis_z*axis_z'
+        # Hs = s*s'/⟨s,z⟩ + δs*δs'/⟨δs,δz⟩ + t*axis_z*axis_z'
         @inbounds for i = 1:3
             @inbounds for j = i:3
-                HBFGS[i,j] = s[i]*s[j]/dot_sz + δs[i]*δs[j]/dot_δsz + t*axis_z[i]*axis_z[j]
+                Hs[i,j] = s[i]*s[j]/dot_sz + δs[i]*δs[j]/dot_δsz + t*axis_z[i]*axis_z[j]
             end
         end
         # symmetrize matrix
-        HBFGS[2,1] = HBFGS[1,2]
-        HBFGS[3,1] = HBFGS[1,3]
-        HBFGS[3,2] = HBFGS[2,3]
+        Hs[2,1] = Hs[1,2]
+        Hs[3,1] = Hs[1,3]
+        Hs[3,2] = Hs[2,3]
 
         return nothing
     end
