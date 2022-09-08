@@ -7,7 +7,6 @@
 # to R^3 for faster execution.  
 
 function _step_length_3d_cone(
-    wq::AbstractVector{T},
     dq::AbstractVector{T},
     q::AbstractVector{T},
     α_init::T,
@@ -15,6 +14,9 @@ function _step_length_3d_cone(
     backtrack::T,
     is_in_cone_fcn::Function
 ) where {T}
+
+    #statically allocated work vector
+    wq = @MVector zeros(T,3)
 
     α = α_init
     while true

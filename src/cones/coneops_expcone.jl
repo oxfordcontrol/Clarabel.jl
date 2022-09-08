@@ -56,9 +56,10 @@ function update_scaling!(
 ) where {T}
 
     # update both gradient and Hessian for function f*(z) at the point z
-    # NB: the update order can't be switched as we reuse memory in the 
-    # Hessian computation Hessian update
-    _update_grad_HBFGS(K,s,z,μ,scaling_strategy)
+    _update_dual_grad_H(K,z)
+
+    # update the scaling matrix Hs
+    _update_Hs(K,s,z,μ,scaling_strategy)
 
     # K.z .= z
     @inbounds for i = 1:3
@@ -78,8 +79,8 @@ function get_Hs!(
     Hsblock::AbstractVector{T}
 ) where {T}
 
-    # stores triu(K.HBFGS) into a vector
-    _pack_triu(Hsblock,K.HBFGS)
+    # stores triu(K.Hs) into a vector
+    _pack_triu(Hsblock,K.Hs)
 
 end
 
@@ -91,10 +92,9 @@ function mul_Hs!(
     workz::AbstractVector{T}
 ) where {T}
 
-    # mul!(ls,K.HBFGS,lz,-one(T),zero(T))
-    H = K.HBFGS
+    Hs = K.Hs
     @inbounds for i = 1:3
-        y[i] =  H[i,1]*x[1] + H[i,2]*x[2] + H[i,3]*x[3]
+        y[i] =  Hs[i,1]*x[1] + Hs[i,2]*x[2] + Hs[i,3]*x[3]
     end
 
 end
@@ -119,9 +119,10 @@ function combined_ds_shift!(
     step_s::AbstractVector{T},
     σμ::T
 ) where {T}
-    η = K.grad_work
+    #η = K.grad_work
+    η = @MVector zeros(T,3)
 
-    #3rd order correction requires input variables.z
+    #3rd order correction requires input variables z
     _higher_correction!(K,η,step_s,step_z)             
 
     @inbounds for i = 1:3
@@ -158,9 +159,9 @@ function step_length(
 
     backtrack = settings.linesearch_backtrack_step
     αmin      = settings.min_terminate_step_length
-
-    αz = _step_length_3d_cone(K.vec_work, dz, z, αmax, αmin,  backtrack, _is_dual_feasible_expcone)
-    αs = _step_length_3d_cone(K.vec_work, ds, s, αmax, αmin,  backtrack, _is_primal_feasible_expcone)
+    
+    αz = _step_length_3d_cone(dz, z, αmax, αmin,  backtrack, _is_dual_feasible_expcone)
+    αs = _step_length_3d_cone(ds, s, αmax, αmin,  backtrack, _is_primal_feasible_expcone)
 
     return (αz,αs)
 end
@@ -336,8 +337,25 @@ function _wright_omega(z::T) where {T}
     return w;
 end
 
-# 3rd-order correction at the point z, 
-# w.r.t. directions u,v and then save it to η
+# 3rd-order correction at the point z.  Output is η.
+#
+# η = -0.5*[(dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + 
+#      dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv]
+#
+# where :
+# Hψ = [  1/z[1]    0   -1/z[3];
+#           0       0   0;
+#         -1/z[3]   0   z[1]/(z[3]*z[3]);]
+# dotψuv = [-u[1]*v[1]/(z[1]*z[1]) + u[3]*v[3]/(z[3]*z[3]); 
+#            0; 
+#           (u[3]*v[1]+u[1]*v[3])/(z[3]*z[3]) - 2*z[1]*u[3]*v[3]/(z[3]*z[3]*z[3])]
+#
+# dothuv = [-2*u[1]*v[1]/(z[1]*z[1]*z[1]) ; 
+#            0; 
+#           -2*u[3]*v[3]/(z[3]*z[3]*z[3])]
+# Hψv = Hψ*v
+# Hψu = Hψ*u
+#gψ is used inside η
 
 function _higher_correction!(
     K::ExponentialCone{T},
@@ -347,8 +365,8 @@ function _higher_correction!(
 ) where {T}
 
     # u for H^{-1}*Δs
-    H = K.H
-    u = K.vec_work
+    H = K.H_dual
+    u = @MVector zeros(T,3)
     z = K.z
  
     #solve H*u = ds
@@ -371,25 +389,6 @@ function _higher_correction!(
 
     dotψu = dot(η,u)
     dotψv = dot(η,v)
-
-    # 3rd order correction: 
-    # η = -0.5*[(dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + 
-    #      dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv]
-    #
-    # where :
-    # Hψ = [  1/z[1]    0   -1/z[3];
-    #           0       0   0;
-    #         -1/z[3]   0   z[1]/(z[3]*z[3]);]
-    # dotψuv = [-u[1]*v[1]/(z[1]*z[1]) + u[3]*v[3]/(z[3]*z[3]); 
-    #            0; 
-    #           (u[3]*v[1]+u[1]*v[3])/(z[3]*z[3]) - 2*z[1]*u[3]*v[3]/(z[3]*z[3]*z[3])]
-    #
-    # dothuv = [-2*u[1]*v[1]/(z[1]*z[1]*z[1]) ; 
-    #            0; 
-    #           -2*u[3]*v[3]/(z[3]*z[3]*z[3])]
-    # Hψv = Hψ*v
-    # Hψu = Hψ*u
-    #gψ is used inside η
 
     coef = ((u[1]*(v[1]/z[1] - v[3]/z[3]) + u[3]*(z[1]*v[3]/z[3] - v[1])/z[3])*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)
     @inbounds for i = 1:3
@@ -420,35 +419,45 @@ end
 #   \tilde z = -f'(s), \tilde s = - f*'(z)
 
 
-# update the gradient and the HBFGS
-function _update_grad_HBFGS(
+# update the scaling matrix Hs
+function _update_Hs(
     K::ExponentialCone{T},
     s::AbstractVector{T},
     z::AbstractVector{T},
     μ::T,
     scaling_strategy::ScalingStrategy
 ) where {T}
-    # reuse memory
-    st = K.grad
-    zt = K.vec_work
-    δs = K.grad_work
-    tmp = K.z   #shared workspace for δz, tmp, axis_z
-    H = K.H
-    HBFGS = K.HBFGS
 
-    # Hessian computation, compute μ locally
+# Choose the scaling strategy
+    if(scaling_strategy == Dual::ScalingStrategy)
+        # Dual scaling: Hs = μ*H
+        _use_dual_scaling(K,K.Hs,K.H_dual,μ)
+    else
+        # Primal-dual scaling
+        _use_primal_dual_scaling(K,K.Hs,K.H_dual,s,z)
+    end 
+
+end
+
+# update gradient and Hessian at dual z
+function _update_dual_grad_H(
+    K::ExponentialCone{T},
+    z::AbstractVector{T}
+) where {T}
+    grad = K.grad
+    H = K.H_dual
+
     l = logsafe(-z[3]/z[1])
     r = -z[1]*l-z[1]+z[2]
 
     # compute the gradient at z
-    # gradient_f(K,st,z)  #st (K.grad) is indeed the gradient at z
     c2 = one(T)/r
 
-    st[1] = c2*l - 1/z[1]
-    st[2] = -c2
-    st[3] = (c2*z[1]-1)/z[3]
+    grad[1] = c2*l - 1/z[1]
+    grad[2] = -c2
+    grad[3] = (c2*z[1]-1)/z[3]
 
-    # compute_Hessian(K,z,H)
+    # compute the Hessian at z
     H[1,1] = ((r*r-z[1]*r+l*l*z[1]*z[1])/(r*z[1]*z[1]*r))
     H[1,2] = (-l/(r*r))
     H[2,1] = H[1,2]
@@ -457,98 +466,99 @@ function _update_grad_HBFGS(
     H[3,1] = H[1,3]
     H[2,3] = (-z[1]/(r*r*z[3]))
     H[3,2] = H[2,3]
-    H[3,3] = ((r*r-z[1]*r+z[1]*z[1])/(r*r*z[3]*z[3]))    
+    H[3,3] = ((r*r-z[1]*r+z[1]*z[1])/(r*r*z[3]*z[3])) 
+    
+    return nothing
+end
 
-    #Use the local mu with primal dual strategy.  Otherwise 
-    #we use the global one 
-    if(scaling_strategy == Dual::ScalingStrategy)
-        # HBFGS .= μ*H
-        @inbounds for i = 1:3
-            @inbounds for j = 1:3
-                HBFGS[i,j] = μ*H[i,j]
-            end
-        end
-        return nothing
-    end 
-    dot_sz = dot(z,s)
-    μ = dot_sz/3
+# use the dual scaling strategy
+function _use_dual_scaling(
+    K::ExponentialCone{T},
+    μ::T
+) where {T}
+    @inbounds for i = 1:9
+        K.Hs[i] = μ*K.H_dual[i]
+    end
+end
+
+# use the primal-dual scaling strategy
+function _use_primal_dual_scaling(
+    K::ExponentialCone{T},
+    s::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+
+    (Hs,H_dual) = (K.Hs,K.H_dual);
+
+    zt = @MVector zeros(T,3)
+    st = K.grad
+    δs = @MVector zeros(T,3)
+    tmp = @MVector zeros(T,3) #shared for δz, tmp, axis_z
 
     # compute zt,st,μt locally
     # NB: zt,st have different sign convention wrt Mosek paper
     _gradient_primal(K,zt,s)
-
+    dot_sz = dot(z,s)
+    μ = dot_sz/3
     μt = dot(zt,st)/3
 
     # δs = s + μ*st
-    # δz = z + μ*zt     
-
+    # δz = z + μ*zt 
+    δz = tmp    
     @inbounds for i = 1:3
         δs[i] = s[i] + μ*st[i]
-    end
-
-    δz = tmp
-    @inbounds for i = 1:3
         δz[i] = z[i] + μ*zt[i]
     end    
     dot_δsz = dot(δs,δz)
 
     de1 = μ*μt-1
-    de2 = dot(zt,H,zt) - 3*μt*μt
+    de2 = dot(zt,H_dual,zt) - 3*μt*μt
 
-    if !(abs(de1) > eps(T) && abs(de2) > eps(T))
-
-        # HBFGS when s,z are on the central path
-        @inbounds for i = 1:3
-            @inbounds for j = 1:3
-                HBFGS[i,j] = μ*H[i,j]
-            end
-        end
-        return nothing
-    else
-        # compute t
-        # tmp = μt*st - H*zt
-        @inbounds for i = 1:3
-            tmp[i] = μt*st[i] - H[i,1]*zt[1] - H[i,2]*zt[2] - H[i,3]*zt[3]
-        end
-
-        # HBFGS as a workspace
-        copyto!(HBFGS,H)
-        @inbounds for i = 1:3
-            @inbounds for j = i:3
-                HBFGS[i,j] -= st[i]*st[j]/3 + tmp[i]*tmp[j]/de2
-            end
-        end
-        # symmetrize matrix
-        HBFGS[2,1] = HBFGS[1,2]
-        HBFGS[3,1] = HBFGS[1,3]
-        HBFGS[3,2] = HBFGS[2,3]
-        
-
-        t = μ*norm(HBFGS)  #Frobenius norm
-
-        @assert dot_sz > 0
-        @assert dot_δsz > 0
-        @assert t > 0
-
-        # generate the remaining axis
-        # axis_z = cross(z,zt)
-        axis_z = tmp
-        axis_z[1] = z[2]*zt[3] - z[3]*zt[2]
-        axis_z[2] = z[3]*zt[1] - z[1]*zt[3]
-        axis_z[3] = z[1]*zt[2] - z[2]*zt[1]
-        normalize!(axis_z)
-
-        # HBFGS = s*s'/⟨s,z⟩ + δs*δs'/⟨δs,δz⟩ + t*axis_z*axis_z'
-        @inbounds for i = 1:3
-            @inbounds for j = i:3
-                HBFGS[i,j] = s[i]*s[j]/dot_sz + δs[i]*δs[j]/dot_δsz + t*axis_z[i]*axis_z[j]
-            end
-        end
-        # symmetrize matrix
-        HBFGS[2,1] = HBFGS[1,2]
-        HBFGS[3,1] = HBFGS[1,3]
-        HBFGS[3,2] = HBFGS[2,3]
+    if abs(de1) < sqrt(eps(T))
+        # Hs = μH when s,z are on the central path
+        _use_dual_scaling(K,Hs,H_dual,μ)
 
         return nothing
     end
+
+    # compute t
+    # tmp = μt*st - H*zt
+    @inbounds for i = 1:3
+        tmp[i] = μt*st[i] - H_dual[i,1]*zt[1] - H_dual[i,2]*zt[2] - H_dual[i,3]*zt[3]
+    end
+    # Hs as a workspace
+    copyto!(Hs,H_dual)
+    @inbounds for i = 1:3
+        @inbounds for j = i:3
+            Hs[i,j] -= st[i]*st[j]/3 + tmp[i]*tmp[j]/de2
+        end
+    end
+    # symmetrize matrix
+    Hs[2,1] = Hs[1,2]
+    Hs[3,1] = Hs[1,3]
+    Hs[3,2] = Hs[2,3]
+    
+    t = μ*norm(Hs)  #Frobenius norm
+    @assert dot_sz > 0
+    @assert dot_δsz > 0
+    @assert t > 0
+    # generate the remaining axis
+    # axis_z = cross(z,zt)
+    axis_z = tmp
+    axis_z[1] = z[2]*zt[3] - z[3]*zt[2]
+    axis_z[2] = z[3]*zt[1] - z[1]*zt[3]
+    axis_z[3] = z[1]*zt[2] - z[2]*zt[1]
+    normalize!(axis_z)
+    # Hs = s*s'/⟨s,z⟩ + δs*δs'/⟨δs,δz⟩ + t*axis_z*axis_z'
+    @inbounds for i = 1:3
+        @inbounds for j = i:3
+            Hs[i,j] = s[i]*s[j]/dot_sz + δs[i]*δs[j]/dot_δsz + t*axis_z[i]*axis_z[j]
+        end
+    end
+    # symmetrize matrix
+    Hs[2,1] = Hs[1,2]
+    Hs[3,1] = Hs[1,3]
+    Hs[3,2] = Hs[2,3]
+    return nothing
+    
 end
