@@ -119,7 +119,9 @@ function combined_ds_shift!(
     step_s::AbstractVector{T},
     σμ::T
 ) where {T}
+
     η = similar(K.grad)
+
 
     #3rd order correction requires input variables z
     _higher_correction!(K,η,step_s,step_z)             
@@ -518,7 +520,6 @@ function _use_primal_dual_scaling(
     if abs(de1) < sqrt(eps(T))
         # Hs = μH when s,z are on the central path
         _use_dual_scaling(K,μ)
-
         return nothing
     end
 
