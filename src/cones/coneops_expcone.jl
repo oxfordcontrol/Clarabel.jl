@@ -432,10 +432,10 @@ function _update_Hs(
 # Choose the scaling strategy
     if(scaling_strategy == Dual::ScalingStrategy)
         # Dual scaling: Hs = μ*H
-        _use_dual_scaling(K,K.Hs,K.H_dual,μ)
+        _use_dual_scaling(K,μ)
     else
         # Primal-dual scaling
-        _use_primal_dual_scaling(K,K.Hs,K.H_dual,s,z)
+        _use_primal_dual_scaling(K,s,z)
     end 
 
 end
@@ -517,7 +517,7 @@ function _use_primal_dual_scaling(
 
     if abs(de1) < sqrt(eps(T))
         # Hs = μH when s,z are on the central path
-        _use_dual_scaling(K,Hs,H_dual,μ)
+        _use_dual_scaling(K,μ)
 
         return nothing
     end
