@@ -6,7 +6,13 @@
 # function because cone lengths are hardcoded
 # to R^3 for faster execution.  
 
+# PJG: I reintroduced 'work' here since only the caller 
+# will know how to make an appropriately typed SizedArray
+# or MArray.   I guess this way we only end up the true 
+# step returned in the first argument
+
 function _step_length_3d_cone(
+    wq::AbstractVector{T},
     dq::AbstractVector{T},
     q::AbstractVector{T},
     α_init::T,
@@ -14,9 +20,6 @@ function _step_length_3d_cone(
     backtrack::T,
     is_in_cone_fcn::Function
 ) where {T}
-
-    #statically allocated work vector
-    wq = @MVector zeros(T,3)
 
     α = α_init
     while true

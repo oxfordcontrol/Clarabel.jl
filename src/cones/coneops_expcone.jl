@@ -119,8 +119,7 @@ function combined_ds_shift!(
     step_s::AbstractVector{T},
     σμ::T
 ) where {T}
-    #η = K.grad_work
-    η = @MVector zeros(T,3)
+    η = similar(K.grad)
 
     #3rd order correction requires input variables z
     _higher_correction!(K,η,step_s,step_z)             
@@ -159,9 +158,10 @@ function step_length(
 
     backtrack = settings.linesearch_backtrack_step
     αmin      = settings.min_terminate_step_length
+    work      = similar(K.grad)
     
-    αz = _step_length_3d_cone(dz, z, αmax, αmin,  backtrack, _is_dual_feasible_expcone)
-    αs = _step_length_3d_cone(ds, s, αmax, αmin,  backtrack, _is_primal_feasible_expcone)
+    αz = _step_length_3d_cone(work, dz, z, αmax, αmin,  backtrack, _is_dual_feasible_expcone)
+    αs = _step_length_3d_cone(work, ds, s, αmax, αmin,  backtrack, _is_primal_feasible_expcone)
 
     return (αz,αs)
 end
@@ -366,11 +366,11 @@ function _higher_correction!(
 
     # u for H^{-1}*Δs
     H = K.H_dual
-    u = @MVector zeros(T,3)
+    u = similar(K.z)
     z = K.z
  
     #solve H*u = ds
-    cholH = @MMatrix zeros(T,3,3)
+    cholH = similar(K.H_dual)
     issuccess = cholesky_3x3_explicit_factor!(cholH,H)
     if issuccess 
         cholesky_3x3_explicit_solve!(u,cholH,ds)
@@ -491,10 +491,10 @@ function _use_primal_dual_scaling(
 
     (Hs,H_dual) = (K.Hs,K.H_dual);
 
-    zt = @MVector zeros(T,3)
     st = K.grad
-    δs = @MVector zeros(T,3)
-    tmp = @MVector zeros(T,3) #shared for δz, tmp, axis_z
+    zt = similar(st)
+    δs = similar(st)
+    tmp = similar(st) #shared for δz, tmp, axis_z
 
     # compute zt,st,μt locally
     # NB: zt,st have different sign convention wrt Mosek paper

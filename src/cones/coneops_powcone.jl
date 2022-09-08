@@ -158,14 +158,15 @@ function step_length(
 
     backtrack = settings.linesearch_backtrack_step
     αmin      = settings.min_terminate_step_length
+    work      = similar(K.grad)
 
     #need functions as closures to capture the power K.α
     #and use the same backtrack mechanism as the expcone
     is_primal_feasible_fcn = s -> _is_dual_feasible_powcone(s,K.α)
     is_dual_feasible_fcn   = s -> _is_primal_feasible_powcone(s,K.α)
 
-    αz = _step_length_3d_cone(dz, z, αmax, αmin, backtrack, is_primal_feasible_fcn)
-    αs = _step_length_3d_cone(ds, s, αmax, αmin, backtrack, is_dual_feasible_fcn)
+    αz = _step_length_3d_cone(work, dz, z, αmax, αmin, backtrack, is_primal_feasible_fcn)
+    αs = _step_length_3d_cone(work, ds, s, αmax, αmin, backtrack, is_dual_feasible_fcn)
 
     return (αz,αs)
 end
