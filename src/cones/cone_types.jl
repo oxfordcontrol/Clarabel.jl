@@ -169,7 +169,6 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
         Hs = @MMatrix zeros(T,3,3)
         grad = @MVector zeros(T,3)
         z = @MVector zeros(T,3)
-        cholH = @MMatrix zeros(T,3,3)
 
         return new(H_dual,Hs,grad,z)
     end
