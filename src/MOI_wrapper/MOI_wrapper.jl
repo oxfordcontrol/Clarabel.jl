@@ -151,7 +151,7 @@ function Base.show(io::IO, optimizer::Optimizer{T}) where {T}
 
     else
         println(io, "$(myname) - Optimizer")
-        println(io, " : Has results: $(isnothing(optimizer.solver_solutions))")
+        println(io, " : Has results: $(isnothing(optimizer.solver_solution))")
         println(io, " : Objective constant: $(optimizer.objconstant)")
         println(io, " : Sense: $(optimizer.sense)")
         println(io, " : Precision: $T")
