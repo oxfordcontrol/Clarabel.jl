@@ -9,7 +9,8 @@
 # PJG: I reintroduced 'work' here since only the caller 
 # will know how to make an appropriately typed SizedArray
 # or MArray.   I guess this way we only end up the true 
-# step returned in the first argument
+# step returned in the first argument.   Update Rust 
+# implementation to use same calling convention.
 
 function _step_length_3d_cone(
     wq::AbstractVector{T},

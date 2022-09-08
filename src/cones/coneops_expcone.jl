@@ -122,7 +122,6 @@ function combined_ds_shift!(
 
     η = similar(K.grad)
 
-
     #3rd order correction requires input variables z
     _higher_correction!(K,η,step_s,step_z)             
 
@@ -383,7 +382,6 @@ function _higher_correction!(
         return nothing
     end
     
-
     η[2] = one(T)
     η[3] = -z[1]/z[3]    # gradient of ψ
     η[1] = logsafe(η[3])
@@ -491,7 +489,7 @@ function _use_primal_dual_scaling(
     z::AbstractVector{T}
 ) where {T}
 
-    (Hs,H_dual) = (K.Hs,K.H_dual);
+    (Hs,H_dual) = (K.Hs,K.H_dual)
 
     st = K.grad
     zt = similar(st)

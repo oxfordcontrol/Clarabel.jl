@@ -82,7 +82,6 @@ function get_Hs!(
 ) where {T}
 
     #Vectorize triu(K.μH)
-    # _pack_triu(Hsblock,K.μH)
     _pack_triu(Hsblock,K.Hs)
 
 end
@@ -113,7 +112,7 @@ function affine_ds!(
     @inbounds for i = 1:3
         ds[i] = s[i]
     end
-
+s
 end
 
 function combined_ds_shift!(
@@ -124,7 +123,7 @@ function combined_ds_shift!(
     σμ::T
 ) where {T}
 
-    η = @MVector zeros(T,3)  
+    η = similar(K.grad) 
     
     #3rd order correction requires input variables z
     _higher_correction!(K,η,step_s,step_z)     
@@ -230,7 +229,7 @@ end
     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
     # NB: ⟨s,g(s)⟩ = -3 = - ν
 
-    g = K.vec_work
+    g = similar(K.grad)
     α = K.α
 
     _gradient_primal(K,g,s)     #compute g(s)
@@ -349,8 +348,16 @@ function _newton_raphson_powcone(
     return xnew
 end
 
-# 3rd-order correction at the point z 
-# w.r.t. directions u,v. Writes to η
+# 3rd-order correction at the point z.  Output is η.
+
+# 3rd order correction: 
+# η = -0.5*[(dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + 
+#            dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - 
+#            dotψuv/ψ + dothuv]
+# where: 
+# Hψ = [  2*α*(2*α-1)*ϕ/(z1*z1)     4*α*(1-α)*ϕ/(z1*z2)       0;
+#         4*α*(1-α)*ϕ/(z1*z2)     2*(1-α)*(1-2*α)*ϕ/(z2*z2)   0;
+#         0                       0                          -2;]
 function _higher_correction!(
     K::PowerCone{T},
     η::AbstractVector{T},
@@ -360,13 +367,14 @@ function _higher_correction!(
 
     # u for H^{-1}*Δs
     H = K.H_dual
-    u = @MVector zeros(T,3)
+    u = similar(K.z)
     z = K.z
 
     #solve H*u = ds
-    issuccess = cholesky_3x3_explicit_factor!(K.cholH,H)
+    cholH = similar(K.H_dual)
+    issuccess = cholesky_3x3_explicit_factor!(cholH,H)
     if issuccess 
-        cholesky_3x3_explicit_solve!(u,K.cholH,ds)
+        cholesky_3x3_explicit_solve!(u,cholH,ds)
     else 
         @inbounds for i = 1:3
             η[i] = zero(T)
@@ -379,21 +387,13 @@ function _higher_correction!(
     ϕ = (z[1]/α)^(2*α)*(z[2]/(1-α))^(2-2*α)
     ψ = ϕ - z[3]*z[3]
 
-    # Reuse K.H memory for computation
-    Hψ = K.H_dual
+    # Reuse cholH memory for further computation
+    Hψ = cholH
     
     η[1] = 2*α*ϕ/z[1]
     η[2] = 2*(1-α)*ϕ/z[2]
     η[3] = -2*z[3]
 
-    # 3rd order correction: 
-    # η = -0.5*[(dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + 
-    #            dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - 
-    #            dotψuv/ψ + dothuv]
-    # where: 
-    # Hψ = [  2*α*(2*α-1)*ϕ/(z1*z1)     4*α*(1-α)*ϕ/(z1*z2)       0;
-    #         4*α*(1-α)*ϕ/(z1*z2)     2*(1-α)*(1-2*α)*ϕ/(z2*z2)   0;
-    #         0                       0                          -2;]
     Hψ[1,1] = 2*α*(2*α-1)*ϕ/(z[1]*z[1])
     Hψ[1,2] = 4*α*(1-α)*ϕ/(z[1]*z[2])
     Hψ[2,1] = Hψ[1,2]
@@ -407,7 +407,7 @@ function _higher_correction!(
     dotψu = dot(η,u)
     dotψv = dot(η,v)
 
-    Hψv = @MVector zeros(T,3)
+    Hψv = similar(K.grad)
     Hψv[1] = Hψ[1,1]*v[1]+Hψ[1,2]*v[2]
     Hψv[2] = Hψ[2,1]*v[1]+Hψ[2,2]*v[2]
     Hψv[3] = -2*v[3]
@@ -429,10 +429,10 @@ function _higher_correction!(
     Hψu[1] = Hψ[1,1]*u[1]+Hψ[1,2]*u[2]
     Hψu[2] = Hψ[2,1]*u[1]+Hψ[2,2]*u[2]
     Hψu[3] = -2*u[3]
-    @. η = η + Hψu*dotψv*inv_ψ2
 
+    # @. η <= (η + Hψu*dotψv*inv_ψ2)/2
     @inbounds for i = 1:3
-        η[i] /= 2
+        η[i] = (η[i] + Hψu[i]*dotψv*inv_ψ2)/2
     end
 
 end
@@ -461,10 +461,10 @@ function _update_Hs(
     #Choose the scaling strategy
     if(scaling_strategy == Dual::ScalingStrategy)
         # Dual scaling: Hs = μ*H
-        _use_dual_scaling(K,K.Hs,K.H_dual,μ)
+        _use_dual_scaling(K,μ)
     else
         # Primal-dual scaling
-        _use_primal_dual_scaling(K,K.Hs,K.H_dual,s,z)
+        _use_primal_dual_scaling(K,s,z)
     end 
 
 end
@@ -507,28 +507,26 @@ end
 # use the dual scaling strategy
 function _use_dual_scaling(
     K::PowerCone{T},
-    Hs::AbstractMatrix{T},
-    H_dual::AbstractMatrix{T},
     μ::T
 ) where {T}
     @inbounds for i = 1:9
-        Hs[i] = μ*H_dual[i]
+        K.Hs[i] = μ*K.H_dual[i]
     end
 end
 
 # use the primal-dual scaling strategy
 function _use_primal_dual_scaling(
     K::PowerCone{T},
-    Hs::AbstractMatrix{T},
-    H_dual::AbstractMatrix{T},
     s::AbstractVector{T},
     z::AbstractVector{T}
 ) where {T}
 
-    zt = @MVector zeros(T,3)
+    (Hs,H_dual) = (K.Hs,K.H_dual)
+
     st = K.grad
-    δs = @MVector zeros(T,3)
-    tmp = @MVector zeros(T,3) #shared for δz, tmp, axis_z
+    zt = similar(st)
+    δs = similar(st)
+    tmp = similar(st) #shared for δz, tmp, axis_z
 
     # compute zt,st,μt locally
     # NB: zt,st have different sign convention wrt Mosek paper
@@ -554,7 +552,7 @@ function _use_primal_dual_scaling(
 
     if abs(de1) < sqrt(eps(T))
         # Hs = μ*H_dual when s,z are on the central path
-        _use_dual_scaling(K,Hs,H_dual,μ)
+        _use_dual_scaling(K,μ)
 
         return nothing
     else

@@ -200,24 +200,23 @@ ExponentialCone(args...) = ExponentialCone{DefaultFloat}(args...)
 # # ------------------------------------
 
 # gradient and Hessian for the dual barrier function
-mutable struct PowerCone{T} <: AbstractCone{T}
+mutable struct PowerCone{T,M3T,V3T} <: AbstractCone{T}
 
     α::T
-    H_dual::MMatrix{3,3,T,9}        #Hessian of the dual barrier at z 
-    Hs::MMatrix{3,3,T,9}            #scaling matrix
-    grad::MVector{3,T}              #gradient of the dual barrier at z 
-    z::MVector{3,T}                 #holds copy of z at scaling point
-    cholH::MMatrix{3,3,T,9}         # workspace for 3x3 Cholesky factorization
+    H_dual::M3T      #Hessian of the dual barrier at z 
+    Hs::M3T          #scaling matrix
+    grad::V3T        #gradient of the dual barrier at z 
+    z::V3T           #holds copy of z at scaling point
 
     function PowerCone{T}(α::T) where {T}
 
-        H_dual = @MMatrix zeros(T,3,3)
-        Hs = @MMatrix zeros(T,3,3)
-        grad = @MVector zeros(T,3)
-        z = @MVector zeros(T,3)
-        cholH = @MMatrix zeros(T,3,3)
+        (M3T,V3T) = _static_3d_cone_types(T)
+        H_dual = M3T(zeros(T,3,3))
+        Hs     = M3T(zeros(T,3,3))
+        grad   = V3T(zeros(T,3))
+        z      = V3T(zeros(T,3))
 
-        return new(α,H_dual,Hs,grad,z,cholH)
+        return new{T,M3T,V3T}(α,H_dual,Hs,grad,z)
     end
 end
 
