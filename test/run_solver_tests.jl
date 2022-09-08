@@ -1,6 +1,8 @@
 using Random, Test
 using Clarabel
 
+UnitTestFloats = [Float64,BigFloat]
+
 @testset "Clarabel Native Optimizer Testset" begin
 
     @testset "Basic Tests" begin
@@ -13,7 +15,6 @@ using Clarabel
         include("./OptTests/basic_socp.jl")
         include("./OptTests/basic_exp.jl")
         include("./OptTests/basic_sdp.jl")
-
 
     end
 

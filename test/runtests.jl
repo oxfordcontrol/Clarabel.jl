@@ -1,8 +1,6 @@
  using Random, Test, Clarabel
 include("./testing_utils.jl")
 
-UnitTestFloats = [Float64,BigFloat]
-
 @testset "Clarabel Tests" begin
 
     # Tests running calls to the optimizer
