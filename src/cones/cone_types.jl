@@ -186,29 +186,21 @@ ExponentialCone(args...) = ExponentialCone{DefaultFloat}(args...)
 mutable struct PowerCone{T} <: AbstractCone{T}
 
     α::T
-    H::Matrix{T}       #μ*H for the linear system
-    grad::Vector{T}
-
-    # workspace for centrality check
-    HBFGS::Matrix{T}
-    grad_work::Vector{T}
-    vec_work::Vector{T}
-    vec_work_2::Vector{T}
-    z::Vector{T}            # temporary storage for current z
-    cholH::Matrix{T} 
+    H_dual::MMatrix{3,3,T,9}        #Hessian of the dual barrier at z 
+    Hs::MMatrix{3,3,T,9}            #scaling matrix
+    grad::MVector{3,T}              #gradient of the dual barrier at z 
+    z::MVector{3,T}                 #holds copy of z at scaling point
+    cholH::MMatrix{3,3,T,9}         # workspace for 3x3 Cholesky factorization
 
     function PowerCone{T}(α::T) where {T}
 
-        H = Matrix{T}(undef,3,3)
-        grad = Vector{T}(undef,3)
-        HBFGS = Matrix{T}(undef,3,3)
-        grad_work = Vector{T}(undef,3)
-        vec_work = Vector{T}(undef,3)
-        vec_work_2 = Vector{T}(undef,3)
-        z = Vector{T}(undef,3)
-        cholH = zeros(T,3,3)
-        
-        return new(α,H,grad,HBFGS,grad_work,vec_work,vec_work_2,z,cholH)
+        H_dual = @MMatrix zeros(T,3,3)
+        Hs = @MMatrix zeros(T,3,3)
+        grad = @MVector zeros(T,3)
+        z = @MVector zeros(T,3)
+        cholH = @MMatrix zeros(T,3,3)
+
+        return new(α,H_dual,Hs,grad,z,cholH)
     end
 end
 

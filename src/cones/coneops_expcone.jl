@@ -119,7 +119,7 @@ function combined_ds_shift!(
     step_s::AbstractVector{T},
     σμ::T
 ) where {T}
-    #η = K.grad_work
+
     η = @MVector zeros(T,3)
 
     #3rd order correction requires input variables z
@@ -349,7 +349,6 @@ function _higher_correction!(
 
     # u for H^{-1}*Δs
     H = K.H_dual
-    #u = K.vec_work
     u = @MVector zeros(T,3)
     z = K.z
  
@@ -525,13 +524,13 @@ function _use_primal_dual_scaling(
     #if !(abs(de1) > eps(T) && abs(de2) > eps(T))
     # if !(min(abs(de1),abs(de2),abs(dot_sz),abs(dot_δsz)) > eps(T))
     if abs(de1) < sqrt(eps(T))
-        # Hs = μH when s,z are on the central path
+        # Hs = μ*H_dual when s,z are on the central path
         _use_dual_scaling(K,Hs,H_dual,μ)
 
         return nothing
     else
         # compute t
-        # tmp = μt*st - H*zt
+        # tmp = μt*st - H_dual*zt
         @inbounds for i = 1:3
             tmp[i] = μt*st[i] - H_dual[i,1]*zt[1] - H_dual[i,2]*zt[2] - H_dual[i,3]*zt[3]
         end
