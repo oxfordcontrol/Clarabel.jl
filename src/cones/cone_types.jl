@@ -1,4 +1,4 @@
-using StaticArrays, StaticArraysCore
+using StaticArrays
 # -------------------------------------
 # abstract type defs
 # -------------------------------------

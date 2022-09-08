@@ -337,8 +337,25 @@ function _wright_omega(z::T) where {T}
     return w;
 end
 
-# 3rd-order correction at the point z, 
-# w.r.t. directions u,v and then save it to η
+# 3rd-order correction at the point z.  Output is η.
+#
+# η = -0.5*[(dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + 
+#      dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv]
+#
+# where :
+# Hψ = [  1/z[1]    0   -1/z[3];
+#           0       0   0;
+#         -1/z[3]   0   z[1]/(z[3]*z[3]);]
+# dotψuv = [-u[1]*v[1]/(z[1]*z[1]) + u[3]*v[3]/(z[3]*z[3]); 
+#            0; 
+#           (u[3]*v[1]+u[1]*v[3])/(z[3]*z[3]) - 2*z[1]*u[3]*v[3]/(z[3]*z[3]*z[3])]
+#
+# dothuv = [-2*u[1]*v[1]/(z[1]*z[1]*z[1]) ; 
+#            0; 
+#           -2*u[3]*v[3]/(z[3]*z[3]*z[3])]
+# Hψv = Hψ*v
+# Hψu = Hψ*u
+#gψ is used inside η
 
 function _higher_correction!(
     K::ExponentialCone{T},
@@ -349,7 +366,6 @@ function _higher_correction!(
 
     # u for H^{-1}*Δs
     H = K.H_dual
-    #u = K.vec_work
     u = @MVector zeros(T,3)
     z = K.z
  
@@ -373,25 +389,6 @@ function _higher_correction!(
 
     dotψu = dot(η,u)
     dotψv = dot(η,v)
-
-    # 3rd order correction: 
-    # η = -0.5*[(dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + 
-    #      dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - dotψuv/ψ + dothuv]
-    #
-    # where :
-    # Hψ = [  1/z[1]    0   -1/z[3];
-    #           0       0   0;
-    #         -1/z[3]   0   z[1]/(z[3]*z[3]);]
-    # dotψuv = [-u[1]*v[1]/(z[1]*z[1]) + u[3]*v[3]/(z[3]*z[3]); 
-    #            0; 
-    #           (u[3]*v[1]+u[1]*v[3])/(z[3]*z[3]) - 2*z[1]*u[3]*v[3]/(z[3]*z[3]*z[3])]
-    #
-    # dothuv = [-2*u[1]*v[1]/(z[1]*z[1]*z[1]) ; 
-    #            0; 
-    #           -2*u[3]*v[3]/(z[3]*z[3]*z[3])]
-    # Hψv = Hψ*v
-    # Hψu = Hψ*u
-    #gψ is used inside η
 
     coef = ((u[1]*(v[1]/z[1] - v[3]/z[3]) + u[3]*(z[1]*v[3]/z[3] - v[1])/z[3])*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)
     @inbounds for i = 1:3
@@ -431,7 +428,7 @@ function _update_Hs(
     scaling_strategy::ScalingStrategy
 ) where {T}
 
-    #Choose the scaling strategy
+# Choose the scaling strategy
     if(scaling_strategy == Dual::ScalingStrategy)
         # Dual scaling: Hs = μ*H
         _use_dual_scaling(K,K.Hs,K.H_dual,μ)
@@ -477,23 +474,21 @@ end
 # use the dual scaling strategy
 function _use_dual_scaling(
     K::ExponentialCone{T},
-    Hs::AbstractMatrix{T},
-    H_dual::AbstractMatrix{T},
     μ::T
 ) where {T}
     @inbounds for i = 1:9
-        Hs[i] = μ*H_dual[i]
+        K.Hs[i] = μ*K.H_dual[i]
     end
 end
 
 # use the primal-dual scaling strategy
 function _use_primal_dual_scaling(
     K::ExponentialCone{T},
-    Hs::AbstractMatrix{T},
-    H_dual::AbstractMatrix{T},
     s::AbstractVector{T},
     z::AbstractVector{T}
 ) where {T}
+
+    (Hs,H_dual) = (K.Hs,K.H_dual);
 
     zt = @MVector zeros(T,3)
     st = K.grad
@@ -508,13 +503,10 @@ function _use_primal_dual_scaling(
     μt = dot(zt,st)/3
 
     # δs = s + μ*st
-    # δz = z + μ*zt     
+    # δz = z + μ*zt 
+    δz = tmp    
     @inbounds for i = 1:3
         δs[i] = s[i] + μ*st[i]
-    end
-
-    δz = tmp
-    @inbounds for i = 1:3
         δz[i] = z[i] + μ*zt[i]
     end    
     dot_δsz = dot(δs,δz)
@@ -522,57 +514,51 @@ function _use_primal_dual_scaling(
     de1 = μ*μt-1
     de2 = dot(zt,H_dual,zt) - 3*μt*μt
 
-    #if !(abs(de1) > eps(T) && abs(de2) > eps(T))
-    # if !(min(abs(de1),abs(de2),abs(dot_sz),abs(dot_δsz)) > eps(T))
     if abs(de1) < sqrt(eps(T))
         # Hs = μH when s,z are on the central path
         _use_dual_scaling(K,Hs,H_dual,μ)
 
         return nothing
-    else
-        # compute t
-        # tmp = μt*st - H*zt
-        @inbounds for i = 1:3
-            tmp[i] = μt*st[i] - H_dual[i,1]*zt[1] - H_dual[i,2]*zt[2] - H_dual[i,3]*zt[3]
-        end
-
-        # Hs as a workspace
-        copyto!(Hs,H_dual)
-        @inbounds for i = 1:3
-            @inbounds for j = i:3
-                Hs[i,j] -= st[i]*st[j]/3 + tmp[i]*tmp[j]/de2
-            end
-        end
-        # symmetrize matrix
-        Hs[2,1] = Hs[1,2]
-        Hs[3,1] = Hs[1,3]
-        Hs[3,2] = Hs[2,3]
-        
-        t = μ*norm(Hs)  #Frobenius norm
-
-        @assert dot_sz > 0
-        @assert dot_δsz > 0
-        @assert t > 0
-
-        # generate the remaining axis
-        # axis_z = cross(z,zt)
-        axis_z = tmp
-        axis_z[1] = z[2]*zt[3] - z[3]*zt[2]
-        axis_z[2] = z[3]*zt[1] - z[1]*zt[3]
-        axis_z[3] = z[1]*zt[2] - z[2]*zt[1]
-        normalize!(axis_z)
-
-        # Hs = s*s'/⟨s,z⟩ + δs*δs'/⟨δs,δz⟩ + t*axis_z*axis_z'
-        @inbounds for i = 1:3
-            @inbounds for j = i:3
-                Hs[i,j] = s[i]*s[j]/dot_sz + δs[i]*δs[j]/dot_δsz + t*axis_z[i]*axis_z[j]
-            end
-        end
-        # symmetrize matrix
-        Hs[2,1] = Hs[1,2]
-        Hs[3,1] = Hs[1,3]
-        Hs[3,2] = Hs[2,3]
-
-        return nothing
     end
+
+    # compute t
+    # tmp = μt*st - H*zt
+    @inbounds for i = 1:3
+        tmp[i] = μt*st[i] - H_dual[i,1]*zt[1] - H_dual[i,2]*zt[2] - H_dual[i,3]*zt[3]
+    end
+    # Hs as a workspace
+    copyto!(Hs,H_dual)
+    @inbounds for i = 1:3
+        @inbounds for j = i:3
+            Hs[i,j] -= st[i]*st[j]/3 + tmp[i]*tmp[j]/de2
+        end
+    end
+    # symmetrize matrix
+    Hs[2,1] = Hs[1,2]
+    Hs[3,1] = Hs[1,3]
+    Hs[3,2] = Hs[2,3]
+    
+    t = μ*norm(Hs)  #Frobenius norm
+    @assert dot_sz > 0
+    @assert dot_δsz > 0
+    @assert t > 0
+    # generate the remaining axis
+    # axis_z = cross(z,zt)
+    axis_z = tmp
+    axis_z[1] = z[2]*zt[3] - z[3]*zt[2]
+    axis_z[2] = z[3]*zt[1] - z[1]*zt[3]
+    axis_z[3] = z[1]*zt[2] - z[2]*zt[1]
+    normalize!(axis_z)
+    # Hs = s*s'/⟨s,z⟩ + δs*δs'/⟨δs,δz⟩ + t*axis_z*axis_z'
+    @inbounds for i = 1:3
+        @inbounds for j = i:3
+            Hs[i,j] = s[i]*s[j]/dot_sz + δs[i]*δs[j]/dot_δsz + t*axis_z[i]*axis_z[j]
+        end
+    end
+    # symmetrize matrix
+    Hs[2,1] = Hs[1,2]
+    Hs[3,1] = Hs[1,3]
+    Hs[3,2] = Hs[2,3]
+    return nothing
+    
 end
