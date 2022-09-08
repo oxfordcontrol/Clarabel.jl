@@ -162,7 +162,6 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
     Hs::MMatrix{3,3,T,9}            #scaling matrix
     grad::MVector{3,T}              #gradient of the dual barrier at z 
     z::MVector{3,T}                 #holds copy of z at scaling point
-    cholH::MMatrix{3,3,T,9}         # workspace for 3x3 Cholesky factorization
 
     function ExponentialCone{T}() where {T}
 
@@ -172,7 +171,7 @@ mutable struct ExponentialCone{T} <: AbstractCone{T}
         z = @MVector zeros(T,3)
         cholH = @MMatrix zeros(T,3,3)
 
-        return new(H_dual,Hs,grad,z,cholH)
+        return new(H_dual,Hs,grad,z)
     end
 end
 

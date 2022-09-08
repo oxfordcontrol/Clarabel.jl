@@ -370,9 +370,10 @@ function _higher_correction!(
     z = K.z
  
     #solve H*u = ds
-    issuccess = cholesky_3x3_explicit_factor!(K.cholH,H)
+    cholH = @MMatrix zeros(T,3,3)
+    issuccess = cholesky_3x3_explicit_factor!(cholH,H)
     if issuccess 
-        cholesky_3x3_explicit_solve!(u,K.cholH,ds)
+        cholesky_3x3_explicit_solve!(u,cholH,ds)
     else 
         @inbounds for i = 1:3
             η[i] = zero(T)
