@@ -280,7 +280,6 @@ function _gradient_primal(
     abs_s = abs(s[3])
     if abs_s > eps(T)
         g[3] = _newton_raphson_powcone(abs_s,ϕ,α)
-        g[3] = _newton_raphson_powcone_PJG(abs_s,ϕ,α)
         if s[3] < zero(T)
             g[3] = -g[3]
         end
@@ -301,52 +300,6 @@ end
 # the Newton-Raphson method converges quadratically
 
 function _newton_raphson_powcone(
-    s3::T,
-    ϕ::T,
-    α::T
-) where {T}
-
-    # init point x0: since our dual barrier has an additional 
-    # shift -2α*log(α) - 2(1-α)*log(1-α) > 0 in f(x),
-    # the previous selection is still feasible, i.e. f(x0) > 0
-    x = -one(T)/s3 + 2*(s3 + sqrt(4*ϕ*ϕ/s3/s3 + 3*ϕ))/(4*ϕ - s3*s3)
-
-    # additional shift due to the choice of dual barrier
-    t0 = - 2*α*logsafe(α) - 2*(1-α)*logsafe(1-α)    
-    t1 = x*x
-    t2 = x*2/s3
-
-    f0 = 2*α*logsafe(2*α*t1 + (1+α)*t2) + 
-         2*(1-α)*logsafe(2*(1-α)*t1 + (2-α)*t2) - 
-         logsafe(ϕ) - logsafe(t1+t2) - 2*logsafe(t2) + t0
-        
-    f1 = 2*α*α/(α*x + (1+α)/s3) + 
-         2*(1-α)*(1-α)/((1-α)*x + (2-α)/s3) - 
-         2*(x + 1/s3)/(t1 + t2)
-
-    xnew = x - f0/f1
-
-    # terminate when abs(xnew - x) <= eps(T)
-    while (xnew - x) > eps(T)
-        x = xnew
-
-        t1 = x*x
-        t2 = x*2/s3
-
-        f0 = 2*α*logsafe(2*α*t1 + (1+α)*t2) + 
-             2*(1-α)*logsafe(2*(1-α)*t1 + (2-α)*t2) - 
-             logsafe(ϕ) - logsafe(t1+t2) - 
-             2*logsafe(t2) + t0
-
-        f1 = 2*α*α/(α*x + (1+α)/s3) + 2*(1-α)*(1-α)/((1-α)*x + 
-             (2-α)/s3) - 2*(x + 1/s3)/(t1 + t2)
-
-        xnew = x - f0/f1
-    end
-    return xnew
-end
-
-function _newton_raphson_powcone_PJG(
     s3::T,
     ϕ::T,
     α::T
@@ -381,9 +334,7 @@ function _newton_raphson_onesided(xinit::T,f0::Function,f1::Function) where {T}
 
     #implements NR method from a starting point assumed to be to the 
     #left of the true value.   Once a negative step is encountered 
-    #this function will halt, regardless of the calculated correction.
-    #PJG: Maybe there is some convexity argument to be made about why
-    #this is a good idea, since otherwise a massive overshoot is possible
+    #this function will halt regardless of the calculated correction.
 
     x = xinit
     iter = 0
@@ -394,15 +345,7 @@ function _newton_raphson_onesided(xinit::T,f0::Function,f1::Function) where {T}
         dfdx  =  f1(x)  
         dx    = -f0(x)/dfdx
 
-        #PJG: The first if condition below gives almost the 
-        #same behaviour as the old implementation.  The difference
-        #is that if dx is negative, then the loop breaks *before*
-        #the negative correction is applied.   In the original
-        #version the loop breaks *after* the negative correction
-        #is applied since it is tested in outer while condition
-
-        if dx < eps(T)    #OLD METHOD.  HALTS ON SIGN CHANGE
-        #if(abs(dx/x) < sqrt(eps(T)) || abs(dfdx) < 100*eps(T))
+        if dx < eps(T) || (abs(dx/x) < sqrt(eps(T)) || abs(dfdx) < eps(T))
             break
         end
         x += dx

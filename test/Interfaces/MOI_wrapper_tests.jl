@@ -69,11 +69,11 @@ function test_MOI_standard()
     MOI.Test.runtests(
         BRIDGED,
         MYCONFIG,
-        #include = String["test_conic_GeometricMeanCone_VectorAffineFunction"],
+        # use `include` to single out a problem class
+        #include = String["test_conic_<whatever>"],
         exclude = String[
-            # Seems to solve to high precious but transformation back to original
-            # problem's solution fails due to low accuract.   MOI problem?
-            "test_conic_GeometricMeanCone_VectorAffineFunction"
+            #problematic tests can be disabled here
+            #"test_conic_<whatever>"
         ],
         # This argument is useful to prevent tests from failing on future
         # releases of MOI that add new tests.
