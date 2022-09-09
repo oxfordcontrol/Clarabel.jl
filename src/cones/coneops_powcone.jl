@@ -279,7 +279,7 @@ function _gradient_primal(
     # obtain g3 from the Newton-Raphson method
     abs_s = abs(s[3])
     if abs_s > eps(T)
-        #g[3] = _newton_raphson_powcone(abs_s,ϕ,α)
+        g[3] = _newton_raphson_powcone(abs_s,ϕ,α)
         g[3] = _newton_raphson_powcone_PJG(abs_s,ϕ,α)
         if s[3] < zero(T)
             g[3] = -g[3]
@@ -343,7 +343,6 @@ function _newton_raphson_powcone(
 
         xnew = x - f0/f1
     end
-
     return xnew
 end
 
@@ -375,10 +374,16 @@ function _newton_raphson_powcone_PJG(
              (2-α)/s3) - 2*(x + 1/s3)/(t1 + t2)
     end
     
-    return _newton_raphson(x,f0,f1)
+    return _newton_raphson_onesided(x,f0,f1)
 end
 
-function _newton_raphson(xinit::T,f0::Function,f1::Function) where {T}
+function _newton_raphson_onesided(xinit::T,f0::Function,f1::Function) where {T}
+
+    #implements NR method from a starting point assumed to be to the 
+    #left of the true value.   Once a negative step is encountered 
+    #this function will halt, regardless of the calculated correction.
+    #PJG: Maybe there is some convexity argument to be made about why
+    #this is a good idea, since otherwise a massive overshoot is possible
 
     x = xinit
     iter = 0
@@ -389,7 +394,15 @@ function _newton_raphson(xinit::T,f0::Function,f1::Function) where {T}
         dfdx  =  f1(x)  
         dx    = -f0(x)/dfdx
 
-        if(abs(dx/x) < sqrt(eps(T)) || abs(dfdx) < 100*eps(T))
+        #PJG: The first if condition below gives almost the 
+        #same behaviour as the old implementation.  The difference
+        #is that if dx is negative, then the loop breaks *before*
+        #the negative correction is applied.   In the original
+        #version the loop breaks *after* the negative correction
+        #is applied since it is tested in outer while condition
+
+        if dx < eps(T)    #OLD METHOD.  HALTS ON SIGN CHANGE
+        #if(abs(dx/x) < sqrt(eps(T)) || abs(dfdx) < 100*eps(T))
             break
         end
         x += dx
