@@ -256,7 +256,6 @@ function _is_dual_feasible_expcone(z::AbstractVector{T}) where {T}
 end
 
 # Compute the primal gradient of f(s) at s
-# solve it by the Newton-Raphson method
 function _gradient_primal(
     K::ExponentialCone{T},
     g::Union{AbstractVector{T}, NTuple{3,T}},

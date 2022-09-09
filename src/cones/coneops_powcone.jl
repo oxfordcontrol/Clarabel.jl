@@ -28,8 +28,8 @@ function unit_initialization!(
  
      α = K.α
  
-     s[1] = one(T)*sqrt(one(T)+α)
-     s[2] = one(T)*sqrt(one(T)+((one(T)-α)))
+     s[1] = sqrt(one(T)+α)
+     s[2] = sqrt(one(T)+((one(T)-α)))
      s[3] = zero(T)
  
      #@. z = s
@@ -232,7 +232,7 @@ end
     g = similar(K.grad)
     α = K.α
 
-    _gradient_primal(K,g,s)     #compute g(s)
+    _gradient_primal(K,g,s,α)     #compute g(s)
     return logsafe((-g[1]/α)^(2*α) * (-g[2]/(1-α))^(2-2*α) - g[3]*g[3]) + (1-α)*logsafe(-g[1]) + α*logsafe(-g[2]) - 3
 end 
 
@@ -270,9 +270,8 @@ function _gradient_primal(
     K::PowerCone{T},
     g::Union{AbstractVector{T}, NTuple{3,T}},
     s::Union{AbstractVector{T}, NTuple{3,T}},
+    α:: T
 ) where {T}
-
-    α = K.α
 
     # unscaled ϕ
     ϕ = (s[1])^(2*α)*(s[2])^(2-2*α)
@@ -530,7 +529,7 @@ function _use_primal_dual_scaling(
 
     # compute zt,st,μt locally
     # NB: zt,st have different sign convention wrt Mosek paper
-    _gradient_primal(K,zt,s)
+    _gradient_primal(K,zt,s,K.α)
     dot_sz = dot(z,s)
     μ = dot_sz/3
     μt = dot(zt,st)/3
