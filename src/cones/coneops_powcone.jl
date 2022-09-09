@@ -279,7 +279,8 @@ function _gradient_primal(
     # obtain g3 from the Newton-Raphson method
     abs_s = abs(s[3])
     if abs_s > eps(T)
-        g[3] = _newton_raphson_powcone(abs_s,ϕ,α)
+        #g[3] = _newton_raphson_powcone(abs_s,ϕ,α)
+        g[3] = _newton_raphson_powcone_PJG(abs_s,ϕ,α)
         if s[3] < zero(T)
             g[3] = -g[3]
         end
@@ -327,7 +328,6 @@ function _newton_raphson_powcone(
 
     # terminate when abs(xnew - x) <= eps(T)
     while (xnew - x) > eps(T)
-        # println("x is ",x)
         x = xnew
 
         t1 = x*x
@@ -346,6 +346,57 @@ function _newton_raphson_powcone(
 
     return xnew
 end
+
+function _newton_raphson_powcone_PJG(
+    s3::T,
+    ϕ::T,
+    α::T
+) where {T}
+
+    # init point x0: since our dual barrier has an additional 
+    # shift -2α*log(α) - 2(1-α)*log(1-α) > 0 in f(x),
+    # the previous selection is still feasible, i.e. f(x0) > 0
+    x = -one(T)/s3 + 2*(s3 + sqrt(4*ϕ*ϕ/s3/s3 + 3*ϕ))/(4*ϕ - s3*s3)
+
+    # additional shift due to the choice of dual barrier
+    t0 = - 2*α*logsafe(α) - 2*(1-α)*logsafe(1-α)   
+
+    function f0(x)
+        t1 = x*x; t2 = 2*x/s3;
+        2*α*logsafe(2*α*t1 + (1+α)*t2) + 
+             2*(1-α)*logsafe(2*(1-α)*t1 + (2-α)*t2) - 
+             logsafe(ϕ) - logsafe(t1+t2) - 
+             2*logsafe(t2) + t0
+    end
+
+    function f1(x)
+        t1 = x*x; t2 = x*2/s3;
+        2*α*α/(α*x + (1+α)/s3) + 2*(1-α)*(1-α)/((1-α)*x + 
+             (2-α)/s3) - 2*(x + 1/s3)/(t1 + t2)
+    end
+    
+    return _newton_raphson(x,f0,f1)
+end
+
+function _newton_raphson(xinit::T,f0::Function,f1::Function) where {T}
+
+    x = xinit
+    iter = 0
+
+    while iter < 100
+
+        iter += 1
+        dfdx  =  f1(x)  
+        dx    = -f0(x)/dfdx
+
+        if(abs(dx/x) < sqrt(eps(T)) || abs(dfdx) < 100*eps(T))
+            break
+        end
+        x += dx
+    end
+    return x
+end
+
 
 # 3rd-order correction at the point z.  Output is η.
 
