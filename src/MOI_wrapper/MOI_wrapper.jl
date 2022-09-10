@@ -10,11 +10,9 @@ const MOI = MathOptInterface
 const MOIU = MOI.Utilities
 const SparseTriplet{T} = Tuple{Vector{<:Integer}, Vector{<:Integer}, Vector{T}}
 
-# parametric union needs a parametric member.  Remove this
-# when something like MOI.PowerCone{T} support is added
-abstract type _DummyConeType{T<:AbstractFloat} end
-
 # Cones supported by the solver
+#PJG : Support for PSD cones within ClarabelRs is manually 
+#disabled in the two implementations of supports_constraint below.
 
 const OptimizerSupportedMOICones{T} = Union{
     MOI.Zeros,
@@ -282,17 +280,34 @@ MOI.supports(::Optimizer, ::MOI.NumberOfThreads) = false
 # supported constraint types
 #------------------------------
 
-MOI.supports_constraint(
-    ::Optimizer{T},
+function MOI.supports_constraint(
+    opt::Optimizer{T},
     ::Type{<:MOI.VectorAffineFunction{T}},
-    ::Type{<:OptimizerSupportedMOICones{T}}
-) where {T} = true
+    t::Type{<:OptimizerSupportedMOICones{T}}
+) where{T}  
+    # PJG: workaround so that the compiled version does not 
+    # report support for PSD constraints.   Remove once they 
+    # are supported
+    if(opt.solver_module != Clarabel && t == MOI.PositiveSemidefiniteConeTriangle)
+        return false
+    end
+    true
+end
 
-MOI.supports_constraint(
-    ::Optimizer{T},
+
+function MOI.supports_constraint(
+    opt::Optimizer{T},
     ::Type{<:MOI.VectorOfVariables},
-    ::Type{<:OptimizerSupportedMOICones{T}}
-) where {T} = true
+    t::Type{<:OptimizerSupportedMOICones{T}}
+) where {T}     
+    # PJG: workaround so that the compiled version does not 
+    # report support for PSD constraints.   Remove once they 
+    # are supported
+    if(opt.solver_module != Clarabel && t == MathOptInterface.PositiveSemidefiniteConeTriangle)
+        return false
+    end
+    return true
+end
 
 
 #------------------------------

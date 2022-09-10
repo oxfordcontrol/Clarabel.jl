@@ -112,7 +112,6 @@ function affine_ds!(
     @inbounds for i = 1:3
         ds[i] = s[i]
     end
-s
 end
 
 function combined_ds_shift!(
@@ -166,11 +165,11 @@ function step_length(
 
     #need functions as closures to capture the power K.α
     #and use the same backtrack mechanism as the expcone
-    is_primal_feasible_fcn = s -> _is_dual_feasible_powcone(s,K.α)
-    is_dual_feasible_fcn   = s -> _is_primal_feasible_powcone(s,K.α)
+    is_primal_feasible_fcn = s -> _is_primal_feasible_powcone(s,K.α)
+    is_dual_feasible_fcn   = s -> _is_dual_feasible_powcone(s,K.α)
 
-    αz = _step_length_3d_cone(work, dz, z, αmax, αmin, backtrack, is_primal_feasible_fcn)
-    αs = _step_length_3d_cone(work, ds, s, αmax, αmin, backtrack, is_dual_feasible_fcn)
+    αz = _step_length_3d_cone(work, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn)
+    αs = _step_length_3d_cone(work, ds, s, αmax, αmin, backtrack, is_primal_feasible_fcn)
 
     return (αz,αs)
 end
@@ -308,11 +307,12 @@ function _newton_raphson_powcone(
     # init point x0: since our dual barrier has an additional 
     # shift -2α*log(α) - 2(1-α)*log(1-α) > 0 in f(x),
     # the previous selection is still feasible, i.e. f(x0) > 0
-    x = -one(T)/s3 + 2*(s3 + sqrt(4*ϕ*ϕ/s3/s3 + 3*ϕ))/(4*ϕ - s3*s3)
+    x0 = -one(T)/s3 + 2*(s3 + sqrt(4*ϕ*ϕ/s3/s3 + 3*ϕ))/(4*ϕ - s3*s3)
 
     # additional shift due to the choice of dual barrier
     t0 = - 2*α*logsafe(α) - 2*(1-α)*logsafe(1-α)   
 
+    # function for f(x) = 0
     function f0(x)
         t1 = x*x; t2 = 2*x/s3;
         2*α*logsafe(2*α*t1 + (1+α)*t2) + 
@@ -321,22 +321,23 @@ function _newton_raphson_powcone(
              2*logsafe(t2) + t0
     end
 
+    # first derivative
     function f1(x)
         t1 = x*x; t2 = x*2/s3;
         2*α*α/(α*x + (1+α)/s3) + 2*(1-α)*(1-α)/((1-α)*x + 
              (2-α)/s3) - 2*(x + 1/s3)/(t1 + t2)
     end
     
-    return _newton_raphson_onesided(x,f0,f1)
+    return _newton_raphson_onesided(x0,f0,f1)
 end
 
-function _newton_raphson_onesided(xinit::T,f0::Function,f1::Function) where {T}
+function _newton_raphson_onesided(x0::T,f0::Function,f1::Function) where {T}
 
     #implements NR method from a starting point assumed to be to the 
     #left of the true value.   Once a negative step is encountered 
     #this function will halt regardless of the calculated correction.
 
-    x = xinit
+    x = x0
     iter = 0
 
     while iter < 100
@@ -345,7 +346,9 @@ function _newton_raphson_onesided(xinit::T,f0::Function,f1::Function) where {T}
         dfdx  =  f1(x)  
         dx    = -f0(x)/dfdx
 
-        if dx < eps(T) || (abs(dx/x) < sqrt(eps(T)) || abs(dfdx) < eps(T))
+        if (dx < eps(T)) ||
+            (abs(dx/x) < sqrt(eps(T))) ||
+            (abs(dfdx) < eps(T))
             break
         end
         x += dx
@@ -521,6 +524,10 @@ function _use_dual_scaling(
 end
 
 # use the primal-dual scaling strategy
+# PJG: This is identical to the exponential cone except 
+# for the way the gradient is called.   A few other 
+# functions are the same / close as well.   Need to 
+# consolidate this into a common set of 3d cone functions
 function _use_primal_dual_scaling(
     K::PowerCone{T},
     s::AbstractVector{T},
