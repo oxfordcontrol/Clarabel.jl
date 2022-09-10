@@ -162,16 +162,12 @@ PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 # want the ExponentialCone and PowerCone structs to be concrete, 
 # hence the monstrosity of a constructor below.
 
-function _static_3d_cone_types(T)
-    M3T_ISBITS{T}     = MMatrix{3,3,T,9}
-    M3T_NOT_ISBITS{T} = SizedMatrix{3, 3, T, 2, Matrix{T}} 
-    V3T_ISBITS{T}     = MVector{3,T} 
-    V3T_NOT_ISBITS{T} = SizedVector{3,T,Vector{T}}
-    if isbitstype(T)
-        return (M3T_ISBITS{T}, V3T_ISBITS{T})
-    else 
-        return (M3T_NOT_ISBITS{T},V3T_NOT_ISBITS{T})
-    end
+@inline function CONE3D_M3T_TYPE(T)
+    isbitstype(T) ? MMatrix{3,3,T,9} : SizedMatrix{3, 3, T, 2, Matrix{T}} 
+end
+
+@inline function CONE3D_V3T_TYPE(T)
+    isbitstype(T) ? MVector{3,T} : SizedVector{3,T,Vector{T}}
 end
 
 mutable struct ExponentialCone{T,M3T,V3T} <: AbstractCone{T}
@@ -183,7 +179,8 @@ mutable struct ExponentialCone{T,M3T,V3T} <: AbstractCone{T}
 
     function ExponentialCone{T}() where {T}
 
-        (M3T,V3T) = _static_3d_cone_types(T)
+        M3T    = CONE3D_M3T_TYPE(T)
+        V3T    = CONE3D_V3T_TYPE(T)
         H_dual = M3T(zeros(T,3,3))
         Hs     = M3T(zeros(T,3,3))
         grad   = V3T(zeros(T,3))
@@ -210,7 +207,8 @@ mutable struct PowerCone{T,M3T,V3T} <: AbstractCone{T}
 
     function PowerCone{T}(α::T) where {T}
 
-        (M3T,V3T) = _static_3d_cone_types(T)
+        M3T    = CONE3D_M3T_TYPE(T)
+        V3T    = CONE3D_V3T_TYPE(T)
         H_dual = M3T(zeros(T,3,3))
         Hs     = M3T(zeros(T,3,3))
         grad   = V3T(zeros(T,3))
