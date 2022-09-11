@@ -13,7 +13,7 @@
 # implementation to use same calling convention.
 
 function _step_length_3d_cone(
-    wq::AbstractVector{T},
+    K,
     dq::AbstractVector{T},
     q::AbstractVector{T},
     α_init::T,
@@ -22,6 +22,7 @@ function _step_length_3d_cone(
     is_in_cone_fcn::Function
 ) where {T}
 
+    wq = similar(K.grad)
     α = α_init
     while true
         #@. wq = q + α*dq

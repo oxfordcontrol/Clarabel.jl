@@ -177,6 +177,8 @@ mutable struct ExponentialCone{T,M3T,V3T} <: AbstractCone{T}
     grad::V3T        #gradient of the dual barrier at z 
     z::V3T           #holds copy of z at scaling point
 
+    work::V3T
+
     function ExponentialCone{T}() where {T}
 
         M3T    = CONE3D_M3T_TYPE(T)

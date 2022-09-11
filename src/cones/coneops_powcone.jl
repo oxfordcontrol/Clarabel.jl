@@ -121,11 +121,9 @@ function combined_ds_shift!(
     step_s::AbstractVector{T},
     σμ::T
 ) where {T}
-
-    η = similar(K.grad) 
     
     #3rd order correction requires input variables z
-    _higher_correction!(K,η,step_s,step_z)     
+    η = _higher_correction!(K,step_s,step_z)     
 
     @inbounds for i = 1:3
         shift[i] = K.grad[i]*σμ - η[i]
@@ -161,15 +159,14 @@ function step_length(
 
     backtrack = settings.linesearch_backtrack_step
     αmin      = settings.min_terminate_step_length
-    work      = similar(K.grad)
 
     #need functions as closures to capture the power K.α
     #and use the same backtrack mechanism as the expcone
     is_primal_feasible_fcn = s -> _is_primal_feasible_powcone(s,K.α)
     is_dual_feasible_fcn   = s -> _is_dual_feasible_powcone(s,K.α)
 
-    αz = _step_length_3d_cone(work, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn)
-    αs = _step_length_3d_cone(work, ds, s, αmax, αmin, backtrack, is_primal_feasible_fcn)
+    αz = _step_length_3d_cone(K, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn)
+    αs = _step_length_3d_cone(K, ds, s, αmax, αmin, backtrack, is_primal_feasible_fcn)
 
     return (αz,αs)
 end
@@ -228,10 +225,9 @@ end
     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
     # NB: ⟨s,g(s)⟩ = -3 = - ν
 
-    g = similar(K.grad)
     α = K.α
 
-    _gradient_primal(K,g,s,α)     #compute g(s)
+    g = _gradient_primal(K,g,s,α)     #compute g(s)
     return logsafe((-g[1]/α)^(2*α) * (-g[2]/(1-α))^(2-2*α) - g[3]*g[3]) + (1-α)*logsafe(-g[1]) + α*logsafe(-g[2]) - 3
 end 
 
@@ -274,6 +270,8 @@ function _gradient_primal(
 
     # unscaled ϕ
     ϕ = (s[1])^(2*α)*(s[2])^(2-2*α)
+    g = similar(K.grad)
+
 
     # obtain g3 from the Newton-Raphson method
     abs_s = abs(s[3])
@@ -289,6 +287,7 @@ function _gradient_primal(
         g[1] = -(1+α)/s[1]
         g[2] = -(2-α)/s[2]
     end
+    return SVector(g)
 
 end
 
@@ -369,26 +368,21 @@ end
 #         0                       0                          -2;]
 function _higher_correction!(
     K::PowerCone{T},
-    η::AbstractVector{T},
     ds::AbstractVector{T},
     v::AbstractVector{T}
 ) where {T}
 
     # u for H^{-1}*Δs
     H = K.H_dual
-    u = similar(K.z)
     z = K.z
 
     #solve H*u = ds
     cholH = similar(K.H_dual)
     issuccess = cholesky_3x3_explicit_factor!(cholH,H)
     if issuccess 
-        cholesky_3x3_explicit_solve!(u,cholH,ds)
+        u = cholesky_3x3_explicit_solve!(cholH,ds)
     else 
-        @inbounds for i = 1:3
-            η[i] = zero(T)
-        end
-        return nothing
+        return SVector(zero(T),zero(T),zero(T))
     end
 
     α = K.α
@@ -399,6 +393,7 @@ function _higher_correction!(
     # Reuse cholH memory for further computation
     Hψ = cholH
     
+    η = similar(K.grad)
     η[1] = 2*α*ϕ/z[1]
     η[2] = 2*(1-α)*ϕ/z[2]
     η[3] = -2*z[3]
@@ -443,7 +438,9 @@ function _higher_correction!(
     @inbounds for i = 1:3
         η[i] = (η[i] + Hψu[i]*dotψv*inv_ψ2)/2
     end
-
+    # coercing to an SArray means that the MArray we computed 
+    # locally in this function is seemingly not heap allocated 
+    SArray(η)
 end
 
 

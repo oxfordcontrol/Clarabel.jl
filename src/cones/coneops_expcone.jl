@@ -120,10 +120,8 @@ function combined_ds_shift!(
     σμ::T
 ) where {T}
 
-    η = similar(K.grad)
-
     #3rd order correction requires input variables z
-    _higher_correction!(K,η,step_s,step_z)             
+    η = _higher_correction!(K,step_s,step_z)             
 
     @inbounds for i = 1:3
         shift[i] = K.grad[i]*σμ - η[i]
@@ -159,10 +157,9 @@ function step_length(
 
     backtrack = settings.linesearch_backtrack_step
     αmin      = settings.min_terminate_step_length
-    work      = similar(K.grad)
     
-    αz = _step_length_3d_cone(work, dz, z, αmax, αmin,  backtrack, _is_dual_feasible_expcone)
-    αs = _step_length_3d_cone(work, ds, s, αmax, αmin,  backtrack, _is_primal_feasible_expcone)
+    αz = _step_length_3d_cone(K, dz, z, αmax, αmin,  backtrack, _is_dual_feasible_expcone)
+    αs = _step_length_3d_cone(K, ds, s, αmax, αmin,  backtrack, _is_primal_feasible_expcone)
 
     return (αz,αs)
 end
@@ -258,15 +255,16 @@ end
 # Compute the primal gradient of f(s) at s
 function _gradient_primal(
     K::ExponentialCone{T},
-    g::Union{AbstractVector{T}, NTuple{3,T}},
     s::Union{AbstractVector{T}, NTuple{3,T}},
 ) where {T}
 
     ω = _wright_omega(1-s[1]/s[2]-logsafe(s[2]/s[3]))
 
-    g[1] = one(T)/((ω-one(T))*s[2])
-    g[2] = g[1] + g[1]*logsafe(ω*s[2]/s[3]) - one(T)/s[2]
-    g[3] = ω/((one(T) - ω)*s[3])
+    g1 = one(T)/((ω-one(T))*s[2])
+    g2 = g1 + g1*logsafe(ω*s[2]/s[3]) - one(T)/s[2]
+    g3 = ω/((one(T) - ω)*s[3])
+
+    SVector(g1,g2,g3)
 
 end
 
@@ -359,28 +357,24 @@ end
 
 function _higher_correction!(
     K::ExponentialCone{T},
-    η::AbstractVector{T},
     ds::AbstractVector{T},
     v::AbstractVector{T}
 ) where {T}
 
     # u for H^{-1}*Δs
     H = K.H_dual
-    u = similar(K.z)
     z = K.z
  
     #solve H*u = ds
     cholH = similar(K.H_dual)
     issuccess = cholesky_3x3_explicit_factor!(cholH,H)
     if issuccess 
-        cholesky_3x3_explicit_solve!(u,cholH,ds)
+        u = cholesky_3x3_explicit_solve!(cholH,ds)
     else 
-        @inbounds for i = 1:3
-            η[i] = zero(T)
-        end
-        return nothing
+        return SVector(zero(T),zero(T),zero(T))
     end
     
+    η = similar(K.grad)
     η[2] = one(T)
     η[3] = -z[1]/z[3]    # gradient of ψ
     η[1] = logsafe(η[3])
@@ -405,6 +399,9 @@ function _higher_correction!(
         η[i] /= 2
     end
 
+    # coercing to an SArray means that the MArray we computed 
+    # locally in this function is seemingly not heap allocated 
+    SArray(η)
 end
 
 
@@ -491,20 +488,17 @@ function _use_primal_dual_scaling(
     (Hs,H_dual) = (K.Hs,K.H_dual)
 
     st = K.grad
-    zt = similar(st)
-    δs = similar(st)
-    tmp = similar(st) #shared for δz, tmp, axis_z
 
     # compute zt,st,μt locally
     # NB: zt,st have different sign convention wrt Mosek paper
-    _gradient_primal(K,zt,s)
+    zt = _gradient_primal(K,s)
     dot_sz = dot(z,s)
     μ = dot_sz/3
     μt = dot(zt,st)/3
 
-    # δs = s + μ*st
-    # δz = z + μ*zt 
-    δz = tmp    
+    δz = similar(st)  
+    δs = similar(st)
+
     @inbounds for i = 1:3
         δs[i] = s[i] + μ*st[i]
         δz[i] = z[i] + μ*zt[i]
@@ -522,6 +516,7 @@ function _use_primal_dual_scaling(
 
     # compute t
     # tmp = μt*st - H*zt
+    tmp = similar(st)
     @inbounds for i = 1:3
         tmp[i] = μt*st[i] - H_dual[i,1]*zt[1] - H_dual[i,2]*zt[2] - H_dual[i,3]*zt[3]
     end
@@ -543,10 +538,11 @@ function _use_primal_dual_scaling(
     @assert t > 0
     # generate the remaining axis
     # axis_z = cross(z,zt)
-    axis_z = tmp
+    axis_z = similar(st)
     axis_z[1] = z[2]*zt[3] - z[3]*zt[2]
     axis_z[2] = z[3]*zt[1] - z[1]*zt[3]
     axis_z[3] = z[1]*zt[2] - z[2]*zt[1]
+
     normalize!(axis_z)
     # Hs = s*s'/⟨s,z⟩ + δs*δs'/⟨δs,δz⟩ + t*axis_z*axis_z'
     @inbounds for i = 1:3
