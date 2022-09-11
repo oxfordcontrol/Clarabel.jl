@@ -227,7 +227,7 @@ end
 
     α = K.α
 
-    g = _gradient_primal(K,g,s,α)     #compute g(s)
+    g = _gradient_primal(K,s,α)     #compute g(s)
     return logsafe((-g[1]/α)^(2*α) * (-g[2]/(1-α))^(2-2*α) - g[3]*g[3]) + (1-α)*logsafe(-g[1]) + α*logsafe(-g[2]) - 3
 end 
 
@@ -263,7 +263,6 @@ end
 # solve it by the Newton-Raphson method
 function _gradient_primal(
     K::PowerCone{T},
-    g::Union{AbstractVector{T}, NTuple{3,T}},
     s::Union{AbstractVector{T}, NTuple{3,T}},
     α:: T
 ) where {T}
@@ -540,7 +539,7 @@ function _use_primal_dual_scaling(
 
     # compute zt,st,μt locally
     # NB: zt,st have different sign convention wrt Mosek paper
-    _gradient_primal(K,zt,s,K.α)
+    zt = _gradient_primal(K,s,K.α)
     dot_sz = dot(z,s)
     μ = dot_sz/3
     μt = dot(zt,st)/3

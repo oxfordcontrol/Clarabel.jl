@@ -70,7 +70,7 @@ function test_MOI_standard()
         BRIDGED,
         MYCONFIG,
         # use `include` to single out a problem class
-        #include = String["test_conic_<whatever>"],
+        #include = String["test_conic_PowerCone_VectorAffineFunction"],
         exclude = String[
             #problematic tests can be disabled here
             #"test_conic_<whatever>"
