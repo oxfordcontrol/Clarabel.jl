@@ -554,17 +554,14 @@ function _use_primal_dual_scaling(
     @inbounds for i = 1:3
         δz[i] = z[i] + μ*zt[i]
     end    
-    dot_δsz = dot(δs,δz)
-
+    dot_δsz = δs[1]*δz[1]+δs[2]*δz[2]+δs[3]*δz[3]
+    # println("dot_δsz is ", dot_δsz)
     de1 = μ*μt-1
     de2 = dot(zt,H_dual,zt) - 3*μt*μt
 
-    if abs(de1) < sqrt(eps(T))
-        # Hs = μ*H_dual when s,z are on the central path
-        _use_dual_scaling(K,μ)
-
-        return nothing
-    else
+    # use the primal-dual scaling
+    if (abs(de1) > sqrt(eps(T))      # too close to central path
+        && abs(de2) > eps(T) && dot_sz > 0 && dot_δsz > 0)  # for numerical stability
         # compute t
         # tmp = μt*st - H_dual*zt
         @inbounds for i = 1:3
@@ -581,8 +578,8 @@ function _use_primal_dual_scaling(
 
         t = μ*norm(Hs)  #Frobenius norm
 
-        @assert dot_sz > 0
-        @assert dot_δsz > 0
+        # @assert dot_sz > 0
+        # @assert dot_δsz > 0
         @assert t > 0
 
         # generate the remaining axis
@@ -603,6 +600,11 @@ function _use_primal_dual_scaling(
         Hs[2,1] = Hs[1,2]
         Hs[3,1] = Hs[1,3]
         Hs[3,2] = Hs[2,3]
+
+        return nothing
+    else
+        # Hs = μ*H_dual when s,z are on the central path
+        _use_dual_scaling(K,μ)
 
         return nothing
     end

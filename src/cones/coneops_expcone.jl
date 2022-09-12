@@ -508,52 +508,54 @@ function _use_primal_dual_scaling(
     de1 = μ*μt-1
     de2 = dot(zt,H_dual,zt) - 3*μt*μt
 
-    if abs(de1) < sqrt(eps(T))
-        # Hs = μH when s,z are on the central path
+    # use the primal-dual scaling
+    if (abs(de1) > sqrt(eps(T))      # too close to central path
+        && abs(de2) > eps(T) && dot_sz > 0 && dot_δsz > 0)  # for numerical stability
+        # compute t
+        # tmp = μt*st - H_dual*zt
+        @inbounds for i = 1:3
+            tmp[i] = μt*st[i] - H_dual[i,1]*zt[1] - H_dual[i,2]*zt[2] - H_dual[i,3]*zt[3]
+        end
+
+        # Hs as a workspace
+        copyto!(Hs,H_dual)
+        @inbounds for i = 1:3
+            @inbounds for j = 1:3
+                Hs[i,j] -= st[i]*st[j]/3 + tmp[i]*tmp[j]/de2
+            end
+        end
+
+        t = μ*norm(Hs)  #Frobenius norm
+
+        # @assert dot_sz > 0
+        # @assert dot_δsz > 0
+        @assert t > 0
+
+        # generate the remaining axis
+        # axis_z = cross(z,zt)
+        axis_z = tmp
+        axis_z[1] = z[2]*zt[3] - z[3]*zt[2]
+        axis_z[2] = z[3]*zt[1] - z[1]*zt[3]
+        axis_z[3] = z[1]*zt[2] - z[2]*zt[1]
+        normalize!(axis_z)
+
+        # Hs = s*s'/⟨s,z⟩ + δs*δs'/⟨δs,δz⟩ + t*axis_z*axis_z'
+        @inbounds for i = 1:3
+            @inbounds for j = i:3
+                Hs[i,j] = s[i]*s[j]/dot_sz + δs[i]*δs[j]/dot_δsz + t*axis_z[i]*axis_z[j]
+            end
+        end
+        # symmetrize matrix
+        Hs[2,1] = Hs[1,2]
+        Hs[3,1] = Hs[1,3]
+        Hs[3,2] = Hs[2,3]
+
+        return nothing
+    else
+        # Hs = μ*H_dual when s,z are on the central path
         _use_dual_scaling(K,μ)
+
         return nothing
     end
-
-    # compute t
-    # tmp = μt*st - H*zt
-    tmp = similar(st)
-    @inbounds for i = 1:3
-        tmp[i] = μt*st[i] - H_dual[i,1]*zt[1] - H_dual[i,2]*zt[2] - H_dual[i,3]*zt[3]
-    end
-    # Hs as a workspace
-    copyto!(Hs,H_dual)
-    @inbounds for i = 1:3
-        @inbounds for j = i:3
-            Hs[i,j] -= st[i]*st[j]/3 + tmp[i]*tmp[j]/de2
-        end
-    end
-    # symmetrize matrix
-    Hs[2,1] = Hs[1,2]
-    Hs[3,1] = Hs[1,3]
-    Hs[3,2] = Hs[2,3]
-    
-    t = μ*norm(Hs)  #Frobenius norm
-    @assert dot_sz > 0
-    @assert dot_δsz > 0
-    @assert t > 0
-    # generate the remaining axis
-    # axis_z = cross(z,zt)
-    axis_z = similar(st)
-    axis_z[1] = z[2]*zt[3] - z[3]*zt[2]
-    axis_z[2] = z[3]*zt[1] - z[1]*zt[3]
-    axis_z[3] = z[1]*zt[2] - z[2]*zt[1]
-
-    normalize!(axis_z)
-    # Hs = s*s'/⟨s,z⟩ + δs*δs'/⟨δs,δz⟩ + t*axis_z*axis_z'
-    @inbounds for i = 1:3
-        @inbounds for j = i:3
-            Hs[i,j] = s[i]*s[j]/dot_sz + δs[i]*δs[j]/dot_δsz + t*axis_z[i]*axis_z[j]
-        end
-    end
-    # symmetrize matrix
-    Hs[2,1] = Hs[1,2]
-    Hs[3,1] = Hs[1,3]
-    Hs[3,2] = Hs[2,3]
-    return nothing
     
 end
