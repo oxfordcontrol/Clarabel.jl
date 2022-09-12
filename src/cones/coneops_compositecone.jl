@@ -214,9 +214,10 @@ function step_length(
          z::ConicVector{T},
          s::ConicVector{T},
   settings::Settings{T},
-         α::T,
+      αmax::T,
 ) where {T}
 
+    α     = αmax
     dz    = dz.views
     ds    = ds.views
     z     = z.views

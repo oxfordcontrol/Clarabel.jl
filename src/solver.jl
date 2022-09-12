@@ -180,7 +180,6 @@ function solve!(
     @timeit s.timers "solve!" begin
 
         # initialize variables to some reasonable starting point
-        # @timeit_debug timers "default start"
         @timeit s.timers "default start" solver_default_start!(s)
 
         @timeit s.timers "IP iteration" begin
@@ -294,12 +293,6 @@ function solve!(
             α = solver_get_step_length(s,:combined,scaling)
 
             # check for undersized step and update strategy
-
-            #PJG: There is no point updating the scalars on Fail here 
-            #because the values will never be printed.   Need a way to 
-            #ensure that we print a full report on the break case, both 
-            #here and above.   I moved scalar recording the top and 
-            #simplified the flow logic a bit, but I don't know if it works
             (action,scaling) = _strategy_checkpoint_small_step(s, α, scaling)
             if     action === NoUpdate; ();  #just keep going 
             elseif action === Update; α = zero(T); continue; 
