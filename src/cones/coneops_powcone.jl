@@ -546,16 +546,13 @@ function _use_primal_dual_scaling(
 
     # δs = s + μ*st
     # δz = z + μ*zt     
-    @inbounds for i = 1:3
-        δs[i] = s[i] + μ*st[i]
-    end
-
     δz = tmp
     @inbounds for i = 1:3
+        δs[i] = s[i] + μ*st[i]
         δz[i] = z[i] + μ*zt[i]
     end    
-    dot_δsz = δs[1]*δz[1]+δs[2]*δz[2]+δs[3]*δz[3]
-    # println("dot_δsz is ", dot_δsz)
+    dot_δsz = dot(δs,δz)
+
     de1 = μ*μt-1
     de2 = dot(zt,H_dual,zt) - 3*μt*μt
 
