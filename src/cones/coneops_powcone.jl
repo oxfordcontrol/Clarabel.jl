@@ -28,8 +28,8 @@ function unit_initialization!(
  
      α = K.α
  
-     s[1] = one(T)*sqrt(one(T)+α)
-     s[2] = one(T)*sqrt(one(T)+((one(T)-α)))
+     s[1] = sqrt(one(T)+α)
+     s[2] = sqrt(one(T)+((one(T)-α)))
      s[3] = zero(T)
  
      #@. z = s
@@ -56,10 +56,12 @@ function update_scaling!(
     μ::T,
     scaling_strategy::ScalingStrategy
 ) where {T}
+
     # update both gradient and Hessian for function f*(z) at the point z
-    # NB: the update order can't be switched as we reuse memory in the 
-    # Hessian update
-    _update_grad_HBFGS(K,s,z,μ,scaling_strategy)
+    _update_dual_grad_H(K,z)
+
+    # update the scaling matrix Hs
+    _update_Hs(K,s,z,μ,scaling_strategy)
 
     # K.z .= z
     @inbounds for i = 1:3
@@ -80,8 +82,7 @@ function get_Hs!(
 ) where {T}
 
     #Vectorize triu(K.μH)
-    # _pack_triu(Hsblock,K.μH)
-    _pack_triu(Hsblock,K.HBFGS)
+    _pack_triu(Hsblock,K.Hs)
 
 end
 
@@ -93,8 +94,8 @@ function mul_Hs!(
     workz::AbstractVector{T}
 ) where {T}
 
-    # mul!(ls,K.HBFGS,lz,-one(T),zero(T))
-    H = K.HBFGS
+    # mul!(ls,K.Hs,lz,-one(T),zero(T))
+    H = K.Hs
     @inbounds for i = 1:3
         y[i] =  H[i,1]*x[1] + H[i,2]*x[2] + H[i,3]*x[3]
     end
@@ -111,7 +112,6 @@ function affine_ds!(
     @inbounds for i = 1:3
         ds[i] = s[i]
     end
-
 end
 
 function combined_ds_shift!(
@@ -121,9 +121,10 @@ function combined_ds_shift!(
     step_s::AbstractVector{T},
     σμ::T
 ) where {T}
+    
+    #3rd order correction requires input variables z
+    η = _higher_correction!(K,step_s,step_z)     
 
-    η = K.grad_work      
-    _higher_correction!(K,η,step_s,step_z)         
     @inbounds for i = 1:3
         shift[i] = K.grad[i]*σμ - η[i]
     end
@@ -161,11 +162,11 @@ function step_length(
 
     #need functions as closures to capture the power K.α
     #and use the same backtrack mechanism as the expcone
-    is_primal_feasible_fcn = s -> _is_dual_feasible_powcone(s,K.α)
-    is_dual_feasible_fcn   = s -> _is_primal_feasible_powcone(s,K.α)
+    is_primal_feasible_fcn = s -> _is_primal_feasible_powcone(s,K.α)
+    is_dual_feasible_fcn   = s -> _is_dual_feasible_powcone(s,K.α)
 
-    αz = _step_length_3d_cone(K.vec_work, dz, z, αmax, αmin, backtrack, is_primal_feasible_fcn)
-    αs = _step_length_3d_cone(K.vec_work, ds, s, αmax, αmin, backtrack, is_dual_feasible_fcn)
+    αz = _step_length_3d_cone(K, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn)
+    αs = _step_length_3d_cone(K, ds, s, αmax, αmin, backtrack, is_primal_feasible_fcn)
 
     return (αz,αs)
 end
@@ -224,10 +225,9 @@ end
     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
     # NB: ⟨s,g(s)⟩ = -3 = - ν
 
-    g = K.vec_work
     α = K.α
 
-    _gradient_primal(K,g,s)     #compute g(s)
+    g = _gradient_primal(K,s)     #compute g(s)
     return logsafe((-g[1]/α)^(2*α) * (-g[2]/(1-α))^(2-2*α) - g[3]*g[3]) + (1-α)*logsafe(-g[1]) + α*logsafe(-g[2]) - 3
 end 
 
@@ -263,14 +263,15 @@ end
 # solve it by the Newton-Raphson method
 function _gradient_primal(
     K::PowerCone{T},
-    g::Union{AbstractVector{T}, NTuple{3,T}},
     s::Union{AbstractVector{T}, NTuple{3,T}},
 ) where {T}
 
-    α = K.α
+    α = K.α;
 
     # unscaled ϕ
     ϕ = (s[1])^(2*α)*(s[2])^(2-2*α)
+    g = similar(K.grad)
+
 
     # obtain g3 from the Newton-Raphson method
     abs_s = abs(s[3])
@@ -286,6 +287,7 @@ function _gradient_primal(
         g[1] = -(1+α)/s[1]
         g[2] = -(2-α)/s[2]
     end
+    return SVector(g)
 
 end
 
@@ -304,69 +306,83 @@ function _newton_raphson_powcone(
     # init point x0: since our dual barrier has an additional 
     # shift -2α*log(α) - 2(1-α)*log(1-α) > 0 in f(x),
     # the previous selection is still feasible, i.e. f(x0) > 0
-    x = -one(T)/s3 + 2*(s3 + sqrt(4*ϕ*ϕ/s3/s3 + 3*ϕ))/(4*ϕ - s3*s3)
+    x0 = -one(T)/s3 + 2*(s3 + sqrt(4*ϕ*ϕ/s3/s3 + 3*ϕ))/(4*ϕ - s3*s3)
 
     # additional shift due to the choice of dual barrier
-    t0 = - 2*α*logsafe(α) - 2*(1-α)*logsafe(1-α)    
-    t1 = x*x
-    t2 = x*2/s3
+    t0 = - 2*α*logsafe(α) - 2*(1-α)*logsafe(1-α)   
 
-    f0 = 2*α*logsafe(2*α*t1 + (1+α)*t2) + 
-         2*(1-α)*logsafe(2*(1-α)*t1 + (2-α)*t2) - 
-         logsafe(ϕ) - logsafe(t1+t2) - 2*logsafe(t2) + t0
-        
-    f1 = 2*α*α/(α*x + (1+α)/s3) + 
-         2*(1-α)*(1-α)/((1-α)*x + (2-α)/s3) - 
-         2*(x + 1/s3)/(t1 + t2)
-
-    xnew = x - f0/f1
-
-    # terminate when abs(xnew - x) <= eps(T)
-    while (xnew - x) > eps(T)
-        # println("x is ",x)
-        x = xnew
-
-        t1 = x*x
-        t2 = x*2/s3
-
-        f0 = 2*α*logsafe(2*α*t1 + (1+α)*t2) + 
+    # function for f(x) = 0
+    function f0(x)
+        t1 = x*x; t2 = 2*x/s3;
+        2*α*logsafe(2*α*t1 + (1+α)*t2) + 
              2*(1-α)*logsafe(2*(1-α)*t1 + (2-α)*t2) - 
              logsafe(ϕ) - logsafe(t1+t2) - 
              2*logsafe(t2) + t0
-
-        f1 = 2*α*α/(α*x + (1+α)/s3) + 2*(1-α)*(1-α)/((1-α)*x + 
-             (2-α)/s3) - 2*(x + 1/s3)/(t1 + t2)
-
-        xnew = x - f0/f1
     end
 
-    return xnew
+    # first derivative
+    function f1(x)
+        t1 = x*x; t2 = x*2/s3;
+        2*α*α/(α*x + (1+α)/s3) + 2*(1-α)*(1-α)/((1-α)*x + 
+             (2-α)/s3) - 2*(x + 1/s3)/(t1 + t2)
+    end
+    
+    return _newton_raphson_onesided(x0,f0,f1)
 end
 
-# 3rd-order correction at the point z 
-# w.r.t. directions u,v. Writes to η
+function _newton_raphson_onesided(x0::T,f0::Function,f1::Function) where {T}
+
+    #implements NR method from a starting point assumed to be to the 
+    #left of the true value.   Once a negative step is encountered 
+    #this function will halt regardless of the calculated correction.
+
+    x = x0
+    iter = 0
+
+    while iter < 100
+
+        iter += 1
+        dfdx  =  f1(x)  
+        dx    = -f0(x)/dfdx
+
+        if (dx < eps(T)) ||
+            (abs(dx/x) < sqrt(eps(T))) ||
+            (abs(dfdx) < eps(T))
+            break
+        end
+        x += dx
+    end
+    return x
+end
+
+
+# 3rd-order correction at the point z.  Output is η.
+
+# 3rd order correction: 
+# η = -0.5*[(dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + 
+#            dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - 
+#            dotψuv/ψ + dothuv]
+# where: 
+# Hψ = [  2*α*(2*α-1)*ϕ/(z1*z1)     4*α*(1-α)*ϕ/(z1*z2)       0;
+#         4*α*(1-α)*ϕ/(z1*z2)     2*(1-α)*(1-2*α)*ϕ/(z2*z2)   0;
+#         0                       0                          -2;]
 function _higher_correction!(
     K::PowerCone{T},
-    η::AbstractVector{T},
     ds::AbstractVector{T},
     v::AbstractVector{T}
 ) where {T}
 
     # u for H^{-1}*Δs
-
-    H = K.H
-    u = K.vec_work
+    H = K.H_dual
     z = K.z
 
     #solve H*u = ds
-    issuccess = cholesky_3x3_explicit_factor!(K.cholH,H)
+    cholH = similar(K.H_dual)
+    issuccess = cholesky_3x3_explicit_factor!(cholH,H)
     if issuccess 
-        cholesky_3x3_explicit_solve!(u,K.cholH,ds)
+        u = cholesky_3x3_explicit_solve!(cholH,ds)
     else 
-        @inbounds for i = 1:3
-            η[i] = zero(T)
-        end
-        return nothing
+        return SVector(zero(T),zero(T),zero(T))
     end
 
     α = K.α
@@ -374,21 +390,14 @@ function _higher_correction!(
     ϕ = (z[1]/α)^(2*α)*(z[2]/(1-α))^(2-2*α)
     ψ = ϕ - z[3]*z[3]
 
-    # Reuse K.H memory for computation
-    Hψ = K.H
+    # Reuse cholH memory for further computation
+    Hψ = cholH
     
+    η = similar(K.grad)
     η[1] = 2*α*ϕ/z[1]
     η[2] = 2*(1-α)*ϕ/z[2]
     η[3] = -2*z[3]
 
-    # 3rd order correction: 
-    # η = -0.5*[(dot(u,Hψ,v)*ψ - 2*dotψu*dotψv)/(ψ*ψ*ψ)*gψ + 
-    #            dotψu/(ψ*ψ)*Hψv + dotψv/(ψ*ψ)*Hψu - 
-    #            dotψuv/ψ + dothuv]
-    # where: 
-    # Hψ = [  2*α*(2*α-1)*ϕ/(z1*z1)     4*α*(1-α)*ϕ/(z1*z2)       0;
-    #         4*α*(1-α)*ϕ/(z1*z2)     2*(1-α)*(1-2*α)*ϕ/(z2*z2)   0;
-    #         0                       0                          -2;]
     Hψ[1,1] = 2*α*(2*α-1)*ϕ/(z[1]*z[1])
     Hψ[1,2] = 4*α*(1-α)*ϕ/(z[1]*z[2])
     Hψ[2,1] = Hψ[1,2]
@@ -402,7 +411,7 @@ function _higher_correction!(
     dotψu = dot(η,u)
     dotψv = dot(η,v)
 
-    Hψv = K.vec_work_2
+    Hψv = similar(K.grad)
     Hψv[1] = Hψ[1,1]*v[1]+Hψ[1,2]*v[2]
     Hψv[2] = Hψ[2,1]*v[1]+Hψ[2,2]*v[2]
     Hψv[3] = -2*v[3]
@@ -419,58 +428,36 @@ function _higher_correction!(
 
     η[3] = coef*η[3] + Hψv[3]*dotψu*inv_ψ2
 
-    Hψu = K.vec_work_2
+    # reuse vector Hψv
+    Hψu = Hψv
     Hψu[1] = Hψ[1,1]*u[1]+Hψ[1,2]*u[2]
     Hψu[2] = Hψ[2,1]*u[1]+Hψ[2,2]*u[2]
     Hψu[3] = -2*u[3]
-    @. η = η + Hψu*dotψv*inv_ψ2
 
+    # @. η <= (η + Hψu*dotψv*inv_ψ2)/2
     @inbounds for i = 1:3
-        η[i] /= 2
+        η[i] = (η[i] + Hψu[i]*dotψv*inv_ψ2)/2
     end
-
+    # coercing to an SArray means that the MArray we computed 
+    # locally in this function is seemingly not heap allocated 
+    SArray(η)
 end
 
 
-#-------------------------------------
-# primal-dual scaling
-#-------------------------------------
-
-# Implementation sketch
-# 1) only need to replace μH by W^TW, where
-#    W^TW is the primal-dual scaling matrix 
-#    generated by BFGS, i.e. W^T W*[z,\tilde z] = [s,\tile s]
-#   \tilde z = -f'(s), \tilde s = - f*'(z)
-
-function _update_grad_HBFGS(
+# update gradient and Hessian at dual z
+function _update_dual_grad_H(
     K::PowerCone{T},
-    s::AbstractVector{T},
-    z::AbstractVector{T},
-    μ::T,
-    scaling_strategy::ScalingStrategy
+    z::AbstractVector{T}
 ) where {T}
-    # reuse memory
-    st = K.grad
-    zt = K.vec_work
-    δs = K.grad_work
-    tmp = K.z   #shared workspace for δz, tmp, axis_z
-    H = K.H
-    HBFGS = K.HBFGS
-
-    # Hessian computation, compute μ locally
+    
+    H = K.H_dual
     α = K.α
 
     ϕ = (z[1]/α)^(2*α)*(z[2]/(1-α))^(2-2*α)
     ψ = ϕ - z[3]*z[3]
 
-    # compute the gradient at z
-    st[1] = -2*α*ϕ/(z[1]*ψ) - (1-α)/z[1]
-    st[2] = -2*(1-α)*ϕ/(z[2]*ψ) - α/z[2]
-    st[3] = 2*z[3]/ψ
-
-
-    # use workspace K.vec_work temporarily
-    gψ = K.vec_work
+    # use K.grad as a temporary workspace
+    gψ = K.grad
     gψ[1] = 2*α*ϕ/(z[1]*ψ)
     gψ[2] = 2*(1-α)*ϕ/(z[2]*ψ)
     gψ[3] = -2*z[3]/ψ
@@ -485,87 +472,10 @@ function _update_grad_HBFGS(
     H[3,2] = H[2,3]
     H[3,3] = gψ[3]*gψ[3] + 2/ψ
 
-    #Use the local mu with primal dual strategy.  Otherwise 
-    #we use the global one 
-    if(scaling_strategy == Dual::ScalingStrategy)
-        # HBFGS .= μ*H
-        @inbounds for i = 1:(3*3)
-            HBFGS[i] = μ*H[i]
-        end
-        return nothing
-    end 
-    dot_sz = dot(z,s)
-    μ = dot_sz/3
-
-    # compute zt,st,μt locally
-    # NB: zt,st have different sign convention wrt Mosek paper
-    _gradient_primal(K,zt,s)
-
-    μt = dot(zt,st)/3
-
-    # δs = s + μ*st
-    # δz = z + μ*zt     
-
-    @inbounds for i = 1:3
-        δs[i] = s[i] + μ*st[i]
-    end
-
-    δz = tmp
-    @inbounds for i = 1:3
-        δz[i] = z[i] + μ*zt[i]
-    end    
-    dot_δsz = dot(δs,δz)
-
-    de1 = μ*μt-1
-    de2 = dot(zt,H,zt) - 3*μt*μt
-
-    if !(abs(de1) > eps(T) && abs(de2) > eps(T))
-        # HBFGS = μ*H when s,z are on the central path
-        @inbounds for i = 1:(3*3)
-            HBFGS[i] = μ*H[i]
-        end
-        return nothing
-    else
-        # compute t
-        # tmp = μt*st - H*zt
-        @inbounds for i = 1:3
-            tmp[i] = μt*st[i] - H[i,1]*zt[1] - 
-                     H[i,2]*zt[2] - H[i,3]*zt[3]
-        end
-
-        # HBFGS as a workspace
-        copyto!(HBFGS,H)
-        @inbounds for i = 1:3
-            @inbounds for j = 1:3
-                HBFGS[i,j] -= st[i]*st[j]/3 + tmp[i]*tmp[j]/de2
-            end
-        end
-
-        t = μ*norm(HBFGS)  #Frobenius norm
-
-        @assert dot_sz > 0
-        @assert dot_δsz > 0
-        @assert t > 0
-
-        # generate the remaining axis
-        # axis_z = cross(z,zt)
-        axis_z = tmp
-        axis_z[1] = z[2]*zt[3] - z[3]*zt[2]
-        axis_z[2] = z[3]*zt[1] - z[1]*zt[3]
-        axis_z[3] = z[1]*zt[2] - z[2]*zt[1]
-        normalize!(axis_z)
-
-        # HBFGS = s*s'/⟨s,z⟩ + δs*δs'/⟨δs,δz⟩ + t*axis_z*axis_z'
-        @inbounds for i = 1:3
-            @inbounds for j = i:3
-                HBFGS[i,j] = s[i]*s[j]/dot_sz + δs[i]*δs[j]/dot_δsz + t*axis_z[i]*axis_z[j]
-            end
-        end
-        # symmetrize matrix
-        HBFGS[2,1] = HBFGS[1,2]
-        HBFGS[3,1] = HBFGS[1,3]
-        HBFGS[3,2] = HBFGS[2,3]
-
-        return nothing
-    end
+    # compute the gradient at z
+    grad = K.grad
+    grad[1] = -2*α*ϕ/(z[1]*ψ) - (1-α)/z[1]
+    grad[2] = -2*(1-α)*ϕ/(z[2]*ψ) - α/z[2]
+    grad[3] = 2*z[3]/ψ
 end
+

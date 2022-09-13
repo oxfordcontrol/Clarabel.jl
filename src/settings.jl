@@ -28,9 +28,9 @@ tol\\_infeas\\_rel						| 1e-8		| relative infeasibility tolerance
 tol\\_ktratio                           | 1e-7      | κ/τ tolerance
 ||
 __Reduced Accuracy Settings__||
-reduced\\_tol\\_gap\\_abs               | 1e-6      | reduced absolute residual tolerance
-reduced\\_tol\\_gap\\_rel               | 1e-6      | reduced relative residual tolerance
-reduced\\_tol\\_feas                    | 1e-5      | reduced feasibility check tolerance
+reduced\\_tol\\_gap\\_abs               | 5e-5      | reduced absolute residual tolerance
+reduced\\_tol\\_gap\\_rel               | 5e-5      | reduced relative residual tolerance
+reduced\\_tol\\_feas                    | 1e-4      | reduced feasibility check tolerance
 reduced\\_tol\\_infeas_abs		        | 5e-5      | reduced absolute infeasibility tolerance
 reduced\\_tol\\_infeas_rel		        | 5e-5      | reduced relative infeasibility tolerance
 reduced\\_tol\\_ktratio                 | 1e-4      | reduced κ/τ tolerance
@@ -58,8 +58,8 @@ dynamic\\_regularization\\_enable       | true      | enable KKT dynamic regular
 dynamic\\_regularization\\_eps          | 1e-13     | KKT dynamic regularization threshold
 dynamic\\_regularization\\_delta        | 2e-7      | KKT dynamic regularization shift
 iterative\\_refinement\\_enable         | true      | KKT solve with iterative refinement
-iterative\\_refinement\\_reltol         | 1e-13     | iterative refinement relative tolerance
-iterative\\_refinement\\_abstol         | 1e-14     | iterative refinement absolute tolerance
+iterative\\_refinement\\_reltol         | 1e-12     | iterative refinement relative tolerance
+iterative\\_refinement\\_abstol         | 1e-12     | iterative refinement absolute tolerance
 iterative\\_refinement\\_max\\_iter     | 10        | iterative refinement maximum iterations
 iterative\\_refinement\\_stop\\_ratio   | 5.0       | iterative refinement stalling tolerance
 
@@ -115,8 +115,9 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     #iterative refinement
     iterative_refinement_enable::Bool   = true
-    iterative_refinement_reltol::T      = 1e-13      
-    iterative_refinement_abstol::T      = 1e-14     
+    iterative_refinement_reltol::T      = 1e-12      
+    iterative_refinement_abstol::T      = 1e-12 
+
     iterative_refinement_max_iter::Int  = 10
     iterative_refinement_stop_ratio::T  = 5        
 

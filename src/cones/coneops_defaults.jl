@@ -197,7 +197,7 @@ function step_length(
      z::AbstractVector{T},
      s::AbstractVector{T},
      settings::Settings{T},
-     α::T
+  αmax::T
 ) where {T}
 
      error("Incomplete cone operation specification: ",typeof(K))

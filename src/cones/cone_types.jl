@@ -1,3 +1,4 @@
+using StaticArrays
 # -------------------------------------
 # abstract type defs
 # -------------------------------------
@@ -154,33 +155,40 @@ PSDTriangleCone(args...) = PSDTriangleCone{DefaultFloat}(args...)
 # Exponential Cone
 # ------------------------------------
 
-# gradient and Hessian for the dual barrier function
-mutable struct ExponentialCone{T} <: AbstractCone{T}
+# Exp and power cones always use fixed 3x1 or 3x3 fields, which 
+# are best handled using MArrays from StaticArrays.jl.  However, 
+# that doesn't work for non isbits type (specifically BigFloat), 
+# so we need to use SizedArrays in that case.   Either way we still 
+# want the ExponentialCone and PowerCone structs to be concrete, 
+# hence the monstrosity of a constructor below.
 
-    H::Matrix{T}       #μ*H for the linear system
-    grad::Vector{T}
+@inline function CONE3D_M3T_TYPE(T)
+    isbitstype(T) ? MMatrix{3,3,T,9} : SizedMatrix{3, 3, T, 2, Matrix{T}} 
+end
 
-    # workspace for centrality check
-    HBFGS::Matrix{T}
-    grad_work::Vector{T}
-    vec_work::Vector{T}
-    z::Vector{T}        # temporary storage for current z
+@inline function CONE3D_V3T_TYPE(T)
+    isbitstype(T) ? MVector{3,T} : SizedVector{3,T,Vector{T}}
+end
 
-    cholH::Matrix{T}
+mutable struct ExponentialCone{T,M3T,V3T} <: AbstractCone{T}
+
+    H_dual::M3T      #Hessian of the dual barrier at z 
+    Hs::M3T          #scaling matrix
+    grad::V3T        #gradient of the dual barrier at z 
+    z::V3T           #holds copy of z at scaling point
+
+    work::V3T
 
     function ExponentialCone{T}() where {T}
 
-        H = Matrix{T}(undef,3,3)
-        grad = Vector{T}(undef,3)
+        M3T    = CONE3D_M3T_TYPE(T)
+        V3T    = CONE3D_V3T_TYPE(T)
+        H_dual = M3T(zeros(T,3,3))
+        Hs     = M3T(zeros(T,3,3))
+        grad   = V3T(zeros(T,3))
+        z      = V3T(zeros(T,3))
 
-        HBFGS = Matrix{T}(undef,3,3)
-        grad_work = Vector{T}(undef,3)
-        vec_work = Vector{T}(undef,3)
-        z = Vector{T}(undef,3)
-        cholH = zeros(T,3,3)
-
-
-        return new(H,grad,HBFGS,grad_work,vec_work,z,cholH)
+        return new{T,M3T,V3T}(H_dual,Hs,grad,z)
     end
 end
 
@@ -191,32 +199,24 @@ ExponentialCone(args...) = ExponentialCone{DefaultFloat}(args...)
 # # ------------------------------------
 
 # gradient and Hessian for the dual barrier function
-mutable struct PowerCone{T} <: AbstractCone{T}
+mutable struct PowerCone{T,M3T,V3T} <: AbstractCone{T}
 
     α::T
-    H::Matrix{T}       #μ*H for the linear system
-    grad::Vector{T}
-
-    # workspace for centrality check
-    HBFGS::Matrix{T}
-    grad_work::Vector{T}
-    vec_work::Vector{T}
-    vec_work_2::Vector{T}
-    z::Vector{T}            # temporary storage for current z
-    cholH::Matrix{T} 
+    H_dual::M3T      #Hessian of the dual barrier at z 
+    Hs::M3T          #scaling matrix
+    grad::V3T        #gradient of the dual barrier at z 
+    z::V3T           #holds copy of z at scaling point
 
     function PowerCone{T}(α::T) where {T}
 
-        H = Matrix{T}(undef,3,3)
-        grad = Vector{T}(undef,3)
-        HBFGS = Matrix{T}(undef,3,3)
-        grad_work = Vector{T}(undef,3)
-        vec_work = Vector{T}(undef,3)
-        vec_work_2 = Vector{T}(undef,3)
-        z = Vector{T}(undef,3)
-        cholH = zeros(T,3,3)
-        
-        return new(α,H,grad,HBFGS,grad_work,vec_work,vec_work_2,z,cholH)
+        M3T    = CONE3D_M3T_TYPE(T)
+        V3T    = CONE3D_V3T_TYPE(T)
+        H_dual = M3T(zeros(T,3,3))
+        Hs     = M3T(zeros(T,3,3))
+        grad   = V3T(zeros(T,3))
+        z      = V3T(zeros(T,3))
+
+        return new{T,M3T,V3T}(α,H_dual,Hs,grad,z)
     end
 end
 

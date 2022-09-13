@@ -52,7 +52,7 @@ struct CompositeCone{T} <: AbstractCone{T}
                 cones[i] = ConeDict[typeof(cone_specs[i])]{T}()
                 _is_symmetric = false
             elseif types[i] == PowerConeT
-                cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].α)
+                cones[i] = ConeDict[typeof(cone_specs[i])]{T}(T(cone_specs[i].α))
                 _is_symmetric = false
             else
                 cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].dim)

@@ -180,7 +180,6 @@ function solve!(
     @timeit s.timers "solve!" begin
 
         # initialize variables to some reasonable starting point
-        # @timeit_debug timers "default start"
         @timeit s.timers "default start" solver_default_start!(s)
 
         @timeit s.timers "IP iteration" begin
@@ -294,12 +293,6 @@ function solve!(
             α = solver_get_step_length(s,:combined,scaling)
 
             # check for undersized step and update strategy
-
-            #PJG: There is no point updating the scalars on Fail here 
-            #because the values will never be printed.   Need a way to 
-            #ensure that we print a full report on the break case, both 
-            #here and above.   I moved scalar recording the top and 
-            #simplified the flow logic a bit, but I don't know if it works
             (action,scaling) = _strategy_checkpoint_small_step(s, α, scaling)
             if     action === NoUpdate; ();  #just keep going 
             elseif action === Update; α = zero(T); continue; 
@@ -348,10 +341,11 @@ function solver_default_start!(s::Solver{T}) where {T}
         #solve for primal/dual initial points via KKT
         kkt_solve_initial_point!(s.kktsystem,s.variables,s.data)
         #fix up (z,s) so that they are in the cone
-        variables_shift_to_cone!(s.variables, s.cones)
+        variables_symmetric_initialization!(s.variables, s.cones)
 
     else
-        asymmetric_init_cone!(s.variables, s.cones)
+        #Assigns unit (z,s) and zeros the primal variables 
+        variables_unit_initialization!(s.variables, s.cones)
     end
 
     return nothing

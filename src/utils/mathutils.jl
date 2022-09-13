@@ -286,7 +286,7 @@ end
 #n*(n+1)/2 into the upper triangle of an
 #nxn matrix.   It does NOT perform any scaling
 #of the vector entries.
-function _pack_triu(v::Vector{T},A::Matrix{T}) where T
+function _pack_triu(v::AbstractVector{T},A::AbstractMatrix{T}) where T
     n     = LinearAlgebra.checksquare(A)
     numel = (n*(n+1))>>1
     length(v) == numel || throw(DimensionMismatch())
@@ -379,18 +379,19 @@ function cholesky_3x3_explicit_factor!(L,A)
 
 end
 
-# Unrolled 3x3 forward/backward substition for a Cholesky factor
+# Unrolled 3x3 forward/backward substitution for a Cholesky factor
 
-function cholesky_3x3_explicit_solve!(x,L,b)
+function cholesky_3x3_explicit_solve!(L,b)
 
-  c1 = b[1]/L[1,1]
-  c2 = (b[2]*L[1,1] - b[1]*L[2,1])/(L[1,1]*L[2,2])
-  c3 = (b[3]*L[1,1]*L[2,2] - b[2]*L[1,1]*L[3,2] + b[1]*L[2,1]*L[3,2] - b[1]*L[2,2]*L[3,1])/(L[1,1]*L[2,2]*L[3,3])
+    c1 = b[1]/L[1,1]
+    c2 = (b[2]*L[1,1] - b[1]*L[2,1])/(L[1,1]*L[2,2])
+    c3 = (b[3]*L[1,1]*L[2,2] - b[2]*L[1,1]*L[3,2] + b[1]*L[2,1]*L[3,2] - b[1]*L[2,2]*L[3,1])/(L[1,1]*L[2,2]*L[3,3])
 
- 
- x[1] = (c1*L[2,2]*L[3,3] - c2*L[2,1]*L[3,3] + c3*L[2,1]*L[3,2] - c3*L[2,2]*L[3,1])/(L[1,1]*L[2,2]*L[3,3])
- x[2] = (c2*L[3,3] - c3*L[3,2])/(L[2,2]*L[3,3])
- x[3] = c3/L[3,3]
+    x1 = (c1*L[2,2]*L[3,3] - c2*L[2,1]*L[3,3] + c3*L[2,1]*L[3,2] - c3*L[2,2]*L[3,1])/(L[1,1]*L[2,2]*L[3,3])
+    x2 = (c2*L[3,3] - c3*L[3,2])/(L[2,2]*L[3,3])
+    x3 = c3/L[3,3]
+
+    return SVector(x1,x2,x3)
 end
 
 #------------------------------

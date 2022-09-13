@@ -10,11 +10,9 @@ const MOI = MathOptInterface
 const MOIU = MOI.Utilities
 const SparseTriplet{T} = Tuple{Vector{<:Integer}, Vector{<:Integer}, Vector{T}}
 
-# parametric union needs a parametric member.  Remove this
-# when something like MOI.PowerCone{T} support is added
-abstract type _DummyConeType{T<:AbstractFloat} end
-
 # Cones supported by the solver
+#PJG : Support for PSD cones within ClarabelRs is manually 
+#disabled in the two implementations of supports_constraint below.
 
 const OptimizerSupportedMOICones{T} = Union{
     MOI.Zeros,
@@ -151,7 +149,7 @@ function Base.show(io::IO, optimizer::Optimizer{T}) where {T}
 
     else
         println(io, "$(myname) - Optimizer")
-        println(io, " : Has results: $(isnothing(optimizer.solver_solutions))")
+        println(io, " : Has results: $(isnothing(optimizer.solver_solution))")
         println(io, " : Objective constant: $(optimizer.objconstant)")
         println(io, " : Sense: $(optimizer.sense)")
         println(io, " : Precision: $T")
@@ -179,7 +177,7 @@ MOI.get(opt::Optimizer, ::MOI.ResultCount)       = Int(!isnothing(opt.solver_sol
 MOI.get(opt::Optimizer, ::MOI.NumberOfVariables) = opt.solver_nvars
 MOI.get(opt::Optimizer, ::MOI.SolveTimeSec)      = opt.solver_info.solve_time
 MOI.get(opt::Optimizer, ::MOI.RawStatusString)   = string(opt.solver_info.status)
-MOI.get(opt::Optimizer, ::MOI.BarrierIterations) = opt.solver_info.iterations
+MOI.get(opt::Optimizer, ::MOI.BarrierIterations) = Int(opt.solver_info.iterations)
 
 function MOI.get(opt::Optimizer, a::MOI.ObjectiveValue)
     MOI.check_result_index_bounds(opt, a)
@@ -282,17 +280,34 @@ MOI.supports(::Optimizer, ::MOI.NumberOfThreads) = false
 # supported constraint types
 #------------------------------
 
-MOI.supports_constraint(
-    ::Optimizer{T},
+function MOI.supports_constraint(
+    opt::Optimizer{T},
     ::Type{<:MOI.VectorAffineFunction{T}},
-    ::Type{<:OptimizerSupportedMOICones{T}}
-) where {T} = true
+    t::Type{<:OptimizerSupportedMOICones{T}}
+) where{T}  
+    # PJG: workaround so that the compiled version does not 
+    # report support for PSD constraints.   Remove once they 
+    # are supported
+    if(opt.solver_module != Clarabel && t == MOI.PositiveSemidefiniteConeTriangle)
+        return false
+    end
+    true
+end
 
-MOI.supports_constraint(
-    ::Optimizer{T},
+
+function MOI.supports_constraint(
+    opt::Optimizer{T},
     ::Type{<:MOI.VectorOfVariables},
-    ::Type{<:OptimizerSupportedMOICones{T}}
-) where {T} = true
+    t::Type{<:OptimizerSupportedMOICones{T}}
+) where {T}     
+    # PJG: workaround so that the compiled version does not 
+    # report support for PSD constraints.   Remove once they 
+    # are supported
+    if(opt.solver_module != Clarabel && t == MathOptInterface.PositiveSemidefiniteConeTriangle)
+        return false
+    end
+    return true
+end
 
 
 #------------------------------
@@ -514,13 +529,13 @@ end
 
 scalecoef(v,::Type{<:MOI.AbstractVectorSet})     = v #default don't scale
 scalecoef(v,idx,::Type{<:MOI.AbstractVectorSet}) = v #default don't scale
-scalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = _triangle_unscaled_to_svec(v)
-scalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = _triangle_unscaled_to_svec(v,idx)
+scalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = Clarabel._triangle_unscaled_to_svec(v)
+scalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = Clarabel._triangle_unscaled_to_svec(v,idx)
 
 unscalecoef(v,::Type{<:MOI.AbstractVectorSet})     = v #default don't scale
 unscalecoef(v,idx,::Type{<:MOI.AbstractVectorSet}) = v #default don't scale
-unscalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = _triangle_svec_to_unscaled(v)
-unscalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = _triangle_svec_to_unscaled(v,idx)
+unscalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = Clarabel._triangle_svec_to_unscaled(v)
+unscalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = Clarabel._triangle_svec_to_unscaled(v,idx)
 
 
 function push_constraint_constant!(
