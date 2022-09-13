@@ -4,7 +4,7 @@ struct LDLDataMap
 
     P::Vector{Int}
     A::Vector{Int}
-    WtWblocks::Vector{Vector{Int}}  #indices of the lower RHS blocks (by cone)
+    Hsblocks::Vector{Vector{Int}}  #indices of the lower RHS blocks (by cone)
     SOC_u::Vector{Vector{Int}}      #off diag dense columns u
     SOC_v::Vector{Vector{Int}}      #off diag dense columns v
     SOC_D::Vector{Int}              #diag of just the sparse SOC expansion D
@@ -29,8 +29,8 @@ struct LDLDataMap
         #index Pdiag that are not present in the index P
         diagP  = zeros(Int,n)
 
-        #make an index for each of the WtW blocks for each cone
-        WtWblocks = _allocate_kkt_WtW_blocks(Int, cones)
+        #make an index for each of the Hs blocks for each cone
+        Hsblocks = _allocate_kkt_Hsblocks(Int, cones)
 
         #now do the SOC expansion pieces
         nsoc = cones.type_counts[Clarabel.SecondOrderConeT]
@@ -51,34 +51,34 @@ struct LDLDataMap
 
         diag_full = zeros(Int,m+n+p)
 
-        return new(P,A,WtWblocks,SOC_u,SOC_v,SOC_D,diagP,diag_full)
+        return new(P,A,Hsblocks,SOC_u,SOC_v,SOC_D,diagP,diag_full)
     end
 
 end
 
-function _allocate_kkt_WtW_blocks(type::Type{T}, cones) where{T <: Real}
+function _allocate_kkt_Hsblocks(type::Type{T}, cones) where{T <: Real}
 
     ncones    = length(cones)
-    WtWblocks = Vector{Vector{T}}(undef,ncones)
+    Hsblocks = Vector{Vector{T}}(undef,ncones)
 
     for (i, cone) in enumerate(cones)
         nvars = numel(cone)
-        if WtW_is_diagonal(cone)
+        if Hs_is_diagonal(cone)
             numelblock = nvars
         else #dense triangle
             numelblock = (nvars*(nvars+1))>>1 #must be Int
         end
-        WtWblocks[i] = Vector{T}(undef,numelblock)
+        Hsblocks[i] = Vector{T}(undef,numelblock)
     end
 
-    return WtWblocks
+    return Hsblocks
 end
 
 
 function _assemble_kkt_matrix(
     P::SparseMatrixCSC{T},
     A::SparseMatrixCSC{T},
-    cones::ConeSet{T},
+    cones::CompositeCone{T},
     shape::Symbol = :triu  #or tril
 ) where{T}
 
@@ -91,8 +91,8 @@ function _assemble_kkt_matrix(
     #entries actually on the diagonal of P
     nnz_diagP  = _count_diagonal_entries(P)
 
-    # total entries in the WtW blocks
-    nnz_WtW_blocks = mapreduce(length, +, maps.WtWblocks; init = 0)
+    # total entries in the Hs blocks
+    nnz_Hsblocks = mapreduce(length, +, maps.Hsblocks; init = 0)
 
     #entries in the dense columns u/v of the
     #sparse SOC expansion terms.  2 is for
@@ -106,7 +106,7 @@ function _assemble_kkt_matrix(
     n -                  # Number of elements in diagonal top left block
     nnz_diagP +          # remove double count on the diagonal if P has entries
     nnz(A) +             # Number of nonzeros in A
-    nnz_WtW_blocks +     # Number of elements in diagonal below A'
+    nnz_Hsblocks +     # Number of elements in diagonal below A'
     nnz_SOC_vecs +       # Number of elements in sparse SOC off diagonal columns
     nnz_SOC_ext)         # Number of elements in diagonal of SOC extension
 
@@ -144,11 +144,11 @@ function _kkt_assemble_colcounts(
         _csc_colcount_block(K,A,1,:N)
     end
 
-    #add the the WtW blocks in the lower right
+    #add the the Hs blocks in the lower right
     for (i,cone) = enumerate(cones)
         firstcol = cones.headidx[i] + n
         blockdim = numel(cone)
-        if WtW_is_diagonal(cone)
+        if Hs_is_diagonal(cone)
             _csc_colcount_diag(K,firstcol,blockdim)
         else
             _csc_colcount_dense_triangle(K,firstcol,blockdim,shape)
@@ -158,7 +158,7 @@ function _kkt_assemble_colcounts(
     #count dense columns for each SOC
     socidx = 1  #which SOC are we working on?
 
-    for i = 1:length(cones)
+    for i in eachindex(cones)
         if isa(cones.cone_specs[i],Clarabel.SecondOrderConeT)
 
             #we will add the u and v columns for this cone
@@ -216,21 +216,21 @@ function _kkt_assemble_fill(
     end
 
 
-    #add the the WtW blocks in the lower right
+    #add the the Hs blocks in the lower right
     for (i,cone) = enumerate(cones)
         firstcol = cones.headidx[i] + n
         blockdim = numel(cone)
-        if WtW_is_diagonal(cone)
-            _csc_fill_diag(K,maps.WtWblocks[i],firstcol,blockdim)
+        if Hs_is_diagonal(cone)
+            _csc_fill_diag(K,maps.Hsblocks[i],firstcol,blockdim)
         else
-            _csc_fill_dense_triangle(K,maps.WtWblocks[i],firstcol,blockdim,shape)
+            _csc_fill_dense_triangle(K,maps.Hsblocks[i],firstcol,blockdim,shape)
         end
     end
 
     #fill in dense columns for each SOC
     socidx = 1  #which SOC are we working on?
 
-    for i = 1:length(cones)
+    for i in eachindex(cones)
         if isa(cones.cone_specs[i],Clarabel.SecondOrderConeT)
 
             nvars = numel(cones[i])

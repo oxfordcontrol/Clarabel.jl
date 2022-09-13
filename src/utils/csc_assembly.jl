@@ -19,9 +19,9 @@ end
 function _csc_colcount_dense_triangle(K,initcol,blockcols,shape)
     cols  = initcol:(initcol + (blockcols - 1))
     if shape === :triu
-        K.colptr[cols] += 1:blockcols
+        @views K.colptr[cols] += 1:blockcols
     else
-        K.colptr[cols] += blockcols:-1:1
+        @views K.colptr[cols] += blockcols:-1:1
     end
 end
 
@@ -29,7 +29,7 @@ end
 #in a square diagonal matrix placed on the diagonal.
 function _csc_colcount_diag(K,initcol,blockcols)
     cols  = initcol:(initcol + (blockcols - 1))
-    K.colptr[cols] .+= 1
+    @views K.colptr[cols] .+= 1
 end
 
 #same as _kkt_count_diag, but counts places

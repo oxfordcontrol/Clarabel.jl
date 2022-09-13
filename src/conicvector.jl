@@ -13,7 +13,7 @@ struct ConicVector{T<:AbstractFloat} <: AbstractVector{T}
     #array of data views of type Vector{T}
     views::Vector{VectorView{T}}
 
-    function ConicVector{T}(S::ConeSet{T}) where {T}
+    function ConicVector{T}(S::CompositeCone{T}) where {T}
 
         #undef initialization would possibly result
         #in Infs or NaNs, causing failure in gemv!
@@ -63,6 +63,7 @@ Base.IndexStyle(s::ConicVector{T}) where{T} = IndexStyle(s.vec)
 #Alternatively, we could subtype DenseArray{T}, but that
 #seems less general and still fails to capture high
 #performance sparse matrix vector multiply
+
 
 #need this if we want to make calls directly to the BLAS functions
 Base.unsafe_convert(::Type{Ptr{T}}, s::ConicVector{T}) where {T} =

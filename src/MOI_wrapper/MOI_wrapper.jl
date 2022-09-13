@@ -1,4 +1,5 @@
-using MathOptInterface
+using MathOptInterface, SparseArrays
+using ..Clarabel
 export Optimizer
 
 #-----------------------------
@@ -9,21 +10,17 @@ const MOI = MathOptInterface
 const MOIU = MOI.Utilities
 const SparseTriplet{T} = Tuple{Vector{<:Integer}, Vector{<:Integer}, Vector{T}}
 
-# parametric union needs a parametric member.  Remove this
-# when something like MOI.PowerCone{T} support is added
-abstract type _DummyConeType{T<:AbstractFloat} end
-
 # Cones supported by the solver
+#PJG : Support for PSD cones within ClarabelRs is manually 
+#disabled in the two implementations of supports_constraint below.
 
 const OptimizerSupportedMOICones{T} = Union{
     MOI.Zeros,
     MOI.Nonnegatives,
     MOI.SecondOrderCone,
     MOI.PositiveSemidefiniteConeTriangle,
-    _DummyConeType{T},    #<-placeholder until PowerCone{T} is added
-    # MOI.PowerCone{T},
-    # MOI.DualPowerCone{T},
-    # MOI.ExponentialCone,
+    MOI.ExponentialCone,
+    MOI.PowerCone{T},
 } where {T}
 
 #Optimizer will consolidate cones of these types if possible
@@ -36,31 +33,50 @@ const MOItoClarabelCones = Dict([
     MOI.Zeros           => Clarabel.ZeroConeT,
     MOI.Nonnegatives    => Clarabel.NonnegativeConeT,
     MOI.SecondOrderCone => Clarabel.SecondOrderConeT,
-    MOI.PositiveSemidefiniteConeTriangle => Clarabel.PSDTriangleConeT
+    MOI.PositiveSemidefiniteConeTriangle => Clarabel.PSDTriangleConeT,
+    MOI.ExponentialCone => Clarabel.ExponentialConeT,
+    MOI.PowerCone       => Clarabel.PowerConeT,
 ])
+
+# PJG: PrimalStatus/DualStatus just reported as "NEARLY_FEASIBLE"
+# in the "ALMOST_SOLVED" cases.  We do not currently attempt 
+# to distinguish cases that were only "almost" due to duality 
+# gap / primal feasibility / dual feasibility.   The solver 
+# convergence checks could be be written more finely to allow 
+# separation of these different cases.  Note COSMO does 
+# something along those lines.
 
 const ClarabeltoMOITerminationStatus = Dict([
     Clarabel.SOLVED             =>  MOI.OPTIMAL,
     Clarabel.MAX_ITERATIONS     =>  MOI.ITERATION_LIMIT,
     Clarabel.MAX_TIME           =>  MOI.TIME_LIMIT,
     Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBLE,
-    Clarabel.DUAL_INFEASIBLE    =>  MOI.DUAL_INFEASIBLE
+    Clarabel.DUAL_INFEASIBLE    =>  MOI.DUAL_INFEASIBLE,
+    Clarabel.ALMOST_SOLVED      =>  MOI.ALMOST_OPTIMAL,
+    Clarabel.NUMERICAL_ERROR    =>  MOI.NUMERICAL_ERROR,
+    Clarabel.INSUFFICIENT_PROGRESS    =>  MOI.NUMERICAL_ERROR
 ])
 
 const ClarabeltoMOIPrimalStatus = Dict([
     Clarabel.SOLVED             =>  MOI.FEASIBLE_POINT,
-    Clarabel.MAX_ITERATIONS     =>  MOI.NEARLY_FEASIBLE_POINT,
-    Clarabel.MAX_TIME           =>  MOI.NEARLY_FEASIBLE_POINT,
     Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBLE_POINT,
-    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBILITY_CERTIFICATE
+    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBILITY_CERTIFICATE,
+    Clarabel.ALMOST_SOLVED      =>  MOI.NEARLY_FEASIBLE_POINT,
+    Clarabel.MAX_ITERATIONS     =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.MAX_TIME           =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.NUMERICAL_ERROR    =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.INSUFFICIENT_PROGRESS => MOI.OTHER_RESULT_STATUS,
 ])
 
 const ClarabeltoMOIDualStatus = Dict([
     Clarabel.SOLVED             =>  MOI.FEASIBLE_POINT,
-    Clarabel.MAX_ITERATIONS     =>  MOI.NEARLY_FEASIBLE_POINT,
-    Clarabel.MAX_TIME           =>  MOI.NEARLY_FEASIBLE_POINT,
     Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBILITY_CERTIFICATE,
-    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBLE_POINT
+    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBLE_POINT,
+    Clarabel.ALMOST_SOLVED      =>  MOI.NEARLY_FEASIBLE_POINT,
+    Clarabel.MAX_ITERATIONS     =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.MAX_TIME           =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.NUMERICAL_ERROR    =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.INSUFFICIENT_PROGRESS => MOI.OTHER_RESULT_STATUS,
 ])
 
 #-----------------------------
@@ -68,21 +84,27 @@ const ClarabeltoMOIDualStatus = Dict([
 #-----------------------------
 
 mutable struct Optimizer{T} <: MOI.AbstractOptimizer
-    inner::Clarabel.Solver{T}
-    has_results::Bool
-    is_empty::Bool
+    solver_module::Module
+    solver::Union{Nothing,Clarabel.AbstractSolver{T}}
+    solver_settings::Clarabel.Settings{T}
+    solver_info::Union{Nothing,Clarabel.DefaultInfo{T}}
+    solver_solution::Union{Nothing,Clarabel.DefaultSolution{T}}
+    solver_nvars::Union{Nothing,Int}
     sense::MOI.OptimizationSense
     objconstant::T
     rowranges::Dict{Int, UnitRange{Int}}
 
-    function Optimizer{T}(; user_settings...) where {T}
-        inner = Clarabel.Solver{T}()
-        has_results = false
-        is_empty = true
+    function Optimizer{T}(; solver_module = Clarabel, user_settings...) where {T}
+        solver_module   = solver_module
+        solver          = nothing
+        solver_settings = Clarabel.Settings{T}()
+        solver_info     = nothing
+        solver_solution = nothing
+        solver_nvars    = nothing
         sense = MOI.MIN_SENSE
         objconstant = zero(T)
         rowranges = Dict{Int, UnitRange{Int}}()
-        optimizer = new(inner,has_results,is_empty,sense,objconstant,rowranges)
+        optimizer = new(solver_module,solver,solver_settings,solver_info,solver_solution,solver_nvars,sense,objconstant,rowranges)
         for (key, value) in user_settings
             MOI.set(optimizer, MOI.RawOptimizerAttribute(string(key)), value)
         end
@@ -90,7 +112,7 @@ mutable struct Optimizer{T} <: MOI.AbstractOptimizer
     end
 end
 
-Optimizer(args...; kwargs...) = Optimizer{DefaultFloat}(args...; kwargs...)
+Optimizer(args...; kwargs...) = Optimizer{Clarabel.DefaultFloat}(args...; kwargs...)
 
 
 #-----------------------------
@@ -99,42 +121,45 @@ Optimizer(args...; kwargs...) = Optimizer{DefaultFloat}(args...; kwargs...)
 
 # reset the optimizer
 function MOI.empty!(optimizer::Optimizer{T}) where {T}
-    #just make a new solveropt, keeping current settings
-    optimizer.inner = Clarabel.Solver{T}(optimizer.inner.settings)
-    optimizer.has_results = false
-    optimizer.is_empty = true
+    #flush everything, keeping the currently configured settings
+    optimizer.solver          = nothing
+    optimizer.solver_settings = optimizer.solver_settings #preserve settings / no change
+    optimizer.solver_info     = nothing
+    optimizer.solver_solution = nothing
+    optimizer.solver_nvars    = nothing
     optimizer.sense = MOI.MIN_SENSE # model parameter, so needs to be reset
     optimizer.objconstant = zero(T)
     optimizer.rowranges = Dict{Int, UnitRange{Int}}()
 end
 
-MOI.is_empty(optimizer::Optimizer) = optimizer.is_empty
+MOI.is_empty(optimizer::Optimizer) = isnothing(optimizer.solver)
 
 function MOI.optimize!(optimizer::Optimizer)
-    Clarabel.solve!(optimizer.inner)
-    optimizer.has_results = true
+    solution = optimizer.solver_module.solve!(optimizer.solver)
+    optimizer.solver_solution = solution
+    optimizer.solver_info     = optimizer.solver_module.get_info(optimizer.solver)
     nothing
 end
 
 function Base.show(io::IO, optimizer::Optimizer{T}) where {T}
 
     myname = MOI.get(optimizer, MOI.SolverName())
-    if optimizer.is_empty
+    if isnothing(optimizer.solver)
         print(io,"Empty $(myname) - Optimizer")
 
     else
         println(io, "$(myname) - Optimizer")
-        println(io, " : Has results: $(optimizer.has_results)")
+        println(io, " : Has results: $(isnothing(optimizer.solver_solution))")
         println(io, " : Objective constant: $(optimizer.objconstant)")
         println(io, " : Sense: $(optimizer.sense)")
         println(io, " : Precision: $T")
 
-        if optimizer.has_results
+        if !isnothing(optimizer.solver_solution)
         println(io, " : Problem status: $(MOI.get(optimizer,MOI.RawStatusString()))")
         value = round(MOI.get(optimizer,MOI.ObjectiveValue()),digits=3)
         println(io, " : Optimal objective: $(value)")
         println(io, " : Iterations: $(MOI.get(optimizer,MOI.BarrierIterations()))")
-        solvetime = round.(optimizer.inner.info.solve_time*1000,digits=2)
+        solvetime = round.(optimizer.solver_info.solve_time*1000,digits=2)
         println(io, " : Solve time: $(solvetime)ms")
         end
     end
@@ -145,65 +170,68 @@ end
 # Solver Attributes, get/set
 #-----------------------------
 
-MOI.get(opt::Optimizer, ::MOI.SolverName)        = Clarabel.solver_name()
+MOI.get(opt::Optimizer, ::MOI.SolverName)        = string(opt.solver_module)
 MOI.get(opt::Optimizer, ::MOI.SolverVersion)     = Clarabel.version()
-MOI.get(opt::Optimizer, ::MOI.RawSolver)         = opt.inner
-MOI.get(opt::Optimizer, ::MOI.ResultCount)       = opt.has_results ? 1 : 0
-MOI.get(opt::Optimizer, ::MOI.NumberOfVariables) = opt.inner.data.n
-MOI.get(opt::Optimizer, ::MOI.SolveTimeSec)      = opt.inner.info.solve_time
-MOI.get(opt::Optimizer, ::MOI.RawStatusString)   = string(opt.inner.info.status)
-MOI.get(opt::Optimizer, ::MOI.BarrierIterations) = opt.inner.info.iterations
+MOI.get(opt::Optimizer, ::MOI.RawSolver)         = opt.solver
+MOI.get(opt::Optimizer, ::MOI.ResultCount)       = Int(!isnothing(opt.solver_solution))
+MOI.get(opt::Optimizer, ::MOI.NumberOfVariables) = opt.solver_nvars
+MOI.get(opt::Optimizer, ::MOI.SolveTimeSec)      = opt.solver_info.solve_time
+MOI.get(opt::Optimizer, ::MOI.RawStatusString)   = string(opt.solver_info.status)
+MOI.get(opt::Optimizer, ::MOI.BarrierIterations) = Int(opt.solver_info.iterations)
 
 function MOI.get(opt::Optimizer, a::MOI.ObjectiveValue)
     MOI.check_result_index_bounds(opt, a)
-    rawobj = opt.inner.info.cost_primal + opt.objconstant
+    rawobj = opt.solver_info.cost_primal + opt.objconstant
     return opt.sense == MOI.MIN_SENSE ? rawobj : -rawobj
 end
 
 function MOI.get(opt::Optimizer, a::MOI.DualObjectiveValue)
     MOI.check_result_index_bounds(opt, a)
-    rawobj = opt.inner.info.cost_dual + opt.objconstant
+    rawobj = opt.solver_info.cost_dual + opt.objconstant
     return opt.sense == MOI.MIN_SENSE ? rawobj : -rawobj
 end
 
 MOI.supports(::Optimizer, ::MOI.TerminationStatus) = true
 function MOI.get(opt::Optimizer, ::MOI.TerminationStatus)
-    opt.has_results || return MOI.OPTIMIZE_NOT_CALLED
-    return ClarabeltoMOITerminationStatus[opt.inner.info.status]
+    !isnothing(opt.solver_solution) || return MOI.OPTIMIZE_NOT_CALLED
+    return ClarabeltoMOITerminationStatus[opt.solver_info.status]
 end
 
 MOI.supports(::Optimizer, ::MOI.PrimalStatus) = true
 function MOI.get(opt::Optimizer, attr::MOI.PrimalStatus)
-    if !opt.has_results || attr.result_index != 1
+    if isnothing(opt.solver_solution) || attr.result_index != 1
         return MOI.NO_SOLUTION
     else
-        return ClarabeltoMOIPrimalStatus[opt.inner.info.status]
+        return ClarabeltoMOIPrimalStatus[opt.solver_info.status]
     end
-end
+    end
 
 MOI.supports(::Optimizer, a::MOI.DualStatus) = true
 function MOI.get(opt::Optimizer, attr::MOI.DualStatus)
-    if !opt.has_results || attr.result_index != 1
+    if isnothing(opt.solver_solution) || attr.result_index != 1
         return MOI.NO_SOLUTION
+    else
+        return ClarabeltoMOIDualStatus[opt.solver_info.status]
     end
-    return ClarabeltoMOIDualStatus[opt.inner.info.status]
 end
 
+MOI.supports(::Optimizer, ::MOI.ObjectiveSense) = true
+
 MOI.supports(::Optimizer, ::MOI.Silent) = true
-MOI.get(opt::Optimizer, ::MOI.Silent) = !opt.inner.settings.verbose
-MOI.set(opt::Optimizer, ::MOI.Silent, v::Bool) = (opt.inner.settings.verbose = !v)
+MOI.get(opt::Optimizer, ::MOI.Silent) = !opt.solver_settings.verbose
+MOI.set(opt::Optimizer, ::MOI.Silent, v::Bool) = (opt.solver_settings.verbose = !v)
 
 
 MOI.supports(::Optimizer, ::MOI.RawOptimizerAttribute) = true
 MOI.get(opt::Optimizer, param::MOI.RawOptimizerAttribute) =
-    getproperty(opt.inner.settings, Symbol(param.name))
+    getproperty(opt.solver_settings, Symbol(param.name))
 MOI.set(opt::Optimizer, param::MOI.RawOptimizerAttribute, value) =
-    setproperty!(opt.inner.settings, Symbol(param.name), value)
+    setproperty!(opt.solver_settings, Symbol(param.name), value)
 
 MOI.supports(::Optimizer, ::MOI.VariablePrimal) = true
 function MOI.get(opt::Optimizer, a::MOI.VariablePrimal, vi::MOI.VariableIndex)
     MOI.check_result_index_bounds(opt, a)
-    return opt.inner.solution.x[vi.value]
+    return opt.solver_solution.x[vi.value]
 end
 
 MOI.supports(::Optimizer, ::MOI.ConstraintPrimal) = true
@@ -215,7 +243,7 @@ function MOI.get(
 
     MOI.check_result_index_bounds(opt, a)
     rows = constraint_rows(opt.rowranges, ci)
-    sout = unscalecoef(opt.inner.solution.s[rows],S)
+    sout = unscalecoef(opt.solver_solution.s[rows],S)
     return sout
 end
 
@@ -228,7 +256,7 @@ function MOI.get(
 
     MOI.check_result_index_bounds(opt, a)
     rows = constraint_rows(opt.rowranges, ci)
-    zout = unscalecoef(opt.inner.solution.z[rows],S)
+    zout = unscalecoef(opt.solver_solution.z[rows],S)
     return zout
 end
 
@@ -252,17 +280,34 @@ MOI.supports(::Optimizer, ::MOI.NumberOfThreads) = false
 # supported constraint types
 #------------------------------
 
-MOI.supports_constraint(
-    ::Optimizer{T},
+function MOI.supports_constraint(
+    opt::Optimizer{T},
     ::Type{<:MOI.VectorAffineFunction{T}},
-    ::Type{<:OptimizerSupportedMOICones{T}}
-) where {T} = true
+    t::Type{<:OptimizerSupportedMOICones{T}}
+) where{T}  
+    # PJG: workaround so that the compiled version does not 
+    # report support for PSD constraints.   Remove once they 
+    # are supported
+    if(opt.solver_module != Clarabel && t == MOI.PositiveSemidefiniteConeTriangle)
+        return false
+    end
+    true
+end
 
-MOI.supports_constraint(
-    ::Optimizer{T},
+
+function MOI.supports_constraint(
+    opt::Optimizer{T},
     ::Type{<:MOI.VectorOfVariables},
-    ::Type{<:OptimizerSupportedMOICones{T}}
-) where {T} = true
+    t::Type{<:OptimizerSupportedMOICones{T}}
+) where {T}     
+    # PJG: workaround so that the compiled version does not 
+    # report support for PSD constraints.   Remove once they 
+    # are supported
+    if(opt.solver_module != Clarabel && t == MathOptInterface.PositiveSemidefiniteConeTriangle)
+        return false
+    end
+    return true
+end
 
 
 #------------------------------
@@ -300,12 +345,11 @@ function MOI.copy_to(dest::Optimizer{T}, src::MOI.ModelLike) where {T}
     dest.sense = MOI.get(src, MOI.ObjectiveSense())
     P, q, dest.objconstant = process_objective(dest, src, idxmap)
 
-    #call setup! again on the solver.   This will flush all
-    #internal data but will keep settings intact
-    Clarabel.setup!(dest.inner,P,q,A,b,cone_spec)
-
-    #model is no longer empty
-    dest.is_empty = false
+    #Just make a fresh solver with this data, using whatever
+    #solver module is configured.   The module will be either
+    #Clarabel or ClarabelRs
+    dest.solver_nvars = length(q)
+    dest.solver = dest.solver_module.Solver(P,q,A,b,cone_spec,dest.solver_settings)
 
     return idxmap
 end
@@ -485,13 +529,13 @@ end
 
 scalecoef(v,::Type{<:MOI.AbstractVectorSet})     = v #default don't scale
 scalecoef(v,idx,::Type{<:MOI.AbstractVectorSet}) = v #default don't scale
-scalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = _triangle_unscaled_to_svec(v)
-scalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = _triangle_unscaled_to_svec(v,idx)
+scalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = Clarabel._triangle_unscaled_to_svec(v)
+scalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = Clarabel._triangle_unscaled_to_svec(v,idx)
 
 unscalecoef(v,::Type{<:MOI.AbstractVectorSet})     = v #default don't scale
 unscalecoef(v,idx,::Type{<:MOI.AbstractVectorSet}) = v #default don't scale
-unscalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = _triangle_svec_to_unscaled(v)
-unscalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = _triangle_svec_to_unscaled(v,idx)
+unscalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = Clarabel._triangle_svec_to_unscaled(v)
+unscalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = Clarabel._triangle_svec_to_unscaled(v,idx)
 
 
 function push_constraint_constant!(
@@ -561,13 +605,32 @@ function push_constraint_set!(
     s::OptimizerSupportedMOICones{T},
 ) where {T}
 
+    #we need to handle PowerCones differently here because
+    # 1) they have a power and not a a dimension (always 3),
+    # 2) we can't use [typeof(s)] as a key into MOItoClarabelCones
+    # because typeof(s) = MOI.PowerCone{T} and the dictionary
+    # has keys with the *unparametrized* types
+    if isa(s,MOI.PowerCone)
+        pow_cone_type = MOItoClarabelCones[MOI.PowerCone]
+        push!(cone_spec, pow_cone_type(s.exponent))
+        return nothing
+    end
+
+    # handle ExponentialCone differently because it
+    # doesn't take dimension as a parameter (always 3)
+    if isa(s,MOI.ExponentialCone)
+        pow_cone_type = MOItoClarabelCones[MOI.ExponentialCone]
+        push!(cone_spec, pow_cone_type())
+        return nothing
+    end
+
+    next_type = MOItoClarabelCones[typeof(s)]
+    next_dim  = _to_optimizer_conedim(length(rows),typeof(s))
+
     # merge cones together where :
     # 1) cones of the same type appear consecutively and
     # 2) those cones are 1-D.
     # This is just the zero and nonnegative cones
-
-    next_type = MOItoClarabelCones[typeof(s)]
-    next_dim  = _to_optimizer_conedim(length(rows),typeof(s))
 
     if isempty(cone_spec) || next_type ∉ OptimizerMergeableTypes || next_type != typeof(cone_spec[end])
         push!(cone_spec, next_type(next_dim))

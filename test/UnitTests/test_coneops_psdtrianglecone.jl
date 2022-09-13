@@ -144,7 +144,9 @@ FloatT = Float64
         (s,z) = map(m->zeros(K.numel), 1:2)
         map((v,M)->Clarabel._mat_to_svec!(v,M,K),(s,z),(S,Z))
 
-        Clarabel.update_scaling!(K,s,z)
+        μ = 0.0 #placeholder value, not used
+        strategy = Clarabel.PrimalDual
+        Clarabel.update_scaling!(K,s,z,μ,strategy)
 
         f = K.work
         R = f.R
@@ -163,6 +165,7 @@ FloatT = Float64
 
         n = 10
         K = Clarabel.PSDTriangleCone(n)
+        settings = Clarabel.Settings{Float64}()
 
         Z = randpsd(rng,n); dZ = randsym(rng,n)
         S = randpsd(rng,n); dS = randsym(rng,n)
@@ -171,27 +174,29 @@ FloatT = Float64
         map((v,M)->Clarabel._mat_to_svec!(v,M,K),(s,z,ds,dz),(S,Z,dS,dZ))
 
         #compute internal scaling required for step calc
-        Clarabel.update_scaling!(K,s,z)
+        μ = 0.0 #placeholder value, not used
+        strategy = Clarabel.PrimalDual
+        Clarabel.update_scaling!(K,s,z,μ,strategy)
 
         #Z direction only
-        α = Clarabel.step_length(K,dz,ds.*0.,z,s)[1]
+        α = Clarabel.step_length(K,dz,ds.*0.,z,s,settings,1.0)[1]
         @test minimum(eigvals(Z + α.*dZ)) ≈ 0.  atol = sqrt(eps(FloatT))
 
         #S direction only
-        α = Clarabel.step_length(K,dz.*0,ds,z,s)[2]
+        α = Clarabel.step_length(K,dz.*0,ds,z,s,settings,1.0)[2]
         @test minimum(eigvals(S + α.*dS)) ≈ 0.  atol = sqrt(eps(FloatT))
 
         #joint
-        (αz,αs) = Clarabel.step_length(K,dz,ds,z,s)
+        (αz,αs) = Clarabel.step_length(K,dz,ds,z,s,settings,1.0)
         eZ = eigvals(Z + αz.*dZ)
         eS = eigvals(S + αs.*dS)
         @test minimum([eZ;eS]) ≈ 0.  atol = sqrt(eps(FloatT))
 
-        #unbounded
+        #should reach maximum step 
         dS .= randpsd(rng,n); dZ .= randpsd(rng,n)
         map((v,M)->Clarabel._mat_to_svec!(v,M,K),(ds,dz),(dS,dZ))
-        (αz,αs) = Clarabel.step_length(K,dz,ds,z,s)
-        @test min(αz,αs) ≈ floatmax(FloatT)  rtol = 10*eps(FloatT)
+        (αz,αs) = Clarabel.step_length(K,dz,ds,z,s,settings,1.0)
+        @test min(αz,αs) ≈ 1.0  rtol = 10*eps(FloatT)
 
     end
 
@@ -205,28 +210,30 @@ FloatT = Float64
         map((v,M)->Clarabel._mat_to_svec!(v,M,K),(s,z,v1,v2),(S,Z,V1,V2))
 
         #compute internal scaling required for step calc
-        Clarabel.update_scaling!(K,s,z)
+        μ = 0.0 #placeholder value, not used
+        strategy = Clarabel.PrimalDual
+        Clarabel.update_scaling!(K,s,z,μ,strategy)
 
         #check W^{-T}s = Wz = λ (λ is Diagonal)
-        Clarabel.gemv_W!(K,:N,z,v1,one(FloatT),zero(FloatT)) #v1 = Wz
-        Clarabel.gemv_Winv!(K,:T,s,v2,one(FloatT),zero(FloatT)) #v2 = W^{-T}s
+        Clarabel.mul_W!(K,:N,v1,z,one(FloatT),zero(FloatT)) #v1 = Wz
+        Clarabel.mul_Winv!(K,:T,v2,s,one(FloatT),zero(FloatT)) #v2 = W^{-T}s
         @test norm(v1-v2) ≈ 0   atol = 1e-10
 
         #check W^TW Z = S
-        Clarabel.gemv_W!(K,:N,z,v1,one(FloatT),zero(FloatT)) #v1 = Wz
-        Clarabel.gemv_W!(K,:T,v1,v2,one(FloatT),zero(FloatT)) #v2 = W^Tv1 = W^TWz
+        Clarabel.mul_W!(K,:N,v1,z,one(FloatT),zero(FloatT)) #v1 = Wz
+        Clarabel.mul_W!(K,:T,v2,v1,one(FloatT),zero(FloatT)) #v2 = W^Tv1 = W^TWz
         @test norm(v2-s) ≈ 0   atol = 1e-10
 
         #check W^Tλ = s
         Λ = Matrix(Diagonal(K.work.λ))
         λ = Λ[triu(ones(n,n)) .== true]  #upper triangle (diagonal only)
-        Clarabel.gemv_W!(K,:T,λ,v1,one(FloatT),zero(FloatT)) #v1 = W^Tλ
+        Clarabel.mul_W!(K,:T,v1,λ,one(FloatT),zero(FloatT)) #v1 = W^Tλ
         @test norm(v1-s) ≈ 0   atol = 1e-10
 
 
     end
 
-    @testset "test_coneops_psdtrianglecone_WtW_operations!" begin
+    @testset "test_coneops_psdtrianglecone_Hs_operations!" begin
 
         n = 5
         K = Clarabel.PSDTriangleCone(n)
@@ -236,31 +243,33 @@ FloatT = Float64
         map((v,M)->Clarabel._mat_to_svec!(v,M,K),(s,z,v1,v2,v3),(S,Z,V1,V2,V3))
 
         #compute internal scaling required for step calc
-        Clarabel.update_scaling!(K,s,z)
+        μ = 0.0 #placeholder value, not used
+        strategy = Clarabel.PrimalDual
+        Clarabel.update_scaling!(K,s,z,μ,strategy)
 
         R    = K.work.R
         Rinv = K.work.Rinv
 
         #compare different ways of multiplying v by W and W^T
         # v2 = W*v1
-        Clarabel.gemv_W!(K,:N,v1,v2,one(FloatT),zero(FloatT))
+        Clarabel.mul_W!(K,:N,v2,v1,one(FloatT),zero(FloatT))
         # v3 = W^T*v2
-        Clarabel.gemv_W!(K,:T,v2,v3,one(FloatT),zero(FloatT))
+        Clarabel.mul_W!(K,:T,v3,v2,one(FloatT),zero(FloatT))
 
-        WtW = triu(ones(K.numel,K.numel))
-        idxWtW = findall(WtW .!= 0)
-        vecWtW = zeros(FloatT,length(idxWtW))
-        Clarabel.get_WtW_block!(K,vecWtW)
-        WtW[idxWtW] = vecWtW
+        Hs = triu(ones(K.numel,K.numel))
+        idxHs = findall(Hs .!= 0)
+        vecHs = zeros(FloatT,length(idxHs))
+        Clarabel.get_Hs!(K,vecHs)
+        Hs[idxHs] = vecHs
         #make Symmetric for products
-        WtWsym = Symmetric(WtW)
+        Hssym = Symmetric(Hs)
 
-        @test norm(WtWsym*v1 - v3) ≈ 0   atol = 1e-8
+        @test norm(Hssym*v1 - v3) ≈ 0   atol = 1e-8
         #now the inverse
-        Clarabel.gemv_Winv!(K,:T,v1,v2,one(FloatT),zero(FloatT))
+        Clarabel.mul_Winv!(K,:T,v2,v1,one(FloatT),zero(FloatT))
         # v3 = W^T*v2
-        Clarabel.gemv_Winv!(K,:N,v2,v3,one(FloatT),zero(FloatT))
-        @test norm(WtWsym\v1 - v3) ≈ 0   atol = 1e-8
+        Clarabel.mul_Winv!(K,:N,v3,v2,one(FloatT),zero(FloatT))
+        @test norm(Hssym\v1 - v3) ≈ 0   atol = 1e-8
 
     end
 

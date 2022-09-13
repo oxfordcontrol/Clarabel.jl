@@ -11,6 +11,40 @@ function clip(
     return s
 end
 
+@inline function logsafe(v::T) where {T<:Real}
+    if v < 0
+        return -typemax(T)
+    else 
+        return log(v)
+    end
+end
+
+
+#computes dot(z + αdz,s + αds) without intermediate allocation
+
+@inline function dot_shifted(
+    z::AbstractVector{T}, 
+    s::AbstractVector{T},
+    dz::AbstractVector{T}, 
+    ds::AbstractVector{T},
+    α::T
+    ) where {T<:Real}
+
+    @assert(length(z) == length(s))
+    @assert(length(z) == length(dz))
+    @assert(length(s) == length(ds))
+    
+    out = zero(T)
+    @inbounds for i in eachindex(z) 
+        zi = z[i] + α*dz[i]
+        si = s[i] + α*ds[i]
+        out += zi*si
+    end 
+
+    return out
+
+end
+
 
 #2-norm of the product M*v
 function scaled_norm(M::Diagonal{T},v::AbstractVector{T}) where{T}
@@ -172,7 +206,18 @@ function rscale!(M::SparseMatrixCSC{T}, R::AbstractVector{T}) where {T <: Abstra
 	return M
 end
 
-lrscale!(L::AbstractVector,M::AbstractMatrix,R::AbstractVector) = lscale!(L, rscale!(M, R))
+# dense version 
+function lrscale!(L::AbstractVector{T},M::Matrix{T},R::AbstractVector{T}) where {T <: AbstractFloat}
+
+    m, n = size(M)
+    (n == length(R)) || throw(DimensionMismatch())
+    (m == length(L)) || throw(DimensionMismatch())
+
+    @inbounds for i = 1:m, j = 1:n
+            M[i,j] *= L[i]*R[j]
+    end
+    return M
+end 
 
 
 #Julia SparseArrays dot function is very slow for Symmtric
@@ -241,7 +286,7 @@ end
 #n*(n+1)/2 into the upper triangle of an
 #nxn matrix.   It does NOT perform any scaling
 #of the vector entries.
-function _pack_triu(v::Vector{T},A::Matrix{T}) where T
+function _pack_triu(v::AbstractVector{T},A::AbstractMatrix{T}) where T
     n     = LinearAlgebra.checksquare(A)
     numel = (n*(n+1))>>1
     length(v) == numel || throw(DimensionMismatch())
@@ -253,6 +298,15 @@ function _pack_triu(v::Vector{T},A::Matrix{T}) where T
     return v
 end
 
+function _pack_triu(v::Vector{T},A::SparseMatrixCSC{T}) where T
+    n     = 3
+    k = 1
+    for col = 1:n, row = 1:col
+        @inbounds v[k] = A[row,col]
+        k += 1
+    end
+    return v
+end
 
 
 #make a matrix view from a vectorized input
@@ -288,6 +342,59 @@ end
 
 
 #------------------------------
+# special methods for solving 3x3 positive definite systems 
+#------------------------------
+
+
+# Unrolled 3x3 cholesky decomposition without pivoting 
+# Returns `false` for a non-positive pivot and the 
+# factorization is not completed
+#
+# NB: this is only marginally slower than the explicit
+# 3x3 LDL decomposition, which would avoid sqrts.  
+
+function cholesky_3x3_explicit_factor!(L,A)
+
+    t = A[1,1]
+
+    if t <= 0; return false; end
+
+    L[1,1] = sqrt(t)
+    L[2,1] = A[2,1]/L[1,1]
+
+    t = A[2,2] - L[2,1]*L[2,1]
+
+    if(t <= 0); return false; end
+
+    L[2,2] = sqrt(t);
+    L[3,1] = A[3,1] / L[1,1]
+    L[3,2] = (A[3,2] - L[2,1]*L[3,1]) / L[2,2]
+
+    t = A[3,3] - L[3,1]*L[3,1] - L[3,2]*L[3,2]
+
+    if(t <= 0); return false; end
+    L[3,3] = sqrt(t)
+
+    return true
+
+end
+
+# Unrolled 3x3 forward/backward substitution for a Cholesky factor
+
+function cholesky_3x3_explicit_solve!(L,b)
+
+    c1 = b[1]/L[1,1]
+    c2 = (b[2]*L[1,1] - b[1]*L[2,1])/(L[1,1]*L[2,2])
+    c3 = (b[3]*L[1,1]*L[2,2] - b[2]*L[1,1]*L[3,2] + b[1]*L[2,1]*L[3,2] - b[1]*L[2,2]*L[3,1])/(L[1,1]*L[2,2]*L[3,3])
+
+    x1 = (c1*L[2,2]*L[3,3] - c2*L[2,1]*L[3,3] + c3*L[2,1]*L[3,2] - c3*L[2,2]*L[3,1])/(L[1,1]*L[2,2]*L[3,3])
+    x2 = (c2*L[3,3] - c3*L[3,2])/(L[2,2]*L[3,3])
+    x3 = c3/L[3,3]
+
+    return SVector(x1,x2,x3)
+end
+
+#------------------------------
 # methods and types for indexing into the upper triangle of a square matrix
 #------------------------------
 
@@ -319,3 +426,4 @@ function Base.getindex(TI::TriuIndex, i::Int)
     1 <= i <= length(TI) || throw(BoundsError(TI, i))
     return _get_triu_index(TI.n,i)
 end
+
