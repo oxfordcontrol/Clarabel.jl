@@ -2,8 +2,9 @@ using Random, Test
 
 @testset "Clarabel Unit Tests" begin
 
-    #tests on small scale problems
+    #tests on cones
     include("./UnitTests/test_coneops_psdtrianglecone.jl")
+    include("./UnitTests/test_coneops_secondordercone.jl")
 
 end
 nothing
