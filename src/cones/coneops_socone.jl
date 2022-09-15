@@ -64,35 +64,35 @@ function update_scaling!(
     #first calculate the scaled vector w
     @views zscale = sqrt(_soc_residual(z))
     @views sscale = sqrt(_soc_residual(s))
-    gamma  = sqrt((1 + dot(s,z)/(zscale*sscale) ) / 2)
 
+    # construct w and normalize
     w = K.w
-
-    w     .= s./(2*sscale*gamma)
-    w[1]  += z[1]/(2*zscale*gamma)
-
-    @views w[2:end] .-= z[2:end]/(2*zscale*gamma)
+    w     .= s./(sscale)
+    w[1]  += z[1]/(zscale)
+    @views w[2:end] .-= z[2:end]/(zscale)
+    wscale = sqrt(_soc_residual(w))
+    w  .= w ./ wscale
 
     #various intermediate calcs for u,v,d,η
-    w0p1 = w[1] + 1
-    @views w1sq = dot(w[2:end],w[2:end])
-    w0sq = w[1]*w[1]
-    α  = w0p1 + w1sq / w0p1
-    β  = 1 + 2/w0p1 + w1sq / (w0p1*w0p1)
+    α  = 2*w[1]
+    β  = 2
 
     #Scalar d is the upper LH corner of the diagonal
     #term in the rank-2 update form of W^TW
-    K.d = w0sq/2 + w1sq/2 * (1 - (α*α)/(1+w1sq*β))
+    wsq = dot(w,w)
+    K.d = 0.5  / wsq
 
     #the leading scalar term for W^TW
     K.η = sqrt(sscale/zscale)
 
     #the vectors for the rank two update
     #representation of W^TW
-    u0 = sqrt(w0sq + w1sq - K.d)
+    u0  = sqrt(wsq - 0.5/wsq)
     u1 = α/u0
+
     v0 = zero(T)
     v1 = sqrt(u1*u1 - β)
+    
     K.u[1] = u0
     @views K.u[2:end] .= u1.*K.w[2:end]
     K.v[1] = v0
