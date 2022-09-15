@@ -5,10 +5,6 @@ using PrettyTables
 # -------------------------------------
 
 """
-	Clarabel.Settings{T}(kwargs) where {T <: AbstractFloat}
-
-Creates a Clarabel Settings object that is used to pass user settings to the solver.
-
 Argument | Default Value | Description
 :--- | :--- | :---
 ||
