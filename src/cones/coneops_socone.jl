@@ -62,15 +62,15 @@ function update_scaling!(
 ) where {T}
 
     #first calculate the scaled vector w
-    @views zscale = sqrt(_soc_residual(z))
-    @views sscale = sqrt(_soc_residual(s))
+    @views zscale = _sqrt_soc_residual(z)
+    @views sscale = _sqrt_soc_residual(s)
 
     # construct w and normalize
     w = K.w
     w     .= s./(sscale)
     w[1]  += z[1]/(zscale)
     @views w[2:end] .-= z[2:end]/(zscale)
-    wscale = sqrt(_soc_residual(w))
+    wscale = _sqrt_soc_residual(w)
     w  .= w ./ wscale
 
     #various intermediate calcs for u,v,d,η
@@ -91,7 +91,8 @@ function update_scaling!(
     u1 = α/u0
 
     v0 = zero(T)
-    v1 = sqrt(u1*u1 - β)
+    # v1 = sqrt(u1*u1 - β)
+    v1 = sqrt(2+2*K.d)/u0
     
     K.u[1] = u0
     @views K.u[2:end] .= u1.*K.w[2:end]
@@ -101,6 +102,15 @@ function update_scaling!(
     #λ = Wz
     mul_W!(K,:N,K.λ,z,one(T),zero(T))
 
+    # #####################################
+    # # test H(w)s = z or W'W*s = z
+    # #####################################
+    # tmp1 = similar(s)
+    # tmp2 = similar(tmp1)
+    # mul_W!(K,:N,tmp1,z,one(T),zero(T))
+    # mul_W!(K,:N,tmp2,tmp1,one(T),zero(T))
+    # res = tmp2 - s
+    # println("residual is: ", norm(res,Inf))
     return nothing
 end
 
@@ -329,6 +339,12 @@ end
 
 @inline function _soc_residual(z:: AbstractVector{T}) where {T} 
     @views res = z[1]*z[1] - dot(z[2:end],z[2:end])
+end 
+
+# alleviate numerical error
+@inline function _sqrt_soc_residual(z:: AbstractVector{T}) where {T} 
+    normz = norm(z[2:end])
+    @views res = sqrt((z[1] - normz)*(z[1] + normz))
 end 
 
 #compute the residual at z + \alpha dz 
