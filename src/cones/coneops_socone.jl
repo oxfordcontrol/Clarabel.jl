@@ -64,6 +64,10 @@ function update_scaling!(
     #first calculate the scaled vector w
     @views zscale = _sqrt_soc_residual(z)
     @views sscale = _sqrt_soc_residual(s)
+    # Either s or z is not an interior
+    if iszero(zscale) || iszero(sscale)
+        return missing
+    end
 
     # construct w and normalize
     w = K.w
@@ -71,6 +75,10 @@ function update_scaling!(
     w[1]  += z[1]/(zscale)
     @views w[2:end] .-= z[2:end]/(zscale)
     wscale = _sqrt_soc_residual(w)
+    # w is not an interior
+    if iszero(wscale)
+        return missing
+    end
     w  .= w ./ wscale
 
     #various intermediate calcs for u,v,d,η
@@ -344,7 +352,8 @@ end
 # alleviate numerical error
 @inline function _sqrt_soc_residual(z:: AbstractVector{T}) where {T} 
     normz = norm(z[2:end])
-    @views res = sqrt((z[1] - normz)*(z[1] + normz))
+    # set res to 0 when z is not an interior point
+    @views res = z[1] > normz ? sqrt((z[1] - normz)*(z[1] + normz)) : zero(T)
 end 
 
 #compute the residual at z + \alpha dz 

@@ -125,8 +125,13 @@ function update_scaling!(
 
     # update cone scalings by passing subview to each of
     # the appropriate cone types.
-    for (cone,si,zi) in zip(cones,s.views,z.views)
-        @conedispatch update_scaling!(cone,si,zi,μ,scaling_strategy)
+    for (cone,type,si,zi) in zip(cones,cones.types,s.views,z.views)
+        @conedispatch interior_check = update_scaling!(cone,si,zi,μ,scaling_strategy)
+        # YC: currently, only check whether SOC variables are in the interior;
+        # we could extend the interior checkfor other cones
+        if (type == SecondOrderConeT)  && ismissing(interior_check)
+            return missing
+        end
     end
 
     return nothing
@@ -239,7 +244,7 @@ function step_length(
     end
 
     # Force asymmetric cones last.  
-    for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
+    for (cone,dzi,dsi,zi,si) in zip(cones,dz,ds,z,s)
 
         if is_symmetric(cone) continue end
         @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)

@@ -190,19 +190,16 @@ function solve!(
 
         scaling = PrimalDual::ScalingStrategy
 
-        #update the residuals
-        #--------------
-        residuals_update!(s.residuals,s.variables,s.data)
-
-        #calculate duality gap (scaled)
-        #--------------
-        μ = variables_calc_mu(s.variables, s.residuals, s.cones)
-
-        #update the scalings
-        #--------------
-        variables_scale_cones!(s.variables,s.cones,μ,scaling)
-
         while true
+
+            #update the residuals
+            #--------------
+            residuals_update!(s.residuals,s.variables,s.data)
+
+            #calculate duality gap (scaled)
+            #--------------
+            μ = variables_calc_mu(s.variables, s.residuals, s.cones)
+
 
             # record scalar values from most recent iteration.
             # This captures μ at iteration zero.  
@@ -225,6 +222,17 @@ function solve!(
                 elseif action === Update; continue; 
                 end
             end # allows continuation if new strategy provided
+
+            
+            #update the scalings
+            #--------------
+            is_interior = variables_scale_cones!(s.variables,s.cones,μ,scaling)
+            # check whether variables are interior points
+            action = _strategy_checkpoint_is_interior(s,is_interior)
+            if action === Fail
+                break;
+            end
+                
 
             #increment counter here because we only count
             #iterations that produce a KKT update 
@@ -303,18 +311,6 @@ function solve!(
             info_save_prev_iterate(s.info,s.variables,s.prev_vars)
 
             variables_add_step!(s.variables,s.step_lhs,α)
-
-            #update the residuals
-            #--------------
-            residuals_update!(s.residuals,s.variables,s.data)
-
-            #calculate duality gap (scaled)
-            #--------------
-            μ = variables_calc_mu(s.variables, s.residuals, s.cones)
-
-            #update the scalings
-            #--------------
-            variables_scale_cones!(s.variables,s.cones,μ,scaling)
 
         end  #end while
         #----------
@@ -464,6 +460,14 @@ function _strategy_checkpoint_small_step(s::Solver{T}, α::T, scaling::ScalingSt
     end 
 end 
 
+function _strategy_checkpoint_is_interior(s::Solver{T}, is_interior::Bool) where {T}
+    if is_interior
+        return Update::StrategyCheckpoint
+    else
+        s.info.status = NUMERICAL_ERROR
+        return Fail::StrategyCheckpoint
+    end
+end
 
 # printing 
 

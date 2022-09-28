@@ -65,6 +65,8 @@ function update_scaling!(
     @inbounds for i = 1:3
         K.z[i] = z[i]
     end
+
+    return nothing
 end
 
 function Hs_is_diagonal(
