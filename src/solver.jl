@@ -190,15 +190,19 @@ function solve!(
 
         scaling = PrimalDual::ScalingStrategy
 
+        #update the residuals
+        #--------------
+        residuals_update!(s.residuals,s.variables,s.data)
+
+        #calculate duality gap (scaled)
+        #--------------
+        μ = variables_calc_mu(s.variables, s.residuals, s.cones)
+
+        #update the scalings
+        #--------------
+        variables_scale_cones!(s.variables,s.cones,μ,scaling)
+
         while true
-
-            #update the residuals
-            #--------------
-            residuals_update!(s.residuals,s.variables,s.data)
-
-            #calculate duality gap (scaled)
-            #--------------
-            μ = variables_calc_mu(s.variables, s.residuals, s.cones)
 
             # record scalar values from most recent iteration.
             # This captures μ at iteration zero.  
@@ -225,10 +229,6 @@ function solve!(
             #increment counter here because we only count
             #iterations that produce a KKT update 
             iter += 1
-
-            #update the scalings
-            #--------------
-            variables_scale_cones!(s.variables,s.cones,μ,scaling)
 
 
             #Update the KKT system and the constant parts of its solution.
@@ -303,6 +303,18 @@ function solve!(
             info_save_prev_iterate(s.info,s.variables,s.prev_vars)
 
             variables_add_step!(s.variables,s.step_lhs,α)
+
+            #update the residuals
+            #--------------
+            residuals_update!(s.residuals,s.variables,s.data)
+
+            #calculate duality gap (scaled)
+            #--------------
+            μ = variables_calc_mu(s.variables, s.residuals, s.cones)
+
+            #update the scalings
+            #--------------
+            variables_scale_cones!(s.variables,s.cones,μ,scaling)
 
         end  #end while
         #----------
