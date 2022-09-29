@@ -158,7 +158,8 @@ end
 
 function variables_symmetric_initialization!(
     variables::DefaultVariables{T},
-    cones::CompositeCone{T}
+    cones::CompositeCone{T},
+    settings::Settings{T}
 ) where {T}
 
     αs = max_shift_step!(cones,variables.s)

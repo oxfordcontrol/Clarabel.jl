@@ -349,7 +349,7 @@ function solver_default_start!(s::Solver{T}) where {T}
         #solve for primal/dual initial points via KKT
         kkt_solve_initial_point!(s.kktsystem,s.variables,s.data)
         #fix up (z,s) so that they are in the cone
-        variables_symmetric_initialization!(s.variables, s.cones)
+        variables_symmetric_initialization!(s.variables, s.cones, s.settings)
 
     else
         #Assigns unit (z,s) and zeros the primal variables 

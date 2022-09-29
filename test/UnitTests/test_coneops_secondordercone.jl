@@ -23,7 +23,9 @@ FloatT = Float64
         s = randn(n)
         s[1] = -1.
         K = Clarabel.SecondOrderCone(5)
-        Clarabel.shift_to_cone!(K,s)
+        α = Clarabel.max_shift_step!(K,s)
+        α = α > 0 ? α : -0.99
+        Clarabel.shift_to_cone!(K,s,α)
         @test Clarabel._soc_residual(s) >= 0
 
     end
@@ -34,8 +36,12 @@ FloatT = Float64
         K = Clarabel.SecondOrderCone(n)
         s = randn(n)
         z = randn(n)
-        Clarabel.shift_to_cone!(K,s)
-        Clarabel.shift_to_cone!(K,z)
+        αz = Clarabel.max_shift_step!(K,z)
+        αz = αz > 0 ? αz : -0.99
+        αs = Clarabel.max_shift_step!(K,s)
+        αs = αs > 0 ? αs : -0.99
+        Clarabel.shift_to_cone!(K,s,αs)
+        Clarabel.shift_to_cone!(K,z,αz)
         μ = dot(s,z)
         scaling = Clarabel.PrimalDual
 

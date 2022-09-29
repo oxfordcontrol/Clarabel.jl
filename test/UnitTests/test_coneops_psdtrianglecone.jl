@@ -117,7 +117,9 @@ FloatT = Float64
         X = X - 1e-10*I(n)
         x = zeros(K.numel)
         Clarabel._mat_to_svec!(x,X,K)
-        Clarabel.shift_to_cone!(K,x)
+        α = Clarabel.max_shift_step!(K,x)
+        α = α > 0 ? α : -0.99
+        Clarabel.shift_to_cone!(K,x,α)
         Clarabel._svec_to_mat!(X,x,K)
         @test minimum(eigvals(X)) ≈ 1
 
@@ -125,9 +127,11 @@ FloatT = Float64
         X = randpsd(rng,n)
         e = minimum(eigvals(X))
         Clarabel._mat_to_svec!(x,X,K)
-        Clarabel.shift_to_cone!(K,x)
+        α = Clarabel.max_shift_step!(K,x)
+        α = α > 0 ? α : -0.99
+        Clarabel.shift_to_cone!(K,x,α)
         Clarabel._svec_to_mat!(X,x,K)
-        @test minimum(eigvals(X)) ≈ e
+        @test minimum(eigvals(X)) > e
 
     end
 

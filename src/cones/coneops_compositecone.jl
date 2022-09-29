@@ -82,7 +82,7 @@ end
 # compute the maximum step that shifts current point into cones
 function max_shift_step!(
     cones::CompositeCone{T},
-    z::ConicVector{T}    
+    z::ConicVector{T}
 ) where {T}
     α = zero(T)
     for (cone,zi) in zip(cones,z.views)
@@ -100,9 +100,16 @@ function shift_to_cone!(
     α::T
 ) where {T}
 
+    # YC: If variable is inside the cone, we add a compensation 0.01*e 
+    # to keep distance from the boundary
+    if iszero(α)
+        α = T(-0.99)
+    end
+
     for (cone,zi) in zip(cones,z.views)
         @conedispatch shift_to_cone!(cone,zi,α)
     end
+
     return nothing
 end
 
