@@ -13,19 +13,25 @@ function rectify_equilibration!(
     return false
 end
 
-# place vector into nn cone
-function shift_to_cone!(
+# compute the maximum step that shifts z into nn cone
+function max_shift_step!(
     K::NonnegativeCone{T},
     z::AbstractVector{T}
 ) where{T}
 
-    thresh = sqrt(eps(T))
+    α = minimum(z)
 
-    # do this elementwise, otherwise splitting a nonnegative cone 
-    # into multiple small cones will give us a different solution 
-    for i in eachindex(z) 
-        z[i] = z[i] < thresh ? one(T) : z[i]
-    end
+    return -α
+end
+
+# place vector into nn cone
+function shift_to_cone!(
+    K::NonnegativeCone{T},
+    z::AbstractVector{T},
+    α::T
+) where{T}
+
+    @. z += α
 
     return nothing
 end

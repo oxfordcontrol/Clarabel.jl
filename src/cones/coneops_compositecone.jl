@@ -79,14 +79,29 @@ function rectify_equilibration!(
     return any_changed
 end
 
+# compute the maximum step that shifts current point into cones
+function max_shift_step!(
+    cones::CompositeCone{T},
+    z::ConicVector{T}    
+) where {T}
+    α = zero(T)
+    for (cone,zi) in zip(cones,z.views)
+        @conedispatch αi = max_shift_step!(cone,zi)
+        α = max(α,αi)
+    end
+
+    return α
+end
+
 # place a vector to some nearby point in the cone
 function shift_to_cone!(
     cones::CompositeCone{T},
-    z::ConicVector{T}
+    z::ConicVector{T},
+    α::T
 ) where {T}
 
     for (cone,zi) in zip(cones,z.views)
-        @conedispatch shift_to_cone!(cone,zi)
+        @conedispatch shift_to_cone!(cone,zi,α)
     end
     return nothing
 end

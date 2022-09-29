@@ -5,21 +5,24 @@
 #degree = 1 for SOC, since e'*e = 1
 degree(K::SecondOrderCone{T}) where {T} = 1
 
-# place vector into socone
-function shift_to_cone!(
+# compute the maximum step that shifts vector into socone
+function max_shift_step!(
     K::SecondOrderCone{T},
     z::AbstractVector{T}
 ) where{T}
 
-    z[1] = max(z[1],0)
+    α = z[1] - norm(z[2:end])
+    return -α
+end
 
-    @views α = _soc_residual(z)
-    if(α < sqrt(eps(T)))
-        #done in two stages since otherwise (1.-α) = -α for
-        #large α, which makes z exactly 0.0 (or worse, -0.0 )
-        z[1] -=  α
-        z[1] +=  one(T)
-    end
+# place vector into socone
+function shift_to_cone!(
+    K::SecondOrderCone{T},
+    z::AbstractVector{T},
+    α::T
+) where{T}
+
+    z[1] += α
 
     return nothing
 end

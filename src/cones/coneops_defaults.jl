@@ -42,10 +42,19 @@ end
 # define implementations for each function below.
 
 # functions relating to unit vectors and cone initialization
+function max_shift_step!(
+    K::AbstractCone{T},
+    z::AbstractVector{T}
+) where{T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
 
 function shift_to_cone!(
     K::AbstractCone{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    α::T
 ) where{T}
 
     error("Incomplete cone operation specification: ",typeof(K))

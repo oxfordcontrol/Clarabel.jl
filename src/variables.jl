@@ -161,8 +161,10 @@ function variables_symmetric_initialization!(
     cones::CompositeCone{T}
 ) where {T}
 
-    shift_to_cone!(cones,variables.s)
-    shift_to_cone!(cones,variables.z)
+    αs = max_shift_step!(cones,variables.s)
+    αz = max_shift_step!(cones,variables.z)
+    shift_to_cone!(cones,variables.s, αs + one(T))
+    shift_to_cone!(cones,variables.z, αz + one(T))
 
     variables.τ = 1
     variables.κ = 1
