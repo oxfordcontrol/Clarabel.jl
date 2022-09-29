@@ -37,8 +37,6 @@ function scaled_unit_shift!(
     α::T
 ) where{T}
 
-    z .= zero(T)
-
     return nothing
 end
 

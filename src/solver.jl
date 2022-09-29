@@ -200,7 +200,6 @@ function solve!(
             #--------------
             μ = variables_calc_mu(s.variables, s.residuals, s.cones)
 
-
             # record scalar values from most recent iteration.
             # This captures μ at iteration zero.  
             info_save_scalars(s.info, μ, α, σ, iter)
@@ -348,6 +347,8 @@ function solver_default_start!(s::Solver{T}) where {T}
         kkt_update!(s.kktsystem,s.data,s.cones)
         #solve for primal/dual initial points via KKT
         kkt_solve_initial_point!(s.kktsystem,s.variables,s.data)
+
+        println("Variables pre sym init", s.variables)
         #fix up (z,s) so that they are in the cone
         variables_symmetric_initialization!(s.variables, s.cones, s.settings)
 
