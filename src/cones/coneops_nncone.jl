@@ -31,7 +31,7 @@ function shift_to_cone!(
     α::T
 ) where{T}
 
-    @. z += α
+    @. z += α + one(T)
 
     return nothing
 end

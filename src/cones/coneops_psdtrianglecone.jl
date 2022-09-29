@@ -27,10 +27,10 @@ function shift_to_cone!(
     α::T
 ) where{T}
 
-    Z = K.work.workmat1
-    _svec_to_mat!(Z,z,K)
-
+    #done in two stages since otherwise (1-α) = -α for
+    #large α, which makes z exactly 0. (or worse, -0.0 )
     add_scaled_e!(K,z,α)
+    add_scaled_e!(K,z,one(T))
 
     return nothing
 end

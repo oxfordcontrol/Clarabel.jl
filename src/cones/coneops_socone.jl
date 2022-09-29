@@ -22,7 +22,7 @@ function shift_to_cone!(
     α::T
 ) where{T}
 
-    z[1] += α
+    z[1] += α + one(T)
 
     return nothing
 end

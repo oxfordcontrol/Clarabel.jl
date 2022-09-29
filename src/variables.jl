@@ -163,8 +163,8 @@ function variables_symmetric_initialization!(
 
     αs = max_shift_step!(cones,variables.s)
     αz = max_shift_step!(cones,variables.z)
-    shift_to_cone!(cones,variables.s, αs + one(T))
-    shift_to_cone!(cones,variables.z, αz + one(T))
+    shift_to_cone!(cones,variables.s, αs)
+    shift_to_cone!(cones,variables.z, αz)
 
     variables.τ = 1
     variables.κ = 1
