@@ -143,7 +143,7 @@ function kkt_solve!(
 
     else  #:combined expected, but any general RHS should do this
         #we can use the overall LHS output as additional workspace for the moment
-        Δs_from_Δz_offset!(cones,Δs_const_term,rhs.s,lhs.z)
+        Δs_from_Δz_offset!(cones,Δs_const_term,rhs.s,lhs.z,variables.z)
     end
 
     @. workz = Δs_const_term - rhs.z

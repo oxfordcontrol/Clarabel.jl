@@ -117,7 +117,8 @@ function Δs_from_Δz_offset!(
     K::ZeroCone{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},
-    work::AbstractVector{T}
+    work::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     out .= zero(T)

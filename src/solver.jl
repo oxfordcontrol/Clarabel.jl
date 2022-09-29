@@ -192,6 +192,10 @@ function solve!(
 
         while true
 
+            #PJG: DEBUG
+            variables_rescale!(s.variables)
+            #println("Norm x is ", norm(s.variables.x))
+
             #update the residuals
             #--------------
             residuals_update!(s.residuals,s.variables,s.data)
@@ -443,7 +447,7 @@ function _strategy_checkpoint_small_step(s::Solver{T}, α::T, scaling::ScalingSt
         scaling == PrimalDual::ScalingStrategy && α < s.settings.min_switch_step_length
         return (Update::StrategyCheckpoint, Dual::ScalingStrategy)
 
-    elseif α <= min(zero(T), s.settings.min_terminate_step_length)
+    elseif α <= max(zero(T), s.settings.min_terminate_step_length)
         s.info.status = INSUFFICIENT_PROGRESS
         return (Fail::StrategyCheckpoint,scaling)
 

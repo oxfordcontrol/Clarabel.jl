@@ -403,7 +403,11 @@ function  _iterative_refinement(
         norme = _get_refine_error!(e,b,KKTsym,ξ)
 
         if(lastnorme/norme <  IR_stopratio)
-            #insufficient improvement.  Exit
+            #insufficient improvement.  Bail out.
+            if(lastnorme/norme < one(T))
+                #apply it first anyway for marginal improvement
+                @. x = ξ  #PJG: pointer swap might be faster
+            end
             break
         else
             @. x = ξ  #PJG: pointer swap might be faster

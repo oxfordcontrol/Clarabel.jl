@@ -196,11 +196,12 @@ function Δs_from_Δz_offset!(
     cones::CompositeCone{T},
     out::ConicVector{T},
     ds::ConicVector{T},
-    work::ConicVector{T}
+    work::ConicVector{T},
+    z::ConicVector{T}
 ) where {T}
 
-    for (cone,outi,dsi,worki) in zip(cones,out.views,ds.views,work.views)
-        @conedispatch Δs_from_Δz_offset!(cone,outi,dsi,worki) 
+    for (cone,outi,dsi,worki,zi) in zip(cones,out.views,ds.views,work.views,z.views)
+        @conedispatch Δs_from_Δz_offset!(cone,outi,dsi,worki,zi) 
     end
 
     return nothing

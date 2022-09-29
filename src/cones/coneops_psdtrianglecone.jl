@@ -177,7 +177,8 @@ function Δs_from_Δz_offset!(
     K::PSDTriangleCone{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},
-    work::AbstractVector{T}
+    work::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     _Δs_from_Δz_offset_symmetric!(K,out,ds,work);

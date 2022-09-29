@@ -183,6 +183,7 @@ function Δs_from_Δz_offset!(
     out::AbstractVector{T},
     ds::AbstractVector{T},
     work::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
