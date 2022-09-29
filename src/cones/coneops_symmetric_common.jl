@@ -27,7 +27,7 @@
 
     #shift = W⁻¹Δs ∘ WΔz - σμe
     circ_op!(K,shift,step_s,step_z)                 
-    add_scaled_e!(K,shift,-σμ)                       
+    scaled_unit_shift!(K,shift,-σμ)                       
 
     return nothing
 end

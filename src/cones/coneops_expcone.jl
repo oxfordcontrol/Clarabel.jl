@@ -9,7 +9,7 @@ numel(K::ExponentialCone{T}) where {T} = dim(K)
 
 is_symmetric(::ExponentialCone{T}) where {T} = false
 
-function max_shift_step!(
+function unit_margin(
     K::ExponentialCone{T},
     z::AbstractVector{T}
 ) where{T}

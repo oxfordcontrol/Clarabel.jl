@@ -9,18 +9,18 @@ numel(K::PowerCone{T}) where {T} = dim(K)
 
 is_symmetric(::PowerCone{T}) where {T} = false
 
-function max_shift_step!(
+function unit_margin(
     K::PowerCone{T},
     z::AbstractVector{T}
 ) where{T}
 
-    # We should never end up shifting to this cone, since 
+    # We should never end computing margins for this cone, since 
     # asymmetric problems should always use unit_initialization!
     error("This function should never be reached.");
     # 
 end
 
-function shift_to_cone!(
+function scaled_unit_shift!(
     K::PowerCone{T},
     z::AbstractVector{T},
     α::T

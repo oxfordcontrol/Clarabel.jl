@@ -23,17 +23,15 @@ function rectify_equilibration!(
     return false
 end
 
-# compute the maximum step that shifts vector into zero cone
-function max_shift_step!(
+function unit_margin(
     K::ZeroCone{T},
     z::AbstractVector{T}
 ) where{T}
-
-    return zero(T)
+    return typemax(T)
 end
 
 # place vector into zero cone
-function shift_to_cone!(
+function scaled_unit_shift!(
     K::ZeroCone{T},
     z::AbstractVector{T},
     α::T

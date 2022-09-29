@@ -6,31 +6,30 @@ numel(K::PSDTriangleCone{T})  where {T} = K.numel    #number of elements
 degree(K::PSDTriangleCone{T}) where {T} = K.n        #side dimension, M \in \mathcal{S}^{n×n}
 
 
-# compute the maximum step that shifts vector into socone
-function max_shift_step!(
+function unit_margin(
     K::PSDTriangleCone{T},
     z::AbstractVector{T}
 ) where{T}
+
     Z = K.work.workmat1
     _svec_to_mat!(Z,z,K)
 
-    α = eigvals(Symmetric(Z),1:1)[1]  #min eigenvalue
-
-    return -α
+    return eigvals(Symmetric(Z),1:1)[1]  #min eigenvalue
     
 end
 
 # place vector into sdp cone
-function shift_to_cone!(
+function scaled_unit_shift!(
     K::PSDTriangleCone{T},
     z::AbstractVector{T},
     α::T
 ) where{T}
 
-    #done in two stages since otherwise (1-α) = -α for
-    #large α, which makes z exactly 0. (or worse, -0.0 )
-    add_scaled_e!(K,z,α)
-    add_scaled_e!(K,z,one(T))
+    #adds αI to the vectorized triangle,
+    #at elements [1,3,6....n(n+1)/2]
+    for k = 1:K.n
+        z[(k*(k+1))>>1] += α
+    end
 
     return nothing
 end
@@ -44,14 +43,11 @@ function unit_initialization!(
  
      z .= zero(T)
      s .= zero(T)
-     add_scaled_e!(K,z,one(T))
-     add_scaled_e!(K,s,one(T))
+     scaled_unit_shift!(K,z,one(T))
+     scaled_unit_shift!(K,s,one(T))
  
     return nothing
  end
-
-
-
 
 
 
@@ -239,21 +235,7 @@ end
 # operations supported by symmetric cones only 
 # ---------------------------------------------
 
-# implements y = y + αe for the SDP cone
-function add_scaled_e!(
-    K::PSDTriangleCone{T},
-    x::AbstractVector{T},
-    α::T
-) where {T}
 
-    #adds αI to the vectorized triangle,
-    #at elements [1,3,6....n(n+1)/2]
-    for k = 1:K.n
-        x[(k*(k+1))>>1] += α
-    end
-
-    return nothing
-end
 
 # implements y = αWx + βy for the PSD cone
 function mul_W!(

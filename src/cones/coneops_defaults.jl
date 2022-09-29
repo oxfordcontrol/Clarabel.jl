@@ -41,8 +41,10 @@ end
 # defined.   To define a new cone, you must
 # define implementations for each function below.
 
-# functions relating to unit vectors and cone initialization
-function max_shift_step!(
+# returns α such that z - α⋅e is just on the cone boundary 
+# α >=0 indicates z \in cone, i.e. negative margin ===
+# outside of the cone .
+function unit_margin(
     K::AbstractCone{T},
     z::AbstractVector{T}
 ) where{T}

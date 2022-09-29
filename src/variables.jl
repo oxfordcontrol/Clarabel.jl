@@ -22,6 +22,12 @@ function variables_calc_step_length(
     ατ    = step.τ < 0 ? -variables.τ / step.τ : floatmax(T)
     ακ    = step.κ < 0 ? -variables.κ / step.κ : floatmax(T)
 
+    println("ατ, ακ = ", (ατ, ακ))
+    println("variables.τ  = ",variables.τ )
+    println("variables.κ = ", variables.κ)
+    println("step.τ  = ",step.τ )
+    println("step.κ  = ",step.κ )
+
     # Find a feasible step size for all cones
     α = min(ατ,ακ,one(T))
     (αz,αs) = step_length(cones, step.z, step.s, variables.z, variables.s, settings, α)
@@ -162,13 +168,39 @@ function variables_symmetric_initialization!(
     settings::Settings{T}
 ) where {T}
 
-    αs = max_shift_step!(cones,variables.s)
-    αz = max_shift_step!(cones,variables.z)
-    shift_to_cone!(cones,variables.s, αs)
-    shift_to_cone!(cones,variables.z, αz)
+    min_margin  = (one(T) - settings.max_step_fraction)
+
+    shift_to_cone_interior!(variables.s, cones, min_margin)
+    shift_to_cone_interior!(variables.z, cones, min_margin)
 
     variables.τ = 1
     variables.κ = 1
+end
+
+function shift_to_cone_interior!(
+    z::AbstractVector{T},
+    cones::CompositeCone{T},
+    min_margin::T
+) where {T}
+
+    margin = unit_margin(cones,z)
+
+    if margin <= 0
+        #done in two stages since otherwise (1-α) = -α for
+        #large α, which makes z exactly 0. (or worse, -0.0 )
+        scaled_unit_shift!(cones,z,-margin)
+        scaled_unit_shift!(cones,z,one(T))
+        println("neg margin shifting")
+
+    elseif margin < min_margin 
+        #margin is positive but small.
+        scaled_unit_shift!(cones,z, min_margin - margin)
+        println("min shifting")
+    
+    else 
+        println("Not shifting")
+    end
+
 end
 
 

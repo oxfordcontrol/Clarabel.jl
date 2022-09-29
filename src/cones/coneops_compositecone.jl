@@ -79,35 +79,28 @@ function rectify_equilibration!(
     return any_changed
 end
 
-# compute the maximum step that shifts current point into cones
-function max_shift_step!(
+# returns α such that z - α⋅e is just on the cone boundary 
+function unit_margin(
     cones::CompositeCone{T},
     z::ConicVector{T}
 ) where {T}
-    α = zero(T)
+    α = typemax(T)
     for (cone,zi) in zip(cones,z.views)
-        @conedispatch αi = max_shift_step!(cone,zi)
-        α = max(α,αi)
+        @conedispatch αi = unit_margin(cone,zi)
+        α = min(α,αi)
     end
 
     return α
 end
 
-# place a vector to some nearby point in the cone
-function shift_to_cone!(
+function scaled_unit_shift!(
     cones::CompositeCone{T},
     z::ConicVector{T},
     α::T
 ) where {T}
 
-    # YC: If variable is inside the cone, we add a compensation 0.01*e 
-    # to keep distance from the boundary
-    if iszero(α)
-        α = T(-0.99)
-    end
-
     for (cone,zi) in zip(cones,z.views)
-        @conedispatch shift_to_cone!(cone,zi,α)
+        @conedispatch scaled_unit_shift!(cone,zi,α)
     end
 
     return nothing

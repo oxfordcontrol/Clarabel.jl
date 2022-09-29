@@ -406,7 +406,7 @@ function  _iterative_refinement(
         if(improved_ratio <  IR_stopratio)
             #insufficient improvement.  Exit
             if (improved_ratio > one(T))
-                @. x = ξ
+                @. x = ξ #PJG: pointer swap might be faster
             end
             break
         end

@@ -5,24 +5,22 @@
 #degree = 1 for SOC, since e'*e = 1
 degree(K::SecondOrderCone{T}) where {T} = 1
 
-# compute the maximum step that shifts vector into socone
-function max_shift_step!(
+function unit_margin(
     K::SecondOrderCone{T},
     z::AbstractVector{T}
 ) where{T}
 
-    α = z[1] - norm(z[2:end])
-    return -α
+    return z[1] - norm(z[2:end])
 end
 
 # place vector into socone
-function shift_to_cone!(
+function scaled_unit_shift!(
     K::SecondOrderCone{T},
     z::AbstractVector{T},
     α::T
 ) where{T}
 
-    z[1] += α + one(T)
+    z[1] += α
 
     return nothing
 end
@@ -36,8 +34,8 @@ function unit_initialization!(
  
      z .= zero(T)
      s .= zero(T)
-     add_scaled_e!(K,z,one(T))
-     add_scaled_e!(K,s,one(T))
+     scaled_unit_shift!(K,z,one(T))
+     scaled_unit_shift!(K,s,one(T))
  
     return nothing
 end 
@@ -230,17 +228,6 @@ end
 # operations supported by symmetric cones only 
 # ---------------------------------------------
 
-# implements y = y + αe for the socone
-function add_scaled_e!(
-    K::SecondOrderCone{T},
-    x::AbstractVector{T},α::T
-) where {T}
-
-    #e is (1,0.0..0)
-    x[1] += α
-
-    return nothing
-end
 
 # implements y = αWx + βy for the socone
 function mul_W!(

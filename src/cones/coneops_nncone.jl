@@ -13,25 +13,21 @@ function rectify_equilibration!(
     return false
 end
 
-# compute the maximum step that shifts z into nn cone
-function max_shift_step!(
+function unit_margin(
     K::NonnegativeCone{T},
     z::AbstractVector{T}
 ) where{T}
-
-    α = minimum(z)
-
-    return -α
+    return minimum(z)
 end
 
 # place vector into nn cone
-function shift_to_cone!(
+function scaled_unit_shift!(
     K::NonnegativeCone{T},
     z::AbstractVector{T},
     α::T
 ) where{T}
 
-    @. z += α + one(T)
+    @. z += α 
 
     return nothing
 end
@@ -176,18 +172,6 @@ end
 # ---------------------------------------------
 # operations supported by symmetric cones only 
 # ---------------------------------------------
-
-# implements y = y + αe for the nn cone
-function add_scaled_e!(
-    K::NonnegativeCone{T},
-    x::AbstractVector{T},α::T
-) where {T}
-
-    #e is a vector of ones, so just shift
-    @. x += α
-
-    return nothing
-end
 
 # implements y = αWx + βy for the nn cone
 function mul_W!(
