@@ -15,7 +15,8 @@ end
 
 function unit_margin(
     K::NonnegativeCone{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    pd::PrimalOrDualCone
 ) where{T}
     return minimum(z)
 end
@@ -24,7 +25,8 @@ end
 function scaled_unit_shift!(
     K::NonnegativeCone{T},
     z::AbstractVector{T},
-    α::T
+    α::T,
+    pd::PrimalOrDualCone
 ) where{T}
 
     @. z += α 

@@ -7,7 +7,8 @@ degree(K::SecondOrderCone{T}) where {T} = 1
 
 function unit_margin(
     K::SecondOrderCone{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    pd::PrimalOrDualCone
 ) where{T}
 
     return z[1] - norm(z[2:end])
@@ -17,7 +18,8 @@ end
 function scaled_unit_shift!(
     K::SecondOrderCone{T},
     z::AbstractVector{T},
-    α::T
+    α::T,
+    pd::PrimalOrDualCone
 ) where{T}
 
     z[1] += α
@@ -32,10 +34,14 @@ function unit_initialization!(
     s::AbstractVector{T}
 ) where{T}
  
-     z .= zero(T)
-     s .= zero(T)
-     scaled_unit_shift!(K,z,one(T))
-     scaled_unit_shift!(K,s,one(T))
+    s .= zero(T)
+    z .= zero(T)
+
+    #Primal or Dual doesn't matter here
+    #since the cone is self dual anyway
+    scaled_unit_shift!(K,s,one(T),PrimalCone)
+    scaled_unit_shift!(K,z,one(T),DualCone)
+
  
     return nothing
 end 

@@ -46,14 +46,15 @@ end
 # outside of the cone .
 function unit_margin(
     K::AbstractCone{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    pd::PrimalOrDualCone
 ) where{T}
 
     error("Incomplete cone operation specification: ",typeof(K))
 
 end
 
-function shift_to_cone!(
+function scaled_unit_shift!(
     K::AbstractCone{T},
     z::AbstractVector{T},
     α::T

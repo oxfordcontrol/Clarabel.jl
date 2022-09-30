@@ -82,11 +82,12 @@ end
 # returns α such that z - α⋅e is just on the cone boundary 
 function unit_margin(
     cones::CompositeCone{T},
-    z::ConicVector{T}
+    z::ConicVector{T},
+    pd::PrimalOrDualCone,
 ) where {T}
     α = typemax(T)
     for (cone,zi) in zip(cones,z.views)
-        @conedispatch αi = unit_margin(cone,zi)
+        @conedispatch αi = unit_margin(cone,zi,pd)
         α = min(α,αi)
     end
 
@@ -96,11 +97,12 @@ end
 function scaled_unit_shift!(
     cones::CompositeCone{T},
     z::ConicVector{T},
-    α::T
+    α::T,
+    pd::PrimalOrDualCone
 ) where {T}
 
     for (cone,zi) in zip(cones,z.views)
-        @conedispatch scaled_unit_shift!(cone,zi,α)
+        @conedispatch scaled_unit_shift!(cone,zi,α,pd)
     end
 
     return nothing

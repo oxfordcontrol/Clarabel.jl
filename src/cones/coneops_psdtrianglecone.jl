@@ -8,7 +8,8 @@ degree(K::PSDTriangleCone{T}) where {T} = K.n        #side dimension, M \in \mat
 
 function unit_margin(
     K::PSDTriangleCone{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    pd::PrimalOrDualCone
 ) where{T}
 
     Z = K.work.workmat1
@@ -22,7 +23,8 @@ end
 function scaled_unit_shift!(
     K::PSDTriangleCone{T},
     z::AbstractVector{T},
-    α::T
+    α::T,
+    pd::PrimalOrDualCone
 ) where{T}
 
     #adds αI to the vectorized triangle,
@@ -41,10 +43,13 @@ function unit_initialization!(
     s::AbstractVector{T}
  ) where{T}
  
-     z .= zero(T)
-     s .= zero(T)
-     scaled_unit_shift!(K,z,one(T))
-     scaled_unit_shift!(K,s,one(T))
+    s .= zero(T)
+    z .= zero(T)
+
+    #Primal or Dual doesn't matter here
+    #since the cone is self dual anyway
+    scaled_unit_shift!(K,s,one(T),PrimalCone)
+    scaled_unit_shift!(K,z,one(T),DualCone)
  
     return nothing
  end

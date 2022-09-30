@@ -11,19 +11,21 @@ is_symmetric(::ExponentialCone{T}) where {T} = false
 
 function unit_margin(
     K::ExponentialCone{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    pd::PrimalOrDualCone,
 ) where{T}
 
-    # We should never end up shifting to this cone, since 
+    # We should never end up computing margins for this cone, since 
     # asymmetric problems should always use unit_initialization!
     error("This function should never be reached.");
     # 
 end
 
-function shift_to_cone!(
+function scaled_unit_shift!(
     K::ExponentialCone{T},
     z::AbstractVector{T},
-    α::T
+    α::T,
+    pd::PrimalOrDualCone
 ) where{T}
 
     # We should never end up shifting to this cone, since 

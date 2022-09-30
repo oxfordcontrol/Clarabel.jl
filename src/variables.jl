@@ -164,8 +164,8 @@ function variables_symmetric_initialization!(
 
     min_margin  = (one(T) - settings.max_step_fraction)
 
-    shift_to_cone_interior!(variables.s, cones, min_margin)
-    shift_to_cone_interior!(variables.z, cones, min_margin)
+    shift_to_cone_interior!(variables.s, cones, min_margin, PrimalCone::PrimalOrDualCone)
+    shift_to_cone_interior!(variables.z, cones, min_margin, DualCone::PrimalOrDualCone)
 
     variables.τ = 1
     variables.κ = 1
@@ -174,22 +174,29 @@ end
 function shift_to_cone_interior!(
     z::AbstractVector{T},
     cones::CompositeCone{T},
-    min_margin::T
+    min_margin::T,
+    pd::PrimalOrDualCone
 ) where {T}
 
-    margin = unit_margin(cones,z)
+    margin = unit_margin(cones,z,pd)
 
     if margin <= 0
         #done in two stages since otherwise (1-α) = -α for
         #large α, which makes z exactly 0. (or worse, -0.0 )
-        scaled_unit_shift!(cones,z,-margin)
-        scaled_unit_shift!(cones,z,one(T))
+        scaled_unit_shift!(cones,z,-margin, pd)
+        scaled_unit_shift!(cones,z,one(T), pd)
 
     elseif margin < min_margin 
         #margin is positive but small.
-        scaled_unit_shift!(cones,z, min_margin - margin)
+        scaled_unit_shift!(cones,z, min_margin - margin, pd)
     
-    end 
+    else 
+        #good margin, but still shift explicitly by 
+        #zero to catch any elements in the zero cone 
+        #that need to be forced to zero 
+        scaled_unit_shift!(cones,z, zero(T), pd)
+    end
+
 
     return nothing
 
