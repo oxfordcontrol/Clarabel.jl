@@ -100,7 +100,7 @@ FloatT = Float64
 
         XplusaI = X + a*I(n)
         Clarabel._mat_to_svec!(x,X,K)
-        Clarabel.scaled_unit_shift!(K,x,a)
+        Clarabel.scaled_unit_shift!(K,x,a,Clarabel.PrimalCone)
         Clarabel._svec_to_mat!(X,x,K)
 
         @test norm(X - XplusaI) ≈ 0
