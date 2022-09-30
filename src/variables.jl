@@ -22,12 +22,6 @@ function variables_calc_step_length(
     ατ    = step.τ < 0 ? -variables.τ / step.τ : floatmax(T)
     ακ    = step.κ < 0 ? -variables.κ / step.κ : floatmax(T)
 
-    println("ατ, ακ = ", (ατ, ακ))
-    println("variables.τ  = ",variables.τ )
-    println("variables.κ = ", variables.κ)
-    println("step.τ  = ",step.τ )
-    println("step.κ  = ",step.κ )
-
     # Find a feasible step size for all cones
     α = min(ατ,ακ,one(T))
     (αz,αs) = step_length(cones, step.z, step.s, variables.z, variables.s, settings, α)
@@ -190,16 +184,14 @@ function shift_to_cone_interior!(
         #large α, which makes z exactly 0. (or worse, -0.0 )
         scaled_unit_shift!(cones,z,-margin)
         scaled_unit_shift!(cones,z,one(T))
-        println("neg margin shifting")
 
     elseif margin < min_margin 
         #margin is positive but small.
         scaled_unit_shift!(cones,z, min_margin - margin)
-        println("min shifting")
     
-    else 
-        println("Not shifting")
-    end
+    end 
+
+    return nothing
 
 end
 

@@ -27,7 +27,7 @@ function unit_margin(
     K::ZeroCone{T},
     z::AbstractVector{T}
 ) where{T}
-    return typemax(T)
+    return zero(T)
 end
 
 # place vector into zero cone
@@ -37,7 +37,7 @@ function scaled_unit_shift!(
     α::T
 ) where{T}
 
-    return nothing
+    z .= zero(T)
 end
 
 # unit initialization for asymmetric solves
