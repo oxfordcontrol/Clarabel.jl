@@ -124,7 +124,8 @@ function Δs_from_Δz_offset!(
     z::AbstractVector{T}
 ) where {T}
 
-    _Δs_from_Δz_offset_symmetric!(K,out,rs,work);
+    #_Δs_from_Δz_offset_symmetric!(K,out,rs,work);
+    @. out = rs / z
 end
 
 #return maximum allowable step length while remaining in the nn cone
