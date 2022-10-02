@@ -17,7 +17,7 @@
     #shift vector used as workspace for a few steps 
     tmp = shift              
 
-     #Δz <- Wdz
+     #Δz <- WΔz
     tmp .= step_z         
     mul_W!(K,:N,step_z,tmp,one(T),zero(T))        
 

@@ -101,7 +101,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     #static regularization parameters
     static_regularization_enable::Bool    = true
-    static_regularization_constant::T     = 1e-7     
+    static_regularization_constant::T     = 1e-8     
     static_regularization_proportional::T = eps()^2 
 
     #dynamic regularization parameters
@@ -111,11 +111,11 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     #iterative refinement
     iterative_refinement_enable::Bool   = true
-    iterative_refinement_reltol::T      = 1e-12      
-    iterative_refinement_abstol::T      = 1e-12 
+    iterative_refinement_reltol::T      = 1e-13      
+    iterative_refinement_abstol::T      = 1e-13 
 
     iterative_refinement_max_iter::Int  = 10
-    iterative_refinement_stop_ratio::T  = 5        
+    iterative_refinement_stop_ratio::T  = 2        
 
 end
 

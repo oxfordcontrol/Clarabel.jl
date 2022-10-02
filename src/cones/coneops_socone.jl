@@ -117,15 +117,9 @@ function update_scaling!(
     #λ = Wz
     mul_W!(K,:N,K.λ,z,one(T),zero(T))
 
-    # #####################################
-    # # test H(w)s = z or W'W*s = z
-    # #####################################
-    # tmp1 = similar(s)
-    # tmp2 = similar(tmp1)
-    # mul_W!(K,:N,tmp1,z,one(T),zero(T))
-    # mul_W!(K,:N,tmp2,tmp1,one(T),zero(T))
-    # res = tmp2 - s
-    # println("residual is: ", norm(res,Inf))
+    #PJG : Experimental
+    mul_Winv!(K,:N,K.λ,s,0.5,0.5)
+
     return nothing
 end
 
@@ -158,6 +152,16 @@ function mul_Hs!(
     mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
     mul_W!(K,:T,y,work,one(T),zero(T))    #y = c Wᵀwork = W^TWx
 
+    #PJG: DEBUG   This way seems more stable
+    tmp = similar(y)
+    @views ζ  = dot(K.w[2:end],x[2:end])
+    c0 = dot(K.w,K.w)*x[1] + 2*K.w[1]*ζ
+    c1 = 2*(K.w[1]*x[1] + ζ)
+    tmp[1] = c0 
+    @views tmp[2:end] .= (c1.*K.w[2:end] .+ x[2:end])
+    tmp .*= K.η^2
+    y .= tmp
+
 end
 
 # returns x = λ ∘ λ for the socone
@@ -187,10 +191,28 @@ function Δs_from_Δz_offset!(
     K::SecondOrderCone{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},
-    work::AbstractVector{T}
+    work::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
-    _Δs_from_Δz_offset_symmetric!(K,out,ds,work);
+    if true 
+    #Wᵀ(λ \ ds)
+        _Δs_from_Δz_offset_symmetric!(K,out,ds,work);
+
+    else    
+        #PJG: experimental alternative 
+        @views resz = z[1]^2 - dot(z[2:end],z[2:end])
+
+        @views λ1ds1  = dot(K.λ[2:end],ds[2:end])
+        @views w1ds1  = dot(K.w[2:end],ds[2:end])
+
+        c = (K.λ[1]*ds[1] - λ1ds1)/resz
+        out[1]             = +c*z[1] + K.η*w1ds1
+        @views out[2:end] .= -c.*z[2:end] + K.η*(ds[2:end] + w1ds1/(1+K.w[1]).*K.w[2:end])
+
+        out .*= (1/K.λ[1])
+    end    
+
 end
 
 #return maximum allowable step length while remaining in the socone
@@ -379,9 +401,9 @@ function _step_length_soc_component(
     # assume that x is in the SOC, and find the minimum positive root
     # of the quadratic equation:  ||x₁+αy₁||^2 = (x₀ + αy₀)^2
 
-    @views a = _soc_residual(y)
+    @views a = _soc_residual(y) #NB: could be negative
     @views b = 2*(x[1]*y[1] - dot(x[2:end],y[2:end]))
-    @views c = _soc_residual(x) #should be ≥0
+    @views c = max(0.,_soc_residual(x)) #should be ≥0
     d = b^2 - 4*a*c
 
     if(c < 0)

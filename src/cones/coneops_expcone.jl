@@ -150,7 +150,8 @@ function Δs_from_Δz_offset!(
     K::ExponentialCone{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},
-    work::AbstractVector{T}
+    work::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     @inbounds for i = 1:3
