@@ -67,7 +67,7 @@ function info_check_termination!(
 
     # poor progress
     #----------------------
-    if info.status == UNSOLVED && iter > 0 &&
+    if info.status == UNSOLVED && iter > 1 &&
         ( info.res_dual > info.prev_res_dual || 
           info.res_primal > info.prev_res_primal
         )
