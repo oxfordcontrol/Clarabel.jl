@@ -117,9 +117,6 @@ function update_scaling!(
     #λ = Wz
     mul_W!(K,:N,K.λ,z,one(T),zero(T))
 
-    #PJG : Experimental
-    mul_Winv!(K,:N,K.λ,s,0.5,0.5)
-
     return nothing
 end
 
@@ -148,19 +145,11 @@ function mul_Hs!(
     work::AbstractVector{T}
 ) where {T}
 
-    #PJG : could be done faster than this
+    #PJG : maybe could be done faster than this
     mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
     mul_W!(K,:T,y,work,one(T),zero(T))    #y = c Wᵀwork = W^TWx
 
-    #PJG: DEBUG   This way seems more stable
-    tmp = similar(y)
-    @views ζ  = dot(K.w[2:end],x[2:end])
-    c0 = dot(K.w,K.w)*x[1] + 2*K.w[1]*ζ
-    c1 = 2*(K.w[1]*x[1] + ζ)
-    tmp[1] = c0 
-    @views tmp[2:end] .= (c1.*K.w[2:end] .+ x[2:end])
-    tmp .*= K.η^2
-    y .= tmp
+    return
 
 end
 
@@ -195,7 +184,7 @@ function Δs_from_Δz_offset!(
     z::AbstractVector{T}
 ) where {T}
 
-    if true 
+    if false 
     #Wᵀ(λ \ ds)
         _Δs_from_Δz_offset_symmetric!(K,out,ds,work);
 
@@ -364,14 +353,19 @@ end
 # ---------------------------------------------
 
 @inline function _soc_residual(z:: AbstractVector{T}) where {T} 
-    @views res = z[1]*z[1] - dot(z[2:end],z[2:end])
+
+    #PJG: (a-b)(b+a) method
+    #@views normz = norm(z[2:end])
+    #(z[1] - normz)*(z[1] + normz)
+
+    @views z[1]*z[1] - dot(z[2:end],z[2:end])
 end 
 
 # alleviate numerical error
 @inline function _sqrt_soc_residual(z:: AbstractVector{T}) where {T} 
-    normz = norm(z[2:end])
+    res = _soc_residual(z)
     # set res to 0 when z is not an interior point
-    @views res = z[1] > normz ? sqrt((z[1] - normz)*(z[1] + normz)) : zero(T)
+    @views res = res > 0.0 ? sqrt(res) : zero(T)
 end 
 
 #compute the residual at z + \alpha dz 
@@ -382,9 +376,16 @@ end
     α::T
 ) where {T} 
     
-    sc = z[1] + α * dz[1];
-        
-    @views res = sc * sc -  dot_shifted(z[2:end],z[2:end],dz[2:end],dz[2:end],α)
+    x0 = z[1] + α * dz[1];
+    @views x1_sq = dot_shifted(z[2:end],z[2:end],dz[2:end],dz[2:end],α)
+
+    #PJG: (a-b)(b+a) method
+    #normx1 = sqrt(x1_sq)
+    #res = (x0 - normx1)*(x0 + normx1)
+
+    res = x0*x0 - x1_sq
+
+
 
 
     return res
