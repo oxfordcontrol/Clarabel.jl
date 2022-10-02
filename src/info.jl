@@ -269,7 +269,7 @@ function _check_convergence(
 
     if info.ktratio < tol_ktratio && _is_solved(info, tol_gap_abs, tol_gap_rel, tol_feas)
         info.status = solved_status
-    elseif info.ktratio > 1/tol_ktratio
+    elseif info.ktratio > 1000. / tol_ktratio
         if _is_primal_infeasible(info, residuals, tol_infeas_abs, tol_infeas_rel)
             info.status = pinf_status
         elseif _is_dual_infeasible(info, residuals, tol_infeas_abs, tol_infeas_rel)

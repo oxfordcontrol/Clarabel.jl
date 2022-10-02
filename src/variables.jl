@@ -171,6 +171,14 @@ function variables_symmetric_initialization!(
     variables.κ = 1
 end
 
+function _sum_pos(z::AbstractVector{T}) where {T}
+    out = zero(T)
+    for i in eachindex(z)
+            out += z[i] > 0 ? z[i] : 1.;
+    end
+    return out
+end
+
 function shift_to_cone_interior!(
     z::AbstractVector{T},
     cones::CompositeCone{T},
@@ -179,24 +187,26 @@ function shift_to_cone_interior!(
 ) where {T}
 
     margin = unit_margin(cones,z,pd)
+    nhood  = _sum_pos(z)/length(z)
+    nhood = 0.1*max(1.,nhood)
 
     if margin <= 0
         #done in two stages since otherwise (1-α) = -α for
         #large α, which makes z exactly 0. (or worse, -0.0 )
         scaled_unit_shift!(cones,z,-margin, pd)
-        scaled_unit_shift!(cones,z,one(T), pd)
+        scaled_unit_shift!(cones,z, nhood, pd)
 
-    elseif margin < min_margin 
+    elseif margin < min_margin
         #margin is positive but small.
-        scaled_unit_shift!(cones,z, min_margin - margin, pd)
+        scaled_unit_shift!(cones,z, nhood, pd)
     
     else 
         #good margin, but still shift explicitly by 
         #zero to catch any elements in the zero cone 
         #that need to be forced to zero 
         scaled_unit_shift!(cones,z, zero(T), pd)
-    end
 
+    end
 
     return nothing
 

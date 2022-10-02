@@ -62,7 +62,7 @@ iterative\\_refinement\\_stop\\_ratio   | 5.0       | iterative refinement stall
 """
 Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
-    max_iter::UInt32    	= 100
+    max_iter::UInt32    	= 200
     time_limit::Float64     = Inf
     verbose::Bool           = true
     max_step_fraction::T    = 0.99
@@ -73,7 +73,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     tol_feas::T             = 1e-8
 	tol_infeas_abs::T		= 1e-8
 	tol_infeas_rel::T		= 1e-8
-    tol_ktratio::T          = 1e-7
+    tol_ktratio::T          = 1e-6
 
     # reduced accuracy solution tolerances
     reduced_tol_gap_abs::T          = 5e-5
@@ -85,7 +85,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
 	#data equilibration
 	equilibrate_enable::Bool            = true
-	equilibrate_max_iter::UInt32        = 2
+	equilibrate_max_iter::UInt32        = 10
 	equilibrate_min_scaling::T          = 1e-4
 	equilibrate_max_scaling::T          = 1e+4
 

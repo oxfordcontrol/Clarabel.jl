@@ -192,6 +192,8 @@ function solve!(
 
         while true
 
+            variables_rescale!(s.variables)
+
             #update the residuals
             #--------------
             residuals_update!(s.residuals,s.variables,s.data)
@@ -268,6 +270,11 @@ function solve!(
                 #--------------
                 α = solver_get_step_length(s,:affine,scaling)
                 σ = _calc_centering_parameter(α)
+
+                if(iter <= 2)
+                    s.step_lhs.κ = 0.0
+                    s.step_rhs.τ = 0.0
+                end
   
                 #calculate the combined step and length
                 #--------------
