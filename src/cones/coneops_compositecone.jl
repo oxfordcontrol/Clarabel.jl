@@ -143,15 +143,14 @@ function update_scaling!(
     # update cone scalings by passing subview to each of
     # the appropriate cone types.
     for (cone,type,si,zi) in zip(cones,cones.types,s.views,z.views)
-        @conedispatch interior_check = update_scaling!(cone,si,zi,μ,scaling_strategy)
+        @conedispatch is_scaling_success = update_scaling!(cone,si,zi,μ,scaling_strategy)
         # YC: currently, only check whether SOC variables are in the interior;
         # we could extend the interior checkfor other cones
-        if (type == SecondOrderConeT)  && ismissing(interior_check)
-            return missing
+        if !is_scaling_success
+            return is_scaling_success = false
         end
     end
-
-    return nothing
+    return is_scaling_success = true
 end
 
 # The Hs block for each cone.

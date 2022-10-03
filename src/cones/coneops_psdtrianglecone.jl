@@ -104,7 +104,7 @@ function update_scaling!(
     f.R    .= L1*(f.SVD.V)*f.Λisqrt
     f.Rinv .= f.Λisqrt*(f.SVD.U)'*L2'
 
-    return nothing
+    return is_scaling_success = true
 end
 
 function get_Hs!(

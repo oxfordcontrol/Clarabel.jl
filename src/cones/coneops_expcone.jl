@@ -80,7 +80,7 @@ function update_scaling!(
         K.z[i] = z[i]
     end
 
-    return nothing
+    return is_scaling_success = true
 end
 
 function Hs_is_diagonal(

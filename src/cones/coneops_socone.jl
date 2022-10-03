@@ -71,9 +71,9 @@ function update_scaling!(
     #first calculate the scaled vector w
     @views zscale = _sqrt_soc_residual(z)
     @views sscale = _sqrt_soc_residual(s)
-    # Either s or z is not an interior
+    # Either s or z is not an interior point
     if iszero(zscale) || iszero(sscale)
-        return missing
+        return is_scaling_success = false
     end
 
     # construct w and normalize
@@ -84,7 +84,7 @@ function update_scaling!(
     wscale = _sqrt_soc_residual(w)
     # w is not an interior
     if iszero(wscale)
-        return missing
+        return is_scaling_success = false
     end
     w  .= w ./ wscale
 
@@ -117,7 +117,7 @@ function update_scaling!(
     #λ = Wz
     mul_W!(K,:N,K.λ,z,one(T),zero(T))
 
-    return nothing
+    return is_scaling_success = true
 end
 
 function get_Hs!(

@@ -87,7 +87,7 @@ function update_scaling!(
 
     #nothing to do.
     #This cone acts like λ = 0 everywhere.
-    return nothing
+    return is_scaling_success = true
 end
 
 function get_Hs!(

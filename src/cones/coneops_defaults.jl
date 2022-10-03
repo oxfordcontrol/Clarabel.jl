@@ -92,6 +92,8 @@ function update_scaling!(
     scaling_strategy::ScalingStrategy
 ) where {T}
 
+    #NB: should return bool:  `true` on success.
+
     error("Incomplete cone operation specification: ",typeof(K))
 
 end

@@ -227,9 +227,9 @@ function solve!(
             
             #update the scalings
             #--------------
-            is_interior = variables_scale_cones!(s.variables,s.cones,μ,scaling)
+            is_scaling_success = variables_scale_cones!(s.variables,s.cones,μ,scaling)
             # check whether variables are interior points
-            action = _strategy_checkpoint_is_interior(s,is_interior)
+            action = _strategy_checkpoint_is_scaling_success(s,is_scaling_success)
             if action === Fail
                 break;
             end
@@ -466,8 +466,8 @@ function _strategy_checkpoint_small_step(s::Solver{T}, α::T, scaling::ScalingSt
     end 
 end 
 
-function _strategy_checkpoint_is_interior(s::Solver{T}, is_interior::Bool) where {T}
-    if is_interior
+function _strategy_checkpoint_is_scaling_success(s::Solver{T}, is_scaling_success::Bool) where {T}
+    if is_scaling_success
         return Update::StrategyCheckpoint
     else
         s.info.status = NUMERICAL_ERROR

@@ -86,8 +86,8 @@ function variables_scale_cones!(
     scaling_strategy::ScalingStrategy
 ) where {T}
 
-    interior_check =  update_scaling!(cones,variables.s,variables.z,μ,scaling_strategy)
-    return is_interior = ismissing(interior_check) ? false : true
+    is_scaling_success =  update_scaling!(cones,variables.s,variables.z,μ,scaling_strategy)
+    return is_scaling_success
 end
 
 

@@ -68,7 +68,7 @@ function update_scaling!(
     @. K.λ = sqrt(s*z)
     @. K.w = sqrt(s/z)
 
-    return nothing
+    return is_scaling_success = true
 end
 
 function get_Hs!(
