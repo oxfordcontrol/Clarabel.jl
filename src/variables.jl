@@ -194,7 +194,7 @@ function shift_to_cone_interior!(
         #done in two stages since otherwise (1-α) = -α for
         #large α, which makes z exactly 0. (or worse, -0.0 )
         scaled_unit_shift!(cones,z,-margin, pd)
-        scaled_unit_shift!(cones,z, max(1,nhood), pd)
+        scaled_unit_shift!(cones,z, max(one(T),nhood), pd)
 
     elseif margin < min_margin
         #margin is positive but small.
