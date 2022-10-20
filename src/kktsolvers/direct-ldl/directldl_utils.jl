@@ -8,6 +8,10 @@ struct LDLDataMap
     SOC_u::Vector{Vector{Int}}      #off diag dense columns u
     SOC_v::Vector{Vector{Int}}      #off diag dense columns v
     SOC_D::Vector{Int}              #diag of just the sparse SOC expansion D
+    GenPow_p::Vector{Vector{Int}}   #off diag dense columns p
+    GenPow_q::Vector{Vector{Int}}   #off diag dense columns q
+    GenPow_r::Vector{Vector{Int}}   #off diag dense columns r
+    GenPow_D::Vector{Int}           #diag of just the sparse GenPow expansion D
 
     #all of above terms should be disjoint and their union
     #should cover all of the user data in the KKT matrix.  Now
@@ -32,24 +36,36 @@ struct LDLDataMap
         #make an index for each of the Hs blocks for each cone
         Hsblocks = _allocate_kkt_Hsblocks(Int, cones)
 
-        #now do the SOC expansion pieces
+        #now do the SOC expansion pieces and GenPow expansion pieces
         nsoc = cones.type_counts[Clarabel.SecondOrderConeT]
         p    = 2*nsoc
         SOC_D = zeros(Int,p)
-
         SOC_u = Vector{Vector{Int}}(undef,nsoc)
         SOC_v = Vector{Vector{Int}}(undef,nsoc)
 
-        count = 1;
+        n_genpow = cones.type_counts[Clarabel.GenPowerConeT]
+        p_genpow = 3*n_genpow
+        GenPow_p = Vector{Vector{Int}}(undef,n_genpow)
+        GenPow_q = Vector{Vector{Int}}(undef,n_genpow)
+        GenPow_r = Vector{Vector{Int}}(undef,n_genpow)
+        GenPow_D = zeros(Int,p_genpow)
+
+        count_soc = 1;
+        count_genpow = 1;
         for (i,cone) in enumerate(cones)
             if isa(cones.cone_specs[i],Clarabel.SecondOrderConeT)
-                SOC_u[count] = Vector{Int}(undef,numel(cone))
-                SOC_v[count] = Vector{Int}(undef,numel(cone))
-                count += 1
+                SOC_u[count_soc] = Vector{Int}(undef,numel(cone))
+                SOC_v[count_soc] = Vector{Int}(undef,numel(cone))
+                count_soc += 1
+            end
+            if isa(cones.cone_specs[i],Clarabel.GenPowerConeT)
+                SOC_u[count_genpow] = Vector{Int}(undef,numel(cone))
+                SOC_v[count_genpow] = Vector{Int}(undef,numel(cone))
+                count_genpow += 1
             end
         end
 
-        diag_full = zeros(Int,m+n+p)
+        diag_full = zeros(Int,m+n+p+p_genpow)
 
         return new(P,A,Hsblocks,SOC_u,SOC_v,SOC_D,diagP,diag_full)
     end
@@ -85,6 +101,8 @@ function _assemble_kkt_matrix(
     (m,n)  = (size(A,1), size(P,1))
     n_socs = cones.type_counts[Clarabel.SecondOrderConeT]
     p = 2*n_socs
+    n_genpow = cones.type_counts[Clarabel.GenPowerConeT]
+    p_genpow = 3*n_genpow
 
     maps = LDLDataMap(P,A,cones)
 
@@ -97,22 +115,30 @@ function _assemble_kkt_matrix(
     #entries in the dense columns u/v of the
     #sparse SOC expansion terms.  2 is for
     #counting elements in both columns
+    # GenPow has three vectors p,q,r, but length(p) = length(q) + length(r)
     nnz_SOC_vecs = 2*mapreduce(length, +, maps.SOC_u; init = 0)
+    nnz_GenPow_vecs = mapreduce(length, +, maps.GenPow_p; init = 0)
+                        + mapreduce(length, +, maps.GenPow_q; init = 0)
+                        + mapreduce(length, +, maps.GenPow_r; init = 0)
 
     #entries in the sparse SOC diagonal extension block
     nnz_SOC_ext = length(maps.SOC_D)
+    nnz_GenPow_ext = length(maps.GenPow_D)
 
     nnzKKT = (nnz(P) +   # Number of elements in P
     n -                  # Number of elements in diagonal top left block
     nnz_diagP +          # remove double count on the diagonal if P has entries
     nnz(A) +             # Number of nonzeros in A
-    nnz_Hsblocks +     # Number of elements in diagonal below A'
+    nnz_Hsblocks +      # Number of elements in diagonal below A'
     nnz_SOC_vecs +       # Number of elements in sparse SOC off diagonal columns
-    nnz_SOC_ext)         # Number of elements in diagonal of SOC extension
+    nnz_SOC_ext +         # Number of elements in diagonal of SOC extension
+    nnz_GenPow_vecs +   # Number of elements in sparse GenPow off diagonal columns
+    nnz_GenPow_ext)     # Number of elements in diagonal of GenPow extension
 
-    K = _csc_spalloc(T, m+n+p, m+n+p, nnzKKT)
 
-    _kkt_assemble_colcounts(K,P,A,cones,m,n,p,shape)
+    K = _csc_spalloc(T, m+n+p+p_genpow, m+n+p+p_genpow, nnzKKT)
+
+    _kkt_assemble_colcounts(K,P,A,cones,m,n,p,shape)        #YC:Get stuck here
     _kkt_assemble_fill(K,maps,P,A,cones,m,n,p,shape)
 
     return K,maps
@@ -155,7 +181,7 @@ function _kkt_assemble_colcounts(
         end
     end
 
-    #count dense columns for each SOC
+    #count dense columns for each SOC, GenPow
     socidx = 1  #which SOC are we working on?
 
     for i in eachindex(cones)

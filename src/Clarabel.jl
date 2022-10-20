@@ -47,6 +47,7 @@ module Clarabel
     include("./cones/coneops_psdtrianglecone.jl")
     include("./cones/coneops_expcone.jl")
     include("./cones/coneops_powcone.jl")
+    include("./cones/coneops_genpowcone.jl")
     include("./cones/coneops_compositecone.jl")
     include("./cones/coneops_exppow_common.jl")
     include("./cones/coneops_symmetric_common.jl")
