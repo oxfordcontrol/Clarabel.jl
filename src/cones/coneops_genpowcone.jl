@@ -87,15 +87,21 @@ function Hs_is_diagonal(
 end
 
 # return μH*(z) for generalized power cone
-# function get_Hs!(
-#     K::GenPowerCone{T},
-#     Hsblock::AbstractVector{T}
-# ) where {T}
+function get_Hs!(
+    K::GenPowerCone{T},
+    Hsblock::AbstractVector{T}
+) where {T}
 
-#     #Vectorize triu(K.μH)
-#     _pack_triu(Hsblock,K.Hs)
+    #NB: we are returning here the diagonal D = [d1; d2] block from the
+    #sparse representation of W^TW, but not the
+    #extra 3 entries at the bottom right of the block.
+    #The ConicVector for s and z (and its views) don't
+    #know anything about the 3 extra sparsifying entries
+    dim1 = K.dim1
+    @. Hsblock[1:dim1]    = K.d1
+    @. Hsblock[dim1+1:end] = K.d2
 
-# end
+end
 
 # # compute the product y = Hₛx = μH(z)x
 # function mul_Hs!(

@@ -48,16 +48,17 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         #solving in sparse format.  Need this many
         #extra variables for SOCs
         p = 2*cones.type_counts[SecondOrderConeT]
+        p_genpow = 3*cones.type_counts[GenPowerConeT]
 
         #LHS/RHS/work for iterative refinement
-        x    = Vector{T}(undef,n+m+p)
-        b    = Vector{T}(undef,n+m+p)
-        work_e  = Vector{T}(undef,n+m+p)
-        work_dx = Vector{T}(undef,n+m+p)
+        x    = Vector{T}(undef,n+m+p+p_genpow)
+        b    = Vector{T}(undef,n+m+p+p_genpow)
+        work_e  = Vector{T}(undef,n+m+p+p_genpow)
+        work_dx = Vector{T}(undef,n+m+p+p_genpow)
 
         #the expected signs of D in LDL
-        Dsigns = Vector{Int}(undef,n+m+p)
-        _fill_Dsigns!(Dsigns,m,n,p)
+        Dsigns = Vector{Int}(undef,n+m+p+p_genpow)
+        _fill_Dsigns!(Dsigns,m,n,p,p_genpow)
 
         #updates to the diagonal of KKT will be
         #assigned here before updating matrix entries
@@ -97,7 +98,7 @@ function _get_ldlsolver_type(s::Symbol)
     end
 end
 
-function _fill_Dsigns!(Dsigns,m,n,p)
+function _fill_Dsigns!(Dsigns,m,n,p,p_genpow)
 
     Dsigns .= 1
 
@@ -107,6 +108,10 @@ function _fill_Dsigns!(Dsigns,m,n,p)
     #the trailing block of p entries should
     #have alternating signs
     Dsigns[(n+m+1):2:(n+m+p)] .= -1
+
+    #the trailing block of p_genpow entries should
+    #have alternating signs
+    Dsigns[(n+m+p+1):3:(n+m+p+p_genpow)] .= -1
 end
 
 #update entries in the kktsolver object using the
