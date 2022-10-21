@@ -107,11 +107,12 @@ function _fill_Dsigns!(Dsigns,m,n,p,p_genpow)
 
     #the trailing block of p entries should
     #have alternating signs
-    Dsigns[(n+m+1):2:(n+m+p)] .= -1
+    Dsigns[(n+m+1):2:(n+m+p)] .= -1             #for column w.r.t. v
 
     #the trailing block of p_genpow entries should
     #have alternating signs
-    Dsigns[(n+m+p+1):3:(n+m+p+p_genpow)] .= -1
+    Dsigns[(n+m+p+1):3:(n+m+p+p_genpow)] .= -1  #for column w.r.t. q
+    Dsigns[(n+m+p+2):3:(n+m+p+p_genpow)] .= -1  #for column w.r.t. r
 end
 
 #update entries in the kktsolver object using the
@@ -223,15 +224,41 @@ function _kktsolver_update_inner!(
             η2 = K.η^2
 
             #off diagonal columns (or rows)
-            _update_values!(ldlsolver,KKT,map.SOC_u[cidx],K.u)
             _update_values!(ldlsolver,KKT,map.SOC_v[cidx],K.v)
-            _scale_values!(ldlsolver,KKT,map.SOC_u[cidx],-η2)
+            _update_values!(ldlsolver,KKT,map.SOC_u[cidx],K.u)
             _scale_values!(ldlsolver,KKT,map.SOC_v[cidx],-η2)
+            _scale_values!(ldlsolver,KKT,map.SOC_u[cidx],-η2)
 
 
             #add η^2*(1/-1) to diagonal in the extended rows/cols
             _update_values!(ldlsolver,KKT,[map.SOC_D[cidx*2-1]],[-η2])
             _update_values!(ldlsolver,KKT,[map.SOC_D[cidx*2  ]],[+η2])
+
+            cidx += 1
+        end
+    end
+
+    #update the scaled p,q,r columns.
+    cidx = 1        #which of the GenPow are we working on?
+
+    for (i,K) = enumerate(cones)
+        if isa(cones.cone_specs[i],GenPowerConeT)
+
+            #YC: μ is a global parameter but it is saved multiple times for each GenPow cone
+            μ = K.μ
+
+            #off diagonal columns (or rows)
+            _update_values!(ldlsolver,KKT,map.GenPow_q[cidx],K.q)
+            _update_values!(ldlsolver,KKT,map.GenPow_r[cidx],K.r)
+            _update_values!(ldlsolver,KKT,map.GenPow_p[cidx],K.p)
+            _scale_values!(ldlsolver,KKT,map.GenPow_q[cidx],-μ)
+            _scale_values!(ldlsolver,KKT,map.GenPow_r[cidx],-μ)
+            _scale_values!(ldlsolver,KKT,map.GenPow_p[cidx],-μ)
+
+            #add μ*(1/-1) to diagonal in the extended rows/cols
+            _update_values!(ldlsolver,KKT,[map.GenPow_D[cidx*3-2]],[-μ])
+            _update_values!(ldlsolver,KKT,[map.GenPow_D[cidx*3-1]],[-μ])
+            _update_values!(ldlsolver,KKT,[map.GenPow_D[cidx*3]],[μ])
 
             cidx += 1
         end

@@ -194,15 +194,15 @@ function _kkt_assemble_colcounts(
             nvars   = numel(cones[i])
             headidx = cones.headidx[i]
 
-            #which column does u go into?
+            #which column does v go into?
             col = m + n + 2*socidx - 1
 
             if shape == :triu
-                _csc_colcount_colvec(K,nvars,headidx + n, col)   #u column
-                _csc_colcount_colvec(K,nvars,headidx + n, col+1) #v column
+                _csc_colcount_colvec(K,nvars,headidx + n, col)   #v column
+                _csc_colcount_colvec(K,nvars,headidx + n, col+1) #u column
             else #:tril
-                _csc_colcount_rowvec(K,nvars,col,   headidx + n) #u row
-                _csc_colcount_rowvec(K,nvars,col+1, headidx + n) #v row
+                _csc_colcount_rowvec(K,nvars,col,   headidx + n) #v row
+                _csc_colcount_rowvec(K,nvars,col+1, headidx + n) #u row
             end
 
             socidx = socidx + 1
@@ -220,13 +220,13 @@ function _kkt_assemble_colcounts(
             col = m + n + 2*socidx + 3*genpowidx - 2
 
             if shape == :triu
-                _csc_colcount_colvec(K,nvars,headidx + n, col)   #p column
-                _csc_colcount_colvec(K,dim1,headidx + n, col+1) #q column
-                _csc_colcount_colvec(K,dim2,headidx + n, col+2) #q column
+                _csc_colcount_colvec(K,dim1,headidx + n, col) #q column
+                _csc_colcount_colvec(K,dim2,headidx + n, col+1) #r column
+                _csc_colcount_colvec(K,nvars,headidx + n, col+2)   #p column
             else #:tril
-                _csc_colcount_rowvec(K,nvars,col,   headidx + n) #p row
-                _csc_colcount_rowvec(K,dim1,col+1, headidx + n) #q row
-                _csc_colcount_rowvec(K,dim2,col+2, headidx + n) #q row
+                _csc_colcount_rowvec(K,dim1,col, headidx + n) #q row
+                _csc_colcount_rowvec(K,dim2,col+1, headidx + n) #r row
+                _csc_colcount_rowvec(K,nvars,col+2, headidx + n) #p row
             end
 
             genpowidx = genpowidx + 1
@@ -291,17 +291,17 @@ function _kkt_assemble_fill(
             nvars = numel(cones[i])
             headidx = cones.headidx[i]
 
-            #which column does u go into (if triu)?
+            #which column does v go into (if triu)?
             col = m + n + 2*socidx - 1
 
             #fill structural zeros for u and v columns for this cone
             #note v is the first extra row/column, u is second
             if shape == :triu
-                _csc_fill_colvec(K, maps.SOC_v[socidx], headidx + n, col    ) #u
-                _csc_fill_colvec(K, maps.SOC_u[socidx], headidx + n, col + 1) #v
+                _csc_fill_colvec(K, maps.SOC_v[socidx], headidx + n, col    ) #v
+                _csc_fill_colvec(K, maps.SOC_u[socidx], headidx + n, col + 1) #u
             else #:tril
-                _csc_fill_rowvec(K, maps.SOC_v[socidx], col    , headidx + n) #u
-                _csc_fill_rowvec(K, maps.SOC_u[socidx], col + 1, headidx + n) #v
+                _csc_fill_rowvec(K, maps.SOC_v[socidx], col    , headidx + n) #v
+                _csc_fill_rowvec(K, maps.SOC_u[socidx], col + 1, headidx + n) #u
             end
 
             socidx += 1
@@ -322,15 +322,14 @@ function _kkt_assemble_fill(
             col = m + n + 2*socidx + 3*genpowidx - 2
 
             #fill structural zeros for p,q,r columns for this cone
-            #note p is the first extra row/column, q is the second and r is the third
             if shape == :triu
-                _csc_fill_colvec(K, maps.GenPow_p[genpowidx], headidx + n, col    ) #p
-                _csc_fill_colvec(K, maps.GenPow_q[genpowidx], headidx + n, col + 1) #q 
-                _csc_fill_colvec(K, maps.GenPow_r[genpowidx], headidx + n, col + 2) #q 
+                _csc_fill_colvec(K, maps.GenPow_q[genpowidx], headidx + n, col)     #q 
+                _csc_fill_colvec(K, maps.GenPow_r[genpowidx], headidx + n, col + 1) #r 
+                _csc_fill_colvec(K, maps.GenPow_p[genpowidx], headidx + n, col + 2) #p
             else #:tril
-                _csc_fill_rowvec(K, maps.GenPow_p[genpowidx], col    , headidx + n) #p
-                _csc_fill_rowvec(K, maps.GenPow_q[genpowidx], col + 1, headidx + n) #q
-                _csc_fill_rowvec(K, maps.GenPow_r[genpowidx], col + 2, headidx + n) #r
+                _csc_fill_rowvec(K, maps.GenPow_q[genpowidx], col, headidx + n)     #q
+                _csc_fill_rowvec(K, maps.GenPow_r[genpowidx], col + 1, headidx + n) #r
+                _csc_fill_rowvec(K, maps.GenPow_p[genpowidx], col + 2, headidx + n) #p
             end
 
             genpowidx += 1

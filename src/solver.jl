@@ -188,7 +188,11 @@ function solve!(
         #  main loop
         # ----------
 
-        scaling = PrimalDual::ScalingStrategy
+        # Scaling strategy
+        # YC: For testing generalized power cones, we set it 
+        #     to the Dual scaling strategy
+        scaling = Dual::ScalingStrategy
+        # scaling = PrimalDual::ScalingStrategy
 
         while true
 
@@ -379,6 +383,7 @@ function solver_backtrack_step_to_barrier(
 
     for j = 1:50
         barrier = variables_barrier(s.variables,s.step_lhs,α,s.cones)
+        println("barrier is: ", barrier)
         if barrier < one(T)
             return α
         else

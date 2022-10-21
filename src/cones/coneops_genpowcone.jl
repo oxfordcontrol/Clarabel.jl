@@ -66,12 +66,11 @@ function update_scaling!(
     _update_dual_grad_H(K,z)
 
     # update the scaling matrix Hs
-    # YC: dual-scaling at present
-    @. K.d1 *= μ
-    K.d2 *= μ
-    @. K.p *= sqrt(μ)
-    @. K.q *= sqrt(μ)
-    @. K.r *= sqrt(μ)
+    # YC: dual-scaling at present; we time μ to the diagonal here,
+    # but this could be implemented elsewhere; μ is also used later 
+    # when updating the off-diagonal terms of Hs; Recording μ is redundant 
+    # for the dual scaling as it is a global parameter
+    K.μ = μ
 
     # K.z .= z
     dim = K.dim
@@ -98,279 +97,348 @@ function get_Hs!(
     #The ConicVector for s and z (and its views) don't
     #know anything about the 3 extra sparsifying entries
     dim1 = K.dim1
-    @. Hsblock[1:dim1]    = K.d1
-    @. Hsblock[dim1+1:end] = K.d2
+    μ = K.μ
+    @. Hsblock[1:dim1]    = μ*K.d1
+    @. Hsblock[dim1+1:end] = μ*K.d2
 
 end
 
-# # compute the product y = Hₛx = μH(z)x
-# function mul_Hs!(
-#     K::PowerCone{T},
-#     y::AbstractVector{T},
-#     x::AbstractVector{T},
-#     workz::AbstractVector{T}
-# ) where {T}
+# compute the product y = Hs*x = μH(z)x
+function mul_Hs!(
+    K::GenPowerCone{T},
+    y::AbstractVector{T},
+    x::AbstractVector{T},
+    workz::AbstractVector{T}
+) where {T}
 
-#     # mul!(ls,K.Hs,lz,-one(T),zero(T))
-#     H = K.Hs
-#     @inbounds for i = 1:3
-#         y[i] =  H[i,1]*x[1] + H[i,2]*x[2] + H[i,3]*x[3]
-#     end
+    # Hs = μ*(D + pp' -qq' -rr')
+    d1 = K.d1
+    d2 = K.d2
+    dim1 = K.dim1
 
-# end
+    coef_p = dot(K.p,x)
+    coef_q = dot(K.q,x[1:dim1])
+    coef_r = dot(K.r,x[dim1+1:end])
 
-# function affine_ds!(
-#     K::PowerCone{T},
-#     ds::AbstractVector{T},
-#     s::AbstractVector{T}
-# ) where {T}
-
-#     # @. x = y
-#     @inbounds for i = 1:3
-#         ds[i] = s[i]
-#     end
-# end
-
-# function combined_ds_shift!(
-#     K::PowerCone{T},
-#     shift::AbstractVector{T},
-#     step_z::AbstractVector{T},
-#     step_s::AbstractVector{T},
-#     σμ::T
-# ) where {T}
+    x1 = @view x[1:dim1]
+    x2 = @view x[dim1+1:end]
+    y1 = @view y[1:dim1]
+    y2 = @view y[dim1+1:end]
     
-#     #3rd order correction requires input variables z
-#     η = _higher_correction!(K,step_s,step_z)     
-
-#     @inbounds for i = 1:3
-#         shift[i] = K.grad[i]*σμ - η[i]
-#     end
-
-#     return nothing
-# end
-
-# function Δs_from_Δz_offset!(
-#     K::PowerCone{T},
-#     out::AbstractVector{T},
-#     ds::AbstractVector{T},
-#     work::AbstractVector{T}
-# ) where {T}
-
-#     @inbounds for i = 1:3
-#         out[i] = ds[i]
-#     end
-
-#     return nothing
-# end
-
-# #return maximum allowable step length while remaining in the Power cone
-# function step_length(
-#     K::PowerCone{T},
-#     dz::AbstractVector{T},
-#     ds::AbstractVector{T},
-#      z::AbstractVector{T},
-#      s::AbstractVector{T},
-#      settings::Settings{T},
-#      αmax::T,
-# ) where {T}
-
-#     backtrack = settings.linesearch_backtrack_step
-#     αmin      = settings.min_terminate_step_length
-
-#     #need functions as closures to capture the power K.α
-#     #and use the same backtrack mechanism as the expcone
-#     is_primal_feasible_fcn = s -> _is_primal_feasible_powcone(s,K.α)
-#     is_dual_feasible_fcn   = s -> _is_dual_feasible_powcone(s,K.α)
-
-#     αz = _step_length_3d_cone(K, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn)
-#     αs = _step_length_3d_cone(K, ds, s, αmax, αmin, backtrack, is_primal_feasible_fcn)
-
-#     return (αz,αs)
-# end
-
-# function compute_barrier(
-#     K::PowerCone{T},
-#     z::AbstractVector{T},
-#     s::AbstractVector{T},
-#     dz::AbstractVector{T},
-#     ds::AbstractVector{T},
-#     α::T
-# ) where {T}
-
-#     barrier = zero(T)
-
-#     # we want to avoid allocating a vector for the intermediate 
-#     # sums, so the two barrier functions are written to accept 
-#     # both vectors and 3-element tuples. 
-#     cur_z    = (z[1] + α*dz[1], z[2] + α*dz[2], z[3] + α*dz[3])
-#     cur_s    = (s[1] + α*ds[1], s[2] + α*ds[2], s[3] + α*ds[3])
-
-#     barrier += _barrier_dual(K, cur_z)
-#     barrier += _barrier_primal(K, cur_s)
-
-#     return barrier
-# end
-
-
-# # ----------------------------------------------
-# #  internal operations for power cones
-# #
-# # Primal Power cone: s1^{α}s2^{1-α} ≥ s3, s1,s2 ≥ 0
-# # Dual Power cone: (z1/α)^{α} * (z2/(1-α))^{1-α} ≥ z3, z1,z2 ≥ 0
-# # We use the dual barrier function: 
-# # f*(z) = -log((z1/α)^{2α} * (z2/(1-α))^{2(1-α)} - z3*z3) - (1-α)*log(z1) - α*log(z2):
-# # Evaluates the gradient of the dual Power cone ∇f*(z) at z, 
-# # and stores the result at g
-
-
-# @inline function _barrier_dual(
-#     K::PowerCone{T},
-#     z::Union{AbstractVector{T}, NTuple{3,T}}
-# ) where {T}
-
-#     # Dual barrier
-#     α = K.α
-#     return -logsafe((z[1]/α)^(2*α) * (z[2]/(1-α))^(2-2*α) - z[3]*z[3]) - (1-α)*logsafe(z[1]) - α*logsafe(z[2])
-
-# end
-
-# @inline function _barrier_primal(
-#     K::PowerCone{T},
-#     s::Union{AbstractVector{T}, NTuple{3,T}}
-# ) where {T}
-
-#     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
-#     # NB: ⟨s,g(s)⟩ = -3 = - ν
-
-#     α = K.α
-
-#     g = _gradient_primal(K,s)     #compute g(s)
-#     return logsafe((-g[1]/α)^(2*α) * (-g[2]/(1-α))^(2-2*α) - g[3]*g[3]) + (1-α)*logsafe(-g[1]) + α*logsafe(-g[2]) - 3
-# end 
-
-
-
-# # Returns true if s is primal feasible
-# function _is_primal_feasible_powcone(s::AbstractVector{T},α::T) where {T}
-
-#     if (s[1] > 0 && s[2] > 0)
-#         res = exp(2*α*logsafe(s[1]) + 2*(1-α)*logsafe(s[2])) - s[3]*s[3]
-#         if res > 0
-#             return true
-#         end
-#     end
-
-#     return false
-# end
-
-# # Returns true if s is dual feasible
-# function _is_dual_feasible_powcone(z::AbstractVector{T},α::T) where {T}
-
-#     if (z[1] > 0 && z[2] > 0)
-#         res = exp(2*α*logsafe(z[1]/α) + 2*(1-α)*logsafe(z[2]/(1-α))) - z[3]*z[3]
-#         if res > 0
-#             return true
-#         end
-#     end
-
-#     return false
-# end
-
-# # Compute the primal gradient of f(s) at s
-# # solve it by the Newton-Raphson method
-# function _gradient_primal(
-#     K::PowerCone{T},
-#     s::Union{AbstractVector{T}, NTuple{3,T}},
-# ) where {T}
-
-#     α = K.α;
-
-#     # unscaled ϕ
-#     ϕ = (s[1])^(2*α)*(s[2])^(2-2*α)
-#     g = similar(K.grad)
-
-
-#     # obtain g3 from the Newton-Raphson method
-#     abs_s = abs(s[3])
-#     if abs_s > eps(T)
-#         g[3] = _newton_raphson_powcone(abs_s,ϕ,α)
-#         if s[3] < zero(T)
-#             g[3] = -g[3]
-#         end
-#         g[1] = -(α*g[3]*s[3] + 1 + α)/s[1]
-#         g[2] = -((1-α)*g[3]*s[3] + 2 - α)/s[2]
-#     else
-#         g[3] = zero(T)
-#         g[1] = -(1+α)/s[1]
-#         g[2] = -(2-α)/s[2]
-#     end
-#     return SVector(g)
-
-# end
-
-# # Newton-Raphson method:
-# # solve a one-dimensional equation f(x) = 0
-# # x(k+1) = x(k) - f(x(k))/f'(x(k))
-# # When we initialize x0 such that 0 < x0 < x*, 
-# # the Newton-Raphson method converges quadratically
-
-# function _newton_raphson_powcone(
-#     s3::T,
-#     ϕ::T,
-#     α::T
-# ) where {T}
-
-#     # init point x0: since our dual barrier has an additional 
-#     # shift -2α*log(α) - 2(1-α)*log(1-α) > 0 in f(x),
-#     # the previous selection is still feasible, i.e. f(x0) > 0
-#     x0 = -one(T)/s3 + 2*(s3 + sqrt(4*ϕ*ϕ/s3/s3 + 3*ϕ))/(4*ϕ - s3*s3)
-
-#     # additional shift due to the choice of dual barrier
-#     t0 = - 2*α*logsafe(α) - 2*(1-α)*logsafe(1-α)   
-
-#     # function for f(x) = 0
-#     function f0(x)
-#         t1 = x*x; t2 = 2*x/s3;
-#         2*α*logsafe(2*α*t1 + (1+α)*t2) + 
-#              2*(1-α)*logsafe(2*(1-α)*t1 + (2-α)*t2) - 
-#              logsafe(ϕ) - logsafe(t1+t2) - 
-#              2*logsafe(t2) + t0
-#     end
-
-#     # first derivative
-#     function f1(x)
-#         t1 = x*x; t2 = x*2/s3;
-#         2*α*α/(α*x + (1+α)/s3) + 2*(1-α)*(1-α)/((1-α)*x + 
-#              (2-α)/s3) - 2*(x + 1/s3)/(t1 + t2)
-#     end
+    @. y = coef_p*K.p
+    @. y1 += d1*x1 - coef_q*K.q
+    @. y2 += d2*x2 - coef_r*K.r
     
-#     return _newton_raphson_onesided(x0,f0,f1)
-# end
+    BLAS.scal!(K.μ, y)
 
-# function _newton_raphson_onesided(x0::T,f0::Function,f1::Function) where {T}
+end
 
-#     #implements NR method from a starting point assumed to be to the 
-#     #left of the true value.   Once a negative step is encountered 
-#     #this function will halt regardless of the calculated correction.
+function affine_ds!(
+    K::GenPowerCone{T},
+    ds::AbstractVector{T},
+    s::AbstractVector{T}
+) where {T}
 
-#     x = x0
-#     iter = 0
+    # @. x = y
+    @inbounds for i = 1:K.dim
+        ds[i] = s[i]
+    end
+end
 
-#     while iter < 100
+function combined_ds_shift!(
+    K::GenPowerCone{T},
+    shift::AbstractVector{T},
+    step_z::AbstractVector{T},
+    step_s::AbstractVector{T},
+    σμ::T
+) where {T}
+    
+    #YC: No 3rd order correction at present
 
-#         iter += 1
-#         dfdx  =  f1(x)  
-#         dx    = -f0(x)/dfdx
+    # #3rd order correction requires input variables z
+    # η = _higher_correction!(K,step_s,step_z)     
 
-#         if (dx < eps(T)) ||
-#             (abs(dx/x) < sqrt(eps(T))) ||
-#             (abs(dfdx) < eps(T))
-#             break
-#         end
-#         x += dx
-#     end
-#     return x
-# end
+    @inbounds for i = 1:K.dim
+        shift[i] = K.grad[i]*σμ # - η[i]
+    end
+
+    return nothing
+end
+
+function Δs_from_Δz_offset!(
+    K::GenPowerCone{T},
+    out::AbstractVector{T},
+    ds::AbstractVector{T},
+    work::AbstractVector{T}
+) where {T}
+
+    @inbounds for i = 1:K.dim
+        out[i] = ds[i]
+    end
+
+    return nothing
+end
+
+#return maximum allowable step length while remaining in the generalized power cone
+function step_length(
+    K::GenPowerCone{T},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+     z::AbstractVector{T},
+     s::AbstractVector{T},
+     settings::Settings{T},
+     αmax::T,
+) where {T}
+
+    backtrack = settings.linesearch_backtrack_step
+    αmin      = settings.min_terminate_step_length
+
+    #need functions as closures to capture the power K.α
+    #and use the same backtrack mechanism as the expcone
+    is_primal_feasible_fcn = s -> _is_primal_feasible_genpowcone(s,K.α,K.dim1)
+    is_dual_feasible_fcn   = s -> _is_dual_feasible_genpowcone(s,K.α,K.dim1)
+
+    αz = _step_length_n_cone(K, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn)
+    αs = _step_length_n_cone(K, ds, s, αmax, αmin, backtrack, is_primal_feasible_fcn)
+
+    return (αz,αs)
+end
+
+function compute_barrier(
+    K::GenPowerCone{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T
+) where {T}
+
+    dim = K.dim
+
+    barrier = zero(T)
+
+    # we want to avoid allocating a vector for the intermediate 
+    # sums, so the two barrier functions are written to accept 
+    # both vectors and MVectors. 
+    wq = @MVector zeros(T,dim)
+
+    #primal barrier
+    @inbounds for i = 1:dim
+        wq[i] = s[i] + α*ds[i]
+    end
+    barrier += _barrier_primal(K, wq)
+
+    #dual barrier
+    @inbounds for i = 1:dim
+        wq[i] = z[i] + α*dz[i]
+    end
+    barrier += _barrier_dual(K, wq)
+
+    return barrier
+end
+
+
+# ----------------------------------------------
+#  internal operations for generalized power cones
+#
+# Primal generalized power cone: ∏_{i ∈ [d1]}s[i]^{α[i]} ≥ ||s[d1+1:end]||, s[1:d1] ≥ 0
+# Dual generalized power cone: ∏_{i ∈ [d1]}(z[i]/α[i])^{α[i]} ≥ ||z[d1+1:end]||, z[1:d1] ≥ 0
+# We use the dual barrier function: 
+# f*(z) = -log((∏_{i ∈ [d1]}(z[i]/α[i])^{2*α[i]} - ||z[d1+1:end]||^2) - ∑_{i ∈ [d1]} (1-α[i])*log(z[i]):
+# Evaluates the gradient of the dual generalized power cone ∇f*(z) at z, 
+# and stores the result at g
+
+
+@inline function _barrier_dual(
+    K::GenPowerCone{T},
+    z::Union{AbstractVector{T}, NTuple{N,T}}
+) where {N<:Integer,T}
+
+    # Dual barrier
+    dim1 = K.dim1
+    α = K.α
+
+    res = zero(T)
+    @inbounds for i = 1:dim1
+        res += 2*α[i]*logsafe(z[i]/α[i])
+    end
+    res = exp(res) - dot(z[dim1+1:end],z[dim1+1:end])
+    barrier = -logsafe(res) 
+    @inbounds for i = 1:dim1
+        barrier -= (one(T)-α[i])*logsafe(z[i])
+    end
+
+    return barrier
+
+end
+
+@inline function _barrier_primal(
+    K::GenPowerCone{T},
+    s::Union{AbstractVector{T}, NTuple{N,T}}
+) where {N<:Integer,T}
+
+    # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
+    # NB: ⟨s,g(s)⟩ = -(dim1+1) = - ν
+
+    α = K.α
+    dim1 = K.dim1
+
+    g = _gradient_primal(K,s)     #compute g(s)
+    return -_barrier_dual(K,-g) - (dim1+one(T))
+end 
+
+
+
+# Returns true if s is primal feasible
+function _is_primal_feasible_genpowcone(
+    s::AbstractVector{T},
+    α::AbstractVector{T},
+    dim1::Int
+) where {T}
+
+    if (all(s[1:dim1] .> zero(T)))
+        res = zero(T)
+        @inbounds for i = 1:dim1
+            res += 2*α[i]*logsafe(s[i])
+        end
+        res = exp(res) - dot(s[dim1+1:end],s[dim1+1:end])
+        if res > zero(T)
+            return true
+        end
+    end
+
+    return false
+end
+
+# Returns true if z is dual feasible
+function _is_dual_feasible_genpowcone(
+    z::AbstractVector{T},
+    α::AbstractVector{T},
+    dim1::Int
+) where {T}
+
+    if (all(z[1:dim1] .> zero(T)))
+        res = zero(T)
+        @inbounds for i = 1:dim1
+            res += 2*α[i]*logsafe(z[i]/α[i])
+        end
+        res = exp(res) - dot(z[dim1+1:end],z[dim1+1:end])
+        if res > zero(T)
+            return true
+        end
+    end
+    
+    return false
+end
+
+# Compute the primal gradient of f(s) at s
+# solve it by the Newton-Raphson method
+function _gradient_primal(
+    K::GenPowerCone{T},
+    s::Union{AbstractVector{T}, NTuple{N,T}},
+) where {N<:Integer,T}
+
+    α = K.α
+    dim1 = K.dim1
+    g = @MVector zeros(T,K.dim)
+
+    # unscaled ϕ
+    ϕ = one(T)
+    @inbounds for i = 1:dim1
+        ϕ *= s[i]^(2*α[i])
+    end
+
+
+    # obtain g3 from the Newton-Raphson method
+    p = @view s[1:dim1]
+    r = @view s[dim1+1:end]
+    gp = @view g[1:dim1]
+    gr = @view g[dim1+1:end]
+    norm_r = norm(r)
+
+    if norm_r > eps(T)
+        g1 = _newton_raphson_genpowcone(norm_r,dim1,p,ϕ,α)
+        @. gr = g1*r/norm_r
+        @. gp = -(1+α+α*g1*norm_r)/p
+    else
+        @. gr = zero(T)
+        @. gp = -(1+α)/p
+    end
+
+    return g
+
+end
+
+# Newton-Raphson method:
+# solve a one-dimensional equation f(x) = 0
+# x(k+1) = x(k) - f(x(k))/f'(x(k))
+# When we initialize x0 such that 0 < x0 < x* and f(x0) > 0, 
+# the Newton-Raphson method converges quadratically
+
+function _newton_raphson_genpowcone(
+    norm_r::T,
+    dim::Int,
+    p::AbstractVector{T},
+    ϕ::T,
+    α::AbstractVector{T}
+) where {T}
+
+    # init point x0: since our dual barrier has an additional 
+    # shift -2α*log(α) - 2(1-α)*log(1-α) > 0 in f(x),
+    # the previous selection is still feasible, i.e. f(x0) > 0
+    dim2 = dim*dim
+    x0 = -one(T)/norm_r + dim*(norm_r + sqrt((dim2*ϕ/norm_r/norm_r + dim2 -1)*ϕ))/(dim2*ϕ - norm_r*norm_r)
+
+    # # additional shift due to the choice of dual barrier
+    # t0 = - 2*α*logsafe(α) - 2*(1-α)*logsafe(1-α)   
+
+    # function for f(x) = 0
+    function f0(x)
+        f0 = -logsafe(2*x/norm_r + x*x);
+        @inbounds for i = 1:dim
+            f0 += 2*α[i]*(logsafe(x*norm_r+(1+α[i])/α[i]) - logsafe(p[i]))
+        end
+
+        return f0
+    end
+
+    # first derivative
+    function f1(x)
+        f1 = -(2*x + 2/norm_r)/(x*x + 2*x/norm_r);
+        @inbounds for i = 1:dim
+            f1 += 2*α[i]*norm_r/(norm_r*x + (1+α[i])/α[i])
+        end
+
+        return f1
+    end
+    
+    return _newton_raphson_onesided(x0,f0,f1)
+end
+
+function _newton_raphson_onesided(x0::T,f0::Function,f1::Function) where {T}
+
+    #implements NR method from a starting point assumed to be to the 
+    #left of the true value.   Once a negative step is encountered 
+    #this function will halt regardless of the calculated correction.
+
+    x = x0
+    iter = 0
+
+    while iter < 100
+
+        iter += 1
+        dfdx  =  f1(x)  
+        dx    = -f0(x)/dfdx
+
+        if (dx < eps(T)) ||
+            (abs(dx/x) < sqrt(eps(T))) ||
+            (abs(dfdx) < eps(T))
+            break
+        end
+        x += dx
+    end
+    return x
+end
 
 
 # # 3rd-order correction at the point z.  Output is η.
@@ -461,7 +529,7 @@ end
 # end
 
 
-# update gradient and Hessian at dual z
+# update gradient and Hessian at dual z = (u,w)
 function _update_dual_grad_H(
     K::GenPowerCone{T},
     z::AbstractVector{T}

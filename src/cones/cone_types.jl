@@ -232,9 +232,10 @@ mutable struct GenPowerCone{T} <: AbstractCone{T}
     α::Vector{T}
     grad::Vector{T}         #gradient of the dual barrier at z 
     z::Vector{T}            #holds copy of z at scaling point
-    dim1::Int               #dimension of 
+    dim1::Int               #dimension of u
     dim2::Int               #dimension of w
-    dim::Int
+    dim::Int                #dim1 + dim2
+    μ::T                    #central path parameter
 
     #vectors for rank 3 update representation of H_s
     p::Vector{T}
@@ -249,6 +250,7 @@ mutable struct GenPowerCone{T} <: AbstractCone{T}
         dim = dim1 + dim2
         @assert sum(α) == one(T)
         @assert all(α .> zero(T))
+        μ = one(T)
 
         grad   = zeros(T,dim)
         z      = zeros(T,dim)
@@ -258,7 +260,7 @@ mutable struct GenPowerCone{T} <: AbstractCone{T}
         d1     = zeros(T,dim1)
         d2 = zero(T)
 
-        return new(α,grad,z,dim1,dim2,dim,p,q,r,d1,d2)
+        return new(α,grad,z,dim1,dim2,dim,μ,p,q,r,d1,d2)
     end
 end
 
