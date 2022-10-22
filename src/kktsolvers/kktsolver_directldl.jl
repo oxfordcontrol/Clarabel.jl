@@ -5,7 +5,7 @@
 mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
     # problem dimensions
-    m::Int; n::Int; p::Int
+    m::Int; n::Int; p::Int; p_genpow::Int
 
     # Left and right hand sides for solves
     x::Vector{T}
@@ -80,7 +80,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         #the LDL linear solver engine
         ldlsolver = ldlsolverT{T}(KKT,Dsigns,settings)
 
-        return new(m,n,p,x,b,
+        return new(m,n,p,p_genpow,x,b,
                    work_e,work_dx,map,Dsigns,Hsblocks,
                    KKT,KKTsym,settings,ldlsolver,
                    diagonal_regularizer)
@@ -341,11 +341,11 @@ function kktsolver_setrhs!(
 ) where {T}
 
     b = kktsolver.b
-    (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
+    (m,n,p,p_genpow) = (kktsolver.m,kktsolver.n,kktsolver.p,kktsolver.p_genpow)
 
     b[1:n]             .= rhsx
     b[(n+1):(n+m)]     .= rhsz
-    b[(n+m+1):(n+m+p)] .= 0
+    b[(n+m+1):(n+m+p+p_genpow)] .= 0
 
     return nothing
 end
@@ -358,7 +358,7 @@ function kktsolver_getlhs!(
 ) where {T}
 
     x = kktsolver.x
-    (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
+    (m,n) = (kktsolver.m,kktsolver.n)
 
     isnothing(lhsx) || (@views lhsx .= x[1:n])
     isnothing(lhsz) || (@views lhsz .= x[(n+1):(n+m)])
@@ -418,7 +418,7 @@ function  _iterative_refinement(
 
         # bail on numerical error
         if !isfinite(norme) return is_success = false end
-
+        # println(i,"-th error is: ",norme)
         if(norme <= IR_abstol + IR_reltol*normb)
             # within tolerance, or failed.  Exit
             break

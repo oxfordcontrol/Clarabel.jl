@@ -284,6 +284,8 @@ end
     dim1 = K.dim1
 
     g = _gradient_primal(K,s)     #compute g(s)
+
+    #YC: need to consider the memory issue later
     return -_barrier_dual(K,-g) - (dim1+one(T))
 end 
 
@@ -544,7 +546,7 @@ function _update_dual_grad_H(
     dim1 = K.dim1
     dim = K.dim
 
-    # ϕ = (ui/αi)^(2*αi), ζ = ϕ - ||w||^2
+    # ϕ = ∏_{i ∈ dim1}(ui/αi)^(2*αi), ζ = ϕ - ||w||^2
     ϕ = one(T)
     @inbounds for i = 1:dim1
         ϕ *= (z[i]/α[i])^(2*α[i])
@@ -581,7 +583,7 @@ function _update_dual_grad_H(
     p[dim1+1:end] .= p1*z[dim1+1:end]/ζ
 
     q .*= q0/ζ
-    r .*= r1*z[dim1+1:end]/ζ
+    r .= r1*z[dim1+1:end]/ζ
 
 end
 
