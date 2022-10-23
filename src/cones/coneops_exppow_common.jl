@@ -47,7 +47,7 @@ function _step_length_n_cone(
 ) where {T}
 
     dim = K.dim
-    wq = @MVector zeros(T,dim)
+    wq = similar(K.grad)
     α = α_init
     while true
         #@. wq = q + α*dq

@@ -1,6 +1,7 @@
 using LinearAlgebra, SparseArrays
 # using Clarabel
 using JuMP,Mosek,MosekTools
+using JLD,JLD2
 include(".\\..\\src\\Clarabel.jl")
 
 #if not run in full test setup, just do it for one float type
@@ -12,7 +13,7 @@ function basic_genpow_data(Type::Type{T}) where {T <: AbstractFloat}
     # x = (u, w, x1, y1, z1)
     n = 6
     # P = spzeros(T, n, n)
-    P = spdiagm(0 => rand(n))
+    P = T.(spdiagm(0 => rand(n)))
     q = zeros(T, n)
     q[3] = q[6] = -one(T)
     cones = Clarabel.SupportedCone[]
@@ -21,13 +22,14 @@ function basic_genpow_data(Type::Type{T}) where {T <: AbstractFloat}
     # and (x1, y1, z1) in K_pow(0.6) 
     A1 = spdiagm(0 => ones(T, n))
     b1 = zeros(T, n)
-    α = [0.3; 0.7]
+    α11 = T.([0.3; 0.7])
+    α12 = T.([0.6;0.4])
     dim1 = 2
     dim2 = 1
-    # push!(cones,Clarabel.PowerConeT(0.3))
-    push!(cones,Clarabel.GenPowerConeT(α,dim1,dim2))    
-    # push!(cones,Clarabel.PowerConeT(0.6))
-    push!(cones,Clarabel.GenPowerConeT([0.6;0.4],dim1,dim2))    
+    # push!(cones,Clarabel.PowerConeT(T(0.3)))
+    push!(cones,Clarabel.GenPowerConeT(α11,dim1,dim2))    
+    # push!(cones,Clarabel.PowerConeT(T(0.6)))
+    push!(cones,Clarabel.GenPowerConeT(α12,dim1,dim2))    
     
     # u1 + 3x1 == 3
     A2 = T[-1.0 0 0 -3.0 0 0]
@@ -62,7 +64,7 @@ function basic_genpow_data_2(Type::Type{T}) where {T <: AbstractFloat}
     # x = (u, w, x1, y1, z1)
     n = 10
     # P = spzeros(T, n, n)
-    P = spdiagm(0 => rand(n))
+    P = T.(spdiagm(0 => rand(n)))
     q = zeros(T, n)
     q[3] = q[6] = -one(T)
     cones = Clarabel.SupportedCone[]
@@ -106,9 +108,11 @@ function basic_genpow_data_2(Type::Type{T}) where {T <: AbstractFloat}
     return (P,q,A,b,A1,A2,A3,b1,b2,b3,cones)
 end
 
-P,q,A,b,A1,A2,A3,A4,b1,b2,b3,b4,cones = basic_genpow_data(Float64)
-# P,q,A,b,A1,A2,A3,b1,b2,b3,cones = basic_genpow_data_2(Float64)
+T = BigFloat
+P,q,A,b,A1,A2,A3,A4,b1,b2,b3,b4,cones = basic_genpow_data(T)
+# P,q,A,b,A1,A2,A3,b1,b2,b3,cones = basic_genpow_data_2(T)
 
+P,q,A,b,cones,T,A1,A2,A3,A4,b1,b2,b3,b4 = load("test\\genpow_data.jld", "P", "q", "A", "b", "cones", "T", "A1", "A2", "A3", "A4", "b1", "b2", "b3", "b4")
 
 # n = size(A,2)
 # println("\n\nJuMP\n-------------------------\n\n")
@@ -124,11 +128,16 @@ P,q,A,b,A1,A2,A3,A4,b1,b2,b3,b4,cones = basic_genpow_data(Float64)
 # @objective(model, Min, sum(q.*x) + 1/2*x'*P*x)
 # optimize!(model)
 
-setting = Clarabel.Settings(
-                            # iterative_refinement_reltol = 1e-14, iterative_refinement_abstol = 1e-14,
-                            # tol_feas = 1e-6, tol_gap_abs = 1e-6, tol_gap_rel = 1e-6,
-                            )
-solver = Clarabel.Solver(P,q,A,b,cones,setting)
-
+# settings = Clarabel.Settings{T}(
+#                             iterative_refinement_reltol = 1e-16, iterative_refinement_abstol = 1e-16,
+# #                             # tol_feas = 1e-6, tol_gap_abs = 1e-6, tol_gap_rel = 1e-6,
+#                             )
+solver = nothing
+solver = Clarabel.Solver{T}()
+Clarabel.setup!(solver,P,q,A,b,cones)
 Clarabel.solve!(solver)
+
+# save("genpow_data.jld", "P", P, "q", q, "A", A, "b", b, "cones", cones, "T", T,
+#         "A1", A1, "A2", A2, "A3", A3, "A4", A4, "b1", b1, "b2", b2, "b3", b3, "b4", b4)
+
 

@@ -129,7 +129,7 @@ function mul_Hs!(
     @. y1 += d1*x1 - coef_q*K.q
     @. y2 += d2*x2 - coef_r*K.r
     
-    BLAS.scal!(K.μ, y)
+    @. y *= K.μ
 
 end
 
@@ -220,7 +220,7 @@ function compute_barrier(
     # we want to avoid allocating a vector for the intermediate 
     # sums, so the two barrier functions are written to accept 
     # both vectors and MVectors. 
-    wq = @MVector zeros(T,dim)
+    wq = similar(K.grad)
 
     #primal barrier
     @inbounds for i = 1:dim
@@ -304,7 +304,7 @@ function _is_primal_feasible_genpowcone(
             res += 2*α[i]*logsafe(s[i])
         end
         res = exp(res) - dot(s[dim1+1:end],s[dim1+1:end])
-        if res > zero(T)
+        if res > sqrt(eps(T))
             return true
         end
     end
@@ -325,7 +325,7 @@ function _is_dual_feasible_genpowcone(
             res += 2*α[i]*logsafe(z[i]/α[i])
         end
         res = exp(res) - dot(z[dim1+1:end],z[dim1+1:end])
-        if res > zero(T)
+        if res > sqrt(eps(T))
             return true
         end
     end
@@ -342,7 +342,7 @@ function _gradient_primal(
 
     α = K.α
     dim1 = K.dim1
-    g = @MVector zeros(T,K.dim)
+    g = similar(K.grad)
 
     # unscaled ϕ
     ϕ = one(T)
@@ -582,8 +582,9 @@ function _update_dual_grad_H(
     p[1:dim1] .= p0*τ/ζ
     p[dim1+1:end] .= p1*z[dim1+1:end]/ζ
 
-    q .*= q0/ζ
+    q .*= q0/ζ      #τ is abandoned
     r .= r1*z[dim1+1:end]/ζ
+    println("ζ is ", ζ)
 
 end
 
