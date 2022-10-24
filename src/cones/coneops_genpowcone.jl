@@ -304,7 +304,7 @@ function _is_primal_feasible_genpowcone(
             res += 2*α[i]*logsafe(s[i])
         end
         res = exp(res) - dot(s[dim1+1:end],s[dim1+1:end])
-        if res > sqrt(eps(T))
+        if res > zero(T)
             return true
         end
     end
@@ -325,7 +325,7 @@ function _is_dual_feasible_genpowcone(
             res += 2*α[i]*logsafe(z[i]/α[i])
         end
         res = exp(res) - dot(z[dim1+1:end],z[dim1+1:end])
-        if res > sqrt(eps(T))
+        if res > zero(T)
             return true
         end
     end
