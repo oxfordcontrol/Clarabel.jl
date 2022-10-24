@@ -2,7 +2,8 @@ using LinearAlgebra, SparseArrays
 # using Clarabel
 using JuMP,Mosek,MosekTools
 using JLD,JLD2
-include(".\\..\\src\\Clarabel.jl")
+# include(".\\..\\src\\Clarabel.jl")
+using Clarabel
 
 #if not run in full test setup, just do it for one float type
 @isdefined(UnitTestFloats) || (UnitTestFloats = [Float64])
@@ -108,25 +109,25 @@ function basic_genpow_data_2(Type::Type{T}) where {T <: AbstractFloat}
     return (P,q,A,b,A1,A2,A3,b1,b2,b3,cones)
 end
 
-T = BigFloat
+T = Float64
 P,q,A,b,A1,A2,A3,A4,b1,b2,b3,b4,cones = basic_genpow_data(T)
 # P,q,A,b,A1,A2,A3,b1,b2,b3,cones = basic_genpow_data_2(T)
 
-P,q,A,b,cones,T,A1,A2,A3,A4,b1,b2,b3,b4 = load("test\\genpow_data.jld", "P", "q", "A", "b", "cones", "T", "A1", "A2", "A3", "A4", "b1", "b2", "b3", "b4")
+# P,q,A,b,cones,T,A1,A2,A3,A4,b1,b2,b3,b4 = load("test\\genpow_data.jld", "P", "q", "A", "b", "cones", "T", "A1", "A2", "A3", "A4", "b1", "b2", "b3", "b4")
 
-# n = size(A,2)
-# println("\n\nJuMP\n-------------------------\n\n")
-# opt = Mosek.Optimizer()
-# model = Model(() -> opt)
-# @variable(model, x[1:n])
-# @constraint(model, c1, b1[1:3]-A1[1:3,:]*x in MOI.PowerCone(0.3))
-# @constraint(model, c2, b1[4:6]-A1[4:6,:]*x in MOI.PowerCone(0.6))
-# @constraint(model, c3, b2-A2*x .== 0.)
-# @constraint(model, c4, b3-A3*x .>= 0.)
-# @constraint(model, c5, b4-A4*x in MOI.SecondOrderCone(3))
+n = size(A,2)
+println("\n\nJuMP\n-------------------------\n\n")
+opt = Clarabel.Optimizer()
+model = Model(() -> opt)
+@variable(model, x[1:n])
+@constraint(model, c1, b1[1:3]-A1[1:3,:]*x in MOI.PowerCone(0.3))
+@constraint(model, c2, b1[4:6]-A1[4:6,:]*x in MOI.PowerCone(0.6))
+@constraint(model, c3, b2-A2*x .== 0.)
+@constraint(model, c4, b3-A3*x .>= 0.)
+@constraint(model, c5, b4-A4*x in MOI.SecondOrderCone(3))
 
-# @objective(model, Min, sum(q.*x) + 1/2*x'*P*x)
-# optimize!(model)
+@objective(model, Min, sum(q.*x) + 1/2*x'*P*x)
+optimize!(model)
 
 # settings = Clarabel.Settings{T}(
 #                             iterative_refinement_reltol = 1e-16, iterative_refinement_abstol = 1e-16,

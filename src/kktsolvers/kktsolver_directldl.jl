@@ -245,20 +245,20 @@ function _kktsolver_update_inner!(
         if isa(cones.cone_specs[i],GenPowerConeT)
 
             #YC: μ is a global parameter but it is saved multiple times for each GenPow cone
-            μ = K.μ
+            sqrtμ = sqrt(K.μ)
 
-            #off diagonal columns (or rows)
+            #off diagonal columns (or rows), distribute √μ to off-diagonal terms
             _update_values!(ldlsolver,KKT,map.GenPow_q[cidx],K.q)
             _update_values!(ldlsolver,KKT,map.GenPow_r[cidx],K.r)
             _update_values!(ldlsolver,KKT,map.GenPow_p[cidx],K.p)
-            _scale_values!(ldlsolver,KKT,map.GenPow_q[cidx],-μ)
-            _scale_values!(ldlsolver,KKT,map.GenPow_r[cidx],-μ)
-            _scale_values!(ldlsolver,KKT,map.GenPow_p[cidx],-μ)
+            _scale_values!(ldlsolver,KKT,map.GenPow_q[cidx],-sqrtμ)
+            _scale_values!(ldlsolver,KKT,map.GenPow_r[cidx],-sqrtμ)
+            _scale_values!(ldlsolver,KKT,map.GenPow_p[cidx],-sqrtμ)
 
-            #add μ*(1/-1) to diagonal in the extended rows/cols
-            _update_values!(ldlsolver,KKT,[map.GenPow_D[cidx*3-2]],[-μ])
-            _update_values!(ldlsolver,KKT,[map.GenPow_D[cidx*3-1]],[-μ])
-            _update_values!(ldlsolver,KKT,[map.GenPow_D[cidx*3]],[μ])
+            #normalize diagonal terms to 1/-1 in the extended rows/cols
+            _update_values!(ldlsolver,KKT,[map.GenPow_D[cidx*3-2]],[-one(T)])
+            _update_values!(ldlsolver,KKT,[map.GenPow_D[cidx*3-1]],[-one(T)])
+            _update_values!(ldlsolver,KKT,[map.GenPow_D[cidx*3]],[one(T)])
 
             cidx += 1
         end
@@ -418,7 +418,7 @@ function  _iterative_refinement(
 
         # bail on numerical error
         if !isfinite(norme) return is_success = false end
-        # println(i,"-th error is: ",norme)
+        println(i,"-th error is: ",norme)
         if(norme <= IR_abstol + IR_reltol*normb)
             # within tolerance, or failed.  Exit
             break

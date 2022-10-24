@@ -191,3 +191,32 @@ function _use_primal_dual_scaling(
     end
     
 end
+
+
+#------------------------------------------------------------
+# Numerical sub-routines for primal barrier computation
+#------------------------------------------------------------
+function _newton_raphson_onesided(x0::T,f0::Function,f1::Function) where {T}
+
+    #implements NR method from a starting point assumed to be to the 
+    #left of the true value.   Once a negative step is encountered 
+    #this function will halt regardless of the calculated correction.
+
+    x = x0
+    iter = 0
+
+    while iter < 100
+
+        iter += 1
+        dfdx  =  f1(x)  
+        dx    = -f0(x)/dfdx
+
+        if (dx < eps(T)) ||
+            (abs(dx/x) < sqrt(eps(T))) ||
+            (abs(dfdx) < eps(T))
+            break
+        end
+        x += dx
+    end
+    return x
+end
