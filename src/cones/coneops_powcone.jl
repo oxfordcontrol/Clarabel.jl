@@ -303,10 +303,8 @@ function _newton_raphson_powcone(
     α::T
 ) where {T}
 
-    # init point x0: since our dual barrier has an additional 
-    # shift -2α*log(α) - 2(1-α)*log(1-α) > 0 in f(x),
-    # the previous selection is still feasible, i.e. f(x0) > 0
-    x0 = -one(T)/s3 + 2*(s3 + sqrt(4*ϕ*ϕ/s3/s3 + 3*ϕ))/(4*ϕ - s3*s3)
+    # init point x0: f(x0) > 0
+    x0 = -one(T)/s3 + (2*s3 + sqrt(ϕ*ϕ/s3/s3 + 3*ϕ))/(ϕ - s3*s3)
 
     # additional shift due to the choice of dual barrier
     t0 = - 2*α*logsafe(α) - 2*(1-α)*logsafe(1-α)   

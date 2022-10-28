@@ -385,11 +385,9 @@ function _newton_raphson_genpowcone(
     α::AbstractVector{T}
 ) where {T}
 
-    # init point x0: since our dual barrier has an additional 
-    # shift -2α*log(α) - 2(1-α)*log(1-α) > 0 in f(x),
-    # the previous selection is still feasible, i.e. f(x0) > 0
+    # init point x0: f(x0) > 0
     dim2 = dim*dim
-    x0 = -one(T)/norm_r + dim*(norm_r + sqrt((dim2*ϕ/norm_r/norm_r + dim2 -1)*ϕ))/(dim2*ϕ - norm_r*norm_r)
+    x0 = -one(T)/norm_r + (dim*norm_r + sqrt((ϕ/norm_r/norm_r + dim2 -1)*ϕ))/(ϕ - norm_r*norm_r)
 
     # # additional shift due to the choice of dual barrier
     # t0 = - 2*α*logsafe(α) - 2*(1-α)*logsafe(1-α)   
