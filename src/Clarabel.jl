@@ -1,9 +1,11 @@
 module Clarabel
 
-    using SparseArrays, LinearAlgebra, Printf
+    using SparseArrays, LinearAlgebra, MathOptInterface, Printf
     const DefaultFloat = Float64
     const DefaultInt   = LinearAlgebra.BlasInt
     const IdentityMatrix = UniformScaling{Bool}
+    const MOI = MathOptInterface
+    const MOIU = MOI.Utilities
 
     #version / release info
     include("./version.jl")

@@ -21,7 +21,10 @@ const OptimizerSupportedMOICones{T} = Union{
     MOI.PositiveSemidefiniteConeTriangle,
     MOI.ExponentialCone,
     MOI.PowerCone{T},
+    Clarabel.GenPowerConeT,
 } where {T}
+
+Base.copy(cone::OptimizerSupportedMOICones) = cone 
 
 #Optimizer will consolidate cones of these types if possible
 
@@ -621,6 +624,12 @@ function push_constraint_set!(
     if isa(s,MOI.ExponentialCone)
         pow_cone_type = MOItoClarabelCones[MOI.ExponentialCone]
         push!(cone_spec, pow_cone_type())
+        return nothing
+    end
+
+    # handle self-defined GenPowerCone
+    if isa(s,Clarabel.GenPowerConeT)
+        push!(cone_spec, Clarabel.GenPowerConeT(s.α,s.dim1,s.dim2))
         return nothing
     end
 
