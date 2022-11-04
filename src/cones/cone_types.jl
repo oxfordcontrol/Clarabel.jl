@@ -248,9 +248,8 @@ mutable struct GenPowerCone{T} <: AbstractCone{T}
 
     function GenPowerCone{T}(α::Vector{T},dim1::Int,dim2::Int) where {T}
         dim = dim1 + dim2
-        res = one(T) - sum(α) 
-        α[end] += res   #YC: compensate numerical rounding error
         @assert all(α .> zero(T))
+        @assert sum(α) ≈ one(T)
         μ = one(T)
 
         grad   = zeros(T,dim)
