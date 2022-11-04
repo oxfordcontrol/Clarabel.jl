@@ -117,7 +117,6 @@ P,q,A,b,A1,A2,A3,A4,b1,b2,b3,b4,cones = basic_genpow_data(T)
 
 n = size(A,2)
 println("\n\nJuMP\n-------------------------\n\n")
-opt = Clarabel.Optimizer()
 model = Model(Clarabel.Optimizer)
 @variable(model, x[1:n])
 # @constraint(model, c1, b1[1:3]-A1[1:3,:]*x in MOI.PowerCone(0.3))
@@ -134,10 +133,10 @@ optimize!(model)
 #                             iterative_refinement_reltol = 1e-16, iterative_refinement_abstol = 1e-16,
 # #                             # tol_feas = 1e-6, tol_gap_abs = 1e-6, tol_gap_rel = 1e-6,
 #                             )
-solver = nothing
-solver = Clarabel.Solver{T}()
-Clarabel.setup!(solver,P,q,A,b,cones)
-Clarabel.solve!(solver)
+# solver = nothing
+# solver = Clarabel.Solver{T}()
+# Clarabel.setup!(solver,P,q,A,b,cones)
+# Clarabel.solve!(solver)
 
 # save("genpow_data.jld", "P", P, "q", q, "A", A, "b", b, "cones", cones, "T", T,
 #         "A1", A1, "A2", A2, "A3", A3, "A4", A4, "b1", b1, "b2", b2, "b3", b3, "b4", b4)

@@ -383,7 +383,7 @@ function solver_backtrack_step_to_barrier(
 
     for j = 1:50
         barrier = variables_barrier(s.variables,s.step_lhs,α,s.cones)
-        println("barrier is: ", barrier)
+        # println("barrier is: ", barrier)
         if barrier < one(T)
             return α
         else

@@ -557,7 +557,7 @@ function _update_dual_grad_H(
 
     q .*= q0/ζ      #τ is abandoned
     r .= r1*z[dim1+1:end]/ζ
-    println("ζ is ", ζ)
+    # println("ζ is ", ζ)
 
 end
 

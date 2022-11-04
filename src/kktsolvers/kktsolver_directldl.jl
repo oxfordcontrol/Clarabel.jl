@@ -418,7 +418,7 @@ function  _iterative_refinement(
 
         # bail on numerical error
         if !isfinite(norme) return is_success = false end
-        println(i,"-th error is: ",norme)
+        # println(i,"-th error is: ",norme)
         if(norme <= IR_abstol + IR_reltol*normb)
             # within tolerance, or failed.  Exit
             break
