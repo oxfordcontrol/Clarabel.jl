@@ -11,10 +11,11 @@ Maximum volume hypercube} from Hypatia.jl,
 https://github.com/chriscoey/Hypatia.jl/tree/master/examples/maxvolume,
 """
 
-n = 200
+n = 1000
 # ensure there will be a feasible solution
 x = randn(n)
-A = sparse(Symmetric(sprand(n,n,5.0/n))) + 10I
+A = sparse(Symmetric(sprand(n,n,5.0/n)) + 10I)
+A = sparse(10.0*I(n))
 gamma = norm(A * x) / sqrt(n)
 freq = ones(n)
 freq ./= n
