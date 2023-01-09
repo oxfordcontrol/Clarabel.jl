@@ -15,13 +15,13 @@ freq = Float64.(rand(1:(2 * d), d))
 freq ./= sum(freq)      # normalize the sum to be 1
 
 #Result from Clarabel's 3x3 power cones
-println("3x3 cones")
+println("Three-dimensional cones via Clarabel")
 model = Model(Clarabel.Optimizer)
 @variable(model, p[1:d])
 @variable(model,q[1:d-1])
 @objective(model, Min, -q[end])
 @constraint(model, sum(p) == 1)
-# trnasform a general power cone into a product of 3x3 power cones
+# trnasform a general power cone into a product of three-dimensional power cones
 power = freq[1] + freq[2]
 @constraint(model, vcat(p[2],p[1],q[1]) in MOI.PowerCone(freq[2]/power))
 for i = 1:d-2
@@ -41,14 +41,14 @@ model = Model(Clarabel.Optimizer)
 optimize!(model)
 
 #Result from Mosek
-println("3x3 cones by Mosek")
+println("Three-dimensional cones via Mosek")
 model = Model(Mosek.Optimizer)
 @variable(model, p[1:d])
 @variable(model,q[1:d-1])
 @variable(model,r[1:d-2])
 @objective(model, Min, -q[end])
 @constraint(model, sum(p) == 1)
-# trnasform a general power cone into a product of 3x3 power cones
+# trnasform a general power cone into a product of three-dimensional power cones
 power = freq[1] + freq[2]
 @constraint(model, vcat(p[2],p[1],q[1]) in MOI.PowerCone(freq[2]/power))
 for i = 1:d-2
