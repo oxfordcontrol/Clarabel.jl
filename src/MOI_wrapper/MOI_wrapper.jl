@@ -22,6 +22,7 @@ const OptimizerSupportedMOICones{T} = Union{
     MOI.ExponentialCone,
     MOI.PowerCone{T},
     Clarabel.GenPowerConeT,
+    Clarabel.EntropyConeT,
 } where {T}
 
 Base.copy(cone::OptimizerSupportedMOICones) = cone 
@@ -627,9 +628,13 @@ function push_constraint_set!(
         return nothing
     end
 
-    # handle self-defined GenPowerCone
+    # handle self-defined GenPowerCone & Relative Entropy cone
     if isa(s,Clarabel.GenPowerConeT)
         push!(cone_spec, Clarabel.GenPowerConeT(s.α,s.dim1,s.dim2))
+        return nothing
+    end
+    if isa(s,Clarabel.EntropyConeT)
+        push!(cone_spec, Clarabel.EntropyCone(s.d))
         return nothing
     end
 

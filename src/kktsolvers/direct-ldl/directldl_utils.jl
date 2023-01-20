@@ -12,6 +12,8 @@ struct LDLDataMap
     GenPow_q::Vector{Vector{Int}}   #off diag dense columns q
     GenPow_r::Vector{Vector{Int}}   #off diag dense columns r
     GenPow_D::Vector{Int}           #diag of just the sparse GenPow expansion D
+    Entropy_u::Vector{Vector{Int}}          #first column in each relative entropy cone
+    Entropy_offd::Vector{Vector{Int}}       #off diagonal terms in each relative entropy cone
 
     #all of above terms should be disjoint and their union
     #should cover all of the user data in the KKT matrix.  Now
@@ -50,8 +52,13 @@ struct LDLDataMap
         GenPow_r = Vector{Vector{Int}}(undef,n_genpow)
         GenPow_D = zeros(Int,p_genpow)
 
+        n_entropy = cones.type_counts[Clarabel.EntropyConeT]
+        Entropy_u = Vector{Vector{Int}}(undef,n_entropy)
+        Entropy_offd = Vector{Vector{Int}}(undef,n_entropy)        
+
         count_soc = 1;
         count_genpow = 1;
+        count_entropy = 1;
         for (i,cone) in enumerate(cones)
             if isa(cones.cone_specs[i],Clarabel.SecondOrderConeT)
                 SOC_u[count_soc] = Vector{Int}(undef,numel(cone))
@@ -64,11 +71,16 @@ struct LDLDataMap
                 GenPow_r[count_genpow] = Vector{Int}(undef,cone.dim2)
                 count_genpow += 1
             end
+            if isa(cones.cone_specs[i],Clarabel.EntropyConeT)
+                Entropy_u[count_entropy] = Vector{Int}(undef,2*cone.d)
+                Entropy_offd[count_entropy] = Vector{Int}(undef,cone.d)
+                count_entropy += 1
+            end
         end
 
         diag_full = zeros(Int,m+n+p+p_genpow)
 
-        return new(P,A,Hsblocks,SOC_u,SOC_v,SOC_D,GenPow_p,GenPow_q,GenPow_r,GenPow_D,diagP,diag_full)
+        return new(P,A,Hsblocks,SOC_u,SOC_v,SOC_D,GenPow_p,GenPow_q,GenPow_r,GenPow_D,Entropy_u,Entropy_offd,diagP,diag_full)
     end
 
 end
@@ -80,8 +92,10 @@ function _allocate_kkt_Hsblocks(type::Type{T}, cones) where{T <: Real}
 
     for (i, cone) in enumerate(cones)
         nvars = numel(cone)
-        if Hs_is_diagonal(cone)
+        if Hs_is_diagonal(cone) 
             numelblock = nvars
+        elseif isa(cones.cone_specs[i],Clarabel.EntropyConeT)
+            numelblock = nvars + cone.d
         else #dense triangle
             numelblock = (nvars*(nvars+1))>>1 #must be Int
         end
@@ -121,6 +135,8 @@ function _assemble_kkt_matrix(
     nnz_GenPow_vecs = mapreduce(length, +, maps.GenPow_p; init = 0)
     nnz_GenPow_vecs += mapreduce(length, +, maps.GenPow_q; init = 0)
     nnz_GenPow_vecs += mapreduce(length, +, maps.GenPow_r; init = 0)
+    nnz_Entropy_vecs = mapreduce(length, +, maps.Entropy_u; init = 0)
+    nnz_Entropy_vecs += mapreduce(length, +, maps.Entropy_offd; init = 0)
 
     #entries in the sparse SOC diagonal extension block
     nnz_SOC_ext = length(maps.SOC_D)
@@ -134,8 +150,8 @@ function _assemble_kkt_matrix(
     nnz_SOC_vecs +       # Number of elements in sparse SOC off diagonal columns
     nnz_SOC_ext +         # Number of elements in diagonal of SOC extension
     nnz_GenPow_vecs +   # Number of elements in sparse GenPow off diagonal columns
-    nnz_GenPow_ext)     # Number of elements in diagonal of GenPow extension
-
+    nnz_GenPow_ext +     # Number of elements in diagonal of GenPow extension
+    nnz_Entropy_vecs)   # Number of elements in sparse Entropy off diagonal columns
 
     K = _csc_spalloc(T, m+n+p+p_genpow, m+n+p+p_genpow, nnzKKT)
 
@@ -178,6 +194,8 @@ function _kkt_assemble_colcounts(
         blockdim = numel(cone)
         if Hs_is_diagonal(cone)
             _csc_colcount_diag(K,firstcol,blockdim)
+        elseif isa(cones.cone_specs[i],Clarabel.EntropyConeT)
+            _csc_colcount_entropy(K,firstcol,blockdim,shape)
         else
             _csc_colcount_dense_triangle(K,firstcol,blockdim,shape)
         end
@@ -283,6 +301,8 @@ function _kkt_assemble_fill(
         blockdim = numel(cone)
         if Hs_is_diagonal(cone)
             _csc_fill_diag(K,maps.Hsblocks[i],firstcol,blockdim)
+        elseif isa(cones.cone_specs[i],Clarabel.EntropyConeT)
+            _csc_fill_entropy(K,maps.Hsblocks[i],firstcol,blockdim,shape)
         else
             _csc_fill_dense_triangle(K,maps.Hsblocks[i],firstcol,blockdim,shape)
         end

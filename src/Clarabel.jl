@@ -49,7 +49,8 @@ module Clarabel
     include("./cones/coneops_psdtrianglecone.jl")
     include("./cones/coneops_expcone.jl")
     include("./cones/coneops_powcone.jl")
-    include("./cones/coneops_genpowcone.jl")
+    include("./cones/coneops_genpowcone.jl")        #Generalized power cone 
+    include("./cones/coneops_entropycone.jl")       #Relative entropy cone
     include("./cones/coneops_compositecone.jl")
     include("./cones/coneops_exppow_common.jl")
     include("./cones/coneops_symmetric_common.jl")

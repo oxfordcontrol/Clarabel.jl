@@ -266,6 +266,40 @@ end
 
 GenPowerCone(args...) = GenPowerCone{DefaultFloat}(args...)
 
+# # ------------------------------------
+# # Relative Entropy Cone (u,v,w) ∈ R^{1 × d × d}
+# # ------------------------------------
+
+# gradient and Hessian for the dual barrier function
+mutable struct EntropyCone{T} <: AbstractCone{T}
+
+    grad::Vector{T}         #gradient of the dual barrier at z 
+    z::Vector{T}            #holds copy of z at scaling point
+    d::Int                  #dimension of u,w parts
+    dim::Int                #2d+1
+    μ::T                    #central path parameter
+
+    #vectors for off-diagonal parts of H_s
+    u::Vector{T}            #Hessian u,…
+    offd::Vector{T}         #Hessian v,w
+    dd::Vector{T}            #Diagonal part
+
+    function EntropyCone{T}(d::Int) where {T}
+        dim = 2*d + 1
+        μ = one(T)
+
+        grad   = zeros(T,dim)
+        z      = zeros(T,dim)
+        u      = zeros(T,2*d)
+        offd   = zeros(T,d)
+        dd      = zeros(T,dim)
+
+        return new(grad,z,d,dim,μ,u,offd,dd)
+    end
+end
+
+EntropyConeCone(args...) = EntropyCone{DefaultFloat}(args...)
+
 """
     ConeDict
 A Dict that maps the user-facing SupportedCone types to
@@ -279,4 +313,5 @@ const ConeDict = Dict(
     ExponentialConeT => ExponentialCone,
           PowerConeT => PowerCone,
        GenPowerConeT => GenPowerCone,
+        EntropyConeT => EntropyCone,
 )

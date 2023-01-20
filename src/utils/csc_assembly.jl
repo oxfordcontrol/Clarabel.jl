@@ -25,6 +25,25 @@ function _csc_colcount_dense_triangle(K,initcol,blockcols,shape)
     end
 end
 
+# YC: for entropy cone
+#increment the K.colptr by the number of nonzeros
+#in a entropy off the diagonal.
+function _csc_colcount_entropy(K,initcol,blockcols,shape)
+    d = (blockcols - 1)>>1
+    col1 = (initcol + 1):(initcol + d)
+    col2 = (initcol + d + 1):(initcol + (blockcols - 1))
+    
+    if shape === :triu
+        @views K.colptr[initcol] += 1
+        @views K.colptr[col1] .+= 2
+        @views K.colptr[col2] .+= 3
+    else
+        @views K.colptr[initcol] += blockcols
+        @views K.colptr[col1] .+= 2
+        @views K.colptr[col2] .+= 1
+    end
+end
+
 #increment the K.colptr by the number of nonzeros
 #in a square diagonal matrix placed on the diagonal.
 function _csc_colcount_diag(K,initcol,blockcols)
@@ -186,6 +205,54 @@ function _fill_dense_triangle_tril(K,blocktoKKT,offset,blockdim)
     end
 end
 
+#Populate the upper or lower triangle with 0s using the K.colptr
+#as indicator of next fill location in each row
+function _csc_fill_entropy(K,diag2toKKT,offset,blockdim,shape)
+
+    #data will always be supplied as triu, so when filling it into
+    #a tril shape we also need to transpose it.   Just write two
+    #separate cases for clarity here
+    d = (blockdim - 1)>>1
+    index = 1
+
+    if(shape === :triu)
+        for col in offset:(offset + blockdim - 1)
+            if col == offset
+                dest                = K.colptr[col]
+                K.rowval[dest]      = col
+                K.nzval[dest]       = 0.  #structural zero
+                diagtoKKT[index]     = dest
+                K.colptr[col]      += 1
+            elseif col < (offset + d + 1)
+                dest             = K.colptr[col]
+                K.rowval[dest]   = offset   # for u
+                K.nzval[dest]    = 0.  #structural zero
+                diag2toKKT[index-1 + blockdim] = dest
+                K.rowval[dest+1]   = col    #for dd
+                K.nzval[dest+1]    = 0.  #structural zero
+                diag2toKKT[index] = dest + 1  
+                K.colptr[col]   += 2  
+     
+            else
+                dest             = K.colptr[col]
+                K.rowval[dest]   = offset   # for u
+                K.nzval[dest]    = 0.  #structural zero
+                diag2toKKT[index - (d+1) + blockdim] = dest
+                K.rowval[dest+1]   = col - d    #for offd
+                K.nzval[dest+1]    = 0.  #structural zero
+                diag2toKKT[index - (d+1) + 2*blockdim - 1] = dest + 1  
+                K.rowval[dest+2]   = col    #for dd
+                K.nzval[dest+2]    = 0.  #structural zero
+                diag2toKKT[index] = dest + 2  
+                K.colptr[col]   += 3  
+            end
+
+            index += 1
+        end
+    else #shape ==== :tril
+        error("No use for entropy cone")
+    end
+end
 
 #Populate the diagonal with 0s using the K.colptr as indicator of
 #next fill location in each row
