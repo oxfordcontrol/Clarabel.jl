@@ -232,9 +232,9 @@ mutable struct GenPowerCone{T} <: AbstractCone{T}
     α::Vector{T}
     grad::Vector{T}         #gradient of the dual barrier at z 
     z::Vector{T}            #holds copy of z at scaling point
-    dim1::Int               #dimension of u
-    dim2::Int               #dimension of w
-    dim::Int                #dim1 + dim2
+    dim1::DefaultInt               #dimension of u
+    dim2::DefaultInt               #dimension of w
+    dim::DefaultInt                #dim1 + dim2
     μ::T                    #central path parameter
 
     #vectors for rank 3 update representation of H_s
@@ -246,7 +246,7 @@ mutable struct GenPowerCone{T} <: AbstractCone{T}
     #additional scalar terms for rank-2 rep
     d2::T
 
-    function GenPowerCone{T}(α::Vector{T},dim1::Int,dim2::Int) where {T}
+    function GenPowerCone{T}(α::Vector{T},dim1::DefaultInt,dim2::DefaultInt) where {T}
         dim = dim1 + dim2
         @assert all(α .> zero(T))
         @assert sum(α) ≈ one(T)
@@ -275,8 +275,8 @@ mutable struct EntropyCone{T} <: AbstractCone{T}
 
     grad::Vector{T}         #gradient of the dual barrier at z 
     z::Vector{T}            #holds copy of z at scaling point
-    d::Int                  #dimension of u,w parts
-    dim::Int                #2d+1
+    d::DefaultInt           #dimension of u,w parts
+    dim::DefaultInt                #2d+1
     μ::T                    #central path parameter
 
     #vectors for off-diagonal parts of H_s
@@ -284,8 +284,11 @@ mutable struct EntropyCone{T} <: AbstractCone{T}
     offd::Vector{T}         #Hessian v,w
     dd::Vector{T}            #Diagonal part
 
-    function EntropyCone{T}(d::Int) where {T}
-        dim = 2*d + 1
+    function EntropyCone{T}(dim::DefaultInt) where {T}
+        @assert dim > 1 
+        @assert isodd(dim)
+
+        d = (dim-1) >> 1
         μ = one(T)
 
         grad   = zeros(T,dim)
@@ -298,7 +301,7 @@ mutable struct EntropyCone{T} <: AbstractCone{T}
     end
 end
 
-EntropyConeCone(args...) = EntropyCone{DefaultFloat}(args...)
+EntropyCone(args...) = EntropyCone{DefaultFloat}(args...)
 
 """
     ConeDict

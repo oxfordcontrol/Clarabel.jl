@@ -95,7 +95,7 @@ function _allocate_kkt_Hsblocks(type::Type{T}, cones) where{T <: Real}
         if Hs_is_diagonal(cone) 
             numelblock = nvars
         elseif isa(cones.cone_specs[i],Clarabel.EntropyConeT)
-            numelblock = nvars + cone.d
+            numelblock = 2*nvars - 1 + cone.d
         else #dense triangle
             numelblock = (nvars*(nvars+1))>>1 #must be Int
         end
@@ -135,8 +135,6 @@ function _assemble_kkt_matrix(
     nnz_GenPow_vecs = mapreduce(length, +, maps.GenPow_p; init = 0)
     nnz_GenPow_vecs += mapreduce(length, +, maps.GenPow_q; init = 0)
     nnz_GenPow_vecs += mapreduce(length, +, maps.GenPow_r; init = 0)
-    nnz_Entropy_vecs = mapreduce(length, +, maps.Entropy_u; init = 0)
-    nnz_Entropy_vecs += mapreduce(length, +, maps.Entropy_offd; init = 0)
 
     #entries in the sparse SOC diagonal extension block
     nnz_SOC_ext = length(maps.SOC_D)
@@ -150,8 +148,7 @@ function _assemble_kkt_matrix(
     nnz_SOC_vecs +       # Number of elements in sparse SOC off diagonal columns
     nnz_SOC_ext +         # Number of elements in diagonal of SOC extension
     nnz_GenPow_vecs +   # Number of elements in sparse GenPow off diagonal columns
-    nnz_GenPow_ext +     # Number of elements in diagonal of GenPow extension
-    nnz_Entropy_vecs)   # Number of elements in sparse Entropy off diagonal columns
+    nnz_GenPow_ext)     # Number of elements in diagonal of GenPow extension
 
     K = _csc_spalloc(T, m+n+p+p_genpow, m+n+p+p_genpow, nnzKKT)
 

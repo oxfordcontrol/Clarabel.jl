@@ -634,7 +634,7 @@ function push_constraint_set!(
         return nothing
     end
     if isa(s,Clarabel.EntropyConeT)
-        push!(cone_spec, Clarabel.EntropyCone(s.d))
+        push!(cone_spec, Clarabel.EntropyConeT(s.dim))
         return nothing
     end
 

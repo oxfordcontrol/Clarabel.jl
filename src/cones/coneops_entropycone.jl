@@ -127,9 +127,9 @@ function get_Hs!(
     μ = K.μ
     dim = K.dim
     d = K.d
-    @view Hsblock[1:dim]    .= μ*K.dd
-    @view Hsblock[dim+1:dim+2*d] .= μ*K.u
-    @view Hsblock[2*dim:end]    .= μ*K.offd
+    Hsblock[1:dim]    .= μ*K.dd
+    Hsblock[dim+1:dim+2*d] .= μ*K.u
+    Hsblock[2*dim:end]    .= μ*K.offd
 
 end
 
@@ -224,8 +224,8 @@ end
 
 #     #need functions as closures to capture the power K.α
 #     #and use the same backtrack mechanism as the expcone
-#     is_primal_feasible_fcn = s -> _is_primal_feasible_genpowcone(s,K.α,K.dim1)
-#     is_dual_feasible_fcn   = s -> _is_dual_feasible_genpowcone(s,K.α,K.dim1)
+#     is_primal_feasible_fcn = s -> _is_primal_feasible_entropycone(s,K.α,K.dim1)
+#     is_dual_feasible_fcn   = s -> _is_dual_feasible_entropycone(s,K.α,K.dim1)
 
 #     αz = _step_length_n_cone(K, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn)
 #     αs = _step_length_n_cone(K, ds, s, αmax, αmin, backtrack, is_primal_feasible_fcn)
@@ -267,100 +267,97 @@ end
 # end
 
 
-# # ----------------------------------------------
-# #  internal operations for generalized power cones
-# #
-# # Primal generalized power cone: ∏_{i ∈ [d1]}s[i]^{α[i]} ≥ ||s[d1+1:end]||, s[1:d1] ≥ 0
-# # Dual generalized power cone: ∏_{i ∈ [d1]}(z[i]/α[i])^{α[i]} ≥ ||z[d1+1:end]||, z[1:d1] ≥ 0
-# # We use the dual barrier function: 
-# # f*(z) = -log((∏_{i ∈ [d1]}(z[i]/α[i])^{2*α[i]} - ||z[d1+1:end]||^2) - ∑_{i ∈ [d1]} (1-α[i])*log(z[i]):
-# # Evaluates the gradient of the dual generalized power cone ∇f*(z) at z, 
-# # and stores the result at g
+# ----------------------------------------------
+#  internal operations for relative entropy cones
+#
+# Primal relative entropy cone: u - ∑_{i ∈ [d]} w_i log(w_i/v_i) ≥ 0
+# Dual relative entropy cone: w_i ≥ u(log(u/v_i)-1), ∀ i ∈ [d]
+# We use the dual barrier function: 
+# f*(z) = -∑_{i ∈ [d]}log(w_i - ulog(u/v_i) + u) - log(u) - ∑_{i ∈ [d]}log(v_i):
+# Evaluates the gradient of the dual relative entropy cone ∇f*(z) at z, 
+# and stores the result at g
 
 
-# @inline function _barrier_dual(
-#     K::EntropyCone{T},
-#     z::Union{AbstractVector{T}, NTuple{N,T}}
-# ) where {N<:Integer,T}
+@inline function _barrier_dual(
+    K::EntropyCone{T},
+    z::Union{AbstractVector{T}, NTuple{N,T}}
+) where {N<:Integer,T}
 
-#     # Dual barrier
-#     dim1 = K.dim1
-#     α = K.α
+    # Dual barrier
+    d = K.d 
+    v = @view z[2:d+1]
+    w = @view z[d+2:end]
 
-#     res = zero(T)
-#     @inbounds for i = 1:dim1
-#         res += 2*α[i]*logsafe(z[i]/α[i])
-#     end
-#     res = exp(res) - dot(z[dim1+1:end],z[dim1+1:end])
-#     barrier = -logsafe(res) 
-#     @inbounds for i = 1:dim1
-#         barrier -= (one(T)-α[i])*logsafe(z[i])
-#     end
+    barrier = -logsafe(z[1]) 
+    @inbounds for i = 1:d
+        barrier -= logsafe(v[i]) + logsafe(w[i]-z[1]*logsafe(z[1]/v[i]) + z[1])
+    end
 
-#     return barrier
+    return barrier
 
-# end
+end
 
-# @inline function _barrier_primal(
-#     K::EntropyCone{T},
-#     s::Union{AbstractVector{T}, NTuple{N,T}}
-# ) where {N<:Integer,T}
+@inline function _barrier_primal(
+    K::EntropyCone{T},
+    s::Union{AbstractVector{T}, NTuple{N,T}}
+) where {N<:Integer,T}
 
-#     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
-#     # NB: ⟨s,g(s)⟩ = -(dim1+1) = - ν
+    # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
+    # NB: ⟨s,g(s)⟩ = - K.dim = - ν
 
-#     α = K.α
-#     dim1 = K.dim1
+    g = _gradient_primal(K,s)     #compute g(s)
 
-#     g = _gradient_primal(K,s)     #compute g(s)
-
-#     #YC: need to consider the memory issue later
-#     return -_barrier_dual(K,-g) - (dim1+one(T))
-# end 
+    #YC: need to consider the memory issue later
+    return -_barrier_dual(K,-g) - K.dim
+end 
 
 
 
-# # Returns true if s is primal feasible
-# function _is_primal_feasible_genpowcone(
-#     s::AbstractVector{T},
-#     α::AbstractVector{T},
-#     dim1::Int
-# ) where {T}
+# Returns true if s is primal feasible
+function _is_primal_feasible_entropycone(
+    s::AbstractVector{T},
+    d::Int
+) where {T}
 
-#     if (all(s[1:dim1] .> zero(T)))
-#         res = zero(T)
-#         @inbounds for i = 1:dim1
-#             res += 2*α[i]*logsafe(s[i])
-#         end
-#         res = exp(res) - dot(s[dim1+1:end],s[dim1+1:end])
-#         if res > zero(T)
-#             return true
-#         end
-#     end
+    v = @view s[2:d+1]
+    w = @view s[d+2:end]
 
-#     return false
-# end
+    if (all(v > zero(T)) && all(w > zero(T)))
+        res = s[1]
+        @inbounds for i = 1:d
+            res -= w[i]*logsafe(w[i]/v[i])
+        end
+        if res > zero(T)
+            return true
+        end
+    end
 
-# # Returns true if z is dual feasible
-# function _is_dual_feasible_genpowcone(
-#     z::AbstractVector{T},
-#     α::AbstractVector{T},
-#     dim1::Int
-# ) where {T}
+    return false
+end
 
-#     if (all(z[1:dim1] .> zero(T)))
-#         res = zero(T)
-#         @inbounds for i = 1:dim1
-#             res += 2*α[i]*logsafe(z[i]/α[i])
-#         end
-#         res = exp(res) - dot(z[dim1+1:end],z[dim1+1:end])
-#         if res > zero(T)
-#             return true
-#         end
-#     end
+# Returns true if z is dual feasible
+function _is_dual_feasible_entropycone(
+    z::AbstractVector{T},
+    d::Int
+) where {T}
+
+    v = @view s[2:d+1]
+    w = @view s[d+2:end]
+
+    if (z[1] > zero(T) && all(v > zero(T)))
+        @inbounds for i = 1:d
+            res = w[i] - z[1]*logsafe(z[1]/v[i]) + z[1]
+            if res > zero(T)
+                continue
+            else
+                return false        #one of the dual part violates the constraint
+            end
+        end
+
+    end
     
-#     return false
-# end
+    return true
+end
 
 # # Compute the primal gradient of f(s) at s
 # # solve it by the Newton-Raphson method
@@ -388,7 +385,7 @@ end
 #     norm_r = norm(r)
 
 #     if norm_r > eps(T)
-#         g1 = _newton_raphson_genpowcone(norm_r,dim1,p,ϕ,α)
+#         g1 = _newton_raphson_entropycone(norm_r,dim1,p,ϕ,α)
 #         @. gr = g1*r/norm_r
 #         @. gp = -(1+α+α*g1*norm_r)/p
 #     else
@@ -406,7 +403,7 @@ end
 # # When we initialize x0 such that 0 < x0 < x* and f(x0) > 0, 
 # # the Newton-Raphson method converges quadratically
 
-# function _newton_raphson_genpowcone(
+# function _newton_raphson_entropycone(
 #     norm_r::T,
 #     dim::Int,
 #     p::AbstractVector{T},
