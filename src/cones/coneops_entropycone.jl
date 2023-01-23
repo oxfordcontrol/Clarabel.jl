@@ -69,8 +69,8 @@ function unit_initialization!(
     @views s[d+2:end] .= w
     # find z such that z = -g*(s)
 
-    gs = _gradient_primal(K,s)     #YC: may have memory issue
-    @. z = -gs
+    minus_gs = minus_gradient_primal(K,s)     #YC: may have memory issue
+    @. z = minus_gs
 
     return nothing
  end
@@ -147,124 +147,123 @@ function mul_Hs!(
 
     x1 = @view x[2:d+1]
     x2 = @view x[d+2:end]
-    x3 = @view x[2:end]
-    y1 = @view y[2:d+2]
+    y1 = @view y[2:d+1]
     y2 = @view y[d+2:end]
     y3 = @view y[2:end]
     
     @. y = K.dd*x
     y[1] += dot_1
-    @. y1 += K.offd*x1
-    @. y2 += K.offd*x2
-    @. y3 += K.u*x3
+    @. y1 += K.offd*x2
+    @. y2 += K.offd*x1
+    @. y3 += K.u*x[1]
     
     @. y *= K.μ
 
 end
 
-# function affine_ds!(
-#     K::EntropyCone{T},
-#     ds::AbstractVector{T},
-#     s::AbstractVector{T}
-# ) where {T}
+function affine_ds!(
+    K::EntropyCone{T},
+    ds::AbstractVector{T},
+    s::AbstractVector{T}
+) where {T}
 
-#     # @. x = y
-#     @inbounds for i = 1:K.dim
-#         ds[i] = s[i]
-#     end
-# end
+    # @. x = y
+    @inbounds for i = 1:K.dim
+        ds[i] = s[i]
+    end
+end
 
-# function combined_ds_shift!(
-#     K::EntropyCone{T},
-#     shift::AbstractVector{T},
-#     step_z::AbstractVector{T},
-#     step_s::AbstractVector{T},
-#     σμ::T
-# ) where {T}
+function combined_ds_shift!(
+    K::EntropyCone{T},
+    shift::AbstractVector{T},
+    step_z::AbstractVector{T},
+    step_s::AbstractVector{T},
+    σμ::T
+) where {T}
     
-#     #YC: No 3rd order correction at present
+    #YC: No 3rd order correction at present
 
-#     # #3rd order correction requires input variables z
-#     # η = _higher_correction!(K,step_s,step_z)     
+    # #3rd order correction requires input variables z
+    # η = _higher_correction!(K,step_s,step_z)     
 
-#     @inbounds for i = 1:K.dim
-#         shift[i] = K.grad[i]*σμ # - η[i]
-#     end
+    @inbounds for i = 1:K.dim
+        shift[i] = K.grad[i]*σμ # - η[i]
+    end
 
-#     return nothing
-# end
+    return nothing
+end
 
-# function Δs_from_Δz_offset!(
-#     K::EntropyCone{T},
-#     out::AbstractVector{T},
-#     ds::AbstractVector{T},
-#     work::AbstractVector{T}
-# ) where {T}
+function Δs_from_Δz_offset!(
+    K::EntropyCone{T},
+    out::AbstractVector{T},
+    ds::AbstractVector{T},
+    work::AbstractVector{T}
+) where {T}
 
-#     @inbounds for i = 1:K.dim
-#         out[i] = ds[i]
-#     end
+    @inbounds for i = 1:K.dim
+        out[i] = ds[i]
+    end
 
-#     return nothing
-# end
+    return nothing
+end
 
-# #return maximum allowable step length while remaining in the generalized power cone
-# function step_length(
-#     K::EntropyCone{T},
-#     dz::AbstractVector{T},
-#     ds::AbstractVector{T},
-#      z::AbstractVector{T},
-#      s::AbstractVector{T},
-#      settings::Settings{T},
-#      αmax::T,
-# ) where {T}
+#return maximum allowable step length while remaining in the generalized power cone
+function step_length(
+    K::EntropyCone{T},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+     z::AbstractVector{T},
+     s::AbstractVector{T},
+     settings::Settings{T},
+     αmax::T,
+) where {T}
 
-#     backtrack = settings.linesearch_backtrack_step
-#     αmin      = settings.min_terminate_step_length
+    backtrack = settings.linesearch_backtrack_step
+    αmin      = settings.min_terminate_step_length
 
-#     #need functions as closures to capture the power K.α
-#     #and use the same backtrack mechanism as the expcone
-#     is_primal_feasible_fcn = s -> _is_primal_feasible_entropycone(s,K.α,K.dim1)
-#     is_dual_feasible_fcn   = s -> _is_dual_feasible_entropycone(s,K.α,K.dim1)
+    #need functions as closures to capture the power K.α
+    #and use the same backtrack mechanism as the expcone
+    is_primal_feasible_fcn = s -> _is_primal_feasible_entropycone(s,K.d)
+    is_dual_feasible_fcn   = s -> _is_dual_feasible_entropycone(s,K.d)
 
-#     αz = _step_length_n_cone(K, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn)
-#     αs = _step_length_n_cone(K, ds, s, αmax, αmin, backtrack, is_primal_feasible_fcn)
+    αz = _step_length_n_cone(K, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn)
+    αs = _step_length_n_cone(K, ds, s, αmax, αmin, backtrack, is_primal_feasible_fcn)
 
-#     return (αz,αs)
-# end
+    return (αz,αs)
+end
 
-# function compute_barrier(
-#     K::EntropyCone{T},
-#     z::AbstractVector{T},
-#     s::AbstractVector{T},
-#     dz::AbstractVector{T},
-#     ds::AbstractVector{T},
-#     α::T
-# ) where {T}
+function compute_barrier(
+    K::EntropyCone{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T
+) where {T}
 
-#     dim = K.dim
+    dim = K.dim
 
-#     barrier = zero(T)
+    barrier = zero(T)
 
-#     # we want to avoid allocating a vector for the intermediate 
-#     # sums, so the two barrier functions are written to accept 
-#     # both vectors and MVectors. 
-#     wq = similar(K.grad)
+    # we want to avoid allocating a vector for the intermediate 
+    # sums, so the two barrier functions are written to accept 
+    # both vectors and MVectors. 
+    wq = similar(K.grad)
 
-#     #primal barrier
-#     @inbounds for i = 1:dim
-#         wq[i] = s[i] + α*ds[i]
-#     end
-#     barrier += _barrier_primal(K, wq)
+    #primal barrier
+    @inbounds for i = 1:dim
+        wq[i] = s[i] + α*ds[i]
+    end
+    barrier += _barrier_primal(K, wq)
 
-#     #dual barrier
-#     @inbounds for i = 1:dim
-#         wq[i] = z[i] + α*dz[i]
-#     end
-#     barrier += _barrier_dual(K, wq)
+    #dual barrier
+    @inbounds for i = 1:dim
+        wq[i] = z[i] + α*dz[i]
+    end
+    barrier += _barrier_dual(K, wq)
 
-#     return barrier
-# end
+    return barrier
+end
 
 
 # ----------------------------------------------
@@ -305,10 +304,10 @@ end
     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
     # NB: ⟨s,g(s)⟩ = - K.dim = - ν
 
-    g = _gradient_primal(K,s)     #compute g(s)
+    minus_g = minus_gradient_primal(K,s)     #compute g(s)
 
     #YC: need to consider the memory issue later
-    return -_barrier_dual(K,-g) - K.dim
+    return -_barrier_dual(K,minus_g) - K.dim
 end 
 
 
@@ -322,7 +321,7 @@ function _is_primal_feasible_entropycone(
     v = @view s[2:d+1]
     w = @view s[d+2:end]
 
-    if (all(v > zero(T)) && all(w > zero(T)))
+    if (all(v .> zero(T)) && all(w .> zero(T)))
         res = s[1]
         @inbounds for i = 1:d
             res -= w[i]*logsafe(w[i]/v[i])
@@ -341,10 +340,10 @@ function _is_dual_feasible_entropycone(
     d::Int
 ) where {T}
 
-    v = @view s[2:d+1]
-    w = @view s[d+2:end]
+    v = @view z[2:d+1]
+    w = @view z[d+2:end]
 
-    if (z[1] > zero(T) && all(v > zero(T)))
+    if (z[1] > zero(T) && all(v .> zero(T)))
         @inbounds for i = 1:d
             res = w[i] - z[1]*logsafe(z[1]/v[i]) + z[1]
             if res > zero(T)
@@ -359,87 +358,70 @@ function _is_dual_feasible_entropycone(
     return true
 end
 
-# # Compute the primal gradient of f(s) at s
-# # solve it by the Newton-Raphson method
-# function _gradient_primal(
-#     K::EntropyCone{T},
-#     s::Union{AbstractVector{T}, NTuple{N,T}},
-# ) where {N<:Integer,T}
+# Compute the primal gradient of f(s) at s
+# solve it by the Newton-Raphson method
+function minus_gradient_primal(
+    K::EntropyCone{T},
+    s::Union{AbstractVector{T}, NTuple{N,T}},
+) where {N<:Integer,T}
 
-#     α = K.α
-#     dim1 = K.dim1
-#     g = similar(K.grad)
+    d = K.d
+    minus_g = similar(K.grad)
+    minus_gq = @view minus_g[2:d+1]
+    minus_gr = @view minus_g[d+2:end]
+    q = @view s[2:d+1]
+    r = @view s[d+2:end]
 
-#     # unscaled ϕ
-#     ϕ = one(T)
-#     @inbounds for i = 1:dim1
-#         ϕ *= s[i]^(2*α[i])
-#     end
+    minus_gp_inv = _newton_raphson_entropycone(s,d)
+    minus_g[1] = inv(minus_gp_inv)
+    @inbounds for i = 1:d
+        minus_gq[i] = (minus_g[1]*r[i] + one(T))/q[i]
+        minus_gr[i] = one(T)/r[i] + minus_g[1]*logsafe(minus_g[1]/minus_gq[i]) - minus_g[1]
+    end
 
+    return minus_g
+end
 
-#     # obtain g3 from the Newton-Raphson method
-#     p = @view s[1:dim1]
-#     r = @view s[dim1+1:end]
-#     gp = @view g[1:dim1]
-#     gr = @view g[dim1+1:end]
-#     norm_r = norm(r)
+# Newton-Raphson method:
+# solve a one-dimensional concave equation f(x) = 0
+# x(k+1) = x(k) - f(x(k))/f'(x(k))
+# When we initialize x0 such that 0 ≤ x0 < x* and f(x0) < 0, 
+# the Newton-Raphson method converges quadratically
 
-#     if norm_r > eps(T)
-#         g1 = _newton_raphson_entropycone(norm_r,dim1,p,ϕ,α)
-#         @. gr = g1*r/norm_r
-#         @. gp = -(1+α+α*g1*norm_r)/p
-#     else
-#         @. gr = zero(T)
-#         @. gp = -(1+α)/p
-#     end
+function _newton_raphson_entropycone(
+    s::AbstractVector{T},
+    d::Int,
+) where {T}
 
-#     return g
+    # init point x0=0: f(x0) < 0
+    p = s[1]
+    q = @view s[2:d+1]
+    r = @view s[d+2:end]
+    x0 = zero(T)
 
-# end
+    # function for f(x) = 0
+    function f0(x)
+        f0 = x - p;
+        @inbounds for i = 1:d
+            f0 += r[i]*logsafe(r[i]/q[i]+x/q[i])
+        end
 
-# # Newton-Raphson method:
-# # solve a one-dimensional equation f(x) = 0
-# # x(k+1) = x(k) - f(x(k))/f'(x(k))
-# # When we initialize x0 such that 0 < x0 < x* and f(x0) > 0, 
-# # the Newton-Raphson method converges quadratically
+        return f0
+    end
 
-# function _newton_raphson_entropycone(
-#     norm_r::T,
-#     dim::Int,
-#     p::AbstractVector{T},
-#     ϕ::T,
-#     α::AbstractVector{T}
-# ) where {T}
+    # first derivative
+    function f1(x)
+        f1 = one(T);
+        @inbounds for i = 1:d
+            f1 += r[i]/(r[i]+x)
+        end
 
-#     # init point x0: f(x0) > 0
-#     dim2 = dim*dim
-#     x0 = -one(T)/norm_r + (dim*norm_r + sqrt((ϕ/norm_r/norm_r + dim2 -1)*ϕ))/(ϕ - norm_r*norm_r)
-
-#     # # additional shift due to the choice of dual barrier
-#     # t0 = - 2*α*logsafe(α) - 2*(1-α)*logsafe(1-α)   
-
-#     # function for f(x) = 0
-#     function f0(x)
-#         f0 = -logsafe(2*x/norm_r + x*x);
-#         @inbounds for i = 1:dim
-#             f0 += 2*α[i]*(logsafe(x*norm_r+(1+α[i])/α[i]) - logsafe(p[i]))
-#         end
-
-#         return f0
-#     end
-
-#     # first derivative
-#     function f1(x)
-#         f1 = -(2*x + 2/norm_r)/(x*x + 2*x/norm_r);
-#         @inbounds for i = 1:dim
-#             f1 += 2*α[i]*norm_r/(norm_r*x + (1+α[i])/α[i])
-#         end
-
-#         return f1
-#     end
+        return f1
+    end
     
-#     return _newton_raphson_onesided(x0,f0,f1)
-# end
+    return _newton_raphson_onesided(x0,f0,f1)
+
+end
 
 
 # update gradient and Hessian at dual z = (u,w)
@@ -480,52 +462,4 @@ function _update_dual_grad_H(
         dd[i+1] = offd[i]*(γ[i]+z[1])/z[i+1] + one(T)/(z[i+1]^2)
         dd[d+1+i] = one(T)/(γ[i]^2)
     end    
-
-
 end
-
-# function compute_grad(z)
-
-#     grad = similar(z)
-#     T = Float64
-
-#     d = 2
-#     logdiv = rand(d) #working space for logdiv
-#     γ = rand(d)  #working space for γ
-
-#     grad[1] = -one(T)/z[1]
-#     @inbounds for i = 1:d
-#         logdiv[i] = log(z[1]/z[i+1])
-#         γ[i] = z[d+1+i] -z[1]*logdiv[i] + z[1]
-
-#         grad[i+1] = -z[1]/(γ[i]*z[i+1]) - one(T)/z[i+1]
-#         grad[d+1+i] = -one(T)/γ[i]
-#         grad[1] += logdiv[i]/γ[i]
-#     end
-
-#     u = rand(4) 
-#     offd = rand(2)
-#     dd = rand(5)
-#     H = zeros(5,5)
-#     # compute Hessian information at z 
-#     dd[1] = one(T)/(z[1]^2)
-#     @inbounds for i = 1:d
-#         u[d+i] = -logdiv[i]/(γ[i]^2)
-#         u[i] = u[d+i]*z[1]/z[i+1]-one(T)/(γ[i]*z[i+1])
-#         dd[1] += one(T)/(z[1]*γ[i]) - logdiv[i]*u[d+i]
-
-#         offd[i] = z[1]/(γ[i]^2*z[i+1])
-#         dd[i+1] = offd[i]*(γ[i]+z[1])/z[i+1] + one(T)/(z[i+1]^2)
-#         dd[d+1+i] = one(T)/(γ[i]^2)
-#     end   
-
-#     H[2:5,1] .= u 
-#     for i = 1:5
-#         H[i,i] = dd[i]
-#     end
-#     for i = 1:d
-#         H[d+1+i,i+1] = offd[i]
-#     end
-
-#     return grad,H
-# end

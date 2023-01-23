@@ -237,7 +237,7 @@ function _csc_fill_entropy(K,diag2toKKT,offset,blockdim,shape)
                 dest             = K.colptr[col]
                 K.rowval[dest]   = offset   # for u
                 K.nzval[dest]    = 0.  #structural zero
-                diag2toKKT[index - (d+1) + blockdim] = dest
+                diag2toKKT[index-1 + blockdim] = dest
                 K.rowval[dest+1]   = col - d    #for offd
                 K.nzval[dest+1]    = 0.  #structural zero
                 diag2toKKT[index - (d+1) + 2*blockdim - 1] = dest + 1  

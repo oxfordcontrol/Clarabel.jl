@@ -12,8 +12,6 @@ struct LDLDataMap
     GenPow_q::Vector{Vector{Int}}   #off diag dense columns q
     GenPow_r::Vector{Vector{Int}}   #off diag dense columns r
     GenPow_D::Vector{Int}           #diag of just the sparse GenPow expansion D
-    Entropy_u::Vector{Vector{Int}}          #first column in each relative entropy cone
-    Entropy_offd::Vector{Vector{Int}}       #off diagonal terms in each relative entropy cone
 
     #all of above terms should be disjoint and their union
     #should cover all of the user data in the KKT matrix.  Now
@@ -50,15 +48,10 @@ struct LDLDataMap
         GenPow_p = Vector{Vector{Int}}(undef,n_genpow)
         GenPow_q = Vector{Vector{Int}}(undef,n_genpow)
         GenPow_r = Vector{Vector{Int}}(undef,n_genpow)
-        GenPow_D = zeros(Int,p_genpow)
-
-        n_entropy = cones.type_counts[Clarabel.EntropyConeT]
-        Entropy_u = Vector{Vector{Int}}(undef,n_entropy)
-        Entropy_offd = Vector{Vector{Int}}(undef,n_entropy)        
+        GenPow_D = zeros(Int,p_genpow)   
 
         count_soc = 1;
         count_genpow = 1;
-        count_entropy = 1;
         for (i,cone) in enumerate(cones)
             if isa(cones.cone_specs[i],Clarabel.SecondOrderConeT)
                 SOC_u[count_soc] = Vector{Int}(undef,numel(cone))
@@ -71,16 +64,11 @@ struct LDLDataMap
                 GenPow_r[count_genpow] = Vector{Int}(undef,cone.dim2)
                 count_genpow += 1
             end
-            if isa(cones.cone_specs[i],Clarabel.EntropyConeT)
-                Entropy_u[count_entropy] = Vector{Int}(undef,2*cone.d)
-                Entropy_offd[count_entropy] = Vector{Int}(undef,cone.d)
-                count_entropy += 1
-            end
         end
 
         diag_full = zeros(Int,m+n+p+p_genpow)
 
-        return new(P,A,Hsblocks,SOC_u,SOC_v,SOC_D,GenPow_p,GenPow_q,GenPow_r,GenPow_D,Entropy_u,Entropy_offd,diagP,diag_full)
+        return new(P,A,Hsblocks,SOC_u,SOC_v,SOC_D,GenPow_p,GenPow_q,GenPow_r,GenPow_D,diagP,diag_full)
     end
 
 end
