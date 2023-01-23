@@ -1,4 +1,3 @@
-import Pardiso
 using AMD
 
 struct PardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}

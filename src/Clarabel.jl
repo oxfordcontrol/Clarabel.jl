@@ -1,6 +1,7 @@
+__precompile__()
 module Clarabel
 
-    using SparseArrays, LinearAlgebra, Printf
+    using SparseArrays, LinearAlgebra, Printf, Requires
     const DefaultFloat = Float64
     const DefaultInt   = LinearAlgebra.BlasInt
     const IdentityMatrix = UniformScaling{Bool}
@@ -55,6 +56,16 @@ module Clarabel
     include("./utils/mathutils.jl")
     include("./utils/csc_assembly.jl")
 
+    #optional dependencies 
+    function __init__()
+        @require Pardiso="46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2" begin
+            include("./kktsolvers/direct-ldl/directldl_mklpardiso.jl")  
+        end 
+        @require SuiteSparse="4607b0f0-06f3-5cda-b6b1-a6196a1729e9" begin
+            include("./kktsolvers/direct-ldl/directldl_cholmod.jl")
+        end
+    end
+
     #MathOptInterface for JuMP/Convex.jl
     module MOImodule
          include("./MOI_wrapper/MOI_wrapper.jl")
@@ -62,3 +73,4 @@ module Clarabel
     const Optimizer{T} = Clarabel.MOImodule.Optimizer{T}
 
 end
+
