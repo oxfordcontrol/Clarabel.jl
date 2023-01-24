@@ -1,3 +1,4 @@
+using SuiteSparse
 mutable struct CholmodDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
 
     F::Union{SuiteSparse.CHOLMOD.Factor,Nothing}
