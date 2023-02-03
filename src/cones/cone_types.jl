@@ -283,6 +283,7 @@ mutable struct EntropyCone{T} <: AbstractCone{T}
     u::Vector{T}            #Hessian u,…
     offd::Vector{T}         #Hessian v,w
     dd::Vector{T}            #Diagonal part
+    work::Vector{T}
 
     function EntropyCone{T}(dim::DefaultInt) where {T}
         @assert dim > 1 
@@ -296,8 +297,9 @@ mutable struct EntropyCone{T} <: AbstractCone{T}
         u      = zeros(T,2*d)
         offd   = zeros(T,d)
         dd      = zeros(T,dim)
+        work = similar(grad)
 
-        return new(grad,z,d,dim,μ,u,offd,dd)
+        return new(grad,z,d,dim,μ,u,offd,dd,work)
     end
 end
 

@@ -4,7 +4,7 @@
 
 # degree of the cone is the dim of power vector + 1
 dim(K::EntropyCone{T}) where {T} = K.dim
-degree(K::EntropyCone{T}) where {T} = K.dim
+degree(K::EntropyCone{T}) where {T} = 3*K.d
 numel(K::EntropyCone{T}) where {T} = dim(K)
 
 is_symmetric(::EntropyCone{T}) where {T} = false
@@ -248,7 +248,8 @@ function compute_barrier(
     # we want to avoid allocating a vector for the intermediate 
     # sums, so the two barrier functions are written to accept 
     # both vectors and MVectors. 
-    wq = similar(K.grad)
+    # wq = similar(K.grad)
+    wq = K.work
 
     #primal barrier
     @inbounds for i = 1:dim
@@ -366,7 +367,8 @@ function minus_gradient_primal(
 ) where {N<:Integer,T}
 
     d = K.d
-    minus_g = similar(K.grad)
+    # minus_g = similar(K.grad)
+    minus_g = K.work
     minus_gq = @view minus_g[2:d+1]
     minus_gr = @view minus_g[d+2:end]
     q = @view s[2:d+1]
@@ -398,12 +400,16 @@ function _newton_raphson_entropycone(
     q = @view s[2:d+1]
     r = @view s[d+2:end]
     x0 = zero(T)
+    offset = p
+    @inbounds for i = 1:d
+        offset += r[i]*logsafe(q[i])
+    end
 
     # function for f(x) = 0
     function f0(x)
-        f0 = x - p;
+        f0 = x*d - offset;
         @inbounds for i = 1:d
-            f0 += r[i]*logsafe(r[i]/q[i]+x/q[i])
+            f0 += r[i]*logsafe(r[i]+x)
         end
 
         return f0
@@ -411,7 +417,7 @@ function _newton_raphson_entropycone(
 
     # first derivative
     function f1(x)
-        f1 = one(T);
+        f1 = T(d);
         @inbounds for i = 1:d
             f1 += r[i]/(r[i]+x)
         end
@@ -441,7 +447,7 @@ function _update_dual_grad_H(
     γ = @view K.z[d+1:2*d]  #working space for γ
     # YC:maybe γinv is faster?
 
-    grad[1] = -one(T)/z[1]
+    grad[1] = -T(d)/z[1]
     @inbounds for i = 1:d
         logdiv[i] = log(z[1]/z[i+1])
         γ[i] = z[d+1+i] -z[1]*logdiv[i] + z[1]
@@ -452,7 +458,7 @@ function _update_dual_grad_H(
     end
     
     # compute Hessian information at z 
-    dd[1] = one(T)/(z[1]^2)
+    dd[1] = T(d)/(z[1]^2)
     @inbounds for i = 1:d
         u[d+i] = -logdiv[i]/(γ[i]^2)
         u[i] = u[d+i]*z[1]/z[i+1]-one(T)/(γ[i]*z[i+1])
