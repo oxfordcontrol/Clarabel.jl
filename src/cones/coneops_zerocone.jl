@@ -23,14 +23,37 @@ function rectify_equilibration!(
     return false
 end
 
-# place vector into zero cone
-function shift_to_cone!(
-    K::ZeroCone{T},z::AbstractVector{T}
+function unit_margin(
+    K::ZeroCone{T},
+    z::AbstractVector{T},
+    pd::PrimalOrDualCone
 ) where{T}
 
-    z .= zero(T)
+    #for either case we specify infinite margin 
+    #if we later shift a vector into the zero cone 
+    #using scaled_unit_shift!, we just zero it 
+    #out regardless of the applied shift anway 
+    if pd == PrimalCone::PrimalOrDualCone  #zero cone case 
+        return typemax(T)
+    else 
+        return typemax(T)
+    end 
+end
 
-    return nothing
+# place vector into zero cone
+function scaled_unit_shift!(
+    K::ZeroCone{T},
+    z::AbstractVector{T},
+    α::T,
+    pd::PrimalOrDualCone,
+) where{T}
+
+    if pd == PrimalCone::PrimalOrDualCone #zero cone
+        z .= zero(T)
+    else 
+        () #Re^n.  do nothing 
+    end
+
 end
 
 # unit initialization for asymmetric solves
@@ -64,7 +87,7 @@ function update_scaling!(
 
     #nothing to do.
     #This cone acts like λ = 0 everywhere.
-    return nothing
+    return is_scaling_success = true
 end
 
 function get_Hs!(
@@ -117,7 +140,8 @@ function Δs_from_Δz_offset!(
     K::ZeroCone{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},
-    work::AbstractVector{T}
+    work::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     out .= zero(T)

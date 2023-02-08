@@ -4,6 +4,17 @@ using StaticArrays
 # -------------------------------------
 abstract type AbstractCone{T <: AbstractFloat} end
 
+#NB: this enum can't use Primal and Dual as its markers, 
+#since Dual is already used in the solve strategies.  Julia
+#won't allow a repeated use of the same marker in different 
+#enums, which is dumb.
+
+# marker for primal / dual distinctions 
+@enum PrimalOrDualCone begin 
+    PrimalCone
+    DualCone 
+end 
+
 # -------------------------------------
 # Zero Cone
 # -------------------------------------

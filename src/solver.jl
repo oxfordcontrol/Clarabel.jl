@@ -192,6 +192,8 @@ function solve!(
 
         while true
 
+            variables_rescale!(s.variables)
+
             #update the residuals
             #--------------
             residuals_update!(s.residuals,s.variables,s.data)
@@ -222,13 +224,20 @@ function solve!(
                 end
             end # allows continuation if new strategy provided
 
+            
+            #update the scalings
+            #--------------
+            is_scaling_success = variables_scale_cones!(s.variables,s.cones,μ,scaling)
+            # check whether variables are interior points
+            action = _strategy_checkpoint_is_scaling_success(s,is_scaling_success)
+            if action === Fail
+                break;
+            end
+                
+
             #increment counter here because we only count
             #iterations that produce a KKT update 
             iter += 1
-
-            #update the scalings
-            #--------------
-            variables_scale_cones!(s.variables,s.cones,μ,scaling)
 
 
             #Update the KKT system and the constant parts of its solution.
@@ -261,6 +270,11 @@ function solve!(
                 #--------------
                 α = solver_get_step_length(s,:affine,scaling)
                 σ = _calc_centering_parameter(α)
+
+                if(iter <= 2)
+                    s.step_lhs.κ = 0.0
+                    s.step_rhs.τ = 0.0
+                end
   
                 #calculate the combined step and length
                 #--------------
@@ -341,7 +355,7 @@ function solver_default_start!(s::Solver{T}) where {T}
         #solve for primal/dual initial points via KKT
         kkt_solve_initial_point!(s.kktsystem,s.variables,s.data)
         #fix up (z,s) so that they are in the cone
-        variables_symmetric_initialization!(s.variables, s.cones)
+        variables_symmetric_initialization!(s.variables, s.cones, s.settings)
 
     else
         #Assigns unit (z,s) and zeros the primal variables 
@@ -443,7 +457,7 @@ function _strategy_checkpoint_small_step(s::Solver{T}, α::T, scaling::ScalingSt
         scaling == PrimalDual::ScalingStrategy && α < s.settings.min_switch_step_length
         return (Update::StrategyCheckpoint, Dual::ScalingStrategy)
 
-    elseif α <= min(zero(T), s.settings.min_terminate_step_length)
+    elseif α <= max(zero(T), s.settings.min_terminate_step_length)
         s.info.status = INSUFFICIENT_PROGRESS
         return (Fail::StrategyCheckpoint,scaling)
 
@@ -452,6 +466,14 @@ function _strategy_checkpoint_small_step(s::Solver{T}, α::T, scaling::ScalingSt
     end 
 end 
 
+function _strategy_checkpoint_is_scaling_success(s::Solver{T}, is_scaling_success::Bool) where {T}
+    if is_scaling_success
+        return Update::StrategyCheckpoint
+    else
+        s.info.status = NUMERICAL_ERROR
+        return Fail::StrategyCheckpoint
+    end
+end
 
 # printing 
 

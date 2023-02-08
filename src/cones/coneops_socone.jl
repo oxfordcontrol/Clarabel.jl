@@ -5,21 +5,24 @@
 #degree = 1 for SOC, since e'*e = 1
 degree(K::SecondOrderCone{T}) where {T} = 1
 
-# place vector into socone
-function shift_to_cone!(
+function unit_margin(
     K::SecondOrderCone{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    pd::PrimalOrDualCone
 ) where{T}
 
-    z[1] = max(z[1],0)
+    return z[1] - norm(z[2:end])
+end
 
-    @views α = _soc_residual(z)
-    if(α < sqrt(eps(T)))
-        #done in two stages since otherwise (1.-α) = -α for
-        #large α, which makes z exactly 0.0 (or worse, -0.0 )
-        z[1] -=  α
-        z[1] +=  one(T)
-    end
+# place vector into socone
+function scaled_unit_shift!(
+    K::SecondOrderCone{T},
+    z::AbstractVector{T},
+    α::T,
+    pd::PrimalOrDualCone
+) where{T}
+
+    z[1] += α
 
     return nothing
 end
@@ -31,10 +34,14 @@ function unit_initialization!(
     s::AbstractVector{T}
 ) where{T}
  
-     z .= zero(T)
-     s .= zero(T)
-     add_scaled_e!(K,z,one(T))
-     add_scaled_e!(K,s,one(T))
+    s .= zero(T)
+    z .= zero(T)
+
+    #Primal or Dual doesn't matter here
+    #since the cone is self dual anyway
+    scaled_unit_shift!(K,s,one(T),PrimalCone)
+    scaled_unit_shift!(K,z,one(T),DualCone)
+
  
     return nothing
 end 
@@ -62,37 +69,46 @@ function update_scaling!(
 ) where {T}
 
     #first calculate the scaled vector w
-    @views zscale = sqrt(_soc_residual(z))
-    @views sscale = sqrt(_soc_residual(s))
-    gamma  = sqrt((1 + dot(s,z)/(zscale*sscale) ) / 2)
+    @views zscale = _sqrt_soc_residual(z)
+    @views sscale = _sqrt_soc_residual(s)
+    # Either s or z is not an interior point
+    if iszero(zscale) || iszero(sscale)
+        return is_scaling_success = false
+    end
 
+    # construct w and normalize
     w = K.w
-
-    w     .= s./(2*sscale*gamma)
-    w[1]  += z[1]/(2*zscale*gamma)
-
-    @views w[2:end] .-= z[2:end]/(2*zscale*gamma)
+    w     .= s./(sscale)
+    w[1]  += z[1]/(zscale)
+    @views w[2:end] .-= z[2:end]/(zscale)
+    wscale = _sqrt_soc_residual(w)
+    # w is not an interior
+    if iszero(wscale)
+        return is_scaling_success = false
+    end
+    w  .= w ./ wscale
 
     #various intermediate calcs for u,v,d,η
-    w0p1 = w[1] + 1
-    @views w1sq = dot(w[2:end],w[2:end])
-    w0sq = w[1]*w[1]
-    α  = w0p1 + w1sq / w0p1
-    β  = 1 + 2/w0p1 + w1sq / (w0p1*w0p1)
+    α  = 2*w[1]
+    β  = 2
 
     #Scalar d is the upper LH corner of the diagonal
     #term in the rank-2 update form of W^TW
-    K.d = w0sq/2 + w1sq/2 * (1 - (α*α)/(1+w1sq*β))
+    wsq = dot(w,w)
+    K.d = 0.5  / wsq
 
     #the leading scalar term for W^TW
     K.η = sqrt(sscale/zscale)
 
     #the vectors for the rank two update
     #representation of W^TW
-    u0 = sqrt(w0sq + w1sq - K.d)
+    u0  = sqrt(wsq - 0.5/wsq)
     u1 = α/u0
+
     v0 = zero(T)
-    v1 = sqrt(u1*u1 - β)
+    # v1 = sqrt(u1*u1 - β)
+    v1 = sqrt(2+2*K.d)/u0
+    
     K.u[1] = u0
     @views K.u[2:end] .= u1.*K.w[2:end]
     K.v[1] = v0
@@ -101,7 +117,7 @@ function update_scaling!(
     #λ = Wz
     mul_W!(K,:N,K.λ,z,one(T),zero(T))
 
-    return nothing
+    return is_scaling_success = true
 end
 
 function get_Hs!(
@@ -129,9 +145,11 @@ function mul_Hs!(
     work::AbstractVector{T}
 ) where {T}
 
-    #PJG : could be done faster than this
+    #PJG : maybe could be done faster than this
     mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
     mul_W!(K,:T,y,work,one(T),zero(T))    #y = c Wᵀwork = W^TWx
+
+    return
 
 end
 
@@ -162,10 +180,28 @@ function Δs_from_Δz_offset!(
     K::SecondOrderCone{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},
-    work::AbstractVector{T}
+    work::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
-    _Δs_from_Δz_offset_symmetric!(K,out,ds,work);
+    if false 
+    #Wᵀ(λ \ ds)
+        _Δs_from_Δz_offset_symmetric!(K,out,ds,work);
+
+    else    
+        #PJG: experimental alternative 
+        @views resz = z[1]^2 - dot(z[2:end],z[2:end])
+
+        @views λ1ds1  = dot(K.λ[2:end],ds[2:end])
+        @views w1ds1  = dot(K.w[2:end],ds[2:end])
+
+        c = (K.λ[1]*ds[1] - λ1ds1)/resz
+        out[1]             = +c*z[1] + K.η*w1ds1
+        @views out[2:end] .= -c.*z[2:end] + K.η*(ds[2:end] + w1ds1/(1+K.w[1]).*K.w[2:end])
+
+        out .*= (1/K.λ[1])
+    end    
+
 end
 
 #return maximum allowable step length while remaining in the socone
@@ -209,17 +245,6 @@ end
 # operations supported by symmetric cones only 
 # ---------------------------------------------
 
-# implements y = y + αe for the socone
-function add_scaled_e!(
-    K::SecondOrderCone{T},
-    x::AbstractVector{T},α::T
-) where {T}
-
-    #e is (1,0.0..0)
-    x[1] += α
-
-    return nothing
-end
 
 # implements y = αWx + βy for the socone
 function mul_W!(
@@ -328,7 +353,19 @@ end
 # ---------------------------------------------
 
 @inline function _soc_residual(z:: AbstractVector{T}) where {T} 
-    @views res = z[1]*z[1] - dot(z[2:end],z[2:end])
+
+    #PJG: (a-b)(b+a) method
+    #@views normz = norm(z[2:end])
+    #(z[1] - normz)*(z[1] + normz)
+
+    @views z[1]*z[1] - dot(z[2:end],z[2:end])
+end 
+
+# alleviate numerical error
+@inline function _sqrt_soc_residual(z:: AbstractVector{T}) where {T} 
+    res = _soc_residual(z)
+    # set res to 0 when z is not an interior point
+    @views res = res > 0.0 ? sqrt(res) : zero(T)
 end 
 
 #compute the residual at z + \alpha dz 
@@ -339,9 +376,16 @@ end
     α::T
 ) where {T} 
     
-    sc = z[1] + α * dz[1];
-        
-    @views res = sc * sc -  dot_shifted(z[2:end],z[2:end],dz[2:end],dz[2:end],α)
+    x0 = z[1] + α * dz[1];
+    @views x1_sq = dot_shifted(z[2:end],z[2:end],dz[2:end],dz[2:end],α)
+
+    #PJG: (a-b)(b+a) method
+    #normx1 = sqrt(x1_sq)
+    #res = (x0 - normx1)*(x0 + normx1)
+
+    res = x0*x0 - x1_sq
+
+
 
 
     return res
@@ -358,9 +402,9 @@ function _step_length_soc_component(
     # assume that x is in the SOC, and find the minimum positive root
     # of the quadratic equation:  ||x₁+αy₁||^2 = (x₀ + αy₀)^2
 
-    @views a = _soc_residual(y)
+    @views a = _soc_residual(y) #NB: could be negative
     @views b = 2*(x[1]*y[1] - dot(x[2:end],y[2:end]))
-    @views c = _soc_residual(x) #should be ≥0
+    @views c = max(0.,_soc_residual(x)) #should be ≥0
     d = b^2 - 4*a*c
 
     if(c < 0)

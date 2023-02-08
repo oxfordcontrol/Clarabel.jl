@@ -41,11 +41,23 @@ end
 # defined.   To define a new cone, you must
 # define implementations for each function below.
 
-# functions relating to unit vectors and cone initialization
-
-function shift_to_cone!(
+# returns α such that z - α⋅e is just on the cone boundary 
+# α >=0 indicates z \in cone, i.e. negative margin ===
+# outside of the cone .
+function unit_margin(
     K::AbstractCone{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    pd::PrimalOrDualCone
+) where{T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
+function scaled_unit_shift!(
+    K::AbstractCone{T},
+    z::AbstractVector{T},
+    α::T
 ) where{T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -79,6 +91,8 @@ function update_scaling!(
     μ::T,
     scaling_strategy::ScalingStrategy
 ) where {T}
+
+    #NB: should return bool:  `true` on success.
 
     error("Incomplete cone operation specification: ",typeof(K))
 
@@ -183,6 +197,7 @@ function Δs_from_Δz_offset!(
     out::AbstractVector{T},
     ds::AbstractVector{T},
     work::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))

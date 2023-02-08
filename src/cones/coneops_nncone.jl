@@ -13,19 +13,23 @@ function rectify_equilibration!(
     return false
 end
 
-# place vector into nn cone
-function shift_to_cone!(
+function unit_margin(
     K::NonnegativeCone{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    pd::PrimalOrDualCone
+) where{T}
+    return minimum(z)
+end
+
+# place vector into nn cone
+function scaled_unit_shift!(
+    K::NonnegativeCone{T},
+    z::AbstractVector{T},
+    α::T,
+    pd::PrimalOrDualCone
 ) where{T}
 
-    thresh = sqrt(eps(T))
-
-    # do this elementwise, otherwise splitting a nonnegative cone 
-    # into multiple small cones will give us a different solution 
-    for i in eachindex(z) 
-        z[i] = z[i] < thresh ? one(T) : z[i]
-    end
+    @. z += α 
 
     return nothing
 end
@@ -64,7 +68,7 @@ function update_scaling!(
     @. K.λ = sqrt(s*z)
     @. K.w = sqrt(s/z)
 
-    return nothing
+    return is_scaling_success = true
 end
 
 function get_Hs!(
@@ -120,10 +124,12 @@ function Δs_from_Δz_offset!(
     K::NonnegativeCone{T},
     out::AbstractVector{T},
     rs::AbstractVector{T},
-    work::AbstractVector{T}
+    work::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
-    _Δs_from_Δz_offset_symmetric!(K,out,rs,work);
+    #_Δs_from_Δz_offset_symmetric!(K,out,rs,work);
+    @. out = rs / z
 end
 
 #return maximum allowable step length while remaining in the nn cone
@@ -170,18 +176,6 @@ end
 # ---------------------------------------------
 # operations supported by symmetric cones only 
 # ---------------------------------------------
-
-# implements y = y + αe for the nn cone
-function add_scaled_e!(
-    K::NonnegativeCone{T},
-    x::AbstractVector{T},α::T
-) where {T}
-
-    #e is a vector of ones, so just shift
-    @. x += α
-
-    return nothing
-end
 
 # implements y = αWx + βy for the nn cone
 function mul_W!(
