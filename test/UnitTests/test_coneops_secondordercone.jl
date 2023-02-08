@@ -67,10 +67,10 @@ FloatT = Float64
         # W_B should be symmetric
         @test norm(W_B-W_B') ≈ 0     atol = 1e-15
 
-        #matrix and it's inverse should agree 
+        #matrix and its inverse should agree 
         @test norm(W_B*W_Binv - I(n)) ≈ 0     atol = 1e-15
 
-        # square should agree with the directly constructed on
+        # square should agree with the directly constructed one
         W2_B = W_B*W_B
         @test norm(W2_B-W2_A) ≈ 0     atol = 1e-15
 
