@@ -229,9 +229,9 @@ function solve!(
             #--------------
             is_scaling_success = variables_scale_cones!(s.variables,s.cones,μ,scaling)
             # check whether variables are interior points
-            action = _strategy_checkpoint_is_scaling_success(s,is_scaling_success)
-            if action === Fail
-                break;
+            (action,scaling) = _strategy_checkpoint_is_scaling_success(s,is_scaling_success,scaling)
+            if action === Fail;  break;
+            else ();  # we only expect NoUpdate or Fail here
             end
                 
 
@@ -271,6 +271,9 @@ function solve!(
                 α = solver_get_step_length(s,:affine,scaling)
                 σ = _calc_centering_parameter(α)
 
+                # PJG: I don't understand what this does 
+                # or why it is here.   It also is not modular 
+                # since it requires knowledge of variable fields
                 if(iter <= 2)
                     s.step_lhs.κ = 0.0
                     s.step_rhs.τ = 0.0
@@ -466,12 +469,12 @@ function _strategy_checkpoint_small_step(s::Solver{T}, α::T, scaling::ScalingSt
     end 
 end 
 
-function _strategy_checkpoint_is_scaling_success(s::Solver{T}, is_scaling_success::Bool) where {T}
+function _strategy_checkpoint_is_scaling_success(s::Solver{T}, is_scaling_success::Bool, scaling::ScalingStrategy) where {T}
     if is_scaling_success
-        return Update::StrategyCheckpoint
+        return (NoUpdate::StrategyCheckpoint,scaling)
     else
         s.info.status = NUMERICAL_ERROR
-        return Fail::StrategyCheckpoint
+        return (Fail::StrategyCheckpoint,scaling)
     end
 end
 

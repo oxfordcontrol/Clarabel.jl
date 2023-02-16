@@ -33,11 +33,7 @@ function unit_margin(
     #if we later shift a vector into the zero cone 
     #using scaled_unit_shift!, we just zero it 
     #out regardless of the applied shift anway 
-    if pd == PrimalCone::PrimalOrDualCone  #zero cone case 
-        return typemax(T)
-    else 
-        return typemax(T)
-    end 
+    return typemax(T)
 end
 
 # place vector into zero cone

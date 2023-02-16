@@ -414,7 +414,7 @@ function  _iterative_refinement(
         @. x = ξ  #PJG: pointer swap might be faster
     end
 
-    #NB: "success" means only we had a finite valued result
+    #NB: "success" means only that we had a finite valued result
     return is_success = true
 end
 

@@ -3,7 +3,7 @@ import Statistics: mean
 ## -------------------------------------------
 # Default implementations for cone operations
 # --------------------------------------------
-
+ 
 # degree of the cone is the same as dimension
 # and numel by default.   Degree is different
 # for the zero cone and SOC (0 and 1, respectively)
@@ -236,16 +236,6 @@ end
 # ---------------------------------------------
 # operations supported by symmetric cones only 
 # ---------------------------------------------
-
-# Add the scaled identity element e
-function add_scaled_e!(
-    K::AbstractCone{T},
-    x::AbstractVector{T},α::T
-) where {T}
-
-    error("Incomplete cone operation specification: ",typeof(K))
-
-end
 
 # implements y = αWx + βy
 function mul_W!(

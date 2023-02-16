@@ -85,9 +85,7 @@ function variables_scale_cones!(
 	μ::T,
     scaling_strategy::ScalingStrategy
 ) where {T}
-
-    is_scaling_success =  update_scaling!(cones,variables.s,variables.z,μ,scaling_strategy)
-    return is_scaling_success
+    return update_scaling!(cones,variables.s,variables.z,μ,scaling_strategy)
 end
 
 
@@ -164,8 +162,8 @@ function variables_symmetric_initialization!(
 
     min_margin  = (one(T) - settings.max_step_fraction)
 
-    shift_to_cone_interior!(variables.s, cones, min_margin, PrimalCone::PrimalOrDualCone)
-    shift_to_cone_interior!(variables.z, cones, min_margin, DualCone::PrimalOrDualCone)
+    _shift_to_cone_interior!(variables.s, cones, min_margin, PrimalCone::PrimalOrDualCone)
+    _shift_to_cone_interior!(variables.z, cones, min_margin, DualCone::PrimalOrDualCone)
 
     variables.τ = 1
     variables.κ = 1
@@ -179,7 +177,7 @@ function _sum_pos(z::AbstractVector{T}) where {T}
     return out
 end
 
-function shift_to_cone_interior!(
+function _shift_to_cone_interior!(
     z::AbstractVector{T},
     cones::CompositeCone{T},
     min_margin::T,
@@ -267,15 +265,13 @@ end
 
 function variables_rescale!(variables)
 
-    vars = variables
-    τ     = vars.τ
-    κ     = vars.κ
-    scale = max(τ,κ)
+    scale = max(variables.τ,variables.κ)
+    invscale = 1/scale;
     
-    vars.x ./= scale
-    vars.z.vec ./= scale
-    vars.s.vec ./= scale
-    vars.τ /= scale
-    vars.κ /= scale
+    variables.x .*= invscale
+    variables.z.vec .*= invscale
+    variables.s.vec .*= invscale
+    variables.τ *= invscale
+    variables.κ *= invscale
     
 end

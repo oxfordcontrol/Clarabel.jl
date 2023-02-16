@@ -71,7 +71,8 @@ function update_scaling!(
     #first calculate the scaled vector w
     @views zscale = _sqrt_soc_residual(z)
     @views sscale = _sqrt_soc_residual(s)
-    # Either s or z is not an interior point
+
+    # Fail if either s or z is not an interior point
     if iszero(zscale) || iszero(sscale)
         return is_scaling_success = false
     end
@@ -82,7 +83,8 @@ function update_scaling!(
     w[1]  += z[1]/(zscale)
     @views w[2:end] .-= z[2:end]/(zscale)
     wscale = _sqrt_soc_residual(w)
-    # w is not an interior
+
+    # Fail if w is not an interior point
     if iszero(wscale)
         return is_scaling_success = false
     end
@@ -102,11 +104,12 @@ function update_scaling!(
 
     #the vectors for the rank two update
     #representation of W^TW
-    u0  = sqrt(wsq - 0.5/wsq)
+    u0  = sqrt(wsq - K.d)
     u1 = α/u0
-
     v0 = zero(T)
-    # v1 = sqrt(u1*u1 - β)
+
+    #PJG: 2*Kd = 1/wsq here.   Need to recheck 
+    #derivations here w.r.t ECOS paper
     v1 = sqrt(2+2*K.d)/u0
     
     K.u[1] = u0
@@ -365,7 +368,7 @@ end
 @inline function _sqrt_soc_residual(z:: AbstractVector{T}) where {T} 
     res = _soc_residual(z)
     # set res to 0 when z is not an interior point
-    @views res = res > 0.0 ? sqrt(res) : zero(T)
+    res = res > 0.0 ? sqrt(res) : zero(T)
 end 
 
 #compute the residual at z + \alpha dz 
@@ -408,6 +411,7 @@ function _step_length_soc_component(
     d = b^2 - 4*a*c
 
     if(c < 0)
+        # This should never be reachable since c ≥ 0 above
         throw(DomainError(c, "starting point of line search not in SOC"))
     end
 
