@@ -70,11 +70,11 @@ function test_MOI_standard()
         BRIDGED,
         MYCONFIG,
         # use `include` to single out a problem class
-        #include = String["test_conic_RotatedSecondOrderCone_INFEASIBLE_2"],
+        #include = String["test_conic_GeometricMeanCone_VectorOfVariables"],
         exclude = String[
             #these two tests fail intermittently depending on platform 
             #and MOI version.  They both converge to reasonable accuracy.
-            #"test_conic_GeometricMeanCone_VectorAffineFunction",
+            "test_conic_GeometricMeanCone_VectorOfVariables",
             #"test_constraint_qcp_duplicate_diagonal",
         ],
         # This argument is useful to prevent tests from failing on future
