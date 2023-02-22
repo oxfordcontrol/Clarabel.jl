@@ -88,16 +88,17 @@ function update_scaling!(
     if iszero(wscale)
         return is_scaling_success = false
     end
-    w  .= w ./ wscale
+    w ./= wscale
+   @views w[1] = sqrt(1 + dot(w[2:end],w[2:end]))
 
     #various intermediate calcs for u,v,d,η
     α  = 2*w[1]
-    β  = 2
 
     #Scalar d is the upper LH corner of the diagonal
     #term in the rank-2 update form of W^TW
-    wsq = dot(w,w)
-    K.d = 0.5  / wsq
+    wsq    = dot(w,w)
+    wsqinv = 1/wsq
+    K.d    = wsqinv / 2
 
     #the leading scalar term for W^TW
     K.η = sqrt(sscale/zscale)
@@ -107,10 +108,7 @@ function update_scaling!(
     u0  = sqrt(wsq - K.d)
     u1 = α/u0
     v0 = zero(T)
-
-    #PJG: 2*Kd = 1/wsq here.   Need to recheck 
-    #derivations here w.r.t ECOS paper
-    v1 = sqrt(2+2*K.d)/u0
+    v1 = sqrt( 2*(2 + wsqinv)/(2*wsq - wsqinv))
     
     K.u[1] = u0
     @views K.u[2:end] .= u1.*K.w[2:end]
@@ -149,11 +147,23 @@ function mul_Hs!(
 ) where {T}
 
     #PJG : maybe could be done faster than this
-    mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
-    mul_W!(K,:T,y,work,one(T),zero(T))    #y = c Wᵀwork = W^TWx
+     
+        if true
+            mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
+            mul_W!(K,:T,y,work,one(T),zero(T))    #y = c Wᵀwork = W^TWx
+     
+        else 
+            wsq      = dot(K.w,K.w)
+            @views ζ = dot(K.w[2:end],x[2:end])
 
-    return
+            y[1]  = wsq * x[1] + 2 * ζ * K.w[1]
+            @views y[2:end] = 2*(K.w[1]*x[1] + ζ).*K.w[2:end] .+ x[2:end]
 
+            y .*= K.η^2
+
+       end     
+
+    return nothing
 end
 
 # returns x = λ ∘ λ for the socone
@@ -187,23 +197,30 @@ function Δs_from_Δz_offset!(
     z::AbstractVector{T}
 ) where {T}
 
-    if false 
+    if true        
     #Wᵀ(λ \ ds)
-        _Δs_from_Δz_offset_symmetric!(K,out,ds,work);
+       _Δs_from_Δz_offset_symmetric!(K,out,ds,work)
 
     else    
-        #PJG: experimental alternative 
-        @views resz = z[1]^2 - dot(z[2:end],z[2:end])
+        #PJG: Alternative implementation.  Keeping it here 
+        #for reference, but it is not obviously more stable 
+        #than the simple implementation above  
+        resz = _soc_residual(z)
 
         @views λ1ds1  = dot(K.λ[2:end],ds[2:end])
         @views w1ds1  = dot(K.w[2:end],ds[2:end])
 
-        c = (K.λ[1]*ds[1] - λ1ds1)/resz
-        out[1]             = +c*z[1] + K.η*w1ds1
-        @views out[2:end] .= -c.*z[2:end] + K.η*(ds[2:end] + w1ds1/(1+K.w[1]).*K.w[2:end])
+        out[1] = z[1]
+        @views out[2:end] .= -z[2:end]
+  
+        c = (K.λ[1]*ds[1] - λ1ds1)
+        out .*= c/resz
+
+        out[1]              += K.η*w1ds1
+        @views out[2:end]  .+= K.η*(ds[2:end] + w1ds1/(1+K.w[1]).*K.w[2:end])
 
         out .*= (1/K.λ[1])
-    end    
+    end   
 
 end
 
@@ -266,10 +283,7 @@ function mul_W!(
   c = x[1] + ζ/(1+K.w[1])
 
   y[1] = α*K.η*(K.w[1]*x[1] + ζ) + β*y[1]
-
-  for i = 2:length(y)
-    y[i] = (α*K.η)*(x[i] + c*K.w[i]) + β*y[i]
-  end
+  @views y[2:end] .= (α*K.η)*(x[2:end] + c*K.w[2:end]) + β*y[2:end]
 
   return nothing
 end
@@ -357,9 +371,17 @@ end
 
 @inline function _soc_residual(z:: AbstractVector{T}) where {T} 
 
-    #PJG: (a-b)(b+a) method
-    #@views normz = norm(z[2:end])
-    #(z[1] - normz)*(z[1] + normz)
+    # # #PJG: (a-b)(b+a) method
+    # @views normz = norm(z[2:end])
+    # #return (z[1] - normz)*(z[1] + normz)
+
+    # #method 2
+    # an = z[1] / sqrt((length(z) - 1))
+    # out = zero(T)
+    # for j = 2:length(z)
+    #     out += (an - z[j])*(an + z[j])
+    # end
+    # out
 
     @views z[1]*z[1] - dot(z[2:end],z[2:end])
 end 
@@ -381,16 +403,7 @@ end
     
     x0 = z[1] + α * dz[1];
     @views x1_sq = dot_shifted(z[2:end],z[2:end],dz[2:end],dz[2:end],α)
-
-    #PJG: (a-b)(b+a) method
-    #normx1 = sqrt(x1_sq)
-    #res = (x0 - normx1)*(x0 + normx1)
-
     res = x0*x0 - x1_sq
-
-
-
-
     return res
 end 
 

@@ -192,7 +192,7 @@ function solve!(
 
         while true
 
-            variables_rescale!(s.variables)
+            #variables_rescale!(s.variables)
 
             #update the residuals
             #--------------
@@ -271,14 +271,6 @@ function solve!(
                 α = solver_get_step_length(s,:affine,scaling)
                 σ = _calc_centering_parameter(α)
 
-                # PJG: I don't understand what this does 
-                # or why it is here.   It also is not modular 
-                # since it requires knowledge of variable fields
-                if(iter <= 2)
-                    s.step_lhs.κ = 0.0
-                    s.step_rhs.τ = 0.0
-                end
-  
                 #calculate the combined step and length
                 #--------------
                 variables_combined_step_rhs!(

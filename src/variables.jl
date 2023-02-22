@@ -186,9 +186,9 @@ function _shift_to_cone_interior!(
 
     margin = unit_margin(cones,z,pd)
     nhood  = _sum_pos(z)/length(z)
-    nhood = 0.1*max(1.,nhood)
+    nhood  = 0.1*max(1.,nhood)
 
-    if margin <= 0
+    if margin <= 0  #at least some component is outside its cone
         #done in two stages since otherwise (1-α) = -α for
         #large α, which makes z exactly 0. (or worse, -0.0 )
         scaled_unit_shift!(cones,z,-margin, pd)

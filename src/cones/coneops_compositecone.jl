@@ -255,9 +255,8 @@ function step_length(
         
     #if we have any nonsymmetric cones, then back off from full steps slightly
     #so that centrality checks and logarithms don't fail right at the boundaries
-    #PJG: is this still necessary?
     if(!is_symmetric(cones))
-        α = min(α,0.99)
+        α = min(α,settings.max_step_fraction)
     end
 
     # Force asymmetric cones last.  
