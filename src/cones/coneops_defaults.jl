@@ -41,10 +41,16 @@ end
 # defined.   To define a new cone, you must
 # define implementations for each function below.
 
-# returns α such that z - α⋅e is just on the cone boundary 
+# returns (α,β) such that:
+# z - α⋅e is just on the cone boundary, with value
 # α >=0 indicates z \in cone, i.e. negative margin ===
-# outside of the cone .
-function unit_margin(
+# outside of the cone.
+#
+# β is the sum of the margins that are positive.   For most 
+# cones this will just be β = max(0.,α), but for cones that 
+# are composites (e.g. the R_n^+), it is the sum of all of 
+# the positive margin terms.
+function margins(
     K::AbstractCone{T},
     z::AbstractVector{T},
     pd::PrimalOrDualCone

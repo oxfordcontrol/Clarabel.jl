@@ -6,7 +6,7 @@ numel(K::PSDTriangleCone{T})  where {T} = K.numel    #number of elements
 degree(K::PSDTriangleCone{T}) where {T} = K.n        #side dimension, M \in \mathcal{S}^{n×n}
 
 
-function unit_margin(
+function margins(
     K::PSDTriangleCone{T},
     z::AbstractVector{T},
     pd::PrimalOrDualCone
@@ -14,8 +14,9 @@ function unit_margin(
 
     Z = K.work.workmat1
     _svec_to_mat!(Z,z,K)
-
-    return eigvals(Symmetric(Z),1:1)[1]  #min eigenvalue
+    α = eigvals(Symmetric(Z),1:1)[1]  #minimum eigenvalue
+    β = sum(eigvals(Symmetric(Z),0,floatmax(T)))  #sum of positive eigenvalues
+    (α,β)
     
 end
 

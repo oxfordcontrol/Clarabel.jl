@@ -160,43 +160,35 @@ function variables_symmetric_initialization!(
     settings::Settings{T}
 ) where {T}
 
-    min_margin  = (one(T) - settings.max_step_fraction)
+    thresh  = (one(T) - settings.max_step_fraction)
 
-    _shift_to_cone_interior!(variables.s, cones, min_margin, PrimalCone::PrimalOrDualCone)
-    _shift_to_cone_interior!(variables.z, cones, min_margin, DualCone::PrimalOrDualCone)
+    _shift_to_cone_interior!(variables.s, cones, thresh, PrimalCone::PrimalOrDualCone)
+    _shift_to_cone_interior!(variables.z, cones, thresh, DualCone::PrimalOrDualCone)
 
     variables.τ = 1
     variables.κ = 1
 end
 
-function _sum_pos(z::AbstractVector{T}) where {T}
-    out = zero(T)
-    for i in eachindex(z)
-            out += z[i] > 0 ? z[i] : 1.;
-    end
-    return out
-end
 
 function _shift_to_cone_interior!(
     z::AbstractVector{T},
     cones::CompositeCone{T},
-    min_margin::T,
+    thresh::T,
     pd::PrimalOrDualCone
 ) where {T}
 
-    margin = unit_margin(cones,z,pd)
-    nhood  = _sum_pos(z)/length(z)
-    nhood  = 0.1*max(1.,nhood)
+    (min_margin, pos_margin) = margins(cones,z,pd)
+    target  =  max(1.,0.1 * pos_margin / degree(cones))
 
-    if margin <= 0  #at least some component is outside its cone
+    if min_margin <= 0  #at least some component is outside its cone
         #done in two stages since otherwise (1-α) = -α for
         #large α, which makes z exactly 0. (or worse, -0.0 )
-        scaled_unit_shift!(cones,z,-margin, pd)
-        scaled_unit_shift!(cones,z, max(one(T),nhood), pd)
+        scaled_unit_shift!(cones,z,-min_margin, pd)
+        scaled_unit_shift!(cones,z, target, pd)
 
-    elseif margin < min_margin
-        #margin is positive but small.
-        scaled_unit_shift!(cones,z, nhood, pd)
+    elseif min_margin < target
+        #margin is positive but too small
+        scaled_unit_shift!(cones,z, target-min_margin, pd)
     
     else 
         #good margin, but still shift explicitly by 

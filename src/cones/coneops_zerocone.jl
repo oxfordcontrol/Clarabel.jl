@@ -23,17 +23,18 @@ function rectify_equilibration!(
     return false
 end
 
-function unit_margin(
+function margins(
     K::ZeroCone{T},
     z::AbstractVector{T},
     pd::PrimalOrDualCone
 ) where{T}
 
-    #for either case we specify infinite margin 
+    #for either primal or dual case we specify infinite 
+    #minimum margin and zero total margin.   
     #if we later shift a vector into the zero cone 
     #using scaled_unit_shift!, we just zero it 
     #out regardless of the applied shift anway 
-    return typemax(T)
+    return (floatmax(T),zero(T))
 end
 
 # place vector into zero cone

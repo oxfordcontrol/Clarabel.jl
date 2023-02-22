@@ -79,19 +79,20 @@ function rectify_equilibration!(
     return any_changed
 end
 
-# returns α such that z - α⋅e is just on the cone boundary 
-function unit_margin(
+function margins(
     cones::CompositeCone{T},
     z::ConicVector{T},
     pd::PrimalOrDualCone,
 ) where {T}
     α = typemax(T)
+    β = zero(T)
     for (cone,zi) in zip(cones,z.views)
-        @conedispatch αi = unit_margin(cone,zi,pd)
+        @conedispatch (αi,βi) = margins(cone,zi,pd)
         α = min(α,αi)
+        β += βi
     end
 
-    return α
+    return (α,β)
 end
 
 function scaled_unit_shift!(

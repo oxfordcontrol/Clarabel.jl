@@ -5,13 +5,15 @@
 #degree = 1 for SOC, since e'*e = 1
 degree(K::SecondOrderCone{T}) where {T} = 1
 
-function unit_margin(
+function margins(
     K::SecondOrderCone{T},
     z::AbstractVector{T},
     pd::PrimalOrDualCone
 ) where{T}
 
-    return z[1] - norm(z[2:end])
+    α = z[1] - norm(z[2:end])
+    β = max(zero(T),α)
+    (α,β)
 end
 
 # place vector into socone

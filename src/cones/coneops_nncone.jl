@@ -13,12 +13,22 @@ function rectify_equilibration!(
     return false
 end
 
-function unit_margin(
+function margins(
     K::NonnegativeCone{T},
     z::AbstractVector{T},
     pd::PrimalOrDualCone
 ) where{T}
-    return minimum(z)
+
+    α = minimum(z)
+
+    # total positive margin is the sum of the 
+    # nonnegative elements in the vector, since 
+    # we treat this as an n-times composition of R_+
+    β = zero(T)
+    for i in eachindex(z)
+            β += z[i] > 0 ? z[i] : 1.;
+    end
+    return (α,β)
 end
 
 # place vector into nn cone

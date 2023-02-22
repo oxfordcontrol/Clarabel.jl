@@ -17,13 +17,13 @@ FloatT = Float64
 
     end
 
-    @testset "test_coneops_bring_to_cone" begin
+    @testset "test_coneops_scaled_unit_shift" begin
 
         n = 5 
         s = randn(n)
         s[1] = -1.
         K = Clarabel.SecondOrderCone(5)
-        m = Clarabel.unit_margin(K,s,Clarabel.PrimalCone)
+        (m,_) = Clarabel.margins(K,s,Clarabel.PrimalCone)
         cor = m > 0. ? 0. : 1. -m
         Clarabel.scaled_unit_shift!(K,s,cor,Clarabel.PrimalCone)
         @test Clarabel._soc_residual(s) >= 0
@@ -36,9 +36,9 @@ FloatT = Float64
         K = Clarabel.SecondOrderCone(n)
         s = randn(n)
         z = randn(n)
-        mz = Clarabel.unit_margin(K,z,Clarabel.DualCone)
+        (mz,_) = Clarabel.margins(K,z,Clarabel.DualCone)
         corz = mz > 0. ? 0. : 1. -mz
-        ms = Clarabel.unit_margin(K,s,Clarabel.PrimalCone)
+        (ms,_) = Clarabel.margins(K,s,Clarabel.PrimalCone)
         cors = ms > 0. ? 0. : 1. -ms
         Clarabel.scaled_unit_shift!(K,z,corz,Clarabel.DualCone)
         Clarabel.scaled_unit_shift!(K,s,cors,Clarabel.PrimalCone)

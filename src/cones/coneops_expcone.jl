@@ -9,7 +9,7 @@ numel(K::ExponentialCone{T}) where {T} = dim(K)
 
 is_symmetric(::ExponentialCone{T}) where {T} = false
 
-function unit_margin(
+function margins(
     K::ExponentialCone{T},
     z::AbstractVector{T},
     pd::PrimalOrDualCone,

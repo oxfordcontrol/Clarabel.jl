@@ -9,7 +9,7 @@ numel(K::PowerCone{T}) where {T} = dim(K)
 
 is_symmetric(::PowerCone{T}) where {T} = false
 
-function unit_margin(
+function margins(
     K::PowerCone{T},
     z::AbstractVector{T},
     pd::PrimalOrDualCone
