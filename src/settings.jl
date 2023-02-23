@@ -123,7 +123,6 @@ Settings(args...) = Settings{DefaultFloat}(args...)
 
 function Settings(d::Dict)
 
-    println("Foo")
 	settings = Settings()
 	settings_populate!(settings,d)
     return settings
@@ -131,9 +130,8 @@ end
 
 
 function settings_populate!(settings::Settings, d::Dict)
-    println("Foo")
+    
     for (key, val) in d
-        println("Foo")
         setfield!(settings, Symbol(key), val)
     end
     return nothing

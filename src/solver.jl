@@ -192,8 +192,6 @@ function solve!(
 
         while true
 
-            #variables_rescale!(s.variables)
-
             #update the residuals
             #--------------
             residuals_update!(s.residuals,s.variables,s.data)
@@ -262,6 +260,10 @@ function solve!(
                     s.data, s.variables, s.cones, :affine
                 )
             end
+            if(iter <= 2)
+                println(s.step_lhs)
+                s.step_lhs.τ = 0.
+            end
 
             # combined step only on affine step success 
             if is_kkt_solve_success
@@ -270,6 +272,8 @@ function solve!(
                 #--------------
                 α = solver_get_step_length(s,:affine,scaling)
                 σ = _calc_centering_parameter(α)
+
+                println("alpha affine",α)
 
                 #calculate the combined step and length
                 #--------------
@@ -350,7 +354,7 @@ function solver_default_start!(s::Solver{T}) where {T}
         #solve for primal/dual initial points via KKT
         kkt_solve_initial_point!(s.kktsystem,s.variables,s.data)
         #fix up (z,s) so that they are in the cone
-        variables_symmetric_initialization!(s.variables, s.cones, s.settings)
+        variables_symmetric_initialization!(s.variables, s.cones)
 
     else
         #Assigns unit (z,s) and zeros the primal variables 

@@ -342,7 +342,6 @@ end
     @views z[1]*z[1] - dot(z[2:end],z[2:end])
 end 
 
-# alleviate numerical error
 @inline function _sqrt_soc_residual(z:: AbstractVector{T}) where {T} 
     res = _soc_residual(z)
     # set res to 0 when z is not an interior point
