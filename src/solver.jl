@@ -260,10 +260,6 @@ function solve!(
                     s.data, s.variables, s.cones, :affine
                 )
             end
-            if(iter <= 2)
-                println(s.step_lhs)
-                s.step_lhs.τ = 0.
-            end
 
             # combined step only on affine step success 
             if is_kkt_solve_success
@@ -273,14 +269,16 @@ function solve!(
                 α = solver_get_step_length(s,:affine,scaling)
                 σ = _calc_centering_parameter(α)
 
-                println("alpha affine",α)
+                #make a reduced Mehrotra correction in the first iteration
+                #to accommodate badly centred starting points
+                m = iter > 1 ? one(T) : α;
 
                 #calculate the combined step and length
                 #--------------
                 variables_combined_step_rhs!(
                     s.step_rhs, s.residuals,
                     s.variables, s.cones,
-                    s.step_lhs, σ, μ
+                    s.step_lhs, σ, μ, m
                 )
 
                 @timeit s.timers "kkt solve" begin

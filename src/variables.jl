@@ -128,18 +128,28 @@ function variables_combined_step_rhs!(
     cones::CompositeCone{T},
     step::DefaultVariables{T},
     σ::T,
-    μ::T
+    μ::T,
+    m::T,
 ) where {T}
 
     dotσμ = σ*μ
 
     @. d.x  = (one(T) - σ)*r.rx
        d.τ  = (one(T) - σ)*r.rτ
-       d.κ  = - dotσμ + step.τ * step.κ + variables.τ * variables.κ
+       d.κ  = - dotσμ + m * step.τ * step.κ + variables.τ * variables.κ
 
     # ds is different for symmetric and asymmetric cones:
     # Symmetric cones: d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
     # Asymmetric cones: d.s = s + σμ*g(z)
+
+    # we want to scale the Mehotra correction in the symmetric 
+    # case by M, so just scale step_z by M.  This is an unnecessary
+    # vector operation (since it amounts to M*z'*s), but it 
+    # doesn't happen very often 
+    if (m != one(T))
+        step.z .*= m
+    end
+
     combined_ds_shift!(cones,d.z,step.z,step.s,dotσμ)
 
     #We are relying on d.s = affine_ds already here
