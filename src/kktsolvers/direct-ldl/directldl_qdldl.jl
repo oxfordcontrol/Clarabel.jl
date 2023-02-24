@@ -22,7 +22,7 @@ struct QDLDLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
             regularize_eps   = settings.dynamic_regularization_eps,
             regularize_delta = settings.dynamic_regularization_delta,
             logical          = true,
-            amd_dense_scale  = 1.5,
+            amd_dense_scale  = T(1.5),
         )
 
         return new(factors)
