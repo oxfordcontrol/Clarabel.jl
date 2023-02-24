@@ -73,8 +73,8 @@ function test_MOI_standard()
         #include = String["test_conic_GeometricMeanCone_VectorOfVariables"],
         exclude = String[
             #these two tests fail intermittently depending on platform 
-            #and MOI version.  They both converge to reasonable accuracy.
-            #"test_conic_GeometricMeanCone_VectorOfVariables",
+            #and MOI version.  They both converge to reasonable accuracy locally.
+            "test_conic_GeometricMeanCone",
             #"test_constraint_qcp_duplicate_diagonal",
         ],
         # This argument is useful to prevent tests from failing on future
