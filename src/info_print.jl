@@ -121,7 +121,7 @@ function print_settings(settings::Settings, T::DataType)
         set.max_step_fraction,
     )
     #
-    @printf("  tol_feas = %0.1e, tol_abs = %0.1e, tol_rel = %0.1e,\n",
+    @printf("  tol_feas = %0.1e, tol_gap_abs = %0.1e, tol_gap_rel = %0.1e,\n",
         set.tol_feas,
         set.tol_gap_abs,
         set.tol_gap_rel

@@ -13,19 +13,33 @@ function rectify_equilibration!(
     return false
 end
 
-# place vector into nn cone
-function shift_to_cone!(
+function margins(
     K::NonnegativeCone{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    pd::PrimalOrDualCone
 ) where{T}
 
-    thresh = sqrt(eps(T))
+    α = minimum(z)
 
-    # do this elementwise, otherwise splitting a nonnegative cone 
-    # into multiple small cones will give us a different solution 
-    for i in eachindex(z) 
-        z[i] = z[i] < thresh ? one(T) : z[i]
+    # total positive margin is the sum of the 
+    # nonnegative elements in the vector, since 
+    # we treat this as an n-times composition of R_+
+    β = zero(T)
+    for i in eachindex(z)
+            β += z[i] > 0 ? z[i] : 0.;
     end
+    return (α,β)
+end
+
+# place vector into nn cone
+function scaled_unit_shift!(
+    K::NonnegativeCone{T},
+    z::AbstractVector{T},
+    α::T,
+    pd::PrimalOrDualCone
+) where{T}
+
+    @. z += α 
 
     return nothing
 end
@@ -64,7 +78,7 @@ function update_scaling!(
     @. K.λ = sqrt(s*z)
     @. K.w = sqrt(s/z)
 
-    return nothing
+    return is_scaling_success = true
 end
 
 function get_Hs!(
@@ -119,11 +133,11 @@ end
 function Δs_from_Δz_offset!(
     K::NonnegativeCone{T},
     out::AbstractVector{T},
-    rs::AbstractVector{T},
-    work::AbstractVector{T}
+    ds::AbstractVector{T},
+    work::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
-
-    _Δs_from_Δz_offset_symmetric!(K,out,rs,work);
+    @. out = ds / z
 end
 
 #return maximum allowable step length while remaining in the nn cone
@@ -170,18 +184,6 @@ end
 # ---------------------------------------------
 # operations supported by symmetric cones only 
 # ---------------------------------------------
-
-# implements y = y + αe for the nn cone
-function add_scaled_e!(
-    K::NonnegativeCone{T},
-    x::AbstractVector{T},α::T
-) where {T}
-
-    #e is a vector of ones, so just shift
-    @. x += α
-
-    return nothing
-end
 
 # implements y = αWx + βy for the nn cone
 function mul_W!(

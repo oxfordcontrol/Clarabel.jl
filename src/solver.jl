@@ -222,13 +222,20 @@ function solve!(
                 end
             end # allows continuation if new strategy provided
 
+            
+            #update the scalings
+            #--------------
+            is_scaling_success = variables_scale_cones!(s.variables,s.cones,μ,scaling)
+            # check whether variables are interior points
+            (action,scaling) = _strategy_checkpoint_is_scaling_success(s,is_scaling_success,scaling)
+            if action === Fail;  break;
+            else ();  # we only expect NoUpdate or Fail here
+            end
+                
+
             #increment counter here because we only count
             #iterations that produce a KKT update 
             iter += 1
-
-            #update the scalings
-            #--------------
-            variables_scale_cones!(s.variables,s.cones,μ,scaling)
 
 
             #Update the KKT system and the constant parts of its solution.
@@ -261,13 +268,17 @@ function solve!(
                 #--------------
                 α = solver_get_step_length(s,:affine,scaling)
                 σ = _calc_centering_parameter(α)
-  
+
+                #make a reduced Mehrotra correction in the first iteration
+                #to accommodate badly centred starting points
+                m = iter > 1 ? one(T) : α;
+
                 #calculate the combined step and length
                 #--------------
                 variables_combined_step_rhs!(
                     s.step_rhs, s.residuals,
                     s.variables, s.cones,
-                    s.step_lhs, σ, μ
+                    s.step_lhs, σ, μ, m
                 )
 
                 @timeit s.timers "kkt solve" begin
@@ -443,7 +454,7 @@ function _strategy_checkpoint_small_step(s::Solver{T}, α::T, scaling::ScalingSt
         scaling == PrimalDual::ScalingStrategy && α < s.settings.min_switch_step_length
         return (Update::StrategyCheckpoint, Dual::ScalingStrategy)
 
-    elseif α <= min(zero(T), s.settings.min_terminate_step_length)
+    elseif α <= max(zero(T), s.settings.min_terminate_step_length)
         s.info.status = INSUFFICIENT_PROGRESS
         return (Fail::StrategyCheckpoint,scaling)
 
@@ -452,6 +463,14 @@ function _strategy_checkpoint_small_step(s::Solver{T}, α::T, scaling::ScalingSt
     end 
 end 
 
+function _strategy_checkpoint_is_scaling_success(s::Solver{T}, is_scaling_success::Bool, scaling::ScalingStrategy) where {T}
+    if is_scaling_success
+        return (NoUpdate::StrategyCheckpoint,scaling)
+    else
+        s.info.status = NUMERICAL_ERROR
+        return (Fail::StrategyCheckpoint,scaling)
+    end
+end
 
 # printing 
 

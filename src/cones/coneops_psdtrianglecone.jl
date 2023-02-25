@@ -6,24 +6,33 @@ numel(K::PSDTriangleCone{T})  where {T} = K.numel    #number of elements
 degree(K::PSDTriangleCone{T}) where {T} = K.n        #side dimension, M \in \mathcal{S}^{n×n}
 
 
-# place vector into sdp cone
-function shift_to_cone!(
+function margins(
     K::PSDTriangleCone{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    pd::PrimalOrDualCone
 ) where{T}
 
     Z = K.work.workmat1
     _svec_to_mat!(Z,z,K)
+    α = eigvals(Symmetric(Z),1:1)[1]  #minimum eigenvalue
+    β = sum(eigvals(Symmetric(Z),0,floatmax(T)))  #sum of positive eigenvalues
+    (α,β)
     
-    α = eigvals(Symmetric(Z),1:1)[1]  #min eigenvalue
+end
 
-    if(α < sqrt(eps(T)))
-        #done in two stages since otherwise (1-α) = -α for
-        #large α, which makes z exactly 0. (or worse, -0.0 )
-        add_scaled_e!(K,z,-α)
-        add_scaled_e!(K,z,one(T))
+# place vector into sdp cone
+function scaled_unit_shift!(
+    K::PSDTriangleCone{T},
+    z::AbstractVector{T},
+    α::T,
+    pd::PrimalOrDualCone
+) where{T}
+
+    #adds αI to the vectorized triangle,
+    #at elements [1,3,6....n(n+1)/2]
+    for k = 1:K.n
+        z[(k*(k+1))>>1] += α
     end
-
 
     return nothing
 end
@@ -35,16 +44,16 @@ function unit_initialization!(
     s::AbstractVector{T}
  ) where{T}
  
-     z .= zero(T)
-     s .= zero(T)
-     add_scaled_e!(K,z,one(T))
-     add_scaled_e!(K,s,one(T))
+    s .= zero(T)
+    z .= zero(T)
+
+    #Primal or Dual doesn't matter here
+    #since the cone is self dual anyway
+    scaled_unit_shift!(K,s,one(T),PrimalCone)
+    scaled_unit_shift!(K,z,one(T),DualCone)
  
     return nothing
  end
-
-
-
 
 
 
@@ -96,7 +105,7 @@ function update_scaling!(
     f.R    .= L1*(f.SVD.V)*f.Λisqrt
     f.Rinv .= f.Λisqrt*(f.SVD.U)'*L2'
 
-    return nothing
+    return is_scaling_success = true
 end
 
 function get_Hs!(
@@ -177,7 +186,8 @@ function Δs_from_Δz_offset!(
     K::PSDTriangleCone{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},
-    work::AbstractVector{T}
+    work::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     _Δs_from_Δz_offset_symmetric!(K,out,ds,work);
@@ -232,21 +242,7 @@ end
 # operations supported by symmetric cones only 
 # ---------------------------------------------
 
-# implements y = y + αe for the SDP cone
-function add_scaled_e!(
-    K::PSDTriangleCone{T},
-    x::AbstractVector{T},
-    α::T
-) where {T}
 
-    #adds αI to the vectorized triangle,
-    #at elements [1,3,6....n(n+1)/2]
-    for k = 1:K.n
-        x[(k*(k+1))>>1] += α
-    end
-
-    return nothing
-end
 
 # implements y = αWx + βy for the PSD cone
 function mul_W!(

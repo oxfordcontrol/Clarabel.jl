@@ -85,9 +85,7 @@ function variables_scale_cones!(
 	μ::T,
     scaling_strategy::ScalingStrategy
 ) where {T}
-
-    update_scaling!(cones,variables.s,variables.z,μ,scaling_strategy)
-    return nothing
+    return update_scaling!(cones,variables.s,variables.z,μ,scaling_strategy)
 end
 
 
@@ -130,18 +128,28 @@ function variables_combined_step_rhs!(
     cones::CompositeCone{T},
     step::DefaultVariables{T},
     σ::T,
-    μ::T
+    μ::T,
+    m::T,
 ) where {T}
 
     dotσμ = σ*μ
 
     @. d.x  = (one(T) - σ)*r.rx
        d.τ  = (one(T) - σ)*r.rτ
-       d.κ  = - dotσμ + step.τ * step.κ + variables.τ * variables.κ
+       d.κ  = - dotσμ + m * step.τ * step.κ + variables.τ * variables.κ
 
     # ds is different for symmetric and asymmetric cones:
     # Symmetric cones: d.s = λ ◦ λ + W⁻¹Δs ∘ WΔz − σμe
     # Asymmetric cones: d.s = s + σμ*g(z)
+
+    # we want to scale the Mehotra correction in the symmetric 
+    # case by M, so just scale step_z by M.  This is an unnecessary
+    # vector operation (since it amounts to M*z'*s), but it 
+    # doesn't happen very often 
+    if (m != one(T))
+        step.z .*= m
+    end
+
     combined_ds_shift!(cones,d.z,step.z,step.s,dotσμ)
 
     #We are relying on d.s = affine_ds already here
@@ -161,11 +169,42 @@ function variables_symmetric_initialization!(
     cones::CompositeCone{T}
 ) where {T}
 
-    shift_to_cone!(cones,variables.s)
-    shift_to_cone!(cones,variables.z)
+    _shift_to_cone_interior!(variables.s, cones, PrimalCone::PrimalOrDualCone)
+    _shift_to_cone_interior!(variables.z, cones, DualCone::PrimalOrDualCone)
 
     variables.τ = 1
     variables.κ = 1
+end
+
+
+function _shift_to_cone_interior!(
+    z::AbstractVector{T},
+    cones::CompositeCone{T},
+    pd::PrimalOrDualCone
+) where {T}
+    
+    (min_margin, pos_margin) = margins(cones,z,pd)
+    target  =  max(1.,0.1 * pos_margin / degree(cones))
+
+    if min_margin <= 0  #at least some component is outside its cone
+        #done in two stages since otherwise (1-α) = -α for
+        #large α, which makes z exactly 0. (or worse, -0.0 )
+        scaled_unit_shift!(cones,z,-min_margin, pd)
+        scaled_unit_shift!(cones,z, target, pd)
+
+    elseif min_margin < target
+        #margin is positive but too small
+        scaled_unit_shift!(cones,z, target-min_margin, pd)
+
+    else 
+        #good margin, but still shift explicitly by 
+        #zero to catch any elements in the zero cone 
+        #that need to be forced to zero 
+        scaled_unit_shift!(cones,z, zero(T), pd)
+    end
+
+    return nothing
+
 end
 
 
@@ -223,15 +262,13 @@ end
 
 function variables_rescale!(variables)
 
-    vars = variables
-    τ     = vars.τ
-    κ     = vars.κ
-    scale = max(τ,κ)
+    scale = max(variables.τ,variables.κ)
+    invscale = 1/scale;
     
-    vars.x ./= scale
-    vars.z.vec ./= scale
-    vars.s.vec ./= scale
-    vars.τ /= scale
-    vars.κ /= scale
+    variables.x .*= invscale
+    variables.z.vec .*= invscale
+    variables.s.vec .*= invscale
+    variables.τ *= invscale
+    variables.κ *= invscale
     
 end

@@ -89,7 +89,7 @@ FloatT = Float64
 
 
 
-    @testset "test_coneops_psdtrianglecone_add_scale_e!" begin
+    @testset "test_coneops_psdtrianglecone_scaled_unit_shift!" begin
 
         n = 5
         a = 0.12345
@@ -100,34 +100,10 @@ FloatT = Float64
 
         XplusaI = X + a*I(n)
         Clarabel._mat_to_svec!(x,X,K)
-        Clarabel.add_scaled_e!(K,x,a)
+        Clarabel.scaled_unit_shift!(K,x,a,Clarabel.PrimalCone)
         Clarabel._svec_to_mat!(X,x,K)
 
         @test norm(X - XplusaI) ≈ 0
-
-    end
-
-    @testset "test_coneops_psdtrianglecone_shift_to_cone!" begin
-
-        n = 5
-        K = Clarabel.PSDTriangleCone(n)
-
-        #X is negative definite.   Shift eigenvalues to 1
-        X = -randpsd(rng,n).*0
-        X = X - 1e-10*I(n)
-        x = zeros(K.numel)
-        Clarabel._mat_to_svec!(x,X,K)
-        Clarabel.shift_to_cone!(K,x)
-        Clarabel._svec_to_mat!(X,x,K)
-        @test minimum(eigvals(X)) ≈ 1
-
-        #X is positive definite.   eigenvalues should not change
-        X = randpsd(rng,n)
-        e = minimum(eigvals(X))
-        Clarabel._mat_to_svec!(x,X,K)
-        Clarabel.shift_to_cone!(K,x)
-        Clarabel._svec_to_mat!(X,x,K)
-        @test minimum(eigvals(X)) ≈ e
 
     end
 

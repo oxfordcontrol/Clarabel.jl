@@ -17,13 +17,15 @@ FloatT = Float64
 
     end
 
-    @testset "test_coneops_bring_to_cone" begin
+    @testset "test_coneops_scaled_unit_shift" begin
 
         n = 5 
         s = randn(n)
         s[1] = -1.
         K = Clarabel.SecondOrderCone(5)
-        Clarabel.shift_to_cone!(K,s)
+        (m,_) = Clarabel.margins(K,s,Clarabel.PrimalCone)
+        cor = m > 0. ? 0. : 1. -m
+        Clarabel.scaled_unit_shift!(K,s,cor,Clarabel.PrimalCone)
         @test Clarabel._soc_residual(s) >= 0
 
     end
@@ -34,8 +36,12 @@ FloatT = Float64
         K = Clarabel.SecondOrderCone(n)
         s = randn(n)
         z = randn(n)
-        Clarabel.shift_to_cone!(K,s)
-        Clarabel.shift_to_cone!(K,z)
+        (mz,_) = Clarabel.margins(K,z,Clarabel.DualCone)
+        corz = mz > 0. ? 0. : 1. -mz
+        (ms,_) = Clarabel.margins(K,s,Clarabel.PrimalCone)
+        cors = ms > 0. ? 0. : 1. -ms
+        Clarabel.scaled_unit_shift!(K,z,corz,Clarabel.DualCone)
+        Clarabel.scaled_unit_shift!(K,s,cors,Clarabel.PrimalCone)
         μ = dot(s,z)
         scaling = Clarabel.PrimalDual
 
@@ -65,14 +71,14 @@ FloatT = Float64
         end
 
         # W_B should be symmetric
-        @test norm(W_B-W_B') ≈ 0     atol = 1e-15
+        @test norm(W_B-W_B') ≈ 0     atol = 1e-14
 
-        #matrix and it's inverse should agree 
-        @test norm(W_B*W_Binv - I(n)) ≈ 0     atol = 1e-15
+        #matrix and its inverse should agree 
+        @test norm(W_B*W_Binv - I(n)) ≈ 0     atol = 1e-14
 
-        # square should agree with the directly constructed on
+        # square should agree with the directly constructed one
         W2_B = W_B*W_B
-        @test norm(W2_B-W2_A) ≈ 0     atol = 1e-15
+        @test norm(W2_B-W2_A) ≈ 0     atol = 1e-14
 
         
     end

@@ -79,15 +79,33 @@ function rectify_equilibration!(
     return any_changed
 end
 
-# place a vector to some nearby point in the cone
-function shift_to_cone!(
+function margins(
     cones::CompositeCone{T},
-    z::ConicVector{T}
+    z::ConicVector{T},
+    pd::PrimalOrDualCone,
+) where {T}
+    α = typemax(T)
+    β = zero(T)
+    for (cone,zi) in zip(cones,z.views)
+        @conedispatch (αi,βi) = margins(cone,zi,pd)
+        α = min(α,αi)
+        β += βi
+    end
+
+    return (α,β)
+end
+
+function scaled_unit_shift!(
+    cones::CompositeCone{T},
+    z::ConicVector{T},
+    α::T,
+    pd::PrimalOrDualCone
 ) where {T}
 
     for (cone,zi) in zip(cones,z.views)
-        @conedispatch shift_to_cone!(cone,zi)
+        @conedispatch scaled_unit_shift!(cone,zi,α,pd)
     end
+
     return nothing
 end
 
@@ -125,11 +143,15 @@ function update_scaling!(
 
     # update cone scalings by passing subview to each of
     # the appropriate cone types.
-    for (cone,si,zi) in zip(cones,s.views,z.views)
-        @conedispatch update_scaling!(cone,si,zi,μ,scaling_strategy)
+    for (cone,type,si,zi) in zip(cones,cones.types,s.views,z.views)
+        @conedispatch is_scaling_success = update_scaling!(cone,si,zi,μ,scaling_strategy)
+        # YC: currently, only check whether SOC variables are in the interior;
+        # we could extend the interior checkfor other cones
+        if !is_scaling_success
+            return is_scaling_success = false
+        end
     end
-
-    return nothing
+    return is_scaling_success = true
 end
 
 # The Hs block for each cone.
@@ -196,11 +218,12 @@ function Δs_from_Δz_offset!(
     cones::CompositeCone{T},
     out::ConicVector{T},
     ds::ConicVector{T},
-    work::ConicVector{T}
+    work::ConicVector{T},
+    z::ConicVector{T}
 ) where {T}
 
-    for (cone,outi,dsi,worki) in zip(cones,out.views,ds.views,work.views)
-        @conedispatch Δs_from_Δz_offset!(cone,outi,dsi,worki) 
+    for (cone,outi,dsi,worki,zi) in zip(cones,out.views,ds.views,work.views,z.views)
+        @conedispatch Δs_from_Δz_offset!(cone,outi,dsi,worki,zi) 
     end
 
     return nothing
@@ -233,13 +256,12 @@ function step_length(
         
     #if we have any nonsymmetric cones, then back off from full steps slightly
     #so that centrality checks and logarithms don't fail right at the boundaries
-    #PJG: is this still necessary?
     if(!is_symmetric(cones))
-        α = min(α,0.99)
+        α = min(α,settings.max_step_fraction)
     end
 
     # Force asymmetric cones last.  
-    for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
+    for (cone,dzi,dsi,zi,si) in zip(cones,dz,ds,z,s)
 
         if is_symmetric(cone) continue end
         @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)

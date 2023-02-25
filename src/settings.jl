@@ -16,24 +16,24 @@ verbose                                 | true      | verbose printing
 max\\_step\\_fraction                   | 0.99      | maximum interior point step length
 ||
 __Full Accuracy Settings__||
-tol\\_gap\\_abs                         | 1e-8      | absolute residual tolerance
-tol\\_gap\\_rel                         | 1e-8      | relative residual tolerance
-tol\\_feas                              | 1e-8      | feasibility check tolerance
-tol\\_infeas\\_abs						| 1e-8		| absolute infeasibility tolerance
-tol\\_infeas\\_rel						| 1e-8		| relative infeasibility tolerance
+tol\\_gap\\_abs                         | 1e-8      | absolute duality gap tolerance
+tol\\_gap\\_rel                         | 1e-8      | relative duality gap tolerance
+tol\\_feas                              | 1e-8      | feasibility check tolerance (primal and dual)
+tol\\_infeas\\_abs						| 1e-8		| absolute infeasibility tolerance (primal and dual)
+tol\\_infeas\\_rel						| 1e-8		| relative infeasibility tolerance (primal and dual)
 tol\\_ktratio                           | 1e-7      | κ/τ tolerance
 ||
 __Reduced Accuracy Settings__||
-reduced\\_tol\\_gap\\_abs               | 5e-5      | reduced absolute residual tolerance
-reduced\\_tol\\_gap\\_rel               | 5e-5      | reduced relative residual tolerance
-reduced\\_tol\\_feas                    | 1e-4      | reduced feasibility check tolerance
-reduced\\_tol\\_infeas_abs		        | 5e-5      | reduced absolute infeasibility tolerance
-reduced\\_tol\\_infeas_rel		        | 5e-5      | reduced relative infeasibility tolerance
+reduced\\_tol\\_gap\\_abs               | 5e-5      | reduced absolute duality gap tolerance
+reduced\\_tol\\_gap\\_rel               | 5e-5      | reduced relative duality gap tolerance
+reduced\\_tol\\_feas                    | 1e-4      | reduced feasibility check tolerance (primal and dual)
+reduced\\_tol\\_infeas_abs		        | 5e-5      | reduced absolute infeasibility tolerance (primal and dual)
+reduced\\_tol\\_infeas_rel		        | 5e-5      | reduced relative infeasibility tolerance (primal and dual)
 reduced\\_tol\\_ktratio                 | 1e-4      | reduced κ/τ tolerance
 ||
 __Data Equilibration Settings__||
 ||
-equilibrate\\_enable                    | true      | enable  data equilibration pre-scaling
+equilibrate\\_enable                    | true      | enable data equilibration pre-scaling
 equilibrate\\_max\\_iter                | 10        | maximum equilibration scaling iterations
 equilibrate\\_min\\_scaling             | 1e-4      | minimum equilibration scaling allowed
 equilibrate\\_max\\_scaling             | 1e+4      | maximum equilibration scaling allowed
@@ -62,7 +62,7 @@ iterative\\_refinement\\_stop\\_ratio   | 5.0       | iterative refinement stall
 """
 Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
-    max_iter::UInt32    	= 50
+    max_iter::UInt32    	= 200
     time_limit::Float64     = Inf
     verbose::Bool           = true
     max_step_fraction::T    = 0.99
@@ -73,7 +73,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     tol_feas::T             = 1e-8
 	tol_infeas_abs::T		= 1e-8
 	tol_infeas_rel::T		= 1e-8
-    tol_ktratio::T          = 1e-7
+    tol_ktratio::T          = 1e-6
 
     # reduced accuracy solution tolerances
     reduced_tol_gap_abs::T          = 5e-5
@@ -101,7 +101,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     #static regularization parameters
     static_regularization_enable::Bool    = true
-    static_regularization_constant::T     = 1e-7     
+    static_regularization_constant::T     = 1e-8     
     static_regularization_proportional::T = eps()^2 
 
     #dynamic regularization parameters
@@ -111,11 +111,11 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     #iterative refinement
     iterative_refinement_enable::Bool   = true
-    iterative_refinement_reltol::T      = 1e-12      
+    iterative_refinement_reltol::T      = 1e-13      
     iterative_refinement_abstol::T      = 1e-12 
 
     iterative_refinement_max_iter::Int  = 10
-    iterative_refinement_stop_ratio::T  = 5        
+    iterative_refinement_stop_ratio::T  = 5       
 
 end
 
@@ -130,6 +130,7 @@ end
 
 
 function settings_populate!(settings::Settings, d::Dict)
+    
     for (key, val) in d
         setfield!(settings, Symbol(key), val)
     end
