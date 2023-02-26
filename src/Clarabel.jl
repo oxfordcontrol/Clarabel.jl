@@ -1,11 +1,7 @@
 __precompile__()
 module Clarabel
 
-<<<<<<< HEAD
-    using SparseArrays, LinearAlgebra, MathOptInterface, Printf
-=======
     using SparseArrays, LinearAlgebra, Printf, Requires
->>>>>>> 50b0c6e84cea80d868998d89b7fc7c84aedc7170
     const DefaultFloat = Float64
     const DefaultInt   = LinearAlgebra.BlasInt
     const IdentityMatrix = UniformScaling{Bool}
