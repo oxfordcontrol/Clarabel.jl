@@ -107,6 +107,8 @@ function update_scaling!(
     @inbounds for i = 1:dim
         K.z[i] = z[i]
     end
+
+    return is_scaling_success = true
 end
 
 # YC: may need to _allocate_kkt_Hsblocks()
@@ -197,7 +199,8 @@ function Δs_from_Δz_offset!(
     K::EntropyCone{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},
-    work::AbstractVector{T}
+    work::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     @inbounds for i = 1:K.dim

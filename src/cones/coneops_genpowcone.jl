@@ -77,6 +77,8 @@ function update_scaling!(
     @inbounds for i = 1:dim
         K.z[i] = z[i]
     end
+
+    return is_scaling_success = true
 end
 
 function Hs_is_diagonal(
@@ -169,7 +171,8 @@ function Δs_from_Δz_offset!(
     K::GenPowerCone{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},
-    work::AbstractVector{T}
+    work::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     @inbounds for i = 1:K.dim
