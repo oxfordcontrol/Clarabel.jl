@@ -17,7 +17,7 @@
     #shift vector used as workspace for a few steps 
     tmp = shift              
 
-     #Δz <- Wdz
+     #Δz <- WΔz
     tmp .= step_z         
     mul_W!(K,:N,step_z,tmp,one(T),zero(T))        
 
@@ -26,8 +26,10 @@
     mul_Winv!(K,:T,step_s,tmp,one(T),zero(T))      
 
     #shift = W⁻¹Δs ∘ WΔz - σμe
-    circ_op!(K,shift,step_s,step_z)                 
-    add_scaled_e!(K,shift,-σμ)                       
+    circ_op!(K,shift,step_s,step_z)         
+    
+    #cone will be self dual, so Primal/Dual not important
+    scaled_unit_shift!(K,shift,-σμ,PrimalCone::PrimalOrDualCone)                         
 
     return nothing
 end

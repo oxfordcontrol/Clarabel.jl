@@ -94,6 +94,7 @@ mutable struct Optimizer{T} <: MOI.AbstractOptimizer
     solver_info::Union{Nothing,Clarabel.DefaultInfo{T}}
     solver_solution::Union{Nothing,Clarabel.DefaultSolution{T}}
     solver_nvars::Union{Nothing,Int}
+    use_quad_obj::Bool
     sense::MOI.OptimizationSense
     objconstant::T
     rowranges::Dict{Int, UnitRange{Int}}
@@ -105,10 +106,11 @@ mutable struct Optimizer{T} <: MOI.AbstractOptimizer
         solver_info     = nothing
         solver_solution = nothing
         solver_nvars    = nothing
+        use_quad_obj    = true
         sense = MOI.MIN_SENSE
         objconstant = zero(T)
         rowranges = Dict{Int, UnitRange{Int}}()
-        optimizer = new(solver_module,solver,solver_settings,solver_info,solver_solution,solver_nvars,sense,objconstant,rowranges)
+        optimizer = new(solver_module,solver,solver_settings,solver_info,solver_solution,solver_nvars,use_quad_obj,sense,objconstant,rowranges)
         for (key, value) in user_settings
             MOI.set(optimizer, MOI.RawOptimizerAttribute(string(key)), value)
         end
@@ -227,10 +229,27 @@ MOI.set(opt::Optimizer, ::MOI.Silent, v::Bool) = (opt.solver_settings.verbose = 
 
 
 MOI.supports(::Optimizer, ::MOI.RawOptimizerAttribute) = true
-MOI.get(opt::Optimizer, param::MOI.RawOptimizerAttribute) =
-    getproperty(opt.solver_settings, Symbol(param.name))
-MOI.set(opt::Optimizer, param::MOI.RawOptimizerAttribute, value) =
-    setproperty!(opt.solver_settings, Symbol(param.name), value)
+
+function MOI.get(opt::Optimizer, param::MOI.RawOptimizerAttribute)
+
+    #catch wrapper level attributes.  #otherwise pass to solver
+    if(param.name ==  "use_quad_obj")
+        return opt.use_quad_obj
+    else
+        return getproperty(opt.solver_settings, Symbol(param.name))
+    end
+end
+
+
+function MOI.set(opt::Optimizer, param::MOI.RawOptimizerAttribute, value) 
+
+    #catch wrapper level attributes.  #otherwise pass to solver
+    if(param.name ==  "use_quad_obj")
+        opt.use_quad_obj = value
+    else
+        setproperty!(opt.solver_settings, Symbol(param.name), value)
+    end
+end
 
 MOI.supports(::Optimizer, ::MOI.VariablePrimal) = true
 function MOI.get(opt::Optimizer, a::MOI.VariablePrimal, vi::MOI.VariableIndex)
@@ -318,13 +337,23 @@ end
 # supported objective functions
 #------------------------------
 
-MOI.supports(
-    ::Optimizer{T},
+function MOI.supports(
+    opt::Optimizer{T},
     ::MOI.ObjectiveFunction{<:Union{
        MOI.ScalarAffineFunction{T},
+    }}
+) where {T} 
+    true
+end
+
+function MOI.supports(
+    opt::Optimizer{T},
+    ::MOI.ObjectiveFunction{<:Union{
        MOI.ScalarQuadraticFunction{T},
     }}
-) where {T} = true
+) where {T}
+    opt.use_quad_obj
+end
 
 
 #------------------------------

@@ -3,7 +3,7 @@ import Statistics: mean
 ## -------------------------------------------
 # Default implementations for cone operations
 # --------------------------------------------
-
+ 
 # degree of the cone is the same as dimension
 # and numel by default.   Degree is different
 # for the zero cone and SOC (0 and 1, respectively)
@@ -41,11 +41,29 @@ end
 # defined.   To define a new cone, you must
 # define implementations for each function below.
 
-# functions relating to unit vectors and cone initialization
-
-function shift_to_cone!(
+# returns (α,β) such that:
+# z - α⋅e is just on the cone boundary, with value
+# α >=0 indicates z \in cone, i.e. negative margin ===
+# outside of the cone.
+#
+# β is the sum of the margins that are positive.   For most 
+# cones this will just be β = max(0.,α), but for cones that 
+# are composites (e.g. the R_n^+), it is the sum of all of 
+# the positive margin terms.
+function margins(
     K::AbstractCone{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    pd::PrimalOrDualCone
+) where{T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end
+
+function scaled_unit_shift!(
+    K::AbstractCone{T},
+    z::AbstractVector{T},
+    α::T
 ) where{T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -79,6 +97,8 @@ function update_scaling!(
     μ::T,
     scaling_strategy::ScalingStrategy
 ) where {T}
+
+    #NB: should return bool:  `true` on success.
 
     error("Incomplete cone operation specification: ",typeof(K))
 
@@ -183,6 +203,7 @@ function Δs_from_Δz_offset!(
     out::AbstractVector{T},
     ds::AbstractVector{T},
     work::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
@@ -221,16 +242,6 @@ end
 # ---------------------------------------------
 # operations supported by symmetric cones only 
 # ---------------------------------------------
-
-# Add the scaled identity element e
-function add_scaled_e!(
-    K::AbstractCone{T},
-    x::AbstractVector{T},α::T
-) where {T}
-
-    error("Incomplete cone operation specification: ",typeof(K))
-
-end
 
 # implements y = αWx + βy
 function mul_W!(

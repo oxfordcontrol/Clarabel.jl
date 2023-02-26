@@ -430,19 +430,26 @@ function  _iterative_refinement(
 
         #prospective solution is x + dx.   Use dx space to
         #hold it for a check before applying to x
-        ξ = dx
-        @. ξ += x
-        norme = _get_refine_error!(e,b,KKTsym,ξ)
+        @. dx += x
+        norme = _get_refine_error!(e,b,KKTsym,dx)
 
-        if(lastnorme/norme <  IR_stopratio)
+        improved_ratio = lastnorme/norme
+        if(improved_ratio <  IR_stopratio)
             #insufficient improvement.  Exit
+            if (improved_ratio > one(T))
+                (x,dx) = (dx,x)   #pointer swap
+            end
             break
-        else
-            @. x = ξ  #PJG: pointer swap might be faster
         end
+        (x,dx) = (dx,x)           #pointer swap
     end
 
-    #NB: "success" means only we had a finite valued result
+    # make sure kktsolver fields now point to the right place
+    # following possible swaps.   This is not necessary in the
+    # Rust implementation since implementation there is via borrow
+    (kktsolver.x,kktsolver.work2) = (x,dx)
+ 
+    #NB: "success" means only that we had a finite valued result
     return is_success = true
 end
 

@@ -94,22 +94,32 @@ function kkt_solve_initial_point!(
     data::DefaultProblemData{T}
 ) where{T}
 
-    # solve with [0;b] as a RHS to get (x,s) initializers
-    # zero out any sparse cone variables at end
-    kktsystem.workx .= zero(T)
-    kktsystem.workz .= data.b
-    kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
-    is_success = kktsolver_solve!(kktsystem.kktsolver, variables.x, variables.s)
+    if iszero(nnz(data.P))
+        # LP initialization
+        # solve with [0;b] as a RHS to get (x,s) initializers
+        # zero out any sparse cone variables at end
+        kktsystem.workx .= zero(T)
+        kktsystem.workz .= data.b
+        kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
+        is_success = kktsolver_solve!(kktsystem.kktsolver, variables.x, variables.s)
 
-    if !is_success return is_success end
+        if !is_success return is_success end
 
-    # solve with [-q;0] as a RHS to get z initializer
-    # zero out any sparse cone variables at end
-    @. kktsystem.workx = -data.q
-    kktsystem.workz .=  zero(T)
+        # solve with [-q;0] as a RHS to get z initializer
+        # zero out any sparse cone variables at end
+        @. kktsystem.workx = -data.q
+        kktsystem.workz .=  zero(T)
 
-    kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
-    is_success = kktsolver_solve!(kktsystem.kktsolver, nothing, variables.z)
+        kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
+        is_success = kktsolver_solve!(kktsystem.kktsolver, nothing, variables.z)
+    else
+        # QP initialization
+        @. kktsystem.workx = -data.q
+        @. kktsystem.workz = data.b
+        kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
+        is_success = kktsolver_solve!(kktsystem.kktsolver, variables.x, variables.z)
+        @. variables.s = -variables.z
+    end
 
     return is_success
 
@@ -143,7 +153,7 @@ function kkt_solve!(
 
     else  #:combined expected, but any general RHS should do this
         #we can use the overall LHS output as additional workspace for the moment
-        Δs_from_Δz_offset!(cones,Δs_const_term,rhs.s,lhs.z)
+        Δs_from_Δz_offset!(cones,Δs_const_term,rhs.s,lhs.z,variables.z)
     end
 
     @. workz = Δs_const_term - rhs.z

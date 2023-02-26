@@ -8,13 +8,21 @@ struct QDLDLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
 
         dim = LinearAlgebra.checksquare(KKT)
 
+        # occasionally we find that the default AMD parameters give a bad ordering, particularly 
+        # for some big matrices.  In particular, KKT conditions for QPs are sometimes worse 
+        # than their SOC counterparts for very large problems.   This is because the SOC form
+        # is artificially "big", with extra rows, so the dense row threshold is effectively a 
+        # different value.   We fix a bit more generous AMD_DENSE here, which should perhaps 
+        # be user-settable.  
+
         #make a logical factorization to fix memory allocations
         factors = QDLDL.qdldl(
             KKT;
             Dsigns = Dsigns,
             regularize_eps   = settings.dynamic_regularization_eps,
             regularize_delta = settings.dynamic_regularization_delta,
-            logical          = true
+            logical          = true,
+            amd_dense_scale  = T(1.5),
         )
 
         return new(factors)

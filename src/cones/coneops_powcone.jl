@@ -9,9 +9,23 @@ numel(K::PowerCone{T}) where {T} = dim(K)
 
 is_symmetric(::PowerCone{T}) where {T} = false
 
-function shift_to_cone!(
+function margins(
     K::PowerCone{T},
-    z::AbstractVector{T}
+    z::AbstractVector{T},
+    pd::PrimalOrDualCone
+) where{T}
+
+    # We should never end up computing margins for this cone, since 
+    # asymmetric problems should always use unit_initialization!
+    error("This function should never be reached.");
+    # 
+end
+
+function scaled_unit_shift!(
+    K::PowerCone{T},
+    z::AbstractVector{T},
+    α::T,
+    pd::PrimalOrDualCone
 ) where{T}
 
     # We should never end up shifting to this cone, since 
@@ -67,6 +81,8 @@ function update_scaling!(
     @inbounds for i = 1:3
         K.z[i] = z[i]
     end
+
+    return is_scaling_success = true
 end
 
 function Hs_is_diagonal(
@@ -136,7 +152,8 @@ function Δs_from_Δz_offset!(
     K::PowerCone{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},
-    work::AbstractVector{T}
+    work::AbstractVector{T},
+    z::AbstractVector{T}
 ) where {T}
 
     @inbounds for i = 1:3

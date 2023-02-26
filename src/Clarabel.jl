@@ -1,6 +1,11 @@
+__precompile__()
 module Clarabel
 
+<<<<<<< HEAD
     using SparseArrays, LinearAlgebra, MathOptInterface, Printf
+=======
+    using SparseArrays, LinearAlgebra, Printf, Requires
+>>>>>>> 50b0c6e84cea80d868998d89b7fc7c84aedc7170
     const DefaultFloat = Float64
     const DefaultInt   = LinearAlgebra.BlasInt
     const IdentityMatrix = UniformScaling{Bool}
@@ -59,6 +64,17 @@ module Clarabel
     include("./utils/mathutils.jl")
     include("./utils/csc_assembly.jl")
 
+    #optional dependencies.  
+    #NB: This __init__ function and its @require statements 
+    #should be removed upon update of this package for use 
+    #with Julia v1.10+, after which weakdeps / external 
+    #dependencies will be natively supported 
+    function __init__()
+        @require Pardiso="46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2" begin
+            include("./kktsolvers/direct-ldl/directldl_mklpardiso.jl")  
+        end 
+    end
+
     #MathOptInterface for JuMP/Convex.jl
     module MOImodule
          include("./MOI_wrapper/MOI_wrapper.jl")
@@ -66,3 +82,4 @@ module Clarabel
     const Optimizer{T} = Clarabel.MOImodule.Optimizer{T}
 
 end
+

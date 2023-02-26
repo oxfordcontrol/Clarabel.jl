@@ -1,9 +1,9 @@
-import Pardiso
 using AMD
 
 struct PardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
 
     ps::Pardiso.MKLPardisoSolver
+    Kfake::SparseMatrixCSC{T}
 
     function PardisoDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
 
@@ -12,6 +12,11 @@ struct PardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
 
         #make our AMD ordering outside of the solver
         perm = amd(KKT)
+
+        #a fake version of K with no data but the right dimensions.
+        #required as a placeholder in calls to pardiso solves 
+        (m,n) = size(KKT)
+        Kfake = sparse([],[],T[],m,n)
 
         #make a pardiso object and perform logical factor
         ps = Pardiso.MKLPardisoSolver()
@@ -22,7 +27,7 @@ struct PardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
         Pardiso.set_perm!(ps, perm)
         Pardiso.pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSIS
 
-        return new(ps)
+        return new(ps,Kfake)
     end
 end
 
@@ -85,13 +90,13 @@ function solve!(
 
     ps  = ldlsolver.ps
 
-    #Bug here: I am not storing a local reference
-    #to KKT, and I don't think I actually need it anyway
-    #since this should be solve phase.   Can I pass a dummy?
-    #KKT = ldlsolver.KKT
-    KKTdummy = sparse([],[],T[],length(x),length(x))
+    #We don't need the KKT system here since it is already
+    #factored, but Pardiso still wants an argument with the 
+    #correct dimension.   It seems happy for us to pass a 
+    #placeholder with (almost) no data in it though.
+    Kfake = ldlsolver.Kfake
 
     Pardiso.set_phase!(ps, Pardiso.SOLVE_ITERATIVE_REFINE)
-    Pardiso.pardiso(ps, x, KKTdummy, b)
+    Pardiso.pardiso(ps, x, Kfake, b)
 
 end

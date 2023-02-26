@@ -10,7 +10,7 @@ Interior Point Conic Optimization for Julia
   <a href="https://codecov.io/gh/oxfordcontrol/Clarabel.jl"><img src="https://codecov.io/gh/oxfordcontrol/Clarabel.jl/branch/main/graph/badge.svg"></a>
   <a href="https://oxfordcontrol.github.io/ClarabelDocs/stable"><img src="https://img.shields.io/badge/Documentation-stable-purple.svg"></a>
   <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg"></a>
-  <a href="https://github.com/oxfordcontrol/Clarabel.jl/releases"><img src="https://img.shields.io/badge/Release-v0.3.0-blue.svg"></a>
+  <a href="https://github.com/oxfordcontrol/Clarabel.jl/releases"><img src="https://img.shields.io/badge/Release-v0.4.0-blue.svg"></a>
 </p>
 
 <p align="center">
@@ -58,4 +58,4 @@ Clarabel is also available in a Rust / Python implementation.  See [here](https:
 - __Clarabel.jl__ can be added via the Julia package manager (type `]`): `pkg> add Clarabel`
 
 ## License 🔍
-This project is licensed under the Apache License - see the [LICENSE.md](LICENSE.md) file for details.
+This project is licensed under the Apache License  2.0 - see the [LICENSE.md](LICENSE.md) file for details.
