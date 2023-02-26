@@ -58,4 +58,4 @@ Clarabel is also available in a Rust / Python implementation.  See [here](https:
 - __Clarabel.jl__ can be added via the Julia package manager (type `]`): `pkg> add Clarabel`
 
 ## License 🔍
-This project is licensed under the Apache License - see the [LICENSE.md](LICENSE.md) file for details.
+This project is licensed under the Apache License  2.0 - see the [LICENSE.md](LICENSE.md) file for details.
