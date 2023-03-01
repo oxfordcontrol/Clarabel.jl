@@ -23,12 +23,12 @@ function info_print_configuration(
     @printf("  nnz(P)        = %i\n", nnz(data.P))
     @printf("  nnz(A)        = %i\n", nnz(data.A))
     @printf("  cones (total) = %i\n", length(cones))
-    print_conedims_by_type(cones, ZeroConeT)
-    print_conedims_by_type(cones, NonnegativeConeT)
-    print_conedims_by_type(cones, SecondOrderConeT)
-    print_conedims_by_type(cones, PSDTriangleConeT)
-    print_conedims_by_type(cones, PowerConeT)
-    print_conedims_by_type(cones, ExponentialConeT)
+    print_conedims_by_type(cones, ZeroCone)
+    print_conedims_by_type(cones, NonnegativeCone)
+    print_conedims_by_type(cones, SecondOrderCone)
+    print_conedims_by_type(cones, PSDTriangleCone)
+    print_conedims_by_type(cones, PowerCone)
+    print_conedims_by_type(cones, ExponentialCone)
     print_settings(settings, T)
     @printf("\n")
 
@@ -176,8 +176,8 @@ function print_conedims_by_type(cones::CompositeCone{T}, type) where {T}
         return #don't report if none
     end
 
-    nvars = map(K->Clarabel.numel(K), cones[isa.(cones.cone_specs,type)])
-    name  = rpad(string(type)[1:end-5],11)  #drops "ConeT part"
+    nvars = map(K->Clarabel.numel(K), cones[isa.(cones,type)])
+    name  = rpad(string(type)[1:end-4],11)  #drops "Cone part"
     @printf("    : %s = %i, ", name, count)
 
     if count == 1

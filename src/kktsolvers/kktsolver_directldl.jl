@@ -47,7 +47,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
         #solving in sparse format.  Need this many
         #extra variables for SOCs
-        p = 2*cones.type_counts[SecondOrderConeT]
+        p = 2*cones.type_counts[SecondOrderCone]
 
         #LHS/RHS/work for iterative refinement
         x    = Vector{T}(undef,n+m+p)
@@ -212,14 +212,13 @@ function _kktsolver_update_inner!(
     #update the scaled u and v columns.
     cidx = 1        #which of the SOCs are we working on?
 
-    for (i,K) = enumerate(cones)
-        if isa(cones.cone_specs[i],SecondOrderConeT)
-
-            η2 = K.η^2
+    for (i,cone) = enumerate(cones)
+        if isa(cone,SecondOrderCone)
+            η2 = cone.η^2
 
             #off diagonal columns (or rows)
-            _update_values!(ldlsolver,KKT,map.SOC_u[cidx],K.u)
-            _update_values!(ldlsolver,KKT,map.SOC_v[cidx],K.v)
+            _update_values!(ldlsolver,KKT,map.SOC_u[cidx],cone.u)
+            _update_values!(ldlsolver,KKT,map.SOC_v[cidx],cone.v)
             _scale_values!(ldlsolver,KKT,map.SOC_u[cidx],-η2)
             _scale_values!(ldlsolver,KKT,map.SOC_v[cidx],-η2)
 
