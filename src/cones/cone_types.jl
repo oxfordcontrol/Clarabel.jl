@@ -239,7 +239,7 @@ PowerCone(args...) = PowerCone{DefaultFloat}(args...)
 A Dict that maps the user-facing SupportedCone types to
 the types used internally in the solver.   See [SupportedCone](@ref)
 """
-const ConeDict = Dict(
+const ConeDict = Dict{DataType,Type}(
            ZeroConeT => ZeroCone,
     NonnegativeConeT => NonnegativeCone,
     SecondOrderConeT => SecondOrderCone,

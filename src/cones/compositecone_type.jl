@@ -9,9 +9,8 @@ struct CompositeCone{T} <: AbstractCone{T}
     cones::Vector{AbstractCone{T}}
 
     #API type specs and count of each cone type
-    cone_specs::Vector{SupportedCone}
-    types::Vector{DataType}
-    type_counts::Dict{DataType,Int}
+    types::Vector{Type}
+    type_counts::Dict{Type,Int}
 
     #overall size of the composite cone
     numel::DefaultInt
@@ -37,9 +36,9 @@ struct CompositeCone{T} <: AbstractCone{T}
         types = Vector{DataType}(undef,ncones)
 
         #count the number of each cone type
-        type_counts = Dict{DataType,Int}()
-        for coneT in keys(ConeDict)
-            type_counts[coneT] = count(C->isa(C,coneT), cone_specs)
+        type_counts = Dict{Type,Int}()
+        for (key, val) in ConeDict
+            type_counts[val] = count(C->isa(C,key), cone_specs)
         end
 
         #assumed symmetric to start
@@ -68,7 +67,7 @@ struct CompositeCone{T} <: AbstractCone{T}
         headidx = Vector{Int}(undef,length(cones))
         _make_headidx!(headidx,cones)
 
-        return new(cones,cone_specs,types,type_counts,numel,degree,headidx,_is_symmetric)
+        return new(cones,types,type_counts,numel,degree,headidx,_is_symmetric)
     end
 end
 

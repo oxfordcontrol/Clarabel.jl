@@ -33,7 +33,7 @@ struct LDLDataMap
         Hsblocks = _allocate_kkt_Hsblocks(Int, cones)
 
         #now do the SOC expansion pieces
-        nsoc = cones.type_counts[Clarabel.SecondOrderConeT]
+        nsoc = cones.type_counts[Clarabel.SecondOrderCone]
         p    = 2*nsoc
         SOC_D = zeros(Int,p)
 
@@ -42,7 +42,7 @@ struct LDLDataMap
 
         count = 1;
         for (i,cone) in enumerate(cones)
-            if isa(cones.cone_specs[i],Clarabel.SecondOrderConeT)
+            if isa(cone,Clarabel.SecondOrderCone)
                 SOC_u[count] = Vector{Int}(undef,numel(cone))
                 SOC_v[count] = Vector{Int}(undef,numel(cone))
                 count += 1
@@ -83,7 +83,7 @@ function _assemble_kkt_matrix(
 ) where{T}
 
     (m,n)  = (size(A,1), size(P,1))
-    n_socs = cones.type_counts[Clarabel.SecondOrderConeT]
+    n_socs = cones.type_counts[Clarabel.SecondOrderCone]
     p = 2*n_socs
 
     maps = LDLDataMap(P,A,cones)
@@ -158,11 +158,11 @@ function _kkt_assemble_colcounts(
     #count dense columns for each SOC
     socidx = 1  #which SOC are we working on?
 
-    for i in eachindex(cones)
-        if isa(cones.cone_specs[i],Clarabel.SecondOrderConeT)
+    for (i,cone) in enumerate(cones)
+        if isa(cone,Clarabel.SecondOrderConeT)
 
             #we will add the u and v columns for this cone
-            nvars   = numel(cones[i])
+            nvars   = numel(cone)
             headidx = cones.headidx[i]
 
             #which column does u go into?
@@ -230,10 +230,10 @@ function _kkt_assemble_fill(
     #fill in dense columns for each SOC
     socidx = 1  #which SOC are we working on?
 
-    for i in eachindex(cones)
-        if isa(cones.cone_specs[i],Clarabel.SecondOrderConeT)
+    for (cone,i) in enumerate(cones)
+        if isa(cone,Clarabel.SecondOrderConeT)
 
-            nvars = numel(cones[i])
+            nvars = numel(cone)
             headidx = cones.headidx[i]
 
             #which column does u go into (if triu)?
