@@ -90,8 +90,13 @@ function setup!(
 
     @timeit s.timers "setup!" begin
 
+        #reduce the cone sizes.  (A,b) will be reduced 
+        #within the problem data constructor.
+        presolver = PreSolver(A,b,cones,s.settings)
+        cones     = reduce_cones(presolver,cones)
+
         s.cones  = CompositeCone{T}(cones)
-        s.data   = DefaultProblemData{T}(P,q,A,b,s.cones)
+        s.data   = DefaultProblemData{T}(P,q,A,b,s.cones,presolver)
         s.data.m == s.cones.numel || throw(DimensionMismatch())
 
         s.variables = DefaultVariables{T}(s.data.n,s.cones)

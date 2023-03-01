@@ -1,6 +1,8 @@
 __precompile__()
 module Clarabel
 
+    INFINITY = 1e20
+
     using SparseArrays, LinearAlgebra, Printf, Requires
     const DefaultFloat = Float64
     const DefaultInt   = LinearAlgebra.BlasInt

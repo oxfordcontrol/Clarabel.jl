@@ -24,13 +24,7 @@ struct CompositeCone{T} <: AbstractCone{T}
     # the flag for symmetric cone check
     _is_symmetric::Bool
 
-    function CompositeCone{T}(cone_specs::Vector{<:SupportedCone}) where {T}
-
-        #make copy to protect from user interference after setup,
-        #and explicitly cast as the abstract type.  This prevents
-        #errors arising from input vectors that are all the same cone,
-        #and therefore more concretely typed than we want
-        cone_specs = Vector{SupportedCone}(cone_specs)
+    function CompositeCone{T}(cone_specs::Vector{SupportedCone}) where {T}
 
         ncones = length(cone_specs)
         cones  = Vector{AbstractCone{T}}(undef,ncones)

@@ -47,7 +47,7 @@ struct NonnegativeCone{T} <: AbstractCone{T}
 
     function NonnegativeCone{T}(dim) where {T}
 
-        dim >= 1 || throw(DomainError(dim, "dimension must be positive"))
+        dim >= 0 || throw(DomainError(dim, "dimension must be nonnegative"))
         w = zeros(T,dim)
         λ = zeros(T,dim)
         return new(dim,w,λ)
