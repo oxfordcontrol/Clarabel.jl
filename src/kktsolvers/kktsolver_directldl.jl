@@ -214,7 +214,6 @@ function _kktsolver_update_inner!(
 
     for (i,cone) = enumerate(cones)
         if isa(cone,SecondOrderCone)
-
             η2 = cone.η^2
 
             #off diagonal columns (or rows)
