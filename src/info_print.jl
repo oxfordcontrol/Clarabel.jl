@@ -177,7 +177,7 @@ function print_conedims_by_type(cones::CompositeCone{T}, type) where {T}
     end
 
     nvars = map(K->Clarabel.numel(K), cones[isa.(cones,type)])
-    name  = rpad(string(type)[1:end-4],11)  #drops "Cone part"
+    name  = rpad(string(nameof(type))[1:end-4],11)  #drops "Cone" part
     @printf("    : %s = %i, ", name, count)
 
     if count == 1
