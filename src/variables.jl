@@ -225,41 +225,6 @@ function variables_unit_initialization!(
     return nothing
 end
 
-function variables_finalize!(
-    variables::DefaultVariables{T},
-    equil::DefaultEquilibration{T},
-    status::SolverStatus
-) where {T}
-
-    #undo the homogenization
-    #
-    #if we have an infeasible problem, normalize
-    #using κ to get an infeasibility certificate.
-    #Otherwise use τ to get a solution.
-    if(status == PRIMAL_INFEASIBLE || status == DUAL_INFEASIBLE)
-        scaleinv = one(T) / variables.κ
-    else
-        scaleinv = one(T) / variables.τ
-    end
-
-    @. variables.x *= scaleinv
-    @. variables.z *= scaleinv
-    @. variables.s *= scaleinv
-       variables.τ *= scaleinv
-       variables.κ *= scaleinv
-
-    #undo the equilibration
-    d = equil.d; dinv = equil.dinv
-    e = equil.e; einv = equil.einv
-    cscale = equil.c[]
-
-    @. variables.x *=  d
-    @. variables.z *=  e ./ cscale
-    @. variables.s *=  einv
-
-end
-
-
 function variables_rescale!(variables)
 
     scale = max(variables.τ,variables.κ)
