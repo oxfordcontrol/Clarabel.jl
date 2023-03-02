@@ -11,7 +11,8 @@ module Clarabel
     #it accessible only via the get/set provided
     let 
         INFINITY = 1e20
-        global set_infinity(v::Float64) = INFINITY =  v
+        global default_infinity() = INFINITY = 1e20
+        global set_infinity(v::Float64) = INFINITY =  Float64(v)
         global get_infinity() = INFINITY
     end 
     
