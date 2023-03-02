@@ -58,6 +58,8 @@ iterative\\_refinement\\_reltol         | 1e-12     | iterative refinement relat
 iterative\\_refinement\\_abstol         | 1e-12     | iterative refinement absolute tolerance
 iterative\\_refinement\\_max\\_iter     | 10        | iterative refinement maximum iterations
 iterative\\_refinement\\_stop\\_ratio   | 5.0       | iterative refinement stalling tolerance
+__Preprocessing Settings 
+presolve_enable                         | true      | enable presolve constraint reduction
 
 """
 Base.@kwdef mutable struct Settings{T <: AbstractFloat}
@@ -115,7 +117,10 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     iterative_refinement_abstol::T      = 1e-12 
 
     iterative_refinement_max_iter::Int  = 10
-    iterative_refinement_stop_ratio::T  = 5       
+    iterative_refinement_stop_ratio::T  = 5     
+    
+    #preprocessing 
+    presolve_enable::Bool               = true
 
 end
 

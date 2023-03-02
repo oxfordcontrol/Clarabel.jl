@@ -1,7 +1,10 @@
 __precompile__()
 module Clarabel
 
-    INFINITY = 1e20
+    #internal constraint RHS limits 
+    const INFINITY = Ref{Float64}(1e20)
+    set_infinity(v::Float64) = Clarabel.INFINITY[] =  v
+    get_infinity() = Clarabel.INFINITY[]
 
     using SparseArrays, LinearAlgebra, Printf, Requires
     const DefaultFloat = Float64
@@ -22,6 +25,7 @@ module Clarabel
     include("./settings.jl")
     include("./conicvector.jl")
     include("./statuscodes.jl")
+    include("./presolver.jl")
     include("./types.jl")
     include("./variables.jl")
     include("./residuals.jl")

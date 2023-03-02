@@ -160,31 +160,53 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     normq::T
     normb::T
 
+    presolver::PreSolver{T}
+
     function DefaultProblemData{T}(
         P::AbstractMatrix{T},
         q::AbstractVector{T},
         A::AbstractMatrix{T},
         b::AbstractVector{T},
-        cones::CompositeCone{T}
+        cones::CompositeCone{T},
+        presolver::PreSolver{T}
     ) where {T}
 
         # dimension checks will have already been
         # performed during problem setup, so skip here
-        (m,n) = size(A)
 
         #take an internal copy of all problem
         #data, since we are going to scale it
         P = triu(P)
-        A = deepcopy(A)
         q = deepcopy(q)
-        b = deepcopy(b)
+
+        #for A,b, we row reduce here        
+        if !is_reduced(presolver)
+            A = deepcopy(A)
+            b = deepcopy(b)
+        else 
+            A = A[presolver.reduce_idx,:]
+            b = b[presolver.reduce_idx]
+        end 
+
+        #cap entries in b at INFINITY.  This is important 
+        #for inf values that were not in a reduced cone
+        if !is_reduced(presolver)
+            @. b[!presolver.finite_idx] = T(Clarabel.get_infinity()) 
+        else
+            for (i,ilift) in enumerate(presolver.lift_map)
+                b[i] = presolver.finite_idx[ilift] ? b[i] : T(Clarabel.get_infinity())
+            end
+        end
+
+        #this ensures m is the *reduced* size m
+        (m,n) = size(A)
 
         equilibration = DefaultEquilibration{T}(n,cones)
 
         normq = norm(q, Inf)
         normb = norm(b, Inf)
 
-        new(P,q,A,b,n,m,equilibration,normq,normb)
+        new(P,q,A,b,n,m,equilibration,normq,normb,presolver)
 
     end
 

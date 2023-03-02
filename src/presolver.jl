@@ -32,7 +32,7 @@ mutable struct PreSolver{T}
         cone_specs = Vector{SupportedCone}(cone_specs)
 
         mfull = length(b)
-        finite_idx = b .< Clarabel.INFINITY
+        finite_idx = b .< T(Clarabel.get_infinity()) * (1-eps(T))
         count_finite = count(finite_idx)
 
         if !settings.presolve_enable || count_finite == mfull 

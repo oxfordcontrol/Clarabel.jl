@@ -17,6 +17,10 @@ function info_print_configuration(
 
     if(settings.verbose == false) return end
 
+    if(is_reduced(data.presolver))
+        @printf("\npresolve: removed %i constraints\n", count_reduced(data.presolver))
+    end 
+
     @printf("\nproblem:\n")
     @printf("  variables     = %i\n", data.n)
     @printf("  constraints   = %i\n", data.m)
