@@ -1,16 +1,20 @@
 __precompile__()
 module Clarabel
 
-    #internal constraint RHS limits 
-    const INFINITY = Ref{Float64}(1e20)
-    set_infinity(v::Float64) = Clarabel.INFINITY[] =  v
-    get_infinity() = Clarabel.INFINITY[]
-
     using SparseArrays, LinearAlgebra, Printf, Requires
     const DefaultFloat = Float64
     const DefaultInt   = LinearAlgebra.BlasInt
     const IdentityMatrix = UniformScaling{Bool}
 
+    #internal constraint RHS limits.  This let block 
+    #hides the INFINITY field in the module and makes 
+    #it accessible only via the get/set provided
+    let 
+        INFINITY = 1e20
+        global set_infinity(v::Float64) = INFINITY =  v
+        global get_infinity() = INFINITY
+    end 
+    
     #version / release info
     include("./version.jl")
 
