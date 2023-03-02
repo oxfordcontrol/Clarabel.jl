@@ -190,13 +190,7 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
 
         #cap entries in b at INFINITY.  This is important 
         #for inf values that were not in a reduced cone
-        if !is_reduced(presolver)
-            @. b[!presolver.finite_idx] = T(Clarabel.get_infinity()) 
-        else
-            for (i,ilift) in enumerate(presolver.lift_map)
-                b[i] = presolver.finite_idx[ilift] ? b[i] : T(Clarabel.get_infinity())
-            end
-        end
+        @. b .= min(b,T(Clarabel.get_infinity()))
 
         #this ensures m is the *reduced* size m
         (m,n) = size(A)

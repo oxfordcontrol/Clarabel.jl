@@ -3,9 +3,6 @@ mutable struct PreSolver{T}
     # possibly reduced internal copy of user cone specification
     cone_specs::Vector{SupportedCone}
 
-    # these entries in b are finite 
-    finite_idx::BitVector
-
     # vector of length = original RHS.   Entries are 
     # 0 for those rows that should be eliminated before solve
     reduce_idx::Union{BitVector,Nothing}
@@ -30,23 +27,20 @@ mutable struct PreSolver{T}
         # errors arising from input vectors that are all the same cone, and
         # therefore more concretely typed than we want
         cone_specs = Vector{SupportedCone}(cone_specs)
-
         mfull = length(b)
-        finite_idx = b .< T(Clarabel.get_infinity()) * (1-eps(T))
-        count_finite = count(finite_idx)
 
-        if !settings.presolve_enable || count_finite == mfull 
+        if !settings.presolve_enable 
             reduce_idx = nothing 
             lift_map   = nothing 
             mreduced   = mfull 
 
         else 
-            (reduce_idx, lift_map) = reduce_cones!(cone_specs,finite_idx)
+            (reduce_idx, lift_map) = reduce_cones!(cone_specs,b)
             mreduced = isnothing(reduce_idx) ? mfull : length(lift_map)
 
         end 
 
-        return new(cone_specs,finite_idx,reduce_idx,lift_map, mfull, mreduced)
+        return new(cone_specs,reduce_idx,lift_map, mfull, mreduced)
 
     end
 
@@ -60,34 +54,39 @@ count_reduced(ps::PreSolver{T}) where {T} = ps.mfull  - ps.mreduced
 
 function reduce_cones!(
     cone_specs::Vector{<:SupportedCone}, 
-    finite_idx::BitVector)
+    b::Vector{T}) where {T}
 
-    reduce_idx = trues(length(finite_idx))
+    reduce_idx = trues(length(b))
 
     # we loop through the finite_idx and shrink any nonnegative 
     # cones that are marked as having infinite right hand sides.   
     # Mark the corresponding entries as zero in the reduction index
 
     is_reduced = false
-    bidx = 1   # index into the bit vectors 
+    bptr = 1   # index into the b vector 
 
     for (cidx,cone) in enumerate(cone_specs)  
 
         numel_cone = nvars(cone)
 
-        # just shrink nonnegative cones
+        # only try to reduce nn cones
         if isa(cone, NonnegativeConeT)
-            rng        = bidx:(bidx + numel_cone - 1)
-            num_finite = sum(@view finite_idx[rng])
+            num_finite = 0
+            for i in bptr:(bptr + numel_cone - 1)
+                if b[i] < Clarabel.get_infinity()*(1-eps(T))
+                    num_finite += 1 
+                else 
+                    reduce_idx[i] = false
+                end
+            end
             if num_finite < numel_cone 
-                # mark rows for elimination and shrink this dimension 
-                @views reduce_idx[rng] = finite_idx[rng]
+                # contract the cone to a smaller size
                 cone_specs[cidx] = NonnegativeConeT(num_finite)
                 is_reduced = true
             end
         end   
         
-        bidx += numel_cone
+        bptr += numel_cone
     end
 
     #if we reduced anything then return the reduce_idx and a 
