@@ -38,7 +38,7 @@ end
                 Clarabel.solve!(solver)
                 @test solver.solution.status == Clarabel.SOLVED
                 @test (length(solver.variables.z) == 5)
-                @test (all(solver.solution.z[4] .== zero(T)))
+                @test (all(solver.solution.z[4] .== zero(FloatT)))
                 @test (all(solver.solution.s[4] .== Clarabel.get_infinity()))
            
             end
@@ -54,7 +54,7 @@ end
                 Clarabel.solve!(solver)
                 @test solver.solution.status == Clarabel.SOLVED
                 @test (length(solver.variables.z) == 3)
-                @test (all(solver.solution.z[1:3] .== zero(T)))
+                @test (all(solver.solution.z[1:3] .== zero(FloatT)))
                 @test (all(solver.solution.s[1:3] .== Clarabel.get_infinity()))
                 @test isapprox(norm(solver.solution.x .- FloatT[-0.5; 2; -0.5]), zero(FloatT), atol=tol)
 
