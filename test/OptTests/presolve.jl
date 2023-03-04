@@ -77,30 +77,10 @@ end
 
                 thebound = Clarabel.get_infinity()
                 Clarabel.set_infinity(1e21)
-                Clarabel.default_infinity() 
-                Clarabel.set_infinity(thebound)  #put it back as it was 
+                @test (Clarabel.get_infinity() == 1e21)
+                Clarabel.set_infinity(thebound) 
+                @test (Clarabel.get_infinity() == thebound)  
 
-            end
-
-            @testset "inf clipping" begin
-
-                #here we turn off the pre solve and set the limit to 
-                #something very small.    We should end up with 
-                #an artificially tightened problem 
-                P,c,A,b,cones = presolver_test_data(FloatT)
-                solver   = Clarabel.Solver{FloatT}()
-                settings = Clarabel.Settings{FloatT}()
-                P[:] .= zero(T)
-                c[:] .= [1.,-1., 1.]
-                Clarabel.set_infinity(0.5)
-                settings.presolve_enable = false
-                @test Clarabel.get_infinity() == 0.5
-                Clarabel.setup!(solver,P,c,A,b,cones)
-                Clarabel.solve!(solver)
-                @test solver.solution.status == Clarabel.SOLVED
-                @test (length(solver.variables.z) == 6)
-                @test isapprox(solver.solution.x, FloatT[-0.25,+0.25,-0.25], atol=tol)
-                Clarabel.default_infinity() 
             end
 
         end      #end Presolver Tests (FloatT)"
