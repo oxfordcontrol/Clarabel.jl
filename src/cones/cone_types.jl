@@ -47,7 +47,7 @@ struct NonnegativeCone{T} <: AbstractCone{T}
 
     function NonnegativeCone{T}(dim) where {T}
 
-        dim >= 1 || throw(DomainError(dim, "dimension must be positive"))
+        dim >= 0 || throw(DomainError(dim, "dimension must be nonnegative"))
         w = zeros(T,dim)
         λ = zeros(T,dim)
         return new(dim,w,λ)
@@ -239,7 +239,7 @@ PowerCone(args...) = PowerCone{DefaultFloat}(args...)
 A Dict that maps the user-facing SupportedCone types to
 the types used internally in the solver.   See [SupportedCone](@ref)
 """
-const ConeDict = Dict(
+const ConeDict = Dict{DataType,Type}(
            ZeroConeT => ZeroCone,
     NonnegativeConeT => NonnegativeCone,
     SecondOrderConeT => SecondOrderCone,

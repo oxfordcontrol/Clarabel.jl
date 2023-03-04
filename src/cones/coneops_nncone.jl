@@ -19,7 +19,11 @@ function margins(
     pd::PrimalOrDualCone
 ) where{T}
 
-    α = minimum(z)
+    if(length(z) > 0)  
+        α = minimum(z)
+    else  #catch cone of dimension zero
+        α = floatmax(T)
+    end
 
     # total positive margin is the sum of the 
     # nonnegative elements in the vector, since 

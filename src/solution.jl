@@ -10,11 +10,6 @@ function solution_finalize!(
 	solution.status  = info.status
 	solution.obj_val = info.cost_primal
 
-	#copy internal variables and undo homogenization
-	solution.x .= variables.x
-	solution.z .= variables.z
-	solution.s .= variables.s
-
     #if we have an infeasible problem, normalize
     #using κ to get an infeasibility certificate.
     #Otherwise use τ to get a solution.
@@ -25,18 +20,26 @@ function solution_finalize!(
         scaleinv = one(T) / variables.τ
     end
 
-    @. solution.x *= scaleinv
-    @. solution.z *= scaleinv
-    @. solution.s *= scaleinv
+	#also undo the equilibration
+	d = data.equilibration.d; dinv = data.equilibration.dinv
+	e = data.equilibration.e; einv = data.equilibration.einv
+	cscale = data.equilibration.c[]
 
-    #undo the equilibration
-    d = data.equilibration.d; dinv = data.equilibration.dinv
-    e = data.equilibration.e; einv = data.equilibration.einv
-    cscale = data.equilibration.c[]
+	@. solution.x = variables.x * d * scaleinv
 
-    @. solution.x *=  d
-    @. solution.z *=  e ./ cscale
-    @. solution.s *=  einv
+	if !is_reduced(data.presolver)
+		@. solution.z = variables.z * e * (scaleinv / cscale)
+		@. solution.s = variables.s * einv * scaleinv
+	else 
+		map = data.presolver.lift_map
+		@. solution.z[map] = variables.z * e * (scaleinv / cscale)
+		@. solution.s[map] = variables.s * einv * scaleinv
+
+		#eliminated constraints get huge slacks 
+		#and are assumed to be nonbinding 
+		@. solution.s[!data.presolver.reduce_idx] = T(data.presolver.infbound)
+		@. solution.z[!data.presolver.reduce_idx] = zero(T)
+	end 
 
 	solution.iterations  = info.iterations
 	solution.solve_time  = info.solve_time
