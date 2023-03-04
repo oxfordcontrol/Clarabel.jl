@@ -20,6 +20,8 @@ end
 
     for FloatT in UnitTestFloats
 
+        tol = FloatT(1e-3)
+
         #force default infinite bounds in solver 
         Clarabel.default_infinity()
 
