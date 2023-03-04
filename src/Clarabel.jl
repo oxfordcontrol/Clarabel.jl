@@ -10,8 +10,9 @@ module Clarabel
     #hides the INFINITY field in the module and makes 
     #it accessible only via the get/set provided
     let 
-        INFINITY = 1e20
-        global default_infinity() = INFINITY = 1e20
+        _INFINITY_DEFAULT = 1e20
+        INFINITY = _INFINITY_DEFAULT
+        global default_infinity() = INFINITY = _INFINITY_DEFAULT
         global set_infinity(v::Float64) = INFINITY =  Float64(v)
         global get_infinity() = INFINITY
     end 

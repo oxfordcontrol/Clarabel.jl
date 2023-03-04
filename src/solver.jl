@@ -93,7 +93,7 @@ function setup!(
         #reduce the cone sizes.  (A,b) will be reduced 
         #within the problem data constructor.  Also makes
         #an internal copy of the user cone specification
-        presolver = PreSolver{T}(A,b,cones,s.settings)
+        presolver = Presolver{T}(A,b,cones,s.settings)
 
         s.cones  = CompositeCone{T}(presolver.cone_specs)
         s.data   = DefaultProblemData{T}(P,q,A,b,s.cones,presolver)

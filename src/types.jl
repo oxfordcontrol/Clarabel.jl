@@ -160,7 +160,7 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     normq::T
     normb::T
 
-    presolver::PreSolver{T}
+    presolver::Presolver{T}
 
     function DefaultProblemData{T}(
         P::AbstractMatrix{T},
@@ -168,7 +168,7 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
         A::AbstractMatrix{T},
         b::AbstractVector{T},
         cones::CompositeCone{T},
-        presolver::PreSolver{T}
+        presolver::Presolver{T},
     ) where {T}
 
         # dimension checks will have already been
@@ -190,7 +190,7 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
 
         #cap entries in b at INFINITY.  This is important 
         #for inf values that were not in a reduced cone
-        @. b .= min(b,T(Clarabel.get_infinity()))
+        @. b .= min(b,T(presolver.infbound))
 
         #this ensures m is the *reduced* size m
         (m,n) = size(A)

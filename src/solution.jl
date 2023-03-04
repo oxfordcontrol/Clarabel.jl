@@ -25,19 +25,19 @@ function solution_finalize!(
 	e = data.equilibration.e; einv = data.equilibration.einv
 	cscale = data.equilibration.c[]
 
+	@. solution.x = variables.x * d * scaleinv
+
 	if !is_reduced(data.presolver)
-		@. solution.x = d * variables.x * scaleinv
-		@. solution.z = e * variables.z * (scaleinv / cscale)
-		@. solution.s = einv * variables.s * scaleinv
+		@. solution.z = variables.z * e * (scaleinv / cscale)
+		@. solution.s = variables.s * einv * scaleinv
 	else 
 		map = data.presolver.lift_map
-		@. solution.x = d * variables.x * scaleinv
-		@. solution.z[map] = e * variables.z * (scaleinv / cscale)
-		@. solution.s[map] = einv * variables.s * scaleinv
+		@. solution.z[map] = variables.z * e * (scaleinv / cscale)
+		@. solution.s[map] = variables.s * einv * scaleinv
 
 		#eliminated constraints get huge slacks 
 		#and are assumed to be nonbinding 
-		@. solution.s[!data.presolver.reduce_idx] = T(Clarabel.get_infinity())
+		@. solution.s[!data.presolver.reduce_idx] = T(data.presolver.infbound)
 		@. solution.z[!data.presolver.reduce_idx] = zero(T)
 	end 
 

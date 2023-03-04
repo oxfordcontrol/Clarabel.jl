@@ -91,16 +91,16 @@ end
                 solver   = Clarabel.Solver{FloatT}()
                 settings = Clarabel.Settings{FloatT}()
                 P[:] .= zero(T)
-                c[:] .= one(T)
+                c[:] .= [1.,-1., 1.]
                 Clarabel.set_infinity(0.5)
                 settings.presolve_enable = false
                 @test Clarabel.get_infinity() == 0.5
-                Clarabel.default_infinity() 
                 Clarabel.setup!(solver,P,c,A,b,cones)
                 Clarabel.solve!(solver)
                 @test solver.solution.status == Clarabel.SOLVED
                 @test (length(solver.variables.z) == 6)
-                @test isapprox(solver.solution.x, FloatT[-0.5,-0.5,-0.5], atol=tol)
+                @test isapprox(solver.solution.x, FloatT[-0.25,+0.25,-0.25], atol=tol)
+                Clarabel.default_infinity() 
             end
 
         end      #end Presolver Tests (FloatT)"
