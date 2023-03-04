@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 Version numbering in this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).  We aim to keep the core solver functionality and minor releases in sync between the Rust/Python and Julia implementations.   Small fixes that affect one implementation only may result in the patch release versions differing.
 
+## [0.5.0] - DATE TBD
+### Changed 
+
+Added optional feature to remove inequality constraints with very large upper bounds.   This feature is enabled by default but can be turned off using the `presolve_enable` setting.  
+### Julia specific changes
+
+Internal implementation of composite cone logic updated to more closely match the rust version.
 ## [0.4.0] - 2023-25-02
 
 ### Changed 
@@ -43,7 +50,7 @@ Version numbering in this project adheres to [Semantic Versioning](https://semve
 - Initial release
 
 
-
+[0.5.0]: https://github.com/pyo3/pyo3/compare/v0.5.0...v0.4.0
 [0.4.0]: https://github.com/pyo3/pyo3/compare/v0.4.0...v0.3.0
 [0.3.0]: https://github.com/pyo3/pyo3/compare/v0.3.0...v0.2.0
 [0.2.0]: https://github.com/pyo3/pyo3/compare/v0.2.0...v0.1.0
