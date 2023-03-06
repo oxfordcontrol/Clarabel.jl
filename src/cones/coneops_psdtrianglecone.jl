@@ -14,9 +14,9 @@ function margins(
 
     Z = K.work.workmat1
     _svec_to_mat!(Z,z,K)
-    e = eigvals(Symmetric(Z))
+    e = eigvals!(Symmetric(Z))
     α = minimum(e)  #minimum eigenvalue
-    β = reduce((x,y) -> y > 0 ? x + y : x, e, init = 0.) #sum of positive eigenvalues (no alloc)
+    β = reduce((x,y) -> y > 0 ? x + y : x, e, init = 0.) # = sum(e[e.>0]) (no alloc)
     (α,β)
     
 end
@@ -402,7 +402,7 @@ function _step_length_psd_component(
     # we only need to populate the upper 
     # triangle 
     lrscale!(Λisqrt.diag,Δ,Λisqrt.diag)
-    γ = eigvals(Symmetric(Δ),1:1)[1] #minimum eigenvalue
+    γ = eigvals!(Symmetric(Δ),1:1)[1] #minimum eigenvalue
     if γ < 0
         return min(inv(-γ),αmax)
     else
