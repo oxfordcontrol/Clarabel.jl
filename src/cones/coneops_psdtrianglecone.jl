@@ -401,9 +401,7 @@ function _step_length_psd_component(
     # we only need to populate the upper 
     # triangle 
     lrscale!(Λisqrt.diag,Δ,Λisqrt.diag)
-    M = Symmetric(Δ)
-
-    γ = eigvals(M,1:1)[1] #minimum eigenvalue
+    γ = eigvals(Symmetric(Δ),1:1)[1] #minimum eigenvalue
     if γ < 0
         return min(inv(-γ),αmax)
     else
