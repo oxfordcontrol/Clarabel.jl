@@ -119,8 +119,5 @@ function reduce_cones!(
         end
     end
 
-    println("outoption = ", outoption)
-
     (outoption, mreduced)
-
 end 
