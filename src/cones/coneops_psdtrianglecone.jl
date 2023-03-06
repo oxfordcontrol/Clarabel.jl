@@ -14,8 +14,9 @@ function margins(
 
     Z = K.work.workmat1
     _svec_to_mat!(Z,z,K)
-    α = eigvals(Symmetric(Z),1:1)[1]  #minimum eigenvalue
-    β = sum(eigvals(Symmetric(Z),0,floatmax(T)))  #sum of positive eigenvalues
+    e = eigvals(Symmetric(Z))
+    α = minimum(e)  #minimum eigenvalue
+    β = reduce((x,y) -> y > 0 ? x + y : x, e, init = 0.) #sum of positive eigenvalues (no alloc)
     (α,β)
     
 end
