@@ -179,13 +179,16 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
         P = triu(P)
         q = deepcopy(q)
 
-        #for A,b, we row reduce here        
-        if !is_reduced(presolver)
-            A = deepcopy(A)
-            b = deepcopy(b)
-        else 
-            A = A[presolver.reduce_idx,:]
-            b = b[presolver.reduce_idx]
+        (A,b) = let  
+            map = presolver.reduce_map;  
+            if !isnothing(map)
+                (
+                    A[map.keep_logical,:],
+                    b[map.keep_logical]
+                )
+            else
+                (deepcopy(A),deepcopy(b))
+            end
         end 
 
         #cap entries in b at INFINITY.  This is important 

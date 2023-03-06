@@ -27,19 +27,22 @@ function solution_finalize!(
 
 	@. solution.x = variables.x * d * scaleinv
 
-	if !is_reduced(data.presolver)
-		@. solution.z = variables.z * e * (scaleinv / cscale)
-		@. solution.s = variables.s * einv * scaleinv
-	else 
-		map = data.presolver.lift_map
-		@. solution.z[map] = variables.z * e * (scaleinv / cscale)
-		@. solution.s[map] = variables.s * einv * scaleinv
+	map = data.presolver.reduce_map
+	if !isnothing(map) 
+		map = data.presolver.reduce_map
+		@. solution.z[map.keep_index] = variables.z * e * (scaleinv / cscale)
+		@. solution.s[map.keep_index] = variables.s * einv * scaleinv
 
 		#eliminated constraints get huge slacks 
 		#and are assumed to be nonbinding 
-		@. solution.s[!data.presolver.reduce_idx] = T(data.presolver.infbound)
-		@. solution.z[!data.presolver.reduce_idx] = zero(T)
-	end 
+		@. solution.s[!map.keep_logical] = T(data.presolver.infbound)
+		@. solution.z[!map.keep_logical] = zero(T)
+
+	else
+		@. solution.z = variables.z * e * (scaleinv / cscale)
+		@. solution.s = variables.s * einv * scaleinv
+	end
+ 
 
 	solution.iterations  = info.iterations
 	solution.solve_time  = info.solve_time

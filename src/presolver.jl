@@ -1,15 +1,25 @@
-mutable struct Presolver{T}
+
+struct PresolverRowReductionIndex 
+
+    # vector of length = original RHS.   Entries are false
+    # for those rows that should be eliminated before solve
+    keep_logical::Vector{Bool}
+
+    # vector of length = reduced RHS, taking values
+    # that map reduced b back to their original index
+    # This is just findall(keep_logical) and is held for
+    # efficient solution repopulation
+    keep_index::Vector{Int64}
+
+end
+
+struct Presolver{T}
 
     # possibly reduced internal copy of user cone specification
     cone_specs::Vector{SupportedCone}
 
-    # vector of length = original RHS.   Entries are false
-    # for those rows that should be eliminated before solve
-    reduce_idx::Union{BitVector,Nothing}
-
-    # vector of length = reduced RHS, taking values 
-    #that map reduced b back to their original index
-    lift_map::Union{Vector{Int64},Nothing}
+    # record of reduced constraints for NN cones with inf bounds
+    reduce_map::Union{Nothing,PresolverRowReductionIndex}
 
     # size of original and reduced RHS, respectively 
     mfull::Int64 
@@ -37,18 +47,15 @@ mutable struct Presolver{T}
         cone_specs = Vector{SupportedCone}(cone_specs)
         mfull = length(b)
 
-        if !settings.presolve_enable 
-            reduce_idx = nothing 
-            lift_map   = nothing 
-            mreduced   = mfull 
-
-        else 
-            (reduce_idx, lift_map) = reduce_cones!(cone_specs,b,T(infbound))
-            mreduced = isnothing(reduce_idx) ? mfull : length(lift_map)
-
-        end 
-
-        return new(cone_specs,reduce_idx,lift_map, mfull, mreduced, infbound)
+        (reduce_map, mreduced) = let
+            if settings.presolve_enable 
+                reduce_cones!(cone_specs,b,T(infbound))
+            else 
+                (nothing,mfull)
+            end 
+        end
+    
+        return new(cone_specs,reduce_map,mfull, mreduced, infbound)
 
     end
 
@@ -56,7 +63,7 @@ end
 
 Presolver(args...) = Presolver{DefaultFloat}(args...)
 
-is_reduced(ps::Presolver{T})    where {T} = ps.mfull != ps.mreduced
+is_reduced(ps::Presolver{T})    where {T} = !isnothing(ps.reduce_map)
 count_reduced(ps::Presolver{T}) where {T} = ps.mfull  - ps.mreduced
 
 
@@ -65,11 +72,11 @@ function reduce_cones!(
     b::Vector{T},
     infbound::T) where {T}
 
-    reduce_idx = trues(length(b))
+    keep_logical = trues(length(b))
+    mreduced     = length(b)
 
-    # we loop through the finite_idx and shrink any nonnegative 
-    # cones that are marked as having infinite right hand sides.   
-    # Mark the corresponding entries as zero in the reduction index
+    # we loop through b and remove any entries that are both infinite
+    # and in a nonnegative cone
 
     is_reduced = false
     bptr = 1   # index into the b vector 
@@ -88,7 +95,8 @@ function reduce_cones!(
                 if b[i] < infbound
                     num_finite += 1 
                 else 
-                    reduce_idx[i] = false
+                    keep_logical[i] = false
+                    mreduced -= 1
                 end
             end
             if num_finite < numel_cone 
@@ -101,13 +109,18 @@ function reduce_cones!(
         bptr += numel_cone
     end
 
-    #if we reduced anything then return the reduce_idx and a 
-    #map of the entries to keep back into the original vector 
-    if is_reduced
-        return (reduce_idx, findall(reduce_idx))
-
-    else 
-        return (nothing, nothing)
+    outoption = 
+    let
+        if is_reduced
+            keep_index = findall(keep_logical)
+            PresolverRowReductionIndex(keep_logical, keep_index)
+        else 
+            nothing
+        end
     end
+
+    println("outoption = ", outoption)
+
+    (outoption, mreduced)
 
 end 
