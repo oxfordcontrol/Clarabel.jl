@@ -10,9 +10,13 @@ Version numbering in this project adheres to [Semantic Versioning](https://semve
 ### Changed 
 
 Added optional feature to remove inequality constraints with very large upper bounds.   This feature is enabled by default but can be turned off using the `presolve_enable` setting.  
+
+Bug fix in equilibration for NN and zero cones.
 ### Julia specific changes
 
 Internal implementation of composite cone logic updated to more closely match the rust version.
+
+Internal modifications to SDP cone implementation to reduce allocations.
 ## [0.4.0] - 2023-25-02
 
 ### Changed 
