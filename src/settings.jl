@@ -126,9 +126,9 @@ end
 
 Settings(args...) = Settings{DefaultFloat}(args...)
 
-function Settings(d::Dict)
+function Settings{T}(d::Dict) where{T}
 
-	settings = Settings()
+	settings = Settings{T}()
 	settings_populate!(settings,d)
     return settings
 end

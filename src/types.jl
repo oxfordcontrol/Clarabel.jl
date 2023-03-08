@@ -362,8 +362,8 @@ function Solver{T}() where {T}
 end
 
 #partial user defined settings
-function Solver(d::Dict) where {T}
-    Solver{T}(Settings(d))
+function Solver{T}(d::Dict) where {T}
+    Solver{T}(Settings{T}(d))
 end
 
 Solver(args...; kwargs...) = Solver{DefaultFloat}(args...; kwargs...)
