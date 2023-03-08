@@ -47,7 +47,7 @@ struct NonnegativeCone{T} <: AbstractCone{T}
 
     function NonnegativeCone{T}(dim) where {T}
 
-        dim >= 1 || throw(DomainError(dim, "dimension must be positive"))
+        dim >= 0 || throw(DomainError(dim, "dimension must be nonnegative"))
         w = zeros(T,dim)
         λ = zeros(T,dim)
         return new(dim,w,λ)
@@ -112,9 +112,10 @@ mutable struct PSDConeWork{T}
     B::Matrix{T}
     Hs::Matrix{T}
 
-    #workspace for various internal use
+    #workspace for various internal uses
     workmat1::Matrix{T}
     workmat2::Matrix{T}
+    workmat3::Matrix{T}
     workvec::Vector{T}
 
     function PSDConeWork{T}(n::Int) where {T}
@@ -133,10 +134,11 @@ mutable struct PSDConeWork{T}
 
         workmat1 = zeros(T,n,n)
         workmat2 = zeros(T,n,n)
+        workmat3 = zeros(T,n,n)
         workvec  = zeros(T,(n*(n+1))>>1)
 
         return new(cholS,cholZ,SVD,λ,Λisqrt,R,Rinv,
-                   kronRR,B,Hs,workmat1,workmat2,workvec)
+                   kronRR,B,Hs,workmat1,workmat2,workmat3,workvec)
     end
 end
 
@@ -239,7 +241,7 @@ PowerCone(args...) = PowerCone{DefaultFloat}(args...)
 A Dict that maps the user-facing SupportedCone types to
 the types used internally in the solver.   See [SupportedCone](@ref)
 """
-const ConeDict = Dict(
+const ConeDict = Dict{DataType,Type}(
            ZeroConeT => ZeroCone,
     NonnegativeConeT => NonnegativeCone,
     SecondOrderConeT => SecondOrderCone,

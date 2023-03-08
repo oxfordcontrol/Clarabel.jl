@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 Version numbering in this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).  We aim to keep the core solver functionality and minor releases in sync between the Rust/Python and Julia implementations.   Small fixes that affect one implementation only may result in the patch release versions differing.
 
+## [0.4.1] - 2023-08-03
+### Changed 
+
+Added optional feature to remove inequality constraints with very large upper bounds.   This feature is enabled by default but can be turned off using the `presolve_enable` setting.  
+
+Bug fix in equilibration for NN and zero cones.
+### Julia specific changes
+
+Internal implementation of composite cone logic updated to more closely match the rust version.
+
+Internal modifications to SDP cone implementation to reduce allocations.
 ## [0.4.0] - 2023-25-02
 
 ### Changed 
@@ -43,8 +54,8 @@ Version numbering in this project adheres to [Semantic Versioning](https://semve
 - Initial release
 
 
-
-[0.4.0]: https://github.com/pyo3/pyo3/compare/v0.4.0...v0.3.0
-[0.3.0]: https://github.com/pyo3/pyo3/compare/v0.3.0...v0.2.0
-[0.2.0]: https://github.com/pyo3/pyo3/compare/v0.2.0...v0.1.0
-[0.1.0]: https://github.com/PyO3/pyo3/tree/0.1.0
+[0.4.1]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.4.0...v0.3.0
+[0.3.0]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.3.0...v0.2.0
+[0.2.0]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.2.0...v0.1.0
+[0.1.0]: https://github.com/oxfordcontrol/Clarabel.jl/tree/0.1.0

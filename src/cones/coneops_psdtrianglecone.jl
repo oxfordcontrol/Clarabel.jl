@@ -14,8 +14,9 @@ function margins(
 
     Z = K.work.workmat1
     _svec_to_mat!(Z,z,K)
-    α = eigvals(Symmetric(Z),1:1)[1]  #minimum eigenvalue
-    β = sum(eigvals(Symmetric(Z),0,floatmax(T)))  #sum of positive eigenvalues
+    e = eigvals!(Symmetric(Z))
+    α = minimum(e)  #minimum eigenvalue
+    β = reduce((x,y) -> y > 0 ? x + y : x, e, init = 0.) # = sum(e[e.>0]) (no alloc)
     (α,β)
     
 end
@@ -94,16 +95,21 @@ function update_scaling!(
 
     #R is the same size as L2'*L1,
     #so use it as temporary workspace
-    f.R  .= L2'*L1
+    mul!(f.R,L2',L1)   #R = L2'*L1
+
     f.SVD = svd(f.R)
 
     #assemble  λ (diagonal), R and Rinv.
     f.λ           .= f.SVD.S
     f.Λisqrt.diag .= inv.(sqrt.(f.λ))
 
-    # PJG : allocating 
-    f.R    .= L1*(f.SVD.V)*f.Λisqrt
-    f.Rinv .= f.Λisqrt*(f.SVD.U)'*L2'
+    #f.R = L1*(f.SVD.V)*f.Λisqrt
+    mul!(f.R,L1,f.SVD.V);
+    mul!(f.R,f.R,f.Λisqrt) #mul! can take Rinv twice because Λ is diagonal
+
+    #f.Rinv .= f.Λisqrt*(f.SVD.U)'*L2'
+    mul!(f.Rinv,f.SVD.U',L2')
+    mul!(f.Rinv,f.Λisqrt,f.Rinv) #mul! can take Rinv twice because Λ is diagonal
 
     return is_scaling_success = true
 end
@@ -258,14 +264,18 @@ function mul_W!(
 
   (X,Y) = (K.work.workmat1,K.work.workmat2)
   map((M,v)->_svec_to_mat!(M,v,K),(X,Y),(x,y))
+  tmp = K.work.workmat3
 
   R = K.work.R
 
-  # PJG : allocating 
   if is_transpose === :T
-      Y .+= α*(R*X*R')  #W^T*x
+      #Y .+= α*(R*X*R')  #W^T*x
+      mul!(tmp,X,R')
+      mul!(Y,R,tmp,α,one(T))
   else  # :N
-      Y .+= α*(R'*X*R)  #W*x
+      #Y .+= α*(R'*X*R)  #W*x
+      mul!(tmp,R',X)
+      mul!(Y,tmp,R,α,one(T))
   end
 
   _mat_to_svec!(y,Y,K)
@@ -287,14 +297,18 @@ function mul_Winv!(
 
     (X,Y) = (K.work.workmat1,K.work.workmat2)
     map((M,v)->_svec_to_mat!(M,v,K),(X,Y),(x,y))
+    tmp = K.work.workmat3
 
     Rinv = K.work.Rinv
 
-    # PJG : allocating 
     if is_transpose === :T
-        Y .+= α*(Rinv*X*Rinv')  #W^{-T}*x
+        #Y .+= α*(Rinv*X*Rinv')  #W^{-T}*x
+        mul!(tmp,X,Rinv')
+        mul!(Y,Rinv,tmp,α,one(T))
     else # :N
-        Y .+= α*(Rinv'*X*Rinv)  #W^{-1}*x
+        #Y .+= α*(Rinv'*X*Rinv)  #W^{-1}*x
+        mul!(tmp,Rinv',X)
+        mul!(Y,tmp,Rinv,α,one(T))
     end
 
     _mat_to_svec!(y,Y,K)
@@ -338,8 +352,13 @@ function circ_op!(
     (Y,Z) = (K.work.workmat1,K.work.workmat2)
     map((M,v)->_svec_to_mat!(M,v,K),(Y,Z),(y,z))
 
-    # PJG : allocating 
-    Y  .= (Y*Z + Z*Y)/2
+    tmp = K.work.workmat3;
+
+    #Y  .= (Y*Z + Z*Y)/2 
+    # NB: works b/c Y and Z are both symmetric
+    mul!(tmp,Y,Z)
+    Y .= tmp
+    symmetric_part!(Y)
     _mat_to_svec!(x,Y,K)
 
     return nothing
@@ -383,9 +402,7 @@ function _step_length_psd_component(
     # we only need to populate the upper 
     # triangle 
     lrscale!(Λisqrt.diag,Δ,Λisqrt.diag)
-    M = Symmetric(Δ)
-
-    γ = eigvals(M,1:1)[1] #minimum eigenvalue
+    γ = eigvals!(Symmetric(Δ),1:1)[1] #minimum eigenvalue
     if γ < 0
         return min(inv(-γ),αmax)
     else

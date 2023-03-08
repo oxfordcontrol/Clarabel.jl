@@ -6,6 +6,17 @@ module Clarabel
     const DefaultInt   = LinearAlgebra.BlasInt
     const IdentityMatrix = UniformScaling{Bool}
 
+    #internal constraint RHS limits.  This let block 
+    #hides the INFINITY field in the module and makes 
+    #it accessible only via the get/set provided
+    let 
+        _INFINITY_DEFAULT = 1e20
+        INFINITY = _INFINITY_DEFAULT
+        global default_infinity() = INFINITY = _INFINITY_DEFAULT;
+        global set_infinity(v::Float64) = INFINITY =  Float64(v)
+        global get_infinity() = INFINITY
+    end 
+    
     #version / release info
     include("./version.jl")
 
@@ -20,6 +31,7 @@ module Clarabel
     include("./settings.jl")
     include("./conicvector.jl")
     include("./statuscodes.jl")
+    include("./presolver.jl")
     include("./types.jl")
     include("./variables.jl")
     include("./residuals.jl")

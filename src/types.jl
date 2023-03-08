@@ -160,31 +160,50 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     normq::T
     normb::T
 
+    presolver::Presolver{T}
+
     function DefaultProblemData{T}(
         P::AbstractMatrix{T},
         q::AbstractVector{T},
         A::AbstractMatrix{T},
         b::AbstractVector{T},
-        cones::CompositeCone{T}
+        cones::CompositeCone{T},
+        presolver::Presolver{T},
     ) where {T}
 
         # dimension checks will have already been
         # performed during problem setup, so skip here
-        (m,n) = size(A)
 
         #take an internal copy of all problem
         #data, since we are going to scale it
         P = triu(P)
-        A = deepcopy(A)
         q = deepcopy(q)
-        b = deepcopy(b)
+
+        (A,b) = let  
+            map = presolver.reduce_map;  
+            if !isnothing(map)
+                (
+                    A[map.keep_logical,:],
+                    b[map.keep_logical]
+                )
+            else
+                (deepcopy(A),deepcopy(b))
+            end
+        end 
+
+        #cap entries in b at INFINITY.  This is important 
+        #for inf values that were not in a reduced cone
+        @. b .= min(b,T(presolver.infbound))
+
+        #this ensures m is the *reduced* size m
+        (m,n) = size(A)
 
         equilibration = DefaultEquilibration{T}(n,cones)
 
         normq = norm(q, Inf)
         normb = norm(b, Inf)
 
-        new(P,q,A,b,n,m,equilibration,normq,normb)
+        new(P,q,A,b,n,m,equilibration,normq,normb,presolver)
 
     end
 
@@ -343,8 +362,8 @@ function Solver{T}() where {T}
 end
 
 #partial user defined settings
-function Solver(d::Dict) where {T}
-    Solver{T}(Settings(d))
+function Solver{T}(d::Dict) where {T}
+    Solver{T}(Settings{T}(d))
 end
 
 Solver(args...; kwargs...) = Solver{DefaultFloat}(args...; kwargs...)
