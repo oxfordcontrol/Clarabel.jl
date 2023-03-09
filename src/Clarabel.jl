@@ -1,4 +1,3 @@
-__precompile__()
 module Clarabel
 
     using SparseArrays, LinearAlgebra, Printf, Requires
@@ -85,5 +84,33 @@ module Clarabel
     end
     const Optimizer{T} = Clarabel.MOImodule.Optimizer{T}
 
+
+using SnoopPrecompile
+
+function __precompile_min_example()
+    cones = [
+        Clarabel.NonnegativeConeT(1),
+        Clarabel.ZeroConeT(1),
+        Clarabel.SecondOrderConeT(2)];
+    nvars = 4
+    P = A = sparse(I(nvars)*1.)
+    b = ones(nvars)
+    c = -ones(nvars)
+    m = Clarabel.Solver()
+    s = Clarabel.Settings(verbose=false)
+    Clarabel.setup!(m,P,c,A,b,cones,s)
+    Clarabel.solve!(m)
 end
 
+
+SnoopPrecompile.@precompile_setup begin
+    SnoopPrecompile.@precompile_all_calls begin
+        @eval begin
+            let
+                __precompile_min_example()
+            end
+        end
+    end
+end
+
+end #end module
