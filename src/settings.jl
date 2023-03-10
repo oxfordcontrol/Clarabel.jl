@@ -10,56 +10,56 @@ Argument | Default Value | Description
 ||
 __Main Algorithm Settings__||
 ||
-max\\_iter                              | 50        | maximum number of iterations
-time\\_limit                            | Inf       | maximum run time (seconds)
-verbose                                 | true      | verbose printing
-max\\_step\\_fraction                   | 0.99      | maximum interior point step length
+max\\_iter                              | 50         | maximum number of iterations
+time\\_limit                            | Inf        | maximum run time (seconds)
+verbose                                 | true       | verbose printing
+max\\_step\\_fraction                   | 0.99       | maximum interior point step length
 ||
 __Full Accuracy Settings__||
-tol\\_gap\\_abs                         | 1e-8      | absolute duality gap tolerance
-tol\\_gap\\_rel                         | 1e-8      | relative duality gap tolerance
-tol\\_feas                              | 1e-8      | feasibility check tolerance (primal and dual)
-tol\\_infeas\\_abs						| 1e-8		| absolute infeasibility tolerance (primal and dual)
-tol\\_infeas\\_rel						| 1e-8		| relative infeasibility tolerance (primal and dual)
-tol\\_ktratio                           | 1e-7      | κ/τ tolerance
+tol\\_gap\\_abs                         | 1e-8       | absolute duality gap tolerance
+tol\\_gap\\_rel                         | 1e-8       | relative duality gap tolerance
+tol\\_feas                              | 1e-8       | feasibility check tolerance (primal and dual)
+tol\\_infeas\\_abs						| 1e-8		 | absolute infeasibility tolerance (primal and dual)
+tol\\_infeas\\_rel						| 1e-8		 | relative infeasibility tolerance (primal and dual)
+tol\\_ktratio                           | 1e-7       | κ/τ tolerance
 ||
 __Reduced Accuracy Settings__||
-reduced\\_tol\\_gap\\_abs               | 5e-5      | reduced absolute duality gap tolerance
-reduced\\_tol\\_gap\\_rel               | 5e-5      | reduced relative duality gap tolerance
-reduced\\_tol\\_feas                    | 1e-4      | reduced feasibility check tolerance (primal and dual)
-reduced\\_tol\\_infeas_abs		        | 5e-5      | reduced absolute infeasibility tolerance (primal and dual)
-reduced\\_tol\\_infeas_rel		        | 5e-5      | reduced relative infeasibility tolerance (primal and dual)
-reduced\\_tol\\_ktratio                 | 1e-4      | reduced κ/τ tolerance
+reduced\\_tol\\_gap\\_abs               | 5e-5       | reduced absolute duality gap tolerance
+reduced\\_tol\\_gap\\_rel               | 5e-5       | reduced relative duality gap tolerance
+reduced\\_tol\\_feas                    | 1e-4       | reduced feasibility check tolerance (primal and dual)
+reduced\\_tol\\_infeas_abs		        | 5e-5       | reduced absolute infeasibility tolerance (primal and dual)
+reduced\\_tol\\_infeas_rel		        | 5e-5       | reduced relative infeasibility tolerance (primal and dual)
+reduced\\_tol\\_ktratio                 | 1e-4       | reduced κ/τ tolerance
 ||
 __Data Equilibration Settings__||
 ||
-equilibrate\\_enable                    | true      | enable data equilibration pre-scaling
-equilibrate\\_max\\_iter                | 10        | maximum equilibration scaling iterations
-equilibrate\\_min\\_scaling             | 1e-4      | minimum equilibration scaling allowed
-equilibrate\\_max\\_scaling             | 1e+4      | maximum equilibration scaling allowed
+equilibrate\\_enable                    | true       | enable data equilibration pre-scaling
+equilibrate\\_max\\_iter                | 10         | maximum equilibration scaling iterations
+equilibrate\\_min\\_scaling             | 1e-4       | minimum equilibration scaling allowed
+equilibrate\\_max\\_scaling             | 1e+4       | maximum equilibration scaling allowed
 ||
 __Step Size Settings__||
-linesearch\\_backtrack\\_step           | 0.8       | linesearch backtracking
-min\\_switch\\_step\\_length            | 1e-1      | minimum step size allowed for asymmetric cones with PrimalDual scaling
-min\\_terminate\\_step\\_length         | 1e-4      | minimum step size allowed for symmetric cones && asymmetric cones with Dual scaling
+linesearch\\_backtrack\\_step           | 0.8        | linesearch backtracking
+min\\_switch\\_step\\_length            | 1e-1       | minimum step size allowed for asymmetric cones with PrimalDual scaling
+min\\_terminate\\_step\\_length         | 1e-4       | minimum step size allowed for symmetric cones && asymmetric cones with Dual scaling
 ||
 __Linear Solver Settings__||
 ||
-direct\\_kkt\\_solver                   | true      | use a direct linear solver method (required true)
-direct\\_solve\\_method                 | :qdldl    | direct linear solver (:qdldl, :mkl or :cholmod)
-static\\_regularization\\_enable        | true      | enable KKT static regularization
-static\\_regularization\\_eps           | 1e-7      | KKT static regularization parameter
-static\\_regularization\\_proportional  | eps(T)^2  | additional regularization parameter w.r.t. the maximum abs diagonal term
-dynamic\\_regularization\\_enable       | true      | enable KKT dynamic regularization
-dynamic\\_regularization\\_eps          | 1e-13     | KKT dynamic regularization threshold
-dynamic\\_regularization\\_delta        | 2e-7      | KKT dynamic regularization shift
-iterative\\_refinement\\_enable         | true      | KKT solve with iterative refinement
-iterative\\_refinement\\_reltol         | 1e-12     | iterative refinement relative tolerance
-iterative\\_refinement\\_abstol         | 1e-12     | iterative refinement absolute tolerance
-iterative\\_refinement\\_max\\_iter     | 10        | iterative refinement maximum iterations
-iterative\\_refinement\\_stop\\_ratio   | 5.0       | iterative refinement stalling tolerance
+kkt\\_solver_method                     | :directldl | KKT solver method 
+direct\\_solve\\_method                 | :qdldl     | direct LDL linear solver (:qdldl, :mkl or :cholmod)
+static\\_regularization\\_enable        | true       | enable KKT static regularization
+static\\_regularization\\_eps           | 1e-7       | KKT static regularization parameter
+static\\_regularization\\_proportional  | eps(T)^2   | additional regularization parameter w.r.t. the maximum abs diagonal term
+dynamic\\_regularization\\_enable       | true       | enable KKT dynamic regularization
+dynamic\\_regularization\\_eps          | 1e-13      | KKT dynamic regularization threshold
+dynamic\\_regularization\\_delta        | 2e-7       | KKT dynamic regularization shift
+iterative\\_refinement\\_enable         | true       | KKT solve with iterative refinement
+iterative\\_refinement\\_reltol         | 1e-12      | iterative refinement relative tolerance
+iterative\\_refinement\\_abstol         | 1e-12      | iterative refinement absolute tolerance
+iterative\\_refinement\\_max\\_iter     | 10         | iterative refinement maximum iterations
+iterative\\_refinement\\_stop\\_ratio   | 5.0        | iterative refinement stalling tolerance
 __Preprocessing Settings 
-presolve_enable                         | true      | enable presolve constraint reduction
+presolve_enable                         | true       | enable presolve constraint reduction
 
 """
 Base.@kwdef mutable struct Settings{T <: AbstractFloat}
@@ -98,7 +98,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     #the direct linear solver to use
     #can be :qdldl or :mkl
-    direct_kkt_solver::Bool             = true   #indirect not yet supported
+    kkt_solver_method::Symbol           = :directldl  
     direct_solve_method::Symbol         = :qdldl
 
     #static regularization parameters

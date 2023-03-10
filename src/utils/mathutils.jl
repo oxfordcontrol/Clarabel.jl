@@ -232,7 +232,7 @@ function symmetric_part!(A::Matrix{T}) where T <: Real
 end
 
 
-#Julia SparseArrays dot function is very slow for Symmtric
+#Julia SparseArrays dot function is very slow for Symmetric
 #matrices.  See https://github.com/JuliaSparse/SparseArrays.jl/issues/83
 function quad_form(
     x::AbstractArray{Tf},
@@ -272,6 +272,15 @@ function quad_form(
         out += tmp1*y[j] + tmp2*x[j]
     end
     return out
+end
+
+function quad_form(
+    x::AbstractArray{Tf},
+    A::AbstractMatrix{Tf},
+    y::AbstractArray{Tf}
+    ) where{Tf <: Real}
+
+    dot(x,A,y)
 end
 
 

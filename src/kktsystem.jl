@@ -29,8 +29,10 @@ mutable struct DefaultKKTSystem{T} <: AbstractKKTSystem{T}
         #basic problem dimensions
         (m, n) = (data.m, data.n)
 
-        #create the linear solver.  Always LDL for now
-        kktsolver = DirectLDLKKTSolver{T}(data.P,data.A,cones,m,n,settings)
+
+        #which KKT Solver should I use?
+        kktsolverT = _get_kktsolver_type(settings.kkt_solver_method)
+        kktsolver = kktsolverT{T}(data.P,data.A,cones,m,n,settings)
 
         #the LHS constant part of the reduced solve
         x1   = Vector{T}(undef,n)
@@ -68,20 +70,21 @@ function kkt_update!(
     is_success || return is_success
 
     #calculate KKT solution for constant terms
-    is_success = _kkt_solve_constant_rhs!(kktsystem,data)
+    is_success = _kkt_solve_constant_rhs!(kktsystem,cones,data)
 
     return is_success
 end
 
 function _kkt_solve_constant_rhs!(
     kktsystem::DefaultKKTSystem{T},
+    cones::CompositeCone{T},
     data::DefaultProblemData{T}
 ) where {T}
 
     @. kktsystem.workx = -data.q;
 
     kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, data.b)
-    is_success = kktsolver_solve!(kktsystem.kktsolver, kktsystem.x2, kktsystem.z2)
+    is_success = kktsolver_solve!(kktsystem.kktsolver, cones, kktsystem.x2, kktsystem.z2)
 
     return is_success
 
@@ -90,6 +93,7 @@ end
 
 function kkt_solve_initial_point!(
     kktsystem::DefaultKKTSystem{T},
+    cones::CompositeCone{T},
     variables::DefaultVariables{T},
     data::DefaultProblemData{T}
 ) where{T}
@@ -101,7 +105,7 @@ function kkt_solve_initial_point!(
         kktsystem.workx .= zero(T)
         kktsystem.workz .= data.b
         kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
-        is_success = kktsolver_solve!(kktsystem.kktsolver, variables.x, variables.s)
+        is_success = kktsolver_solve!(kktsystem.kktsolver, cones, variables.x, variables.s)
 
         if !is_success return is_success end
 
@@ -111,13 +115,13 @@ function kkt_solve_initial_point!(
         kktsystem.workz .=  zero(T)
 
         kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
-        is_success = kktsolver_solve!(kktsystem.kktsolver, nothing, variables.z)
+        is_success = kktsolver_solve!(kktsystem.kktsolver, cones, nothing, variables.z)
     else
         # QP initialization
         @. kktsystem.workx = -data.q
         @. kktsystem.workz = data.b
         kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
-        is_success = kktsolver_solve!(kktsystem.kktsolver, variables.x, variables.z)
+        is_success = kktsolver_solve!(kktsystem.kktsolver, cones, variables.x, variables.z)
         @. variables.s = -variables.z
     end
 
@@ -162,7 +166,7 @@ function kkt_solve!(
     #---------------------------------------------------
     #this solves the variable part of reduced KKT system
     kktsolver_setrhs!(kktsystem.kktsolver, workx, workz)
-    is_success = kktsolver_solve!(kktsystem.kktsolver,x1,z1)
+    is_success = kktsolver_solve!(kktsystem.kktsolver,cones,x1,z1)
 
     if !is_success return false end
 

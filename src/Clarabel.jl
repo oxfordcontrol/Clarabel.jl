@@ -45,6 +45,7 @@ module Clarabel
     #KKT solvers and solver level kktsystem
     include("./kktsolvers/kktsolver_defaults.jl")
     include("./kktsolvers/kktsolver_directldl.jl")
+    include("./kktsolvers/kktsolver_indirect.jl")
     include("./kktsystem.jl")
 
     # printing and top level solver

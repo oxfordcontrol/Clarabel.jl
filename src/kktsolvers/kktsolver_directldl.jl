@@ -89,15 +89,10 @@ end
 
 DirectLDLKKTSolver(args...) = DirectLDLKKTSolver{DefaultFloat}(args...)
 
-function _get_ldlsolver_type(s::Symbol)
-    try
-        return DirectLDLSolversDict[s]
-    catch
-        throw(error("Unsupported direct LDL linear solver :", s))
-    end
-end
+KKTSolversDict[:directldl] = DirectLDLKKTSolver
 
-function _fill_Dsigns!(Dsigns,m,n,p)
+
+function _fill_Dsigns!(Dsigns::Vector{Int64}, m::Int64, n::Int64, p::Int64)
 
     Dsigns .= 1
 
@@ -336,6 +331,7 @@ end
 
 function kktsolver_solve!(
     kktsolver::DirectLDLKKTSolver{T},
+    cones::CompositeCone{T},
     lhsx::Union{Nothing,AbstractVector{T}},
     lhsz::Union{Nothing,AbstractVector{T}}
 ) where {T}

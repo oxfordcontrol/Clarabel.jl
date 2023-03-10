@@ -349,15 +349,18 @@ function solver_default_start!(s::Solver{T}) where {T}
     # If there are only symmetric cones, use CVXOPT style initilization
     # Otherwise, initialize along central rays
 
+    println("Calling default start")
+    
     if (is_symmetric(s.cones))
         #set all scalings to identity (or zero for the zero cone)
         set_identity_scaling!(s.cones)
         #Refactor
         kkt_update!(s.kktsystem,s.data,s.cones)
         #solve for primal/dual initial points via KKT
-        kkt_solve_initial_point!(s.kktsystem,s.variables,s.data)
+        kkt_solve_initial_point!(s.kktsystem,s.cones,s.variables,s.data)
         #fix up (z,s) so that they are in the cone
         variables_symmetric_initialization!(s.variables, s.cones)
+
 
     else
         #Assigns unit (z,s) and zeros the primal variables 
