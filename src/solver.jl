@@ -348,8 +348,6 @@ function solver_default_start!(s::Solver{T}) where {T}
 
     # If there are only symmetric cones, use CVXOPT style initilization
     # Otherwise, initialize along central rays
-
-    println("Calling default start")
     
     if (is_symmetric(s.cones))
         #set all scalings to identity (or zero for the zero cone)
