@@ -1,5 +1,4 @@
 import LinearAlgebra
-import Statistics: mean
 
 #Ruiz Equilibration procedure, using same method as in COSMO.jl
 
