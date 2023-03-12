@@ -134,9 +134,9 @@ function MOI.empty!(optimizer::Optimizer{T}) where {T}
     optimizer.rowranges = Dict{Int, UnitRange{Int}}()
 end
 
-MOI.is_empty(optimizer::Optimizer) = isnothing(optimizer.solver)
+MOI.is_empty(optimizer::Optimizer{T}) where {T} = isnothing(optimizer.solver)
 
-function MOI.optimize!(optimizer::Optimizer)
+function MOI.optimize!(optimizer::Optimizer{T}) where {T}
     if(optimizer.solver_module === Clarabel)
         solution = Clarabel.solve!(optimizer.solver)
     else

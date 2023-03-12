@@ -14,7 +14,7 @@ function __precompile_native()
     b = c = ones(nvars)
     settings = Clarabel.Settings(verbose=false,max_iter = 1)
     solver   = Clarabel.Solver(P,c,A,b,cones,settings)
-    Clarabel.solve!(solver)
+    Clarabel.solve!(solver);
 end
 
 function __precompile_moi()
@@ -60,9 +60,10 @@ function __precompile_moi()
     end
 
     # objectives 
-    f = f + 1.0*x[1]*x[1];
+    f = f + 1.0*x[1]*x[1] + x[2];
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
     MOI.supports(model, MOI.ObjectiveFunction{typeof(f)}())
+    MOI.set(model, MOI.ObjectiveFunction{typeof(x[1])}(), x[1])
     MOI.set(model, MOI.ObjectiveFunction{typeof(f)}(), f)
     
     # solve and output
@@ -70,7 +71,7 @@ function __precompile_moi()
     MOI.get(model, MOI.TerminationStatus())
     MOI.get(model, MOI.PrimalStatus())
     MOI.get(model, MOI.DualStatus())
-    MOI.get(model, MOI.VariablePrimal(), x)
+    MOI.get(model, MOI.VariablePrimal(), x);
 
 end
 
