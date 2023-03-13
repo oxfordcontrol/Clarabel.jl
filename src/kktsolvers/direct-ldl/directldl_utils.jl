@@ -41,7 +41,7 @@ struct LDLDataMap
         SOC_v = Vector{Vector{Int}}(undef,nsoc)
 
         count = 1
-        for cone in enumerate(cones)
+        for cone in cones
             if isa(cone,Clarabel.SecondOrderCone)
                 SOC_u[count] = Vector{Int}(undef,numel(cone))
                 SOC_v[count] = Vector{Int}(undef,numel(cone))
