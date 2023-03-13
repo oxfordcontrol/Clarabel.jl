@@ -33,7 +33,7 @@ function info_print_configuration(
     print_conedims_by_type(cones, PSDTriangleCone)
     print_conedims_by_type(cones, PowerCone)
     print_conedims_by_type(cones, ExponentialCone)
-    print_settings(settings, T)
+    print_settings(settings)
     @printf("\n")
 
     return nothing
@@ -110,7 +110,7 @@ end
 
 
 
-function print_settings(settings::Settings, T::DataType)
+function print_settings(settings::Settings{T}) where {T}
 
     set = settings
     @printf("\nsettings:\n")
@@ -168,7 +168,7 @@ get_precision_string(T::Type{<:Real}) = string(T)
 get_precision_string(T::Type{<:BigFloat}) = string(T," (", precision(T), " bit)")
 
 
-function print_conedims_by_type(cones::CompositeCone{T}, type) where {T}
+function print_conedims_by_type(cones::CompositeCone{T}, type::Type) where {T}
 
     maxlistlen = 5
 
@@ -180,7 +180,7 @@ function print_conedims_by_type(cones::CompositeCone{T}, type) where {T}
         return #don't report if none
     end
 
-    nvars = map(K->Clarabel.numel(K), cones[isa.(cones,type)])
+    nvars = Int64[Clarabel.numel(K) for K in cones[isa.(cones,type)]]
     name  = rpad(string(nameof(type))[1:end-4],11)  #drops "Cone" part
     @printf("    : %s = %i, ", name, count)
 
