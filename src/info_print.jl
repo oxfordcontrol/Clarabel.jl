@@ -1,16 +1,20 @@
 
-function print_banner(verbose::Bool)
+function print_banner(io::IO, verbose::Bool)
 
     if !verbose return; end
-    println("-------------------------------------------------------------")
-    @printf("           Clarabel.jl v%s  -  Clever Acronym              \n", version())
-    println("                   (c) Paul Goulart                          ")
-    println("                University of Oxford, 2022                   ")
-    println("-------------------------------------------------------------")
+    println(io, "-------------------------------------------------------------")
+    @printf(io, "           Clarabel.jl v%s  -  Clever Acronym              \n", version())
+    println(io, "                   (c) Paul Goulart                          ")
+    println(io, "                University of Oxford, 2022                   ")
+    println(io, "-------------------------------------------------------------")
 end
+print_banner(verbose) = print_banner(stdout,verbose)
+
+
 function info_print_configuration(
+    io::IO,
     info::DefaultInfo{T},
-    settings::Settings,
+    settings::Settings{T},
     data::DefaultProblemData{T},
     cones::CompositeCone{T}
 ) where {T}
@@ -18,90 +22,98 @@ function info_print_configuration(
     if(settings.verbose == false) return end
 
     if(is_reduced(data.presolver))
-        @printf("\npresolve: removed %i constraints\n", count_reduced(data.presolver))
+        @printf(io, "\npresolve: removed %i constraints\n", count_reduced(data.presolver))
     end 
 
-    @printf("\nproblem:\n")
-    @printf("  variables     = %i\n", data.n)
-    @printf("  constraints   = %i\n", data.m)
-    @printf("  nnz(P)        = %i\n", nnz(data.P))
-    @printf("  nnz(A)        = %i\n", nnz(data.A))
-    @printf("  cones (total) = %i\n", length(cones))
-    print_conedims_by_type(cones, ZeroCone)
-    print_conedims_by_type(cones, NonnegativeCone)
-    print_conedims_by_type(cones, SecondOrderCone)
-    print_conedims_by_type(cones, PSDTriangleCone)
-    print_conedims_by_type(cones, PowerCone)
-    print_conedims_by_type(cones, ExponentialCone)
-    print_settings(settings)
-    @printf("\n")
+    @printf(io, "\nproblem:\n")
+    @printf(io, "  variables     = %i\n", data.n)
+    @printf(io, "  constraints   = %i\n", data.m)
+    @printf(io, "  nnz(P)        = %i\n", nnz(data.P))
+    @printf(io, "  nnz(A)        = %i\n", nnz(data.A))
+    @printf(io, "  cones (total) = %i\n", length(cones))
+    print_conedims_by_type(io, cones, ZeroCone)
+    print_conedims_by_type(io, cones, NonnegativeCone)
+    print_conedims_by_type(io, cones, SecondOrderCone)
+    print_conedims_by_type(io, cones, PSDTriangleCone)
+    print_conedims_by_type(io, cones, PowerCone)
+    print_conedims_by_type(io, cones, ExponentialCone)
+    print_settings(io, settings)
+    @printf(io, "\n")
 
     return nothing
 end
+info_print_configuration(info,settings,data,cones) = info_print_configuration(stdout,info,settings,data,cones)
+
 
 function info_print_status_header(
+    io::IO,
     info::DefaultInfo{T},
-    settings::Settings,
+    settings::Settings{T},
 ) where {T}
 
     if(settings.verbose == false) return end
 
     #print a subheader for the iterations info
-    @printf("%s", "iter    ")
-    @printf("%s", "pcost        ")
-    @printf("%s", "dcost       ")
-    @printf("%s", "gap       ")
-    @printf("%s", "pres      ")
-    @printf("%s", "dres      ")
-    @printf("%s", "k/t       ")
-    @printf("%s", " μ       ")
-    @printf("%s", "step      ")
-    @printf("\n")
-    println("---------------------------------------------------------------------------------------------")
+    @printf(io, "%s", "iter    ")
+    @printf(io, "%s", "pcost        ")
+    @printf(io, "%s", "dcost       ")
+    @printf(io, "%s", "gap       ")
+    @printf(io, "%s", "pres      ")
+    @printf(io, "%s", "dres      ")
+    @printf(io, "%s", "k/t       ")
+    @printf(io, "%s", " μ       ")
+    @printf(io, "%s", "step      ")
+    @printf(io, "\n")
+    println(io, "---------------------------------------------------------------------------------------------")
 
     return nothing
 end
+info_print_status_header(info, settings) = info_print_status_header(stdout,info,settings)
 
 function info_print_status(
+    io::IO,
     info::DefaultInfo{T},
     settings::Settings
 ) where {T}
 
     if(settings.verbose == false) return end
 
-    @printf("%3d  ", info.iterations)
-    @printf("% .4e  ", info.cost_primal)
-    @printf("% .4e  ", info.cost_dual)
-    @printf("%.2e  ", min(info.gap_abs,info.gap_rel))
-    @printf("%.2e  ", info.res_primal)
-    @printf("%.2e  ", info.res_dual)
-    @printf("%.2e  ", info.ktratio)
-    @printf("%.2e  ", info.μ)
+    @printf(io, "%3d  ", info.iterations)
+    @printf(io, "% .4e  ", info.cost_primal)
+    @printf(io, "% .4e  ", info.cost_dual)
+    @printf(io, "%.2e  ", min(info.gap_abs,info.gap_rel))
+    @printf(io, "%.2e  ", info.res_primal)
+    @printf(io, "%.2e  ", info.res_dual)
+    @printf(io, "%.2e  ", info.ktratio)
+    @printf(io, "%.2e  ", info.μ)
     if(info.iterations > 0)
-        @printf("%.2e  ", info.step_length)
+        @printf(io, "%.2e  ", info.step_length)
     else
-        @printf(" ------   ") #info.step_length
+        @printf(io, " ------   ") #info.step_length
     end
 
-    @printf("\n")
+    @printf(io, "\n")
 
     return nothing
 end
+info_print_status(info,settings) = info_print_status(stdout,info,settings)
 
 
 function info_print_footer(
+    io::IO,
     info::DefaultInfo{T},
     settings::Settings
 ) where {T}
 
     if(settings.verbose == false) return end
 
-    println("---------------------------------------------------------------------------------------------")
-    @printf("Terminated with status = %s\n",SolverStatusDict[info.status])
-    @printf("solve time = %s\n",TimerOutputs.prettytime(info.solve_time*1e9))
+    println(io, "---------------------------------------------------------------------------------------------")
+    @printf(io, "Terminated with status = %s\n",SolverStatusDict[info.status])
+    @printf(io, "solve time = %s\n",TimerOutputs.prettytime(info.solve_time*1e9))
 
     return nothing
 end
+info_print_footer(info,settings) = info_print_footer(stdout,info,settings)
 
 
 function bool_on_off(v::Bool)
@@ -109,66 +121,66 @@ function bool_on_off(v::Bool)
 end
 
 
-
-function print_settings(settings::Settings{T}) where {T}
+function print_settings(io::IO, settings::Settings{T}) where {T}
 
     set = settings
-    @printf("\nsettings:\n")
+    @printf(io, "\nsettings:\n")
 
     if(set.direct_kkt_solver)
-        @printf("  linear algebra: direct / %s, precision: %s\n", set.direct_solve_method, get_precision_string(T))
+        @printf(io, "  linear algebra: direct / %s, precision: %s\n", set.direct_solve_method, get_precision_string(T))
     end
 
-    @printf("  max iter = %i, time limit = %f,  max step = %.3f\n",
+    @printf(io, "  max iter = %i, time limit = %f,  max step = %.3f\n",
         set.max_iter,
         set.time_limit,
         set.max_step_fraction,
     )
     #
-    @printf("  tol_feas = %0.1e, tol_gap_abs = %0.1e, tol_gap_rel = %0.1e,\n",
+    @printf(io, "  tol_feas = %0.1e, tol_gap_abs = %0.1e, tol_gap_rel = %0.1e,\n",
         set.tol_feas,
         set.tol_gap_abs,
         set.tol_gap_rel
     )
 
-    @printf("  static reg : %s, ϵ1 = %0.1e, ϵ2 = %0.1e\n",
+    @printf(io, "  static reg : %s, ϵ1 = %0.1e, ϵ2 = %0.1e\n",
         bool_on_off(set.static_regularization_enable),
         set.static_regularization_constant,
         set.static_regularization_proportional,
 
     )
     #
-    @printf("  dynamic reg: %s, ϵ = %0.1e, δ = %0.1e\n",
+    @printf(io, "  dynamic reg: %s, ϵ = %0.1e, δ = %0.1e\n",
         bool_on_off(set.dynamic_regularization_enable),
         set.dynamic_regularization_eps,
         set.dynamic_regularization_delta
     )
-    @printf("  iter refine: %s, reltol = %0.1e, abstol = %0.1e, \n",
+    @printf(io, "  iter refine: %s, reltol = %0.1e, abstol = %0.1e, \n",
         bool_on_off(set.iterative_refinement_enable),
         set.iterative_refinement_reltol,
         set.iterative_refinement_abstol
     )
-    @printf("               max iter = %d, stop ratio = %.1f\n",
+    @printf(io, "               max iter = %d, stop ratio = %.1f\n",
         set.iterative_refinement_max_iter,
         set.iterative_refinement_stop_ratio
     )
-    @printf("  equilibrate: %s, min_scale = %0.1e, max_scale = %0.1e\n",
+    @printf(io, "  equilibrate: %s, min_scale = %0.1e, max_scale = %0.1e\n",
         bool_on_off(set.equilibrate_enable),
         set.equilibrate_min_scaling,
         set.equilibrate_max_scaling
     )
-    @printf("               max iter = %d\n",
+    @printf(io, "               max iter = %d\n",
         set.equilibrate_max_iter,
     )
 
     return nothing
 end
 
+
 get_precision_string(T::Type{<:Real}) = string(T)
 get_precision_string(T::Type{<:BigFloat}) = string(T," (", precision(T), " bit)")
 
 
-function print_conedims_by_type(cones::CompositeCone{T}, type::Type) where {T}
+function print_conedims_by_type(io::IO, cones::CompositeCone{T}, type::Type) where {T}
 
     maxlistlen = 5
 
@@ -182,25 +194,25 @@ function print_conedims_by_type(cones::CompositeCone{T}, type::Type) where {T}
 
     nvars = Int64[Clarabel.numel(K) for K in cones[isa.(cones,type)]]
     name  = rpad(string(nameof(type))[1:end-4],11)  #drops "Cone" part
-    @printf("    : %s = %i, ", name, count)
+    @printf(io, "    : %s = %i, ", name, count)
 
     if count == 1
-        @printf(" numel = %i",nvars[1])
+        @printf(io, " numel = %i",nvars[1])
 
     elseif count <= maxlistlen
         #print them all
-        @printf(" numel = (")
-        foreach(x->@printf("%i,",x),nvars[1:end-1])
-        @printf("%i)",nvars[end])
+        @printf(io, " numel = (")
+        foreach(x->@printf(io, "%i,",x),nvars[1:end-1])
+        @printf(io, "%i)",nvars[end])
 
     else
         #print first (maxlistlen-1) and the final one
-        @printf(" numel = (")
-        foreach(x->@printf("%i,",x),nvars[1:(maxlistlen-1)])
-        @printf("...,%i)",nvars[end])
+        @printf(io, " numel = (")
+        foreach(x->@printf(io, "%i,",x),nvars[1:(maxlistlen-1)])
+        @printf(io, "...,%i)",nvars[end])
     end
 
-    @printf("\n")
-
+    @printf(io, "\n")
 
 end
+

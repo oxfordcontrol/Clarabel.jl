@@ -1,5 +1,47 @@
 using MathOptInterface
 
+function __precompile_printfcns()
+
+    # Verbose printing of SnoopPrecompile examples is disabled,  
+    # so force precompile of solver print statements here by 
+    # providing necessary signatures.   
+    
+    # NB: It is not sufficient to wrap the SnoopPrecompile 
+    # block inside a redirect_stdout(..), since then all of 
+    # the println and @printf calls get compiled with signatures 
+    # like println(io::Base.DevNull,...)
+
+    stdoutT = typeof(stdout)
+
+    precompile(Clarabel.print_banner, (Bool,))
+    precompile(Clarabel.print_settings, 
+        (stdoutT, Clarabel.Settings{Float64},)
+    )
+
+    precompile(Clarabel.info_print_configuration,
+        (
+            stdoutT, 
+            Clarabel.DefaultInfo{Float64},
+            Clarabel.Settings{Float64},
+            Clarabel.DefaultProblemData{Float64},
+            Clarabel.CompositeCone{Float64},
+         )
+    )
+
+    for fcn in (Clarabel.info_print_status_header, 
+                Clarabel.info_print_status, 
+                Clarabel.info_print_footer)
+        precompile(fcn,
+            (
+                stdoutT,
+                Clarabel.DefaultInfo{Float64},
+                Clarabel.Settings{Float64},
+            )
+        )   
+    end
+
+end 
+
 function __precompile_native()
     cones = [
         Clarabel.NonnegativeConeT(1),
@@ -25,7 +67,7 @@ function __precompile_moi()
         MOI.Utilities.UniversalFallback(MOI.Utilities.Model{Float64}()),
         MOI.instantiate(Clarabel.Optimizer; with_bridge_type = Float64),
     )
-    MOI.set(model, MOI.Silent(), false) #module will redirect to devnull
+    MOI.set(model, MOI.Silent(), false) 
     MOI.set(model,MOI.RawOptimizerAttribute("max_iter"),1)
 
     # variables 

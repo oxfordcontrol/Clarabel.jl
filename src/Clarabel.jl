@@ -89,12 +89,12 @@ module Clarabel
     #precompile minimal MOI / native examples
     using SnoopPrecompile
     include("./precompile.jl")
-    #redirect_stdout(devnull) do; 
+    redirect_stdout(devnull) do; 
         SnoopPrecompile.@precompile_all_calls begin
             __precompile_native()
             __precompile_moi()
         end
-    #end
-
+    end
+    __precompile_printfcns()
 
 end #end module
