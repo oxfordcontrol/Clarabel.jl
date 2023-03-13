@@ -12,7 +12,7 @@ function __precompile_native()
     nvars = sum(Clarabel.nvars.(cones))
     P = A = sparse(I(nvars)*1.)
     b = c = ones(nvars)
-    settings = Clarabel.Settings(verbose=false,max_iter = 1)
+    settings = Clarabel.Settings(max_iter = 1)
     solver   = Clarabel.Solver(P,c,A,b,cones,settings)
     Clarabel.solve!(solver);
 end
@@ -25,7 +25,7 @@ function __precompile_moi()
         MOI.Utilities.UniversalFallback(MOI.Utilities.Model{Float64}()),
         MOI.instantiate(Clarabel.Optimizer; with_bridge_type = Float64),
     )
-    MOI.set(model, MOI.Silent(), true)
+    MOI.set(model, MOI.Silent(), false) #module will redirect to devnull
     MOI.set(model,MOI.RawOptimizerAttribute("max_iter"),1)
 
     # variables 
