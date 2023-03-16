@@ -79,8 +79,8 @@ end
 
 function col_norms!(
     norms::AbstractVector{Tf},
-	A::SparseMatrixCSC{Tf,Ti}
-) where {Tf <: AbstractFloat, Ti <: Integer}
+	A::AbstractMatrix{Tf}
+) where {Tf <: AbstractFloat}
 
 	fill!(norms, zero(Tf))
     col_norms_no_reset!(norms,A)
@@ -89,7 +89,7 @@ end
 
 function col_norms_no_reset!(
     norms::AbstractVector{Tf},
-	A::SparseMatrixCSC{Tf,Ti};
+	A::SparseMatrixCSC{Tf,Ti},
 ) where {Tf <: AbstractFloat, Ti <: Integer}
 
 	@inbounds for i = eachindex(norms)
@@ -101,6 +101,17 @@ function col_norms_no_reset!(
 	return nothing
 end
 
+function col_norms_no_reset!(
+    norms::AbstractVector{T},
+	A::AbstractMatrix{T},
+) where {T}
+    for i in 1:size(A,2)
+        @views tmp = norm(A[:,i],Inf)
+        norms[i] = norms[i] > tmp ? norms[i] : tmp
+    end
+	return nothing
+end
+
 #column norms of a matrix assumed to be symmetric.
 #this works even if only tril or triu part is supplied
 #don't worry about inspecting diagonal elements twice
@@ -109,9 +120,9 @@ end
 
 function col_norms_sym!(
     norms::AbstractVector{Tf},
-	A::SparseMatrixCSC{Tf,Ti};
+	A::AbstractMatrix{Tf},
     reset::Bool = true
-) where {Tf <: AbstractFloat, Ti <: Integer}
+) where {Tf <: AbstractFloat}
 
     fill!(norms, zero(Tf))
     col_norms_sym_no_reset!(norms,A)
@@ -135,10 +146,23 @@ function col_norms_sym_no_reset!(
 	return nothing
 end
 
+function col_norms_sym_no_reset!(
+    norms::AbstractVector{T},
+	A::AbstractMatrix{T}
+) where {T}
+
+    for row in 1:size(A,1), col in 1:size(A,2)
+		tmp = abs(A[row,col])
+		norms[row] = norms[row] > tmp ? norms[row] : tmp
+        norms[col] = norms[col] > tmp ? norms[col] : tmp
+	end
+	return nothing
+end
+
 function row_norms!(
     norms::AbstractVector{Tf},
-	A::SparseMatrixCSC{Tf, Ti}
-) where{Tf <: AbstractFloat, Ti <: Integer}
+	A::AbstractMatrix{Tf}
+) where{Tf <: AbstractFloat}
 
     fill!(norms, zero(Tf))
     return row_norms_no_reset!(norms,A)
@@ -159,9 +183,24 @@ function row_norms_no_reset!(
 	return nothing
 end
 
+function row_norms_no_reset!(
+    norms::AbstractVector{T},
+	A::AbstractMatrix{T},
+) where {T}
+    for i in 1:size(A,1)
+        @views tmp = norm(A[i,:],Inf)
+        norms[i] = norms[i] > tmp ? norms[i] : tmp
+    end
+	return nothing
+end
+
 
 function scalarmul!(A::SparseMatrixCSC, c::Real)
 	A.nzval .*= c
+end
+
+function scalarmul!(A::AbstractMatrix, c::Real)
+	A .*= c
 end
 
 
@@ -206,8 +245,12 @@ function rscale!(M::SparseMatrixCSC{T}, R::AbstractVector{T}) where {T <: Abstra
 	return M
 end
 
-# dense version 
-function lrscale!(L::AbstractVector{T},M::Matrix{T},R::AbstractVector{T}) where {T <: AbstractFloat}
+# generic version 
+function lrscale!(L::AbstractVector{T},M::AbstractMatrix{T},R::AbstractVector{T}) where {T <: AbstractFloat}
+
+    #NB: this appears to be a bit faster than: 
+    # lscale!(L,M)
+    # rscale!(M,R)
 
     m, n = size(M)
     (n == length(R)) || throw(DimensionMismatch())
@@ -218,6 +261,21 @@ function lrscale!(L::AbstractVector{T},M::Matrix{T},R::AbstractVector{T}) where 
     end
     return M
 end 
+
+function lscale!(L::AbstractVector{T},M::AbstractMatrix{T}) where {T <: AbstractFloat}
+
+    # internal julia implementation is  
+    # seemingly faster than a loop
+    lmul!(Diagonal(L),M)
+end 
+
+function rscale!(M::AbstractMatrix{T},R::AbstractVector{T}) where {T <: AbstractFloat}
+    # internal julia implementation is  
+    # seemingly faster than a loop
+    rmul!(M,Diagonal(R))
+end 
+
+
 
 # Set A = (A + A') / 2.  Assumes A is real
 function symmetric_part!(A::Matrix{T}) where T <: Real
