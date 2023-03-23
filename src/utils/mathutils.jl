@@ -281,6 +281,11 @@ end
 # representing packed matrices in the upper
 # triangle, read columnwise
 # ---------------------------------
+
+# PJG: It is not clear to me which of the functions below are only 
+# used by MathOptInterface, and where the those / the remaining functions 
+# should live.   At least some of the below seems to be used by exp and powcones
+
 _triangle_svec_to_unscaled(v::T,idx::Int) where {T} = _triangle_svec_scale(v, idx, 1/sqrt(T(2)))
 _triangle_unscaled_to_svec(v::T,idx::Int) where {T} = _triangle_svec_scale(v, idx,   sqrt(T(2)))
 _triangle_svec_scale(v, index, scale) = _is_triangular_value(index) ? v : scale*v
@@ -298,6 +303,8 @@ end
 #n*(n+1)/2 into the upper triangle of an
 #nxn matrix.   It does NOT perform any scaling
 #of the vector entries.
+# PJG: Maybe _pack_triu should only be implemented 
+# for symmetric matrices, as is done in Rust?
 function _pack_triu(v::AbstractVector{T},A::AbstractMatrix{T}) where T
     n     = LinearAlgebra.checksquare(A)
     numel = (n*(n+1))>>1
@@ -310,47 +317,19 @@ function _pack_triu(v::AbstractVector{T},A::AbstractMatrix{T}) where T
     return v
 end
 
-function _pack_triu(v::Vector{T},A::SparseMatrixCSC{T}) where T
-    n     = 3
-    k = 1
-    for col = 1:n, row = 1:col
-        @inbounds v[k] = A[row,col]
-        k += 1
-    end
-    return v
-end
 
+# PJG: I think this function is not used and should be deleted?
+# Why is there an `n` here?
+# function _pack_triu(v::Vector{T},A::SparseMatrixCSC{T}) where T
+#     n     = 3
+#     k = 1
+#     for col = 1:n, row = 1:col
+#         @inbounds v[k] = A[row,col]
+#         k += 1
+#     end
+#     return v
+# end
 
-#make a matrix view from a vectorized input
-function _svec_to_mat!(M::AbstractMatrix{T}, x::AbstractVector{T}, K::PSDTriangleCone{T}) where {T}
-
-    ISQRT2 = inv(sqrt(T(2)))
-
-    idx = 1
-    for col = 1:K.n, row = 1:col
-        if row == col
-            M[row,col] = x[idx]
-            else
-            M[row,col] = x[idx]*ISQRT2
-            M[col,row] = x[idx]*ISQRT2
-        end
-        idx += 1
-    end
-end
-
-
-function _mat_to_svec!(x::AbstractVector{T},M::AbstractMatrix{T},K::PSDTriangleCone{T}) where {T}
-
-    ISQRT2 = 1/sqrt(T(2))
-
-    idx = 1
-    for row = 1:K.n, col = 1:row
-        @inbounds x[idx] = row == col ? M[row,col] : (M[row,col]+M[col,row])*ISQRT2
-        idx += 1
-    end
-
-    return nothing
-end
 
 
 #------------------------------
@@ -410,7 +389,8 @@ end
 # methods and types for indexing into the upper triangle of a square matrix
 #------------------------------
 
-
+# PJG: It is not clear that any of the below is used anymore.
+# Test with everything below removed to see what it is for...
 
 struct TriuIndex <: AbstractVector{Int}
     n::Int
