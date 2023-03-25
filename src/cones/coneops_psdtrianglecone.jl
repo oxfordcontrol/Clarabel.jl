@@ -64,6 +64,7 @@ function unit_initialization!(
 
     K.work.R    .= I(K.n)
     K.work.Rinv .= K.work.R
+    K.work.Hs   .= I(size(K.work.Hs,1))
 
     return nothing
 end
