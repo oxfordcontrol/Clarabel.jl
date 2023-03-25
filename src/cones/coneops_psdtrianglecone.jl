@@ -472,7 +472,7 @@ function _mat_to_svec!(x::AbstractVector{T},M::AbstractMatrix{T}) where {T}
     ISQRT2 = 1/sqrt(T(2))
 
     idx = 1
-    for row = 1:size(M,2), col = 1:row
+    for col = 1:size(M,2), row = 1:col
         @inbounds x[idx] = row == col ? M[row,col] : (M[row,col]+M[col,row])*ISQRT2
         idx += 1
     end
