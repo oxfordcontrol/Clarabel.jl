@@ -1,3 +1,4 @@
+using LinearOperators, IterativeSolvers
 # -------------------------------------
 # Generic Indirect KKTSolver 
 # -------------------------------------
@@ -163,7 +164,14 @@ function _indirect_solve_kkt(cones,x1,x2,P,A,H,b1,b2,work1,work2)
     Hinv = inv(H)
 
     # Solve (P + A'*H^{-1}*A)*b1 = x1.  Indirect method goes here 
-    x1 .= (P + A'*Hinv*A)\(b1 + A'*Hinv*b2);
+    # Should produce same as ... 
+    # x1 .= (P + A'*Hinv*A)\(b1 + A'*Hinv*b2);
+
+    A    = LinearOperator(A);
+    Hinv = LinearOperator(Hinv);
+    P    = LinearOperator(P);
+    M = P + (A'*Hinv*A);
+    x1 .= cg(M,b1 + A'*(Hinv*b2.vec));
 
     # backsolve for x2. 
     x2 .= Hinv*(A*x1 - b2);
