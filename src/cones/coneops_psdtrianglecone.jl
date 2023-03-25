@@ -32,7 +32,7 @@ function scaled_unit_shift!(
     #adds αI to the vectorized triangle,
     #at elements [1,3,6....n(n+1)/2]
     for k = 1:K.n
-        z[(k*(k+1))>>1] += α
+        z[triangular_index(k)] += α
     end
 
     return nothing
@@ -203,7 +203,7 @@ function affine_ds!(
 
     #same as X = Λ*Λ
     for k = 1:K.n
-        ds[(k*(k+1)) >> 1] = K.work.λ[k]^2
+        ds[triangular_index(k)] = K.work.λ[k]^2
     end
 
 end

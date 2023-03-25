@@ -66,7 +66,7 @@ function _allocate_kkt_Hsblocks(type::Type{T}, cones) where{T <: Real}
         if Hs_is_diagonal(cone)
             numelblock = nvars
         else #dense triangle
-            numelblock = (nvars*(nvars+1))>>1 #must be Int
+            numelblock = triangular_number(nvars) #must be Int
         end
         Hsblocks[i] = Vector{T}(undef,numelblock)
     end

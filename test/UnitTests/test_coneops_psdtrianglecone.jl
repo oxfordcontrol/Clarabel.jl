@@ -24,8 +24,8 @@ FloatT = Float64
         X = randsym(rng, n)
         Y = randsym(rng, n)
         Z = zeros(n,n)
-        x = zeros((n*(n+1))>>1)
-        y = zeros((n*(n+1))>>1)
+        x = zeros(Clarabel.triangular_number(n))
+        y = zeros(Clarabel.triangular_number(n))
 
         # check inner product identity
         map((v,M)->Clarabel._mat_to_svec!(v,M), (x,y), (X,Y))
@@ -47,7 +47,7 @@ FloatT = Float64
         X2 = zeros(n,n)
         Y = randsym(rng, n)
         Z = randsym(rng, n)
-        (x,y,z) = map(v->zeros((n*(n+1))>>1),1:3)
+        (x,y,z) = map(v->zeros(Clarabel.triangular_number(n)),1:3)
         map((v,M)->Clarabel._mat_to_svec!(v,M), (y,z), (Y,Z))
         K = Clarabel.PSDTriangleCone(n)
 
