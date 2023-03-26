@@ -46,7 +46,6 @@ macro conedispatch(call)
     esc(_conedispatch(:cone, call))
 end
 
-dim(::CompositeCone{T}) where {T} = error("dim() not well defined for the CompositeCone");
 degree(cones::CompositeCone{T}) where {T} = cones.degree
 numel(cones::CompositeCone{T}) where {T}  = cones.numel
 

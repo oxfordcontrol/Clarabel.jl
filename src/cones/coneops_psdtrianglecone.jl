@@ -2,9 +2,8 @@
 # Positive Semidefinite Cone
 # ----------------------------------------------------
 
-numel(K::PSDTriangleCone{T})  where {T} = K.numel    #number of elements
 degree(K::PSDTriangleCone{T}) where {T} = K.n        #side dimension, M \in \mathcal{S}^{n×n}
-
+numel(K::PSDTriangleCone{T})  where {T} = K.numel    #number of elements
 
 function margins(
     K::PSDTriangleCone{T},
