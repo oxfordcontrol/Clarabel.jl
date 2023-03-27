@@ -21,7 +21,7 @@ mutable struct IndirectKKTSolver{T} <: AbstractKKTSolver{T}
 
     # internal (shallow) copies of problem data.  
     # could be mapped here to some other format
-    P::Symmetric{T,AbstractMatrix{T}}
+    P::Symmetric{T,SparseMatrixCSC{T,Int}}
     A::AbstractMatrix{T}
 
     # block diagonal data for the lower RHS 
