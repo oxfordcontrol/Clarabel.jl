@@ -327,20 +327,6 @@ function _pack_triu(v::AbstractVector{T},A::AbstractMatrix{T}) where T
 end
 
 
-# PJG: I think this function is not used and should be deleted?
-# Why is there an `n` here?
-# function _pack_triu(v::Vector{T},A::SparseMatrixCSC{T}) where T
-#     n     = 3
-#     k = 1
-#     for col = 1:n, row = 1:col
-#         @inbounds v[k] = A[row,col]
-#         k += 1
-#     end
-#     return v
-# end
-
-
-
 #------------------------------
 # special methods for solving 3x3 positive definite systems 
 #------------------------------

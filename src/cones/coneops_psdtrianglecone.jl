@@ -362,10 +362,9 @@ function circ_op!(
     X = K.work.workmat3;
 
     #X  .= (Y*Z + Z*Y)/2 
-    # NB: works b/c Y and Z are both symmetric
-    mul!(X,Y,Z)
-    symmetric_part!(X)
-    _mat_to_svec!(x,X)
+    # NB: Y and Z are both symmetric
+    LinearAlgebra.BLAS.syr2k!('U', 'N', T(0.5), Y, Z, zero(T), X)
+    _mat_to_svec!(x,Symmetric(X))
 
     return nothing
 end
