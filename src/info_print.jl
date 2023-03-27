@@ -115,8 +115,14 @@ function print_settings(settings::Settings, T::DataType)
     set = settings
     @printf("\nsettings:\n")
 
-    if(set.direct_kkt_solver)
-        @printf("  linear algebra: direct / %s, precision: %s\n", set.direct_solve_method, get_precision_string(T))
+    if(set.kkt_solver_method == :directldl)
+        @printf("  KKT solve method: direct / %s, precision: %s\n", 
+                    set.direct_solve_method,  
+                    get_precision_string(T))
+    else
+        @printf("  KKT solve method: %s, precision: %s\n", 
+        set.kkt_solver_method,  
+        get_precision_string(T))
     end
 
     @printf("  max iter = %i, time limit = %f,  max step = %.3f\n",

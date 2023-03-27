@@ -2,10 +2,18 @@ abstract type AbstractDirectLDLSolver{T <: AbstractFloat} end
 
 const DirectLDLSolversDict = Dict{Symbol, UnionAll}()
 
+function _get_ldlsolver_type(s::Symbol)
+    try
+        return DirectLDLSolversDict[s]
+    catch
+        throw(error("Unsupported direct LDL linear solver :", s))
+    end
+end
+
 # Any new LDL solver type should provide implementations of all
 # of the following and add itself to the DirectLDLSolversDict
 
-# register type, .e.g
+# register type, e.g.
 # DirectLDLSolversDict[:qdldl] = QDLDLDirectLDLSolver
 
 # return either :triu or :tril
