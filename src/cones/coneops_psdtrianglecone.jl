@@ -90,7 +90,7 @@ function update_scaling!(
     #SVD of L2'*L1,
     tmp = f.workmat1;
     mul!(tmp,L2',L1)   
-    f.SVD = svd(f.R)
+    f.SVD = svd(tmp)
 
     #assemble λ (diagonal), R and Rinv.
     f.λ           .= f.SVD.S
