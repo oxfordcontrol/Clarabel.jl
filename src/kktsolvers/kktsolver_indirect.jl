@@ -17,21 +17,32 @@ mutable struct IndirectKKTSolver{T} <: AbstractKKTSolver{T}
     # through W and for intermediate products A*x
     work1::ConicVector{T}
     work2::ConicVector{T}
+    work::Vector{T}
 
     # internal (shallow) copies of problem data.  
     # could be mapped here to some other format
-    P::Symmetric{T,AbstractMatrix{T}}
+    P::Symmetric{T, SparseMatrixCSC{T, Int}}
     A::AbstractMatrix{T}
 
     # block diagonal data for the lower RHS 
     H::Vector{Vector{T}}
+    
+    # YC: diagonal precondtioning
+    M::Vector{T}
 
     #settings just points back to the main solver settings.
     #Required since there is no separate KKT settings container
     settings::Settings{T}
 
 
-    function IndirectKKTSolver{T}(P,A,cones,m,n,settings) where {T}
+    function IndirectKKTSolver{T}(
+        P::AbstractMatrix{T},
+        A::AbstractMatrix{T},
+        cones::CompositeCone{T},
+        m::Int,
+        n::Int,
+        settings::Settings{T}
+    ) where {T}
 
         #LHS/RHS/work 
         x1    = Vector{T}(undef,n)
@@ -40,14 +51,18 @@ mutable struct IndirectKKTSolver{T} <: AbstractKKTSolver{T}
         b2    = ConicVector{T}(cones)
         work1 = ConicVector{T}(cones)
         work2 = ConicVector{T}(cones)
+        work  = Vector{T}(undef,4*n)
 
         #lower RHS block elements 
         #PJG: wiill only work for diagonal blocks
         nblocks = numel.(cones.cones)
         H = map(n -> zeros(T,n), nblocks)
+
+        M = ones(T,n)
   
         return new(m,n,x1,x2,b1,b2,
-                   work1,work2,Symmetric(P),A,H,settings)
+                   work1,work2,work,
+                   Symmetric(P),A,H,M,settings)
     end
 
 end
@@ -106,11 +121,13 @@ function kktsolver_solve!(
     (P,A)  = (kktsolver.P, kktsolver.A)
     work1  = kktsolver.work1
     work2  = kktsolver.work2
+    work   = kktsolver.work
     (x1,x2) = (kktsolver.x1,kktsolver.x2)
     (b1,b2) = (kktsolver.b1,kktsolver.b2)
     H       = kktsolver.H
+    M       = kktsolver.M
 
-    _indirect_solve_kkt(cones,x1,x2,P,A,H,b1,b2,work1,work2)
+    _indirect_solve_kkt(cones,x1,x2,P,A,H,b1,b2,work1,work2,work,M)
 
     #PJG: development optimism
     is_success = true
@@ -123,51 +140,51 @@ function kktsolver_solve!(
 end
 
 
-function _indirect_solve_kkt(cones,x1,x2,P,A,H,b1,b2,work1,work2)
+# function _indirect_solve_kkt(cones,x1,x2,P,A,H,b1,b2,work1,work2)
 
-    # Here we should put our solver for the system 
-    # [P     A'][x1] = [b1]
-    # [A    -H ][x2]   [b2]
-    #
-    # I will assume here that :
-    #
-    # 1) we want to solve by condensing to a PSD form 
-    # and doing an indirect solve of (P + A'*H^{-1}*A)x = r
-    # 
-    # 2) The matrix H = W^TW is symmetric, sign definite,
-    # and diagonal (i.e. nonnegative cones only).  
+#     # Here we should put our solver for the system 
+#     # [P     A'][x1] = [b1]
+#     # [A    -H ][x2]   [b2]
+#     #
+#     # I will assume here that :
+#     #
+#     # 1) we want to solve by condensing to a PSD form 
+#     # and doing an indirect solve of (P + A'*H^{-1}*A)x = r
+#     # 
+#     # 2) The matrix H = W^TW is symmetric, sign definite,
+#     # and diagonal (i.e. nonnegative cones only).  
     
-    # Diagonal H is not really necessary since I only need 
-    # to compute products H^-1*b for an indirect solver,
-    # but in this prototype I have formed H and its inverse 
-    # directly just for testing.
-    #
-    # for an actual indirect method based on condensing we only need to  
-    # compute products y = H^{-1}b = (W^TW)^{-1}b.  For symmetric cones 
-    #  we should be able to do something like:
-    # 
-    # mul_Winv!(cones,:T,work1,b2,one(T),zero(T))    #work1  = (W^T)^{-1}*b2 
-    # mul_Winv!(cones,:N,work2,work1,one(T),zero(T)) #work2  = W^{-1}*work1
-    #
-    # At present the above won't compile because the CompositeCone 
-    # container type only implements the general nonsymmetric cone
-    # interface, i.e. no mul_W or mul_Winv is available without 
-    # some hackery.
+#     # Diagonal H is not really necessary since I only need 
+#     # to compute products H^-1*b for an indirect solver,
+#     # but in this prototype I have formed H and its inverse 
+#     # directly just for testing.
+#     #
+#     # for an actual indirect method based on condensing we only need to  
+#     # compute products y = H^{-1}b = (W^TW)^{-1}b.  For symmetric cones 
+#     #  we should be able to do something like:
+#     # 
+#     # mul_Winv!(cones,:T,work1,b2,one(T),zero(T))    #work1  = (W^T)^{-1}*b2 
+#     # mul_Winv!(cones,:N,work2,work1,one(T),zero(T)) #work2  = W^{-1}*work1
+#     #
+#     # At present the above won't compile because the CompositeCone 
+#     # container type only implements the general nonsymmetric cone
+#     # interface, i.e. no mul_W or mul_Winv is available without 
+#     # some hackery.
 
-    # Here for simplicity I will instead assume that H is diagonal and only 
-    # has one block (e.g. a single nonnegative cone constraint)
+#     # Here for simplicity I will instead assume that H is diagonal and only 
+#     # has one block (e.g. a single nonnegative cone constraint)
 
-    @assert(length(H) == 1)
+#     @assert(length(H) == 1)
 
-    H = Diagonal(H[1])
-    Hinv = inv(H)
+#     H = Diagonal(H[1])
+#     Hinv = inv(H)
 
-    # Solve (P + A'*H^{-1}*A)*b1 = x1.  Indirect method goes here 
-    x1 .= (P + A'*Hinv*A)\(b1 + A'*Hinv*b2);
+#     # Solve (P + A'*H^{-1}*A)*b1 = x1.  Indirect method goes here 
+#     x1 .= (P + A'*Hinv*A)\(b1 + A'*Hinv*b2);
 
-    # backsolve for x2. 
-    x2 .= Hinv*(A*x1 - b2);
+#     # backsolve for x2. 
+#     x2 .= Hinv*(A*x1 - b2);
 
-end
+# end
 
 

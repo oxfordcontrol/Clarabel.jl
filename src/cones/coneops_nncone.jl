@@ -110,6 +110,18 @@ function mul_Hs!(
 
 end
 
+# compute the product y = WᵀWx
+function mul_Hinv!(
+    K::NonnegativeCone{T},
+    y::AbstractVector{T},
+    x::AbstractVector{T}
+) where {T}
+
+    #NB : seemingly sensitive to order of multiplication
+    @. y = (x/K.w)/K.w
+
+end
+
 # returns ds = λ∘λ for the nn cone
 function affine_ds!(
     K::NonnegativeCone{T},

@@ -133,6 +133,15 @@ function mul_Hs!(
     error("Incomplete cone operation specification: ",typeof(K))
 end
 
+function mul_Hinv!(
+    K::AbstractCone{T},
+    y::AbstractVector{T},
+    x::AbstractVector{T}
+) where {T}
+
+    error("Incomplete cone operation specification: ",typeof(K))
+end
+
 # ---------------------------------------------------------
 # Linearized centrality condition functions 
 #

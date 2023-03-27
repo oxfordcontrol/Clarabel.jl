@@ -184,6 +184,20 @@ function mul_Hs!(
     return nothing
 end
 
+# YC: compute y = H^{-1}x
+function mul_Hinv!(
+    cones::CompositeCone{T},
+    y::ConicVector{T},
+    x::ConicVector{T}
+) where {T}
+
+    for (cone,yi,xi) in zip(cones,y.views,x.views)
+        @conedispatch mul_Hinv!(cone,yi,xi)
+    end
+
+    return nothing
+end
+
 # x = λ ∘ λ for symmetric cone and x = s for asymmetric cones
 function affine_ds!(
     cones::CompositeCone{T},
