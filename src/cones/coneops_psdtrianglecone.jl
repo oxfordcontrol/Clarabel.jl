@@ -87,10 +87,9 @@ function update_scaling!(
     f.cholZ = cholesky!(Z, check = true)
     (L1,L2) = (f.cholS.L,f.cholZ.L)
 
-    #R is the same size as L2'*L1,
-    #so use it as temporary workspace
-    mul!(f.R,L2',L1)   #R = L2'*L1
-
+    #SVD of L2'*L1,
+    tmp = f.workmat1;
+    mul!(tmp,L2',L1)   
     f.SVD = svd(f.R)
 
     #assemble λ (diagonal), R and Rinv.
