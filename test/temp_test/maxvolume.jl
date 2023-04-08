@@ -4,6 +4,7 @@ using JLD,JLD2
 # include(".\\..\\src\\Clarabel.jl")
 using Clarabel
 using Hypatia
+using BenchmarkTools
 
 """
 Maximum volume hypercube} from Hypatia.jl,
@@ -11,7 +12,7 @@ Maximum volume hypercube} from Hypatia.jl,
 https://github.com/chriscoey/Hypatia.jl/tree/master/examples/maxvolume,
 """
 
-n = 2500
+n = 500
 # ensure there will be a feasible solution
 x = randn(n)
 # A = sparse(Symmetric(sprand(n,n,1.0/n)) + 10I)
@@ -19,6 +20,11 @@ A = sparse(1.0*I(n))
 gamma = norm(A * x) / sqrt(n)
 freq = ones(n)
 freq ./= n
+
+#######################################################################
+# YC: Benchmarking should be implemented separately if you want to 
+#     obtain the plot.
+#######################################################################
 
 
 #Result from Clarabel's generalized power cone
@@ -37,19 +43,8 @@ end
 # @constraint(model, vcat(gamma, A * x) in MOI.SecondOrderCone(n + 1))
 @constraint(model, vcat(gamma, A * x) in MOI.NormInfinityCone(n + 1))
 @constraint(model, vcat(sqrt(n) * gamma, A * x) in MOI.NormOneCone(n + 1))
-optimize!(model)
-
-#Result from Clarabel's generalized power cone
-println("generalized power cones via Clarabel")
-model = Model(Clarabel.Optimizer)
-@variable(model, t)
-@variable(model, x[1:n])
-@objective(model, Max, t)
-@constraint(model, vcat(x,t) in Clarabel.GenPowerConeT(freq,n,1))
-# @constraint(model, vcat(gamma, A * x) in MOI.SecondOrderCone(n + 1))
-@constraint(model, vcat(gamma, A * x) in MOI.NormInfinityCone(n + 1))
-@constraint(model, vcat(sqrt(n) * gamma, A * x) in MOI.NormOneCone(n + 1))
-optimize!(model)
+MOI.set(model, MOI.Silent(), true)      #Diable printing information
+@benchmark optimize!(model)
 
 #Result from Mosek
 println("Three-dimensional cones via Mosek")
@@ -68,9 +63,22 @@ for i = 1:n-2
 end
 @constraint(model, vcat(gamma, A * p) in MOI.NormInfinityCone(n + 1))
 @constraint(model, vcat(sqrt(n) * gamma, A * p) in MOI.NormOneCone(n + 1))
-optimize!(model)
-println(solution_summary(model))
+MOI.set(model, MOI.Silent(), true)
+@benchmark optimize!(model)
+# println(solution_summary(model))
 
+#Result from Clarabel's generalized power cone
+println("generalized power cones via Clarabel")
+model = Model(Clarabel.Optimizer)
+@variable(model, t)
+@variable(model, x[1:n])
+@objective(model, Max, t)
+@constraint(model, vcat(x,t) in Clarabel.GenPowerConeT(freq,n,1))
+# @constraint(model, vcat(gamma, A * x) in MOI.SecondOrderCone(n + 1))
+@constraint(model, vcat(gamma, A * x) in MOI.NormInfinityCone(n + 1))
+@constraint(model, vcat(sqrt(n) * gamma, A * x) in MOI.NormOneCone(n + 1))
+MOI.set(model, MOI.Silent(), true)      #Diable printing information
+@benchmark optimize!(model)
 
 #Result from Hypatia
 println("generalized power cones via Hypatia")
@@ -82,5 +90,6 @@ model = Model(Hypatia.Optimizer)
 # @constraint(model, vcat(gamma, A * x) in MOI.SecondOrderCone(n + 1))
 @constraint(model, vcat(gamma, A * x) in MOI.NormInfinityCone(n + 1))
 @constraint(model, vcat(sqrt(n) * gamma, A * x) in MOI.NormOneCone(n + 1))
-optimize!(model)
+MOI.set(model, MOI.Silent(), true)
+@benchmark optimize!(model)
 println(solution_summary(model))

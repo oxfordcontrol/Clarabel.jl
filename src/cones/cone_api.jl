@@ -13,6 +13,7 @@ The currently supported concrete types are:
 * `ExponentialConeT`:         The exponential cone (in R^3)
 * `PowerConeT`      : The power cone with power α (in R^3)
 * `GenPowerConeT`   : The generalized power cone with power α
+* `PowerMeanConeT`   : The power mean cone with power α
 
 """
 abstract type SupportedCone <: MOI.AbstractVectorSet end
@@ -51,6 +52,13 @@ export GenPowerConeT
 GenPowerConeT(args...) = GenPowerConeT{DefaultFloat}(args...)
 MOI.dimension(cone::GenPowerConeT) = (cone.dim1 + cone.dim2)
 
+struct PowerMeanConeT <: SupportedCone
+    α::Vector{DefaultFloat}
+    d::DefaultInt
+end
+export PowerMeanConeT
+PowerMeanConeT(args...) = PowerMeanConeT{DefaultFloat}(args...)
+MOI.dimension(cone::PowerMeanConeT) = (cone.d+1)
 
 struct EntropyConeT <: SupportedCone
     dim::DefaultInt
@@ -73,6 +81,8 @@ function nvars(cone:: SupportedCone)
         3
     elseif isa(cone, GenPowerConeT)
         cone.dim1 + cone.dim2
+    elseif isa(cone, PowerMeanConeT)
+        cone.d + 1
     else
         cone.dim
     end

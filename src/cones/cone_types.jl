@@ -277,6 +277,50 @@ end
 
 GenPowerCone(args...) = GenPowerCone{DefaultFloat}(args...)
 
+
+# # ------------------------------------
+# # Power Mean Cone 
+# # ------------------------------------
+
+# gradient and Hessian for the dual barrier function
+mutable struct PowerMeanCone{T} <: AbstractCone{T}
+
+    α::Vector{T}
+    grad::Vector{T}         #gradient of the dual barrier at z 
+    z::Vector{T}            #holds copy of z at scaling point
+    d::DefaultInt               #dimension of powers
+    dim::DefaultInt                #d + 1
+    μ::T                    #central path parameter
+
+    #vectors for rank 3 update representation of H_s
+    p::Vector{T}
+    q::Vector{T}    
+    r::T
+    d1::Vector{T}           #first part of the diagonal
+    
+    #additional scalar terms for rank-2 rep
+    d2::T
+
+    function PowerMeanCone{T}(α::Vector{T},d::DefaultInt) where {T}
+        dim = d + 1
+        @assert all(α .> zero(T))
+        @assert sum(α) ≈ one(T)
+        μ = one(T)
+
+        grad   = zeros(T,dim)
+        z      = zeros(T,dim)
+        p      = zeros(T,dim)
+        q      = zeros(T,d)
+        r      = zero(T)
+        d1     = zeros(T,d)
+        d2     = zero(T)
+
+        return new(α,grad,z,d,dim,μ,p,q,r,d1,d2)
+    end
+end
+
+PowerMeanCone(args...) = PowerMeanCone{DefaultFloat}(args...)
+
 # # ------------------------------------
 # # Relative Entropy Cone (u,v,w) ∈ R^{1 × d × d}
 # # ------------------------------------
@@ -329,5 +373,6 @@ const ConeDict = Dict(
     ExponentialConeT => ExponentialCone,
           PowerConeT => PowerCone,
        GenPowerConeT => GenPowerCone,
+       PowerMeanConeT => PowerMeanCone,
         EntropyConeT => EntropyCone,
 )

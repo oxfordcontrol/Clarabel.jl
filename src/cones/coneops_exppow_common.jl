@@ -37,7 +37,7 @@ end
 
 #YC: an extension for _step_length_3d_cone, we could merge two together
 function _step_length_n_cone(
-    K::Union{GenPowerCone{T},EntropyCone{T}},
+    K::Union{GenPowerCone{T},EntropyCone{T},PowerMeanCone{T}},
     dq::AbstractVector{T},
     q::AbstractVector{T},
     α_init::T,

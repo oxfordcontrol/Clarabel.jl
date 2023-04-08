@@ -57,6 +57,9 @@ struct CompositeCone{T} <: AbstractCone{T}
             elseif types[i] == GenPowerConeT
                 cones[i] = ConeDict[typeof(cone_specs[i])]{T}(T.(cone_specs[i].α),cone_specs[i].dim1,cone_specs[i].dim2)
                 _is_symmetric = false
+            elseif types[i] == PowerMeanConeT
+                cones[i] = ConeDict[typeof(cone_specs[i])]{T}(T.(cone_specs[i].α),cone_specs[i].d)
+                _is_symmetric = false
             elseif types[i] == EntropyConeT
                 cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].dim)
                 _is_symmetric = false

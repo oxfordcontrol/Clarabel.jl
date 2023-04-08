@@ -306,12 +306,12 @@ end
 ) where {N<:Integer,T}
 
     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
-    # NB: ⟨s,g(s)⟩ = - K.dim = - ν
+    # NB: ⟨s,g(s)⟩ = - ν
 
     minus_g = minus_gradient_primal(K,s)     #compute g(s)
 
     #YC: need to consider the memory issue later
-    return -_barrier_dual(K,minus_g) - K.dim
+    return -_barrier_dual(K,minus_g) - degree(K)
 end 
 
 
