@@ -431,7 +431,7 @@ function _newton_raphson_powmeancone_nonpos(
     x0 = zero(T);
     @inbounds for i = 1:dim
         ti = α[i]*p[i]
-        x0 += α[i]*logsafe(ti/(1+ti))
+        x0 += α[i]*logsafe(ti/(1+α[i]))
     end
     x0 = exp(x0)
 

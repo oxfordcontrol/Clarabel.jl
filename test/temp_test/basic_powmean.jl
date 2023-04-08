@@ -3,7 +3,7 @@ using LinearAlgebra, SparseArrays
 using JuMP,Mosek,MosekTools
 using JLD,JLD2
 # include("..\\..\\src\\Clarabel.jl")
-# using Clarabel
+using Clarabel
 using Hypatia
 
 #if not run in full test setup, just do it for one float type

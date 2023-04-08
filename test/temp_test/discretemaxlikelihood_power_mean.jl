@@ -30,8 +30,8 @@ model = Model(Clarabel.Optimizer)
 @objective(model, Min, -t)
 @constraint(model, sum(p) == 1)
 @constraint(model, vcat(p,t) in Clarabel.PowerMeanConeT(freq,d))
-MOI.set(model, MOI.Silent(), true)      #Diable printing information
-@benchmark optimize!(model)
+# MOI.set(model, MOI.Silent(), true)      #Diable printing information
+optimize!(model)
 
 
 #Result from Hypatia
