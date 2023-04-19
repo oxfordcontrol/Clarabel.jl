@@ -361,7 +361,7 @@ function minus_gradient_primal(
     norm_r = norm(r)
 
     if norm_r > eps(T)
-        g1 = _newton_raphson_genpowcone(norm_r,dim1,p,ϕ,α)
+        g1 = _newton_raphson_genpowcone(norm_r,dim1,p,ϕ,α,K.ψ)
         @. gr = g1*r/norm_r
         @. gp = -(1+α+α*g1*norm_r)/p
     else
@@ -384,12 +384,13 @@ function _newton_raphson_genpowcone(
     dim::Int,
     p::AbstractVector{T},
     ϕ::T,
-    α::AbstractVector{T}
+    α::AbstractVector{T},
+    ψ::T
 ) where {T}
 
     # init point x0: f(x0) > 0
     dim2 = dim*dim
-    x0 = -one(T)/norm_r + (dim*norm_r + sqrt((ϕ/norm_r/norm_r + dim2 -1)*ϕ))/(ϕ - norm_r*norm_r)
+    x0 = -one(T)/norm_r + (ψ*norm_r + sqrt((ϕ/norm_r/norm_r + ψ*ψ -1)*ϕ))/(ϕ - norm_r*norm_r)
 
     # # additional shift due to the choice of dual barrier
     # t0 = - 2*α*logsafe(α) - 2*(1-α)*logsafe(1-α)   

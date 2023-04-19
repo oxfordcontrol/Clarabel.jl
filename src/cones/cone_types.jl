@@ -257,6 +257,9 @@ mutable struct GenPowerCone{T} <: AbstractCone{T}
     #additional scalar terms for rank-2 rep
     d2::T
 
+    #additional constant for initialization in the Newton-Raphson method
+    ψ::T
+
     function GenPowerCone{T}(α::Vector{T},dim1::DefaultInt,dim2::DefaultInt) where {T}
         dim = dim1 + dim2
         @assert all(α .> zero(T))
@@ -271,7 +274,13 @@ mutable struct GenPowerCone{T} <: AbstractCone{T}
         d1     = zeros(T,dim1)
         d2 = zero(T)
 
-        return new(α,grad,z,dim1,dim2,dim,μ,p,q,r,d1,d2)
+        ψ = zero(T)
+        @inbounds for i in 1:length(α)
+            ψ += α[i]^2
+        end
+        ψ = inv(ψ)
+
+        return new(α,grad,z,dim1,dim2,dim,μ,p,q,r,d1,d2,ψ)
     end
 end
 
