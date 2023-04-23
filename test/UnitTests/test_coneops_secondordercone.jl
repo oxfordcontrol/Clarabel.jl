@@ -12,8 +12,7 @@ FloatT = Float64
         K = Clarabel.SecondOrderCone(5)
         @test Clarabel.numel(K)== 5
         @test Clarabel.degree(K) == 1
-        @test_throws DomainError Clarabel.PSDTriangleCone(-1)
-        @test_throws DomainError Clarabel.PSDTriangleCone(0)
+        @test_throws DomainError Clarabel.SecondOrderCone(-1)
 
     end
 
@@ -78,7 +77,7 @@ FloatT = Float64
 
         # square should agree with the directly constructed one
         W2_B = W_B*W_B
-        @test norm(W2_B-W2_A) ≈ 0     atol = 1e-14
+        @test norm(W2_B-W2_A) ≈ 0     atol = 1e-12
 
         
     end

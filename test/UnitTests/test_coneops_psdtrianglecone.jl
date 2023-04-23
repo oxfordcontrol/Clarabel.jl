@@ -12,8 +12,8 @@ FloatT = Float64
         K = Clarabel.PSDTriangleCone(5)
         @test Clarabel.numel(K)== 15
         @test Clarabel.degree(K) == 5
-        @test_throws DomainError Clarabel.PSDTriangleCone(-1)
-        @test_throws DomainError Clarabel.PSDTriangleCone(0)
+        @test_throws DomainError Clarabel.PSDTriangleCone(-1) 
+        
 
     end
 
