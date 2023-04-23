@@ -8,10 +8,10 @@ function basic_SDP_data(Type::Type{T}) where {T <: AbstractFloat}
     # problem will be 3x3, so upper triangle 
     # of problem data has 6 entries 
 
-    P = sparse(I(6).*1.)
-    c = zeros(6)
-    A = sparse(I(6).*1.)
-    b = [-3., 1., 4., 1., 2., 5.]   #triu of some indefinite matrix
+    P = sparse(I(6).*one(T))
+    c = zeros(T,6)
+    A = sparse(I(6).*one(T))
+    b = T[-3., 1., 4., 1., 2., 5.]   #triu of some indefinite matrix
     
     cones = Clarabel.SupportedCone[Clarabel.PSDTriangleConeT(3)]
 
