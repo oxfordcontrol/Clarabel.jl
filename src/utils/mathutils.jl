@@ -274,6 +274,9 @@ function quad_form(
     return out
 end
 
+function mean(v::AbstractArray{T}) where {T}
+    sum(v)/length(v)
+end
 
 
 # ---------------------------------
