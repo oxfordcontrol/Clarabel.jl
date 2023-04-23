@@ -82,6 +82,11 @@ function update_scaling!(
     scaling_strategy::ScalingStrategy
 ) where {T}
 
+    if length(s) == 0 
+        #bail early on zero length cone
+        return true;
+    end
+
     f = K.work
 
     (S,Z) = (f.workmat1,f.workmat2)
