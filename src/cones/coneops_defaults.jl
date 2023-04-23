@@ -1,5 +1,3 @@
-import Statistics: mean
-
 ## -------------------------------------------
 # Default implementations for cone operations
 # --------------------------------------------
