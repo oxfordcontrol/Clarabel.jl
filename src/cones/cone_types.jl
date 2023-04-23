@@ -151,7 +151,7 @@ struct PSDTriangleCone{T} <: AbstractCone{T}
 
     function PSDTriangleCone{T}(n) where {T}
 
-        n >= 1 || throw(DomainError(dim, "dimension must be positive"))
+        n >= 0 || throw(DomainError(n, "dimension must be positive"))
         numel = triangular_number(n)
         work = PSDConeWork{T}(n)
 

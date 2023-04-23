@@ -13,7 +13,7 @@ function basic_SDP_data(Type::Type{T}) where {T <: AbstractFloat}
     A = sparse(I(6).*1.)
     b = [-3., 1., 4., 1., 2., 5.]   #triu of some indefinite matrix
     
-    cones = [Clarabel.PSDTriangleConeT(3)]
+    cones = Clarabel.SupportedCone[Clarabel.PSDTriangleConeT(3)]
 
     return (P,c,A,b,cones)
 
@@ -30,6 +30,29 @@ end
             @testset "feasible" begin
 
                 P,c,A,b,cones = basic_SDP_data(FloatT)
+
+                solver   = Clarabel.Solver(P,c,A,b,cones)
+                Clarabel.solve!(solver)
+
+                refsol =  FloatT[
+                    -3.0729833267361095
+                     0.3696004167288786
+                    -0.022226685581313674
+                     0.31441213129613066
+                    -0.026739700851545107
+                    -0.016084530571308823
+                ]
+
+                @test solver.solution.status == Clarabel.SOLVED
+                @test isapprox(norm(solver.solution.x - refsol), zero(FloatT), atol=tol)
+                @test isapprox(solver.solution.obj_val, FloatT(4.840076866013861), atol=tol)
+
+            end
+
+            @testset "empty SDP cone" begin
+
+                P,c,A,b,cones = basic_SDP_data(FloatT)
+                push!(cones,Clarabel.PSDTriangleConeT(0))
 
                 solver   = Clarabel.Solver(P,c,A,b,cones)
                 Clarabel.solve!(solver)
