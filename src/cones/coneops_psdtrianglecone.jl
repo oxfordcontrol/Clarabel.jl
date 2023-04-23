@@ -11,10 +11,14 @@ function margins(
     pd::PrimalOrDualCone
 ) where{T}
 
-    Z = K.work.workmat1
-    _svec_to_mat!(Z,z)
-    e = eigvals!(Symmetric(Z))
-    α = minimum(e)  #minimum eigenvalue
+    if length(z) 
+        Z = K.work.workmat1
+        _svec_to_mat!(Z,z)
+        e = eigvals!(Symmetric(Z))
+        α = minimum(e)  #minimum eigenvalue. 
+    else 
+        α = floatmax(T)
+    end
     β = reduce((x,y) -> y > 0 ? x + y : x, e, init = 0.) # = sum(e[e.>0]) (no alloc)
     (α,β)
     
@@ -432,13 +436,15 @@ function _step_length_psd_component(
     αmax::T
 ) where {T}
 
-    _svec_to_mat!(workΔ,d)
+    if length(d) == 0
+        γ = floatmax(T)
+    else 
+        # NB: this could be made faster since we only need to populate the upper triangle 
+        _svec_to_mat!(workΔ,d)
+        lrscale!(Λisqrt.diag,workΔ,Λisqrt.diag)
+        γ = eigvals!(Symmetric(workΔ),1:1)[1] #minimum eigenvalue
+    end
 
-    # NB: this could be made faster since 
-    # we only need to populate the upper 
-    # triangle 
-    lrscale!(Λisqrt.diag,workΔ,Λisqrt.diag)
-    γ = eigvals!(Symmetric(workΔ),1:1)[1] #minimum eigenvalue
     if γ < 0
         return min(inv(-γ),αmax)
     else
