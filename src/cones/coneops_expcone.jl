@@ -3,9 +3,8 @@
 # ----------------------------------------------------
 
 # degree of the cone.  Always 3
-dim(K::ExponentialCone{T}) where {T} = 3
-degree(K::ExponentialCone{T}) where {T} = dim(K)
-numel(K::ExponentialCone{T}) where {T} = dim(K)
+degree(K::ExponentialCone{T}) where {T} = 3
+numel(K::ExponentialCone{T}) where {T} = 3
 
 is_symmetric(::ExponentialCone{T}) where {T} = false
 

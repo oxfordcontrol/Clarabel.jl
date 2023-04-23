@@ -3,9 +3,8 @@
 # ----------------------------------------------------
 
 # degree of the cone is always 3 for PowerCone
-dim(K::PowerCone{T}) where {T} = 3
-degree(K::PowerCone{T}) where {T} = dim(K)
-numel(K::PowerCone{T}) where {T} = dim(K)
+degree(K::PowerCone{T}) where {T} = 3
+numel(K::PowerCone{T}) where {T} = 3
 
 is_symmetric(::PowerCone{T}) where {T} = false
 

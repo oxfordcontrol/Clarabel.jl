@@ -2,6 +2,9 @@
 # Nonnegative Cone
 # -------------------------------------
 
+degree(K::NonnegativeCone{T}) where {T} = K.dim
+numel(K::NonnegativeCone{T}) where {T} = K.dim
+
 function rectify_equilibration!(
     K::NonnegativeCone{T},
     δ::AbstractVector{T},

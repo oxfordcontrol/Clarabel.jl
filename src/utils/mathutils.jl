@@ -284,26 +284,42 @@ end
 # representing packed matrices in the upper
 # triangle, read columnwise
 # ---------------------------------
+
+# PJG: It is not clear to me which of the functions below are only 
+# used by MathOptInterface, and where the those / the remaining functions 
+# should live.   At least some of the below seems to be used by exp and powcones
+
 _triangle_svec_to_unscaled(v::T,idx::Int) where {T} = _triangle_svec_scale(v, idx, 1/sqrt(T(2)))
 _triangle_unscaled_to_svec(v::T,idx::Int) where {T} = _triangle_svec_scale(v, idx,   sqrt(T(2)))
-_triangle_svec_scale(v, index, scale) = _is_triangular_value(index) ? v : scale*v
+_triangle_svec_scale(v, index, scale) = _is_triangular_number(index) ? v : scale*v
 
 #vectorized versions on full triangles
 _triangle_svec_to_unscaled(v::AbstractVector) = _triangle_svec_to_unscaled.(v,eachindex(v))
 _triangle_unscaled_to_svec(v::AbstractVector) = _triangle_unscaled_to_svec.(v,eachindex(v))
 
-function _is_triangular_value(k::Int)
+function _is_triangular_number(k::Int)
     #true if the int is a triangular number
     return isqrt(8*k + 1)^2 == 8*k + 1
 end
+
+function triangular_number(k::Int)
+    (k * (k+1)) >> 1
+end 
+
+function triangular_index(k::Int)
+    # NB: same as triangular number since Julia is 1-indexed
+    triangular_number(k)
+end 
 
 #Just put elements from a vector of length
 #n*(n+1)/2 into the upper triangle of an
 #nxn matrix.   It does NOT perform any scaling
 #of the vector entries.
+# PJG: Maybe _pack_triu should only be implemented 
+# for symmetric matrices, as is done in Rust?
 function _pack_triu(v::AbstractVector{T},A::AbstractMatrix{T}) where T
     n     = LinearAlgebra.checksquare(A)
-    numel = (n*(n+1))>>1
+    numel = triangular_number(n)
     length(v) == numel || throw(DimensionMismatch())
     k = 1
     for col = 1:n, row = 1:col
@@ -311,48 +327,6 @@ function _pack_triu(v::AbstractVector{T},A::AbstractMatrix{T}) where T
         k += 1
     end
     return v
-end
-
-function _pack_triu(v::Vector{T},A::SparseMatrixCSC{T}) where T
-    n     = 3
-    k = 1
-    for col = 1:n, row = 1:col
-        @inbounds v[k] = A[row,col]
-        k += 1
-    end
-    return v
-end
-
-
-#make a matrix view from a vectorized input
-function _svec_to_mat!(M::AbstractMatrix{T}, x::AbstractVector{T}, K::PSDTriangleCone{T}) where {T}
-
-    ISQRT2 = inv(sqrt(T(2)))
-
-    idx = 1
-    for col = 1:K.n, row = 1:col
-        if row == col
-            M[row,col] = x[idx]
-            else
-            M[row,col] = x[idx]*ISQRT2
-            M[col,row] = x[idx]*ISQRT2
-        end
-        idx += 1
-    end
-end
-
-
-function _mat_to_svec!(x::AbstractVector{T},M::AbstractMatrix{T},K::PSDTriangleCone{T}) where {T}
-
-    ISQRT2 = 1/sqrt(T(2))
-
-    idx = 1
-    for row = 1:K.n, col = 1:row
-        @inbounds x[idx] = row == col ? M[row,col] : (M[row,col]+M[col,row])*ISQRT2
-        idx += 1
-    end
-
-    return nothing
 end
 
 
@@ -413,7 +387,8 @@ end
 # methods and types for indexing into the upper triangle of a square matrix
 #------------------------------
 
-
+# PJG: It is not clear that any of the below is used anymore.
+# Test with everything below removed to see what it is for...
 
 struct TriuIndex <: AbstractVector{Int}
     n::Int
@@ -423,7 +398,7 @@ TriuIndex(A::AbstractMatrix) = TriuIndex(LinearAlgebra.checksquare(A))
 
 function _get_triu_index(n,k)
     d = (isqrt(k*8 + 1) - 1)>>1
-    r  = k - (d*(d+1))>>1
+    r  = k - triangular_number(d)
     return  r == 0 ? (d-1)*n+d : d*n+r
 end
 
@@ -432,7 +407,7 @@ function Base.iterate(TI::TriuIndex, state = 1)
 end
 
 Base.eltype(::Type{TriuIndex}) = Int
-Base.length(TI::TriuIndex) = ((TI.n+1)*TI.n)>>1
+Base.length(TI::TriuIndex) = triangular_number(TI.n)
 Base.firstindex(TI::TriuIndex) = 1
 Base.lastindex(TI::TriuIndex) = length(TI)
 Base.size(TI::TriuIndex) = (length(TI),)

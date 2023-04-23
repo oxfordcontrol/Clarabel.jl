@@ -8,9 +8,13 @@
 # For SDP cone, the matrix is in R^{dim \times dim},
 # so numel will be different.   The length of (s,z)
 # vectors will be \sum_i numel(K_i)
-dim(K::AbstractCone{T}) where {T} = K.dim
-degree(K::AbstractCone{T}) where {T} = dim(K)
-numel(K::AbstractCone{T}) where {T} = dim(K)
+function degree(K::AbstractCone{T}) where {T} 
+    error("Incomplete cone operation specification: ",typeof(K))
+end 
+
+function numel(K::AbstractCone{T}) where {T} 
+    error("Incomplete cone operation specification: ",typeof(K))
+end
 
 #All cones default to symmetric unless overridden
 is_symmetric(::AbstractCone{T}) where {T} = true

@@ -4,6 +4,7 @@
 
 #degree = 1 for SOC, since e'*e = 1
 degree(K::SecondOrderCone{T}) where {T} = 1
+numel(K::SecondOrderCone{T}) where {T} = K.dim
 
 function margins(
     K::SecondOrderCone{T},

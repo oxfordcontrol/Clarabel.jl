@@ -2,9 +2,8 @@
 # Positive Semidefinite Cone
 # ----------------------------------------------------
 
-numel(K::PSDTriangleCone{T})  where {T} = K.numel    #number of elements
 degree(K::PSDTriangleCone{T}) where {T} = K.n        #side dimension, M \in \mathcal{S}^{n×n}
-
+numel(K::PSDTriangleCone{T})  where {T} = K.numel    #number of elements
 
 function margins(
     K::PSDTriangleCone{T},
@@ -13,7 +12,7 @@ function margins(
 ) where{T}
 
     Z = K.work.workmat1
-    _svec_to_mat!(Z,z,K)
+    _svec_to_mat!(Z,z)
     e = eigvals!(Symmetric(Z))
     α = minimum(e)  #minimum eigenvalue
     β = reduce((x,y) -> y > 0 ? x + y : x, e, init = 0.) # = sum(e[e.>0]) (no alloc)
@@ -32,7 +31,7 @@ function scaled_unit_shift!(
     #adds αI to the vectorized triangle,
     #at elements [1,3,6....n(n+1)/2]
     for k = 1:K.n
-        z[(k*(k+1))>>1] += α
+        z[triangular_index(k)] += α
     end
 
     return nothing
@@ -64,14 +63,9 @@ function unit_initialization!(
 
     K.work.R    .= I(K.n)
     K.work.Rinv .= K.work.R
+    K.work.Hs   .= I(size(K.work.Hs,1))
 
     return nothing
-end
-
-function Hs_is_diagonal(
-    K::PSDTriangleCone{T}
-) where{T}
-    return false
 end
 
 #configure cone internals to provide W = I scaling
@@ -86,20 +80,19 @@ function update_scaling!(
     f = K.work
 
     (S,Z) = (f.workmat1,f.workmat2)
-    map((M,v)->_svec_to_mat!(M,v,K),(S,Z),(s,z))
+    map((M,v)->_svec_to_mat!(M,v),(S,Z),(s,z))
 
     #compute Cholesky factors
     f.cholS = cholesky!(S, check = true)
     f.cholZ = cholesky!(Z, check = true)
     (L1,L2) = (f.cholS.L,f.cholZ.L)
 
-    #R is the same size as L2'*L1,
-    #so use it as temporary workspace
-    mul!(f.R,L2',L1)   #R = L2'*L1
+    #SVD of L2'*L1,
+    tmp = f.workmat1;
+    mul!(tmp,L2',L1)   
+    f.SVD = svd(tmp)
 
-    f.SVD = svd(f.R)
-
-    #assemble  λ (diagonal), R and Rinv.
+    #assemble λ (diagonal), R and Rinv.
     f.λ           .= f.SVD.S
     f.Λisqrt.diag .= inv.(sqrt.(f.λ))
 
@@ -111,37 +104,59 @@ function update_scaling!(
     mul!(f.Rinv,f.SVD.U',L2')
     mul!(f.Rinv,f.Λisqrt,f.Rinv) #mul! can take Rinv twice because Λ is diagonal
 
+
+    # PJG: The following steps force us to form Hs in memory 
+    # in the scaling update, even if we aren't using an 
+    # direct method and therefore never actually require 
+    # the matrix Hs to be formed.   The steps below should 
+    # be simplified if possible and then only implemented 
+    # within get_Hs, placing the matrix directly into the 
+    # diagonal Hs block provided by the direct factorizer.
+
+    # we should compute here the upper triangular part
+    # of the matrix Q* ((RR^T) ⨂ (RR^T)) * P.  The operator
+    # P is a matrix that transforms a packed triangle to
+    # a vectorized full matrix.  Q sends it back.  Surely 
+    # Q*P = I, but not sure anymore about Q' ?= P
+    #
+    # See notes by Kathrin Schäcke, 2013: "On the Kronecker Product"
+    # for some useful identities, particularly section 3 on symmetric 
+    # Kronecker product 
+
+    @inbounds kron!(f.kronRR,f.R,f.R)
+
+    #B .= Q'*kRR, where Q' is the svec operator
+    #this could be substantially faster
+    for i = 1:size(f.B,2)
+        @views M = reshape(f.kronRR[:,i],size(f.R,1),size(f.R,1))
+        b = view(f.B,:,i)
+        _mat_to_svec!(b,M)
+    end
+
+    #compute Hs = triu(B*B')
+    # PJG: I pack this into triu form by calling 
+    # _pack_triu with get_Hs.   Would be ideal 
+    # if this could be done directly, but it's 
+    # not clear how to do so via blas. 
+    # PJG: See my kronSymSym implementation in ~/scratch
+    LinearAlgebra.BLAS.syrk!('U', 'N', one(T), f.B, zero(T), f.Hs)
+
     return is_scaling_success = true
 end
+
+function Hs_is_diagonal(
+    K::PSDTriangleCone{T}
+) where{T}
+    return false
+end
+
 
 function get_Hs!(
     K::PSDTriangleCone{T},
     Hsblock::AbstractVector{T}
 ) where {T}
 
-    # we should return here the upper triangular part
-    # of the matrix Q* (RR^T) ⨂ (RR^T) * P.  The operator
-    # P is a matrix that transforms a packed triangle to
-    # a vectorized full matrix.
-
-    R   = K.work.R
-    kRR = K.work.kronRR
-    B   = K.work.B
-    Hs = K.work.Hs
-    @inbounds kron!(kRR,R,R)
-
-    #B .= Q'*kRR, where Q' is the svec operator
-    #this could be substantially faster
-    for i = 1:size(B,2)
-        @views M = reshape(kRR[:,i],size(R,1),size(R,1))
-        b = view(B,:,i)
-        _mat_to_svec!(b,M,K)
-    end
-
-    #compute Hs = triu(B*B')
-    LinearAlgebra.BLAS.syrk!('U', 'N', one(T), B, zero(T), Hs)
-
-    _pack_triu(Hsblock,Hs)
+    _pack_triu(Hsblock,K.work.Hs)
 
     return nothing
 end
@@ -154,6 +169,20 @@ function mul_Hs!(
     work::AbstractVector{T}
 ) where {T}
 
+    #PJG: using W^W here, but it doesn't make 
+    #sense since I have already directly computed 
+    #the Hs block?   Why not just y = Symmetric(K).x, 
+    #or some symv variant thereof?   
+    #
+    # On the other hand, it might be better to keep it this 
+    # way and then *never* hold Hs in the cone work data. 
+    # Perhaps the calculation of scale factors that includes 
+    # the kron(R,R) onwards could be done in a more compact 
+    # way since that internal Hs work variable is only really 
+    # needed to populate the KKT Hs block.   For a direct 
+    # method that block is never needed, so better to only 
+    # form it in memory of get_Hs is actually called and 
+    # provides a place for it.
     mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
     mul_W!(K,:T,y,work,one(T),zero(T))    #y = Wᵀwork = W^TWx
 
@@ -172,7 +201,7 @@ function affine_ds!(
 
     #same as X = Λ*Λ
     for k = 1:K.n
-        ds[(k*(k+1)) >> 1] = K.work.λ[k]^2
+        ds[triangular_index(k)] = K.work.λ[k]^2
     end
 
 end
@@ -211,15 +240,16 @@ function step_length(
 ) where {T}
 
     Λisqrt = K.work.Λisqrt
-    d   = K.work.workvec
+    d      = K.work.workvec
+    workΔ  = K.work.workmat1
 
     #d = Δz̃ = WΔz
     mul_W!(K, :N, d, dz, one(T), zero(T))
-    αz = _step_length_psd_component(K,d,Λisqrt,αmax)
+    αz = _step_length_psd_component(workΔ,d,Λisqrt,αmax)
 
     #d = Δs̃ = W^{-T}Δs
     mul_Winv!(K, :T, d, ds, one(T), zero(T))
-    αs = _step_length_psd_component(K,d,Λisqrt,αmax)
+    αs = _step_length_psd_component(workΔ,d,Λisqrt,αmax)
 
     return (αz,αs)
 end
@@ -260,27 +290,15 @@ function mul_W!(
     β::T
 ) where {T}
 
-  β == 0 ? y .= 0 : y .*= β
-
-  (X,Y) = (K.work.workmat1,K.work.workmat2)
-  map((M,v)->_svec_to_mat!(M,v,K),(X,Y),(x,y))
-  tmp = K.work.workmat3
-
-  R = K.work.R
-
-  if is_transpose === :T
-      #Y .+= α*(R*X*R')  #W^T*x
-      mul!(tmp,X,R')
-      mul!(Y,R,tmp,α,one(T))
-  else  # :N
-      #Y .+= α*(R'*X*R)  #W*x
-      mul!(tmp,R',X)
-      mul!(Y,tmp,R,α,one(T))
-  end
-
-  _mat_to_svec!(y,Y,K)
-
-  return nothing
+    _mul_Wx_inner(
+        is_transpose,
+        y,x,
+        α,
+        β,
+        K.work.R,
+        K.work.workmat1,
+        K.work.workmat2,
+        K.work.workmat3)
 end
 
 # implements y = αW^{-1}x + βy for the psd cone
@@ -293,27 +311,16 @@ function mul_Winv!(
     β::T
 ) where {T}
 
-    β == 0 ? y .= 0 : y .*= β
-
-    (X,Y) = (K.work.workmat1,K.work.workmat2)
-    map((M,v)->_svec_to_mat!(M,v,K),(X,Y),(x,y))
-    tmp = K.work.workmat3
-
-    Rinv = K.work.Rinv
-
-    if is_transpose === :T
-        #Y .+= α*(Rinv*X*Rinv')  #W^{-T}*x
-        mul!(tmp,X,Rinv')
-        mul!(Y,Rinv,tmp,α,one(T))
-    else # :N
-        #Y .+= α*(Rinv'*X*Rinv)  #W^{-1}*x
-        mul!(tmp,Rinv',X)
-        mul!(Y,tmp,Rinv,α,one(T))
-    end
-
-    _mat_to_svec!(y,Y,K)
-
-    return nothing
+    _mul_Wx_inner(
+        is_transpose,
+        y,x,
+        α,
+        β,
+        K.work.Rinv,
+        K.work.workmat1,
+        K.work.workmat2,
+        K.work.workmat3)
+    
 end
 
 # implements x = λ \ z for the SDP cone
@@ -324,7 +331,7 @@ function λ_inv_circ_op!(
 ) where {T}
 
     (X,Z) = (K.work.workmat1,K.work.workmat2)
-    map((M,v)->_svec_to_mat!(M,v,K),(X,Z),(x,z))
+    map((M,v)->_svec_to_mat!(M,v),(X,Z),(x,z))
 
     λ = K.work.λ
     for i = 1:K.n
@@ -332,7 +339,7 @@ function λ_inv_circ_op!(
             X[i,j] = 2*Z[i,j]/(λ[i] + λ[j])
         end
     end
-    _mat_to_svec!(x,X,K)
+    _mat_to_svec!(x,X)
 
     return nothing
 end
@@ -350,16 +357,14 @@ function circ_op!(
 ) where {T}
 
     (Y,Z) = (K.work.workmat1,K.work.workmat2)
-    map((M,v)->_svec_to_mat!(M,v,K),(Y,Z),(y,z))
+    map((M,v)->_svec_to_mat!(M,v),(Y,Z),(y,z))
 
-    tmp = K.work.workmat3;
+    X = K.work.workmat3;
 
-    #Y  .= (Y*Z + Z*Y)/2 
-    # NB: works b/c Y and Z are both symmetric
-    mul!(tmp,Y,Z)
-    Y .= tmp
-    symmetric_part!(Y)
-    _mat_to_svec!(x,Y,K)
+    #X  .= (Y*Z + Z*Y)/2 
+    # NB: Y and Z are both symmetric
+    LinearAlgebra.BLAS.syr2k!('U', 'N', T(0.5), Y, Z, zero(T), X)
+    _mat_to_svec!(x,Symmetric(X))
 
     return nothing
 end
@@ -388,21 +393,52 @@ end
 # internal operations for SDP cones 
 # ----------------------------------------
 
+function _mul_Wx_inner(
+    is_transpose::Symbol,
+    y::AbstractVector{T},
+    x::AbstractVector{T},
+    α::T,
+    β::T,
+    Rx::AbstractMatrix{T},
+    workmat1::AbstractMatrix{T},
+    workmat2::AbstractMatrix{T},
+    workmat3::AbstractMatrix{T}
+) where {T}
+
+    (X,Y,tmp) = (workmat1,workmat2,workmat3)
+    map((M,v)->_svec_to_mat!(M,v),(X,Y),(x,y))
+
+    if is_transpose === :T
+        #Y .= α*(R*X*R')                #W^T*x    or....
+        # Y .= α*(Rinv*X*Rinv') + βY    #W^{-T}*x
+        mul!(tmp,X,Rx',one(T),zero(T))
+        mul!(Y,Rx,tmp,α,β)
+    else  # :N
+        #Y .= α*(R'*X*R)                #W*x       or...
+        # Y .= α*(Rinv'*X*Rinv) + βY    #W^{-1}*x
+        mul!(tmp,Rx',X,one(T),zero(T))
+        mul!(Y,tmp,Rx,α,β)
+    end
+
+    _mat_to_svec!(y,Y)
+
+    return nothing
+end
+
 function _step_length_psd_component(
-    K::PSDTriangleCone{T},
+    workΔ::Matrix{T},
     d::Vector{T},
     Λisqrt::Diagonal{T},
     αmax::T
 ) where {T}
 
-    Δ = K.work.workmat1
-    _svec_to_mat!(Δ,d,K)
+    _svec_to_mat!(workΔ,d)
 
     # NB: this could be made faster since 
     # we only need to populate the upper 
     # triangle 
-    lrscale!(Λisqrt.diag,Δ,Λisqrt.diag)
-    γ = eigvals!(Symmetric(Δ),1:1)[1] #minimum eigenvalue
+    lrscale!(Λisqrt.diag,workΔ,Λisqrt.diag)
+    γ = eigvals!(Symmetric(workΔ),1:1)[1] #minimum eigenvalue
     if γ < 0
         return min(inv(-γ),αmax)
     else
@@ -411,4 +447,34 @@ function _step_length_psd_component(
 
 end
 
+#make a matrix view from a vectorized input
+function _svec_to_mat!( M::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
+
+    ISQRT2 = inv(sqrt(T(2)))
+
+    idx = 1
+    for col = 1:size(M,2), row = 1:col
+        if row == col
+            M[row,col] = x[idx]
+        else
+            M[row,col] = x[idx]*ISQRT2
+            M[col,row] = x[idx]*ISQRT2
+        end
+        idx += 1
+    end
+end
+
+
+function _mat_to_svec!(x::AbstractVector{T},M::AbstractMatrix{T}) where {T}
+
+    ISQRT2 = 1/sqrt(T(2))
+
+    idx = 1
+    for col = 1:size(M,2), row = 1:col
+        @inbounds x[idx] = row == col ? M[row,col] : (M[row,col]+M[col,row])*ISQRT2
+        idx += 1
+    end
+
+    return nothing
+end
 

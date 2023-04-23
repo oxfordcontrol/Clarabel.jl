@@ -11,9 +11,6 @@ const MOIU = MOI.Utilities
 const SparseTriplet{T} = Tuple{Vector{<:Integer}, Vector{<:Integer}, Vector{T}}
 
 # Cones supported by the solver
-#PJG : Support for PSD cones within ClarabelRs is manually 
-#disabled in the two implementations of supports_constraint below.
-
 const OptimizerSupportedMOICones{T} = Union{
     MOI.Zeros,
     MOI.Nonnegatives,
@@ -308,12 +305,6 @@ function MOI.supports_constraint(
     ::Type{<:MOI.VectorAffineFunction{T}},
     t::Type{<:OptimizerSupportedMOICones{T}}
 ) where{T}  
-    # PJG: workaround so that the compiled version does not 
-    # report support for PSD constraints.   Remove once they 
-    # are supported
-    if(opt.solver_module != Clarabel && t == MOI.PositiveSemidefiniteConeTriangle)
-        return false
-    end
     true
 end
 
@@ -323,12 +314,6 @@ function MOI.supports_constraint(
     ::Type{<:MOI.VectorOfVariables},
     t::Type{<:OptimizerSupportedMOICones{T}}
 ) where {T}     
-    # PJG: workaround so that the compiled version does not 
-    # report support for PSD constraints.   Remove once they 
-    # are supported
-    if(opt.solver_module != Clarabel && t == MathOptInterface.PositiveSemidefiniteConeTriangle)
-        return false
-    end
     return true
 end
 
