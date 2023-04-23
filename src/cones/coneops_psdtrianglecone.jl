@@ -11,13 +11,14 @@ function margins(
     pd::PrimalOrDualCone
 ) where{T}
 
-    if length(z) 
+    if length(z) == 0
+        e = T[]
+        α = floatmax(T)
+    else
         Z = K.work.workmat1
         _svec_to_mat!(Z,z)
         e = eigvals!(Symmetric(Z))
         α = minimum(e)  #minimum eigenvalue. 
-    else 
-        α = floatmax(T)
     end
     β = reduce((x,y) -> y > 0 ? x + y : x, e, init = 0.) # = sum(e[e.>0]) (no alloc)
     (α,β)
