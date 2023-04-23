@@ -1,3 +1,5 @@
+using GenericLinearAlgebra  # extends SVD, eigs etc for BigFloats
+
 # ----------------------------------------------------
 # Positive Semidefinite Cone
 # ----------------------------------------------------
@@ -17,7 +19,7 @@ function margins(
     else
         Z = K.work.workmat1
         _svec_to_mat!(Z,z)
-        e = eigvals!(Symmetric(Z))
+        e = eigvals!(Hermitian(Z))  #NB: GenericLinearAlgebra doesn't support eigvals!(::Symmetric(...))
         α = minimum(e)  #minimum eigenvalue. 
     end
     β = reduce((x,y) -> y > 0 ? x + y : x, e, init = 0.) # = sum(e[e.>0]) (no alloc)
@@ -149,7 +151,11 @@ function update_scaling!(
     # if this could be done directly, but it's 
     # not clear how to do so via blas. 
     # PJG: See my kronSymSym implementation in ~/scratch
-    LinearAlgebra.BLAS.syrk!('U', 'N', one(T), f.B, zero(T), f.Hs)
+    if T <: LinearAlgebra.BlasFloat
+        LinearAlgebra.BLAS.syrk!('U', 'N', one(T), f.B, zero(T), f.Hs)
+    else 
+        f.Hs .= f.B*f.B'
+    end
 
     return is_scaling_success = true
 end
@@ -373,7 +379,11 @@ function circ_op!(
 
     #X  .= (Y*Z + Z*Y)/2 
     # NB: Y and Z are both symmetric
-    LinearAlgebra.BLAS.syr2k!('U', 'N', T(0.5), Y, Z, zero(T), X)
+    if T <: LinearAlgebra.BlasFloat
+        LinearAlgebra.BLAS.syr2k!('U', 'N', T(0.5), Y, Z, zero(T), X)
+    else 
+        X .= (Y*Z + Z*Y)/2
+    end
     _mat_to_svec!(x,Symmetric(X))
 
     return nothing
@@ -448,7 +458,13 @@ function _step_length_psd_component(
         # NB: this could be made faster since we only need to populate the upper triangle 
         _svec_to_mat!(workΔ,d)
         lrscale!(Λisqrt.diag,workΔ,Λisqrt.diag)
-        γ = eigvals!(Symmetric(workΔ),1:1)[1] #minimum eigenvalue
+        # GenericLinearAlgebra doesn't support eigvals!(::Symmetric(::Matrix)), 
+        # and doesn't support choosing a subset of values 
+        if T <: LinearAlgebra.BlasFloat
+            γ = eigvals!(Hermitian(workΔ),1:1)[1] #minimum eigenvalue
+        else 
+            γ = eigvals!(Hermitian(workΔ))[1] #minimum eigenvalue, a bit slower
+        end
     end
 
     if γ < 0
