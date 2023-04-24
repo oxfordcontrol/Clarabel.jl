@@ -118,7 +118,7 @@ function update_scaling!(
 
 
     # PJG: The following steps force us to form Hs in memory 
-    # in the scaling update, even if we aren't using an 
+    # in the scaling update, even if we aren't using a
     # direct method and therefore never actually require 
     # the matrix Hs to be formed.   The steps below should 
     # be simplified if possible and then only implemented 
@@ -150,7 +150,6 @@ function update_scaling!(
     # pack_triu with get_Hs.   Would be ideal 
     # if this could be done directly, but it's 
     # not clear how to do so via blas. 
-    # PJG: See my kronSymSym implementation in ~/scratch
     if T <: LinearAlgebra.BlasFloat
         LinearAlgebra.BLAS.syrk!('U', 'N', one(T), f.B, zero(T), f.Hs)
     else 
