@@ -383,37 +383,3 @@ function cholesky_3x3_explicit_solve!(L,b)
     return SVector(x1,x2,x3)
 end
 
-#------------------------------
-# methods and types for indexing into the upper triangle of a square matrix
-#------------------------------
-
-# PJG: It is not clear that any of the below is used anymore.
-# Test with everything below removed to see what it is for...
-
-struct TriuIndex <: AbstractVector{Int}
-    n::Int
-end
-
-TriuIndex(A::AbstractMatrix) = TriuIndex(LinearAlgebra.checksquare(A))
-
-function _get_triu_index(n,k)
-    d = (isqrt(k*8 + 1) - 1)>>1
-    r  = k - triangular_number(d)
-    return  r == 0 ? (d-1)*n+d : d*n+r
-end
-
-function Base.iterate(TI::TriuIndex, state = 1)
-    return state > length(TI) ? nothing : (_get_triu_index(TI.n,state),state+1)
-end
-
-Base.eltype(::Type{TriuIndex}) = Int
-Base.length(TI::TriuIndex) = triangular_number(TI.n)
-Base.firstindex(TI::TriuIndex) = 1
-Base.lastindex(TI::TriuIndex) = length(TI)
-Base.size(TI::TriuIndex) = (length(TI),)
-
-function Base.getindex(TI::TriuIndex, i::Int)
-    1 <= i <= length(TI) || throw(BoundsError(TI, i))
-    return _get_triu_index(TI.n,i)
-end
-
