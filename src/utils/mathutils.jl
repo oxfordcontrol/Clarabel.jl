@@ -280,24 +280,10 @@ end
 
 
 # ---------------------------------
-# functions for manipulating scaled vectors
-# representing packed matrices in the upper
-# triangle, read columnwise
+# functions for manipulating data in packed triu form
 # ---------------------------------
 
-# PJG: It is not clear to me which of the functions below are only 
-# used by MathOptInterface, and where the those / the remaining functions 
-# should live.   At least some of the below seems to be used by exp and powcones
-
-_triangle_svec_to_unscaled(v::T,idx::Int) where {T} = _triangle_svec_scale(v, idx, 1/sqrt(T(2)))
-_triangle_unscaled_to_svec(v::T,idx::Int) where {T} = _triangle_svec_scale(v, idx,   sqrt(T(2)))
-_triangle_svec_scale(v, index, scale) = _is_triangular_number(index) ? v : scale*v
-
-#vectorized versions on full triangles
-_triangle_svec_to_unscaled(v::AbstractVector) = _triangle_svec_to_unscaled.(v,eachindex(v))
-_triangle_unscaled_to_svec(v::AbstractVector) = _triangle_unscaled_to_svec.(v,eachindex(v))
-
-function _is_triangular_number(k::Int)
+function is_triangular_number(k::Int)
     #true if the int is a triangular number
     return isqrt(8*k + 1)^2 == 8*k + 1
 end
@@ -311,13 +297,13 @@ function triangular_index(k::Int)
     triangular_number(k)
 end 
 
-#Just put elements from a vector of length
-#n*(n+1)/2 into the upper triangle of an
-#nxn matrix.   It does NOT perform any scaling
-#of the vector entries.
-# PJG: Maybe _pack_triu should only be implemented 
-# for symmetric matrices, as is done in Rust?
-function _pack_triu(v::AbstractVector{T},A::AbstractMatrix{T}) where T
+# Put elements from a vector of length n*(n+1)/2 into the upper triangle 
+# of an nxn matrix.   It does NOT perform any scaling of the vector entries.
+
+# PJG: Maybe pack_triu should only be implemented 
+# for symmetric matrices as is done in Rust.
+
+function pack_triu(v::AbstractVector{T},A::AbstractMatrix{T}) where T
     n     = LinearAlgebra.checksquare(A)
     numel = triangular_number(n)
     length(v) == numel || throw(DimensionMismatch())

@@ -147,7 +147,7 @@ function update_scaling!(
 
     #compute Hs = triu(B*B')
     # PJG: I pack this into triu form by calling 
-    # _pack_triu with get_Hs.   Would be ideal 
+    # pack_triu with get_Hs.   Would be ideal 
     # if this could be done directly, but it's 
     # not clear how to do so via blas. 
     # PJG: See my kronSymSym implementation in ~/scratch
@@ -172,7 +172,7 @@ function get_Hs!(
     Hsblock::AbstractVector{T}
 ) where {T}
 
-    _pack_triu(Hsblock,K.work.Hs)
+    pack_triu(Hsblock,K.work.Hs)
 
     return nothing
 end
@@ -185,9 +185,9 @@ function mul_Hs!(
     work::AbstractVector{T}
 ) where {T}
 
-    #PJG: using W^W here, but it doesn't make 
+    #PJG: using W^W here, but it maybe doesn't make 
     #sense since I have already directly computed 
-    #the Hs block?   Why not just y = Symmetric(K).x, 
+    #the Hs block.   Why not just y = Symmetric(K).x, 
     #or some symv variant thereof?   
     #
     # On the other hand, it might be better to keep it this 

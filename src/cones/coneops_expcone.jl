@@ -95,7 +95,7 @@ function get_Hs!(
 ) where {T}
 
     # stores triu(K.Hs) into a vector
-    _pack_triu(Hsblock,K.Hs)
+    pack_triu(Hsblock,K.Hs)
 
 end
 

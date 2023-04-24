@@ -97,7 +97,7 @@ function get_Hs!(
 ) where {T}
 
     #Vectorize triu(K.μH)
-    _pack_triu(Hsblock,K.Hs)
+    pack_triu(Hsblock,K.Hs)
 
 end
 
