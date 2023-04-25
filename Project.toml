@@ -20,6 +20,7 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [compat]
 AMD = "0.4, 0.5"
+GenericLinearAlgebra = "0.3"
 MathOptInterface = "1.2"
 QDLDL = "0.4"
 Requires = "1"
