@@ -16,6 +16,8 @@ This version ports support for PSD cones from the Julia version to Rust, with in
 
 - Solver now allows SDP cone constraints with dimension 0.
 
+- Adds BigFloat support for SDPs.
+
 
 ## [0.4.1] - 2023-08-03
 ### Changed 
