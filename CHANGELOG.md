@@ -1,10 +1,21 @@
 # Changelog
 
-Changes for the Julia version of Clarabel are documented in this file.   For the Rust version, see [here](https://github.com/oxfordcontrol/clarabel.rs/CHANGELOG.md).
+Changes for the Julia version of Clarabel are documented in this file.   For the Rust version, see [here](https://github.com/oxfordcontrol/Clarabel.rs/blob/main/CHANGELOG.md).
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 Version numbering in this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).  We aim to keep the core solver functionality and minor releases in sync between the Rust/Python and Julia implementations.   Small fixes that affect one implementation only may result in the patch release versions differing.
+
+## [0.5.0] - 2023-25-04
+### Changed 
+
+This version ports support for PSD cones from the Julia version to Rust, with internal supporting modifications to both versions to keep implementations synchronized.
+### Julia specific changes
+
+- Julia package now uses SnoopPrecompile to reduce load times.  Load times will be faster in particular when using Julia versions 1.9 onwards, but code remains backwards compatible to older versions.  Removed some dependencies in favor of lighter weight ones in support.  Fixes [#120](https://github.com/oxfordcontrol/Clarabel.jl/issues/120)
+
+- Solver now allows SDP cone constraints with dimension 0.
+
 
 ## [0.4.1] - 2023-08-03
 ### Changed 
@@ -53,7 +64,7 @@ Internal modifications to SDP cone implementation to reduce allocations.
 
 - Initial release
 
-
+[0.5.0]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.4.0...v0.3.0
 [0.3.0]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.3.0...v0.2.0

@@ -41,7 +41,7 @@ struct LDLDataMap
         SOC_v = Vector{Vector{Int}}(undef,nsoc)
 
         count = 1
-        for (i,cone) in enumerate(cones)
+        for cone in cones
             if isa(cone,Clarabel.SecondOrderCone)
                 SOC_u[count] = Vector{Int}(undef,numel(cone))
                 SOC_v[count] = Vector{Int}(undef,numel(cone))
@@ -66,7 +66,7 @@ function _allocate_kkt_Hsblocks(type::Type{T}, cones) where{T <: Real}
         if Hs_is_diagonal(cone)
             numelblock = nvars
         else #dense triangle
-            numelblock = (nvars*(nvars+1))>>1 #must be Int
+            numelblock = triangular_number(nvars) #must be Int
         end
         Hsblocks[i] = Vector{T}(undef,numelblock)
     end

@@ -3,6 +3,7 @@
 # -------------------------------------
 
 degree(K::ZeroCone{T}) where {T} = 0
+numel(K::ZeroCone{T}) where {T}  = K.dim
 
 # The Zerocone reports itself as symmetric even though it is not,
 # nor does it support any of the specialised symmetric interface.

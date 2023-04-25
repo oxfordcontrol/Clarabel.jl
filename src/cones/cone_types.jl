@@ -129,13 +129,13 @@ mutable struct PSDConeWork{T}
         R      = zeros(T,n,n)
         Rinv   = zeros(T,n,n)
         kronRR = zeros(T,n^2,n^2)
-        B      = zeros(T,((n+1)*n)>>1,n^2)
+        B      = zeros(T,triangular_number(n),n^2)
         Hs    = zeros(T,size(B,1),size(B,1))
 
         workmat1 = zeros(T,n,n)
         workmat2 = zeros(T,n,n)
         workmat3 = zeros(T,n,n)
-        workvec  = zeros(T,(n*(n+1))>>1)
+        workvec  = zeros(T,triangular_number(n))
 
         return new(cholS,cholZ,SVD,λ,Λisqrt,R,Rinv,
                    kronRR,B,Hs,workmat1,workmat2,workmat3,workvec)
@@ -151,8 +151,8 @@ struct PSDTriangleCone{T} <: AbstractCone{T}
 
     function PSDTriangleCone{T}(n) where {T}
 
-        n >= 1 || throw(DomainError(dim, "dimension must be positive"))
-        numel = (n*(n+1))>>1
+        n >= 0 || throw(DomainError(n, "dimension must be non-negative"))
+        numel = triangular_number(n)
         work = PSDConeWork{T}(n)
 
         return new(n,numel,work)

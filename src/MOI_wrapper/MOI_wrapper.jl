@@ -11,9 +11,6 @@ const MOIU = MOI.Utilities
 const SparseTriplet{T} = Tuple{Vector{<:Integer}, Vector{<:Integer}, Vector{T}}
 
 # Cones supported by the solver
-#PJG : Support for PSD cones within ClarabelRs is manually 
-#disabled in the two implementations of supports_constraint below.
-
 const OptimizerSupportedMOICones{T} = Union{
     MOI.Zeros,
     MOI.Nonnegatives,
@@ -134,10 +131,14 @@ function MOI.empty!(optimizer::Optimizer{T}) where {T}
     optimizer.rowranges = Dict{Int, UnitRange{Int}}()
 end
 
-MOI.is_empty(optimizer::Optimizer) = isnothing(optimizer.solver)
+MOI.is_empty(optimizer::Optimizer{T}) where {T} = isnothing(optimizer.solver)
 
-function MOI.optimize!(optimizer::Optimizer)
-    solution = optimizer.solver_module.solve!(optimizer.solver)
+function MOI.optimize!(optimizer::Optimizer{T}) where {T}
+    if(optimizer.solver_module === Clarabel)
+        solution = Clarabel.solve!(optimizer.solver)
+    else
+        solution = optimizer.solver_module.solve!(optimizer.solver)
+    end
     optimizer.solver_solution = solution
     optimizer.solver_info     = optimizer.solver_module.get_info(optimizer.solver)
     nothing
@@ -304,12 +305,6 @@ function MOI.supports_constraint(
     ::Type{<:MOI.VectorAffineFunction{T}},
     t::Type{<:OptimizerSupportedMOICones{T}}
 ) where{T}  
-    # PJG: workaround so that the compiled version does not 
-    # report support for PSD constraints.   Remove once they 
-    # are supported
-    if(opt.solver_module != Clarabel && t == MOI.PositiveSemidefiniteConeTriangle)
-        return false
-    end
     true
 end
 
@@ -319,12 +314,6 @@ function MOI.supports_constraint(
     ::Type{<:MOI.VectorOfVariables},
     t::Type{<:OptimizerSupportedMOICones{T}}
 ) where {T}     
-    # PJG: workaround so that the compiled version does not 
-    # report support for PSD constraints.   Remove once they 
-    # are supported
-    if(opt.solver_module != Clarabel && t == MathOptInterface.PositiveSemidefiniteConeTriangle)
-        return false
-    end
     return true
 end
 
@@ -558,13 +547,13 @@ end
 
 scalecoef(v,::Type{<:MOI.AbstractVectorSet})     = v #default don't scale
 scalecoef(v,idx,::Type{<:MOI.AbstractVectorSet}) = v #default don't scale
-scalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = Clarabel._triangle_unscaled_to_svec(v)
-scalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = Clarabel._triangle_unscaled_to_svec(v,idx)
+scalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = _triangle_unscaled_to_svec(v)
+scalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = _triangle_unscaled_to_svec(v,idx)
 
 unscalecoef(v,::Type{<:MOI.AbstractVectorSet})     = v #default don't scale
 unscalecoef(v,idx,::Type{<:MOI.AbstractVectorSet}) = v #default don't scale
-unscalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = Clarabel._triangle_svec_to_unscaled(v)
-unscalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = Clarabel._triangle_svec_to_unscaled(v,idx)
+unscalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = _triangle_svec_to_unscaled(v)
+unscalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = _triangle_svec_to_unscaled(v,idx)
 
 
 function push_constraint_constant!(
@@ -777,3 +766,17 @@ function upper_triangularize!(triplet::SparseTriplet{T}) where {T}
         end
     end
 end
+
+
+# ---------------------------------
+# utility functions for manipulating scaled vectors representing packed  
+# matrices in the upper triangle, read columnwise
+# ---------------------------------
+
+_triangle_svec_scale(v, index, scale) = Clarabel.is_triangular_number(index) ? v : scale*v
+_triangle_svec_to_unscaled(v::T,idx::Int) where {T} = _triangle_svec_scale(v, idx, 1/sqrt(T(2)))
+_triangle_unscaled_to_svec(v::T,idx::Int) where {T} = _triangle_svec_scale(v, idx,   sqrt(T(2)))
+
+#vectorized versions on full triangles
+_triangle_svec_to_unscaled(v::AbstractVector) = _triangle_svec_to_unscaled.(v,eachindex(v))
+_triangle_unscaled_to_svec(v::AbstractVector) = _triangle_unscaled_to_svec.(v,eachindex(v))
