@@ -12,7 +12,7 @@ Version numbering in this project adheres to [Semantic Versioning](https://semve
 This version ports support for PSD cones from the Julia version to Rust, with internal supporting modifications to both versions to keep implementations synchronized.
 ### Julia specific changes
 
-- Julia package now uses SnoopPrecompile to reduce load times.  Load times will be faster in particular when using Julia versions 1.9 onwards, but code remains backwards compatible to older versions.  Removed some dependencies in favor of lighter weight ones in support.  Fixes [#122](https://github.com/oxfordcontrol/Clarabel.jl/issues/122)
+- Julia package now uses SnoopPrecompile to reduce load times.  Load times will be faster in particular when using Julia versions 1.9 onwards, but code remains backwards compatible to older versions.  Removed some dependencies in favor of lighter weight ones in support.  Fixes [#120](https://github.com/oxfordcontrol/Clarabel.jl/issues/120)
 
 - Solver now allows SDP cone constraints with dimension 0.
 
