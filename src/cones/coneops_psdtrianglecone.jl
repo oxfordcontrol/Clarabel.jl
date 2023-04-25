@@ -128,8 +128,7 @@ function update_scaling!(
     # we should compute here the upper triangular part
     # of the matrix Q* ((RR^T) ⨂ (RR^T)) * P.  The operator
     # P is a matrix that transforms a packed triangle to
-    # a vectorized full matrix.  Q sends it back.  Surely 
-    # Q*P = I, but not sure anymore about Q' ?= P
+    # a vectorized full matrix.  Q sends it back.  
     #
     # See notes by Kathrin Schäcke, 2013: "On the Kronecker Product"
     # for some useful identities, particularly section 3 on symmetric 
@@ -196,7 +195,7 @@ function mul_Hs!(
     # way since that internal Hs work variable is only really 
     # needed to populate the KKT Hs block.   For a direct 
     # method that block is never needed, so better to only 
-    # form it in memory of get_Hs is actually called and 
+    # form it in memory if get_Hs is actually called and 
     # provides a place for it.
     mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
     mul_W!(K,:T,y,work,one(T),zero(T))    #y = Wᵀwork = W^TWx
