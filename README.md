@@ -22,11 +22,13 @@ Interior Point Conic Optimization for Julia
 
 __Clarabel.jl__ is a Julia implementation of an interior point numerical solver for convex optimization problems using a novel homogeneous embedding.  Clarabel.jl solves the following problem:
 
-$$\begin{array}{r}
+$$
+\begin{array}{r}
 \text{minimize} & \frac{1}{2}x^T P x + q^T x\\\\[2ex]
- \text{subject to} & Ax + s = b \\\\[1ex]
+\text{subject to} & Ax + s = b \\\\[1ex]
         & s \in \mathcal{K}
-\end{array}$$
+\end{array}
+$$
 
 with decision variables
 $x \in \mathbb{R}^n$,
