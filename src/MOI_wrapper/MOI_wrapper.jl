@@ -15,7 +15,7 @@ const OptimizerSupportedMOICones{T} = Union{
     MOI.Zeros,
     MOI.Nonnegatives,
     MOI.SecondOrderCone,
-    MOI.PositiveSemidefiniteConeTriangle,
+    MOI.ScaledPositiveSemidefiniteConeTriangle,
     MOI.ExponentialCone,
     MOI.PowerCone{T},
 } where {T}
@@ -30,7 +30,7 @@ const MOItoClarabelCones = Dict([
     MOI.Zeros           => Clarabel.ZeroConeT,
     MOI.Nonnegatives    => Clarabel.NonnegativeConeT,
     MOI.SecondOrderCone => Clarabel.SecondOrderConeT,
-    MOI.PositiveSemidefiniteConeTriangle => Clarabel.PSDTriangleConeT,
+    MOI.ScaledPositiveSemidefiniteConeTriangle => Clarabel.PSDTriangleConeT,
     MOI.ExponentialCone => Clarabel.ExponentialConeT,
     MOI.PowerCone       => Clarabel.PowerConeT,
 ])
@@ -263,8 +263,7 @@ function MOI.get(
 
     MOI.check_result_index_bounds(opt, a)
     rows = constraint_rows(opt.rowranges, ci)
-    sout = unscalecoef(opt.solver_solution.s[rows],S)
-    return sout
+    return opt.solver_solution.s[rows]
 end
 
 MOI.supports(::Optimizer, ::MOI.ConstraintDual) = true
@@ -276,8 +275,7 @@ function MOI.get(
 
     MOI.check_result_index_bounds(opt, a)
     rows = constraint_rows(opt.rowranges, ci)
-    zout = unscalecoef(opt.solver_solution.z[rows],S)
-    return zout
+    return opt.solver_solution.z[rows]
 end
 
 MOI.supports(::Optimizer, ::MOI.TimeLimitSec) = true
@@ -541,29 +539,14 @@ function push_constraint!(
     return nothing
 end
 
-# function for scaling problem data for constraints
-# in packed triangle format, since our optimizer
-# is implemented using the 'svec' style
-
-scalecoef(v,::Type{<:MOI.AbstractVectorSet})     = v #default don't scale
-scalecoef(v,idx,::Type{<:MOI.AbstractVectorSet}) = v #default don't scale
-scalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = _triangle_unscaled_to_svec(v)
-scalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = _triangle_unscaled_to_svec(v,idx)
-
-unscalecoef(v,::Type{<:MOI.AbstractVectorSet})     = v #default don't scale
-unscalecoef(v,idx,::Type{<:MOI.AbstractVectorSet}) = v #default don't scale
-unscalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = _triangle_svec_to_unscaled(v)
-unscalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = _triangle_svec_to_unscaled(v,idx)
-
-
 function push_constraint_constant!(
     b::AbstractVector{T},
     rows::UnitRange{Int},
     f::MOI.VectorAffineFunction{T},
-    s::OptimizerSupportedMOICones{T},
+    ::OptimizerSupportedMOICones{T},
 ) where {T}
 
-    b[rows] .= scalecoef(f.constants,typeof(s))
+    b[rows] .= f.constants
     return nothing
 end
 
@@ -589,7 +572,6 @@ function push_constraint_linear!(
         row = rows[term.output_index]
         var = term.scalar_term.variable
         coeff = term.scalar_term.coefficient
-        coeff = scalecoef(coeff, term.output_index,typeof(s))
         col = idxmap[var].value
         push!(I, row)
         push!(J, col)
@@ -610,7 +592,7 @@ function push_constraint_linear!(
     cols = [idxmap[var].value for var in f.variables]
     append!(I, rows)
     append!(J, cols)
-    vals = scalecoef(ones(T,length(cols)),typeof(s))
+    vals = ones(T, length(cols))
     append!(V, vals)
 
     return nothing
@@ -643,7 +625,7 @@ function push_constraint_set!(
     end
 
     next_type = MOItoClarabelCones[typeof(s)]
-    next_dim  = _to_optimizer_conedim(length(rows),typeof(s))
+    next_dim  = _to_optimizer_conedim(s)
 
     # merge cones together where :
     # 1) cones of the same type appear consecutively and
@@ -663,9 +645,8 @@ end
 # converts number of elements to optimizer's internal dimension parameter.
 # For matrices, this is just the matrix side dimension.  Conversion differs
 # for square vs triangular form
-_to_optimizer_conedim(k::Int, ::Type{<:MOI.AbstractVectorSet}) = k
-_to_optimizer_conedim(k::Int, ::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = (isqrt(8*k + 1)-1) >> 1
-_to_optimizer_conedim(k::Int, ::Type{<:MOI.AbstractSymmetricMatrixSetSquare})   = isqrt(k)
+_to_optimizer_conedim(set::MOI.AbstractVectorSet) = MOI.dimension(set)
+_to_optimizer_conedim(set::MOI.ScaledPositiveSemidefiniteConeTriangle) = set.side_dimension
 
 function push_constraint_set!(
     cone_spec::Vector{Clarabel.SupportedCone},
@@ -766,17 +747,3 @@ function upper_triangularize!(triplet::SparseTriplet{T}) where {T}
         end
     end
 end
-
-
-# ---------------------------------
-# utility functions for manipulating scaled vectors representing packed  
-# matrices in the upper triangle, read columnwise
-# ---------------------------------
-
-_triangle_svec_scale(v, index, scale) = Clarabel.is_triangular_number(index) ? v : scale*v
-_triangle_svec_to_unscaled(v::T,idx::Int) where {T} = _triangle_svec_scale(v, idx, 1/sqrt(T(2)))
-_triangle_unscaled_to_svec(v::T,idx::Int) where {T} = _triangle_svec_scale(v, idx,   sqrt(T(2)))
-
-#vectorized versions on full triangles
-_triangle_svec_to_unscaled(v::AbstractVector) = _triangle_svec_to_unscaled.(v,eachindex(v))
-_triangle_unscaled_to_svec(v::AbstractVector) = _triangle_unscaled_to_svec.(v,eachindex(v))
