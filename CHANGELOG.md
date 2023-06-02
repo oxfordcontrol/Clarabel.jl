@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 Version numbering in this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).  We aim to keep the core solver functionality and minor releases in sync between the Rust/Python and Julia implementations.   Small fixes that affect one implementation only may result in the patch release versions differing.
 
+
+## [0.5.1] - 2023-02-06
+### Changed 
+Fixes convergence edge case in KKT direct solve iterative refinement.
+### Julia specific changes
+Updates to MOI interface to support scaled PSD cones directly (#131) and to add missing termination status codes (#132)
+
 ## [0.5.0] - 2023-25-04
 ### Changed 
 
@@ -66,6 +73,7 @@ Internal modifications to SDP cone implementation to reduce allocations.
 
 - Initial release
 
+[0.5.1]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.4.0...v0.3.0
