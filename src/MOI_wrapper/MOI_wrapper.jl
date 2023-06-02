@@ -44,36 +44,42 @@ const MOItoClarabelCones = Dict([
 # something along those lines.
 
 const ClarabeltoMOITerminationStatus = Dict([
-    Clarabel.SOLVED             =>  MOI.OPTIMAL,
-    Clarabel.MAX_ITERATIONS     =>  MOI.ITERATION_LIMIT,
-    Clarabel.MAX_TIME           =>  MOI.TIME_LIMIT,
-    Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBLE,
-    Clarabel.DUAL_INFEASIBLE    =>  MOI.DUAL_INFEASIBLE,
-    Clarabel.ALMOST_SOLVED      =>  MOI.ALMOST_OPTIMAL,
-    Clarabel.NUMERICAL_ERROR    =>  MOI.NUMERICAL_ERROR,
-    Clarabel.INSUFFICIENT_PROGRESS    =>  MOI.NUMERICAL_ERROR
+    Clarabel.SOLVED                     =>  MOI.OPTIMAL,
+    Clarabel.MAX_ITERATIONS             =>  MOI.ITERATION_LIMIT,
+    Clarabel.MAX_TIME                   =>  MOI.TIME_LIMIT,
+    Clarabel.PRIMAL_INFEASIBLE          =>  MOI.INFEASIBLE,
+    Clarabel.DUAL_INFEASIBLE            =>  MOI.DUAL_INFEASIBLE,
+    Clarabel.ALMOST_SOLVED              =>  MOI.ALMOST_OPTIMAL,
+    Clarabel.ALMOST_PRIMAL_INFEASIBLE   =>  MOI.ALMOST_INFEASIBLE,
+    Clarabel.ALMOST_DUAL_INFEASIBLE     =>  MOI.ALMOST_DUAL_INFEASIBLE,
+    Clarabel.NUMERICAL_ERROR            =>  MOI.NUMERICAL_ERROR,
+    Clarabel.INSUFFICIENT_PROGRESS      =>  MOI.SLOW_PROGRESS,
 ])
 
 const ClarabeltoMOIPrimalStatus = Dict([
-    Clarabel.SOLVED             =>  MOI.FEASIBLE_POINT,
-    Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBLE_POINT,
-    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBILITY_CERTIFICATE,
-    Clarabel.ALMOST_SOLVED      =>  MOI.NEARLY_FEASIBLE_POINT,
-    Clarabel.MAX_ITERATIONS     =>  MOI.OTHER_RESULT_STATUS,
-    Clarabel.MAX_TIME           =>  MOI.OTHER_RESULT_STATUS,
-    Clarabel.NUMERICAL_ERROR    =>  MOI.OTHER_RESULT_STATUS,
-    Clarabel.INSUFFICIENT_PROGRESS => MOI.OTHER_RESULT_STATUS,
+    Clarabel.SOLVED                     =>  MOI.FEASIBLE_POINT,
+    Clarabel.PRIMAL_INFEASIBLE          =>  MOI.INFEASIBLE_POINT,
+    Clarabel.DUAL_INFEASIBLE            =>  MOI.INFEASIBILITY_CERTIFICATE,
+    Clarabel.ALMOST_SOLVED              =>  MOI.NEARLY_FEASIBLE_POINT,
+    Clarabel.ALMOST_PRIMAL_INFEASIBLE   =>  MOI.INFEASIBLE_POINT,
+    Clarabel.ALMOST_DUAL_INFEASIBLE     =>  MOI.NEARLY_INFEASIBILITY_CERTIFICATE,
+    Clarabel.MAX_ITERATIONS             =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.MAX_TIME                   =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.NUMERICAL_ERROR            =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.INSUFFICIENT_PROGRESS      =>  MOI.OTHER_RESULT_STATUS,
 ])
 
 const ClarabeltoMOIDualStatus = Dict([
-    Clarabel.SOLVED             =>  MOI.FEASIBLE_POINT,
-    Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBILITY_CERTIFICATE,
-    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBLE_POINT,
-    Clarabel.ALMOST_SOLVED      =>  MOI.NEARLY_FEASIBLE_POINT,
-    Clarabel.MAX_ITERATIONS     =>  MOI.OTHER_RESULT_STATUS,
-    Clarabel.MAX_TIME           =>  MOI.OTHER_RESULT_STATUS,
-    Clarabel.NUMERICAL_ERROR    =>  MOI.OTHER_RESULT_STATUS,
-    Clarabel.INSUFFICIENT_PROGRESS => MOI.OTHER_RESULT_STATUS,
+    Clarabel.SOLVED                     =>  MOI.FEASIBLE_POINT,
+    Clarabel.PRIMAL_INFEASIBLE          =>  MOI.INFEASIBILITY_CERTIFICATE,
+    Clarabel.DUAL_INFEASIBLE            =>  MOI.INFEASIBLE_POINT,
+    Clarabel.ALMOST_SOLVED              =>  MOI.NEARLY_FEASIBLE_POINT,
+    Clarabel.ALMOST_PRIMAL_INFEASIBLE   =>  MOI.NEARLY_INFEASIBILITY_CERTIFICATE,
+    Clarabel.ALMOST_DUAL_INFEASIBLE     =>  MOI.INFEASIBLE_POINT,
+    Clarabel.MAX_ITERATIONS             =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.MAX_TIME                   =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.NUMERICAL_ERROR            =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.INSUFFICIENT_PROGRESS      =>  MOI.OTHER_RESULT_STATUS,
 ])
 
 #-----------------------------
