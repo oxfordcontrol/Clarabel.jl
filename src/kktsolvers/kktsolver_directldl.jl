@@ -380,11 +380,10 @@ function  _iterative_refinement(
 
     #compute the initial error
     norme = _get_refine_error!(e,b,KKTsym,x)
+           
+    isfinite(norme) || return is_success = false 
 
     for i = 1:IR_maxiter
-
-        # bail on numerical error
-        if !isfinite(norme) return is_success = false end
 
         if(norme <= IR_abstol + IR_reltol*normb)
             # within tolerance, or failed.  Exit
@@ -398,7 +397,9 @@ function  _iterative_refinement(
         #prospective solution is x + dx.   Use dx space to
         #hold it for a check before applying to x
         @. dx += x
+
         norme = _get_refine_error!(e,b,KKTsym,dx)
+        isfinite(norme) || return is_success = false 
 
         improved_ratio = lastnorme/norme
         if(improved_ratio <  IR_stopratio)
