@@ -25,9 +25,9 @@ __Clarabel.jl__ is a Julia implementation of an interior point numerical solver 
 $$
 \begin{array}{r}
 \text{minimize} & \frac{1}{2}x^T P x + q^T x\\\\[2ex]
- \text{subject to} & Ax + s = b \\\\[1ex]
+\text{subject to} & Ax + s = b \\\\[1ex]
         & s \in \mathcal{K}
- \end{array}
+\end{array}
 $$
 
 with decision variables
@@ -50,12 +50,12 @@ Clarabel is also available in a Rust / Python implementation.  See [here](https:
 * __Versatile__: Clarabel.jl solves linear programs (LPs), quadratic programs (QPs), second-order cone programs (SOCPs) and semidefinite programs (SDPs).  It also solves problems with exponential and power cone constraints.
 * __Quadratic objectives__: Unlike interior point solvers based on the standard homogeneous self-dual embedding (HSDE), Clarabel.jl handles quadratic objectives without requiring any epigraphical reformulation of the objective.   It can therefore be significantly faster than other HSDE-based solvers for problems with quadratic objective functions.
 * __Infeasibility detection__: Infeasible problems are detected using a homogeneous embedding technique.
-* __JuMP / Convex.jl support__: We provide an interface to [MathOptInterface](https://jump.dev/JuMP.jl/stable/moi/) (MOI), which allows you to describe your problem in [JuMP](https://github.com/JuliaOpt/JuMP.jl) and [Convex.jl](https://github.com/JuliaOpt/Convex.jl).
-* __Arbitrary precision types__: You can solve problems with any floating point precision, e.g. Float32 or Julia's BigFloat type, using either the native interface, or via MathOptInterface / Convex.jl.
+* __JuMP / Convex.jl support__: We provide an interface to [MathOptInterface](https://jump.dev/JuMP.jl/stable/moi/) (MOI), which allows you to describe your problem in [JuMP](https://github.com/jump-dev/JuMP.jl) and [Convex.jl](https://github.com/jump-dev/Convex.jl).
+* __Arbitrary precision types__: You can solve problems with any floating point precision, for example, Float32 or Julia's BigFloat type, using either the native interface, or via MathOptInterface / Convex.jl.
 * __Open Source__: Our code is available on [GitHub](https://github.com/oxfordcontrol/Clarabel.jl) and distributed under the Apache 2.0 License
 
 ## Installation
 - __Clarabel.jl__ can be added via the Julia package manager (type `]`): `pkg> add Clarabel`
 
 ## License 🔍
-This project is licensed under the Apache License  2.0 - see the [LICENSE.md](LICENSE.md) file for details.
+This project is licensed under the Apache License  2.0 - see the [LICENSE.md](https://github.com/oxfordcontrol/Clarabel.jl/blob/main/LICENSE.md) file for details.
