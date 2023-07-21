@@ -48,8 +48,8 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         #solving in sparse format.  Need this many
         #extra variables for SOCs
         p = 2*cones.type_counts[SecondOrderCone]
-        p_genpow = 3*cones.type_counts[GenPowerConeT]   #YC：remove 'T' in cone's definition
-        p_powm = 3*cones.type_counts[PowerMeanConeT]
+        p_genpow = 3*cones.type_counts[GenPowerCone]   #YC：remove 'T' in cone's definition
+        p_powm = 3*cones.type_counts[PowerMeanCone]
 
 
         #LHS/RHS/work for iterative refinement
@@ -248,7 +248,7 @@ function _kktsolver_update_inner!(
     cidx = 1        #which of the GenPow are we working on?
 
     for (i,K) = enumerate(cones)
-        if isa(cones.cone_specs[i],GenPowerConeT)
+        if isa(K,GenPowerCone)
 
             #YC: μ is a global parameter but it is saved multiple times for each GenPow cone
             sqrtμ = sqrt(K.μ)
@@ -274,7 +274,7 @@ function _kktsolver_update_inner!(
     cidx = 1        #which of the PowMean are we working on?
 
     for (i,K) = enumerate(cones)
-        if isa(cones.cone_specs[i],PowerMeanConeT)
+        if isa(K,PowerMeanCone)
 
             #YC: μ is a global parameter but it is saved multiple times for each GenPow cone
             sqrtμ = sqrt(K.μ)

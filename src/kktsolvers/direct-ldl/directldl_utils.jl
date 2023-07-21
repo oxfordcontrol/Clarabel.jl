@@ -40,27 +40,21 @@ struct LDLDataMap
         #make an index for each of the Hs blocks for each cone
         Hsblocks = _allocate_kkt_Hsblocks(Int, cones)
 
-<<<<<<< HEAD
-        #now do the SOC expansion pieces and GenPow & PowerMean expansion pieces
-        nsoc = cones.type_counts[Clarabel.SecondOrderConeT]
-=======
         #now do the SOC expansion pieces
         nsoc = cones.type_counts[Clarabel.SecondOrderCone]
->>>>>>> original-git/main
         p    = 2*nsoc
         SOC_D = zeros(Int,p)
         SOC_u = Vector{Vector{Int}}(undef,nsoc)
         SOC_v = Vector{Vector{Int}}(undef,nsoc)
 
-<<<<<<< HEAD
-        n_genpow = cones.type_counts[Clarabel.GenPowerConeT]
+        n_genpow = cones.type_counts[Clarabel.GenPowerCone]
         p_genpow = 3*n_genpow
         GenPow_p = Vector{Vector{Int}}(undef,n_genpow)
         GenPow_q = Vector{Vector{Int}}(undef,n_genpow)
         GenPow_r = Vector{Vector{Int}}(undef,n_genpow)
         GenPow_D = zeros(Int,p_genpow)   
 
-        n_powm = cones.type_counts[Clarabel.PowerMeanConeT]
+        n_powm = cones.type_counts[Clarabel.PowerMeanCone]
         p_powm = 3*n_powm
         PowM_p = Vector{Vector{Int}}(undef,n_powm)
         PowM_q = Vector{Vector{Int}}(undef,n_powm)
@@ -71,30 +65,22 @@ struct LDLDataMap
         count_genpow = 1;
         count_powm = 1;
         for (i,cone) in enumerate(cones)
-            if isa(cones.cone_specs[i],Clarabel.SecondOrderConeT)
+            if isa(cone,Clarabel.SecondOrderCone)
                 SOC_u[count_soc] = Vector{Int}(undef,numel(cone))
                 SOC_v[count_soc] = Vector{Int}(undef,numel(cone))
                 count_soc += 1
             end
-            if isa(cones.cone_specs[i],Clarabel.GenPowerConeT)
+            if isa(cone,Clarabel.GenPowerCone)
                 GenPow_p[count_genpow] = Vector{Int}(undef,numel(cone))
                 GenPow_q[count_genpow] = Vector{Int}(undef,cone.dim1)
                 GenPow_r[count_genpow] = Vector{Int}(undef,cone.dim2)
                 count_genpow += 1
             end
-            if isa(cones.cone_specs[i],Clarabel.PowerMeanConeT)
+            if isa(cone,Clarabel.PowerMeanCone)
                 PowM_p[count_powm] = Vector{Int}(undef,numel(cone))
                 PowM_q[count_powm] = Vector{Int}(undef,cone.d)
                 PowM_r[count_powm] = Vector{Int}(undef,1)
                 count_powm += 1
-=======
-        count = 1
-        for cone in cones
-            if isa(cone,Clarabel.SecondOrderCone)
-                SOC_u[count] = Vector{Int}(undef,numel(cone))
-                SOC_v[count] = Vector{Int}(undef,numel(cone))
-                count += 1
->>>>>>> original-git/main
             end
         end
 
@@ -117,7 +103,7 @@ function _allocate_kkt_Hsblocks(type::Type{T}, cones) where{T <: Real}
         nvars = numel(cone)
         if Hs_is_diagonal(cone) 
             numelblock = nvars
-        elseif isa(cones.cone_specs[i],Clarabel.EntropyConeT)
+        elseif isa(cone,Clarabel.EntropyCone)
             numelblock = 2*nvars - 1 + cone.d
         else #dense triangle
             numelblock = triangular_number(nvars) #must be Int
@@ -139,9 +125,9 @@ function _assemble_kkt_matrix(
     (m,n)  = (size(A,1), size(P,1))
     n_socs = cones.type_counts[Clarabel.SecondOrderCone]
     p = 2*n_socs
-    n_genpow = cones.type_counts[Clarabel.GenPowerConeT]
+    n_genpow = cones.type_counts[Clarabel.GenPowerCone]
     p_genpow = 3*n_genpow
-    n_powm = cones.type_counts[Clarabel.PowerMeanConeT]
+    n_powm = cones.type_counts[Clarabel.PowerMeanCone]
     p_powm = 3*n_powm
 
     maps = LDLDataMap(P,A,cones)
@@ -224,7 +210,7 @@ function _kkt_assemble_colcounts(
         blockdim = numel(cone)
         if Hs_is_diagonal(cone)
             _csc_colcount_diag(K,firstcol,blockdim)
-        elseif isa(cones.cone_specs[i],Clarabel.EntropyConeT)
+        elseif isa(cone,Clarabel.EntropyCone)
             _csc_colcount_entropy(K,firstcol,blockdim,shape)
         else
             _csc_colcount_dense_triangle(K,firstcol,blockdim,shape)
@@ -262,8 +248,8 @@ function _kkt_assemble_colcounts(
     socidx = socidx - 1 #num of SOC
 
     genpowidx = 1   #which GenPow are we working on?
-    for i in eachindex(cones)
-        if isa(cones.cone_specs[i],Clarabel.GenPowerConeT)
+    for (i,cone) in enumerate(cones)
+        if isa(cone,Clarabel.GenPowerCone)
 
             #we will add the p,q,r columns for this cone
             nvars   = numel(cones[i])
@@ -295,8 +281,8 @@ function _kkt_assemble_colcounts(
     genpowidx = genpowidx - 1 #num of GenPow
 
     powmidx = 1   #which PowM are we working on?
-    for i in eachindex(cones)
-        if isa(cones.cone_specs[i],Clarabel.PowerMeanConeT)
+    for (i,cone) in enumerate(cones)
+        if isa(cone,Clarabel.PowerMeanCone)
 
             #we will add the p,q,r columns for this cone
             nvars   = numel(cones[i])
@@ -367,7 +353,7 @@ function _kkt_assemble_fill(
         blockdim = numel(cone)
         if Hs_is_diagonal(cone)
             _csc_fill_diag(K,maps.Hsblocks[i],firstcol,blockdim)
-        elseif isa(cones.cone_specs[i],Clarabel.EntropyConeT)
+        elseif isa(cone,Clarabel.EntropyCone)
             _csc_fill_entropy(K,maps.Hsblocks[i],firstcol,blockdim,shape)
         else
             _csc_fill_dense_triangle(K,maps.Hsblocks[i],firstcol,blockdim,shape)
@@ -406,8 +392,8 @@ function _kkt_assemble_fill(
 
     socidx = socidx - 1 #num of SOC
 
-    for i in eachindex(cones)
-        if isa(cones.cone_specs[i],Clarabel.GenPowerConeT)
+    for (i,cone) in enumerate(cones)
+        if isa(cone,Clarabel.GenPowerCone)
 
             nvars = numel(cones[i])
             dim1 = cones[i].dim1
@@ -436,8 +422,8 @@ function _kkt_assemble_fill(
 
     genpowidx = genpowidx - 1 #num of GenPow
 
-    for i in eachindex(cones)
-        if isa(cones.cone_specs[i],Clarabel.PowerMeanConeT)
+    for (i,cone) in enumerate(cones)
+        if isa(cone,Clarabel.PowerMeanCone)
 
             nvars = numel(cones[i])
             dim1 = cones[i].d

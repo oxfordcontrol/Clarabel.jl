@@ -21,30 +21,12 @@ gamma = norm(A * x) / sqrt(n)
 freq = ones(n)
 freq ./= n
 
+tol = 1e-4
+
 #######################################################################
 # YC: Benchmarking should be implemented separately if you want to 
 #     obtain the plot.
 #######################################################################
-
-
-#Result from Clarabel's generalized power cone
-println("Three-dimensional cones via Clarabel")
-model = Model(Clarabel.Optimizer)
-@variable(model, x[1:n])
-@variable(model,z[1:n-1])
-@objective(model, Max, z[end])
-# trnasform a general power cone into a product of three-dimensional power cones
-power = freq[1] + freq[2]
-@constraint(model, vcat(x[2],x[1],z[1]) in MOI.PowerCone(freq[2]/power))
-for i = 1:n-2
-    global power += freq[i+2]
-    @constraint(model, vcat(x[i+2],z[i],z[i+1]) in MOI.PowerCone(freq[i+2]/power))
-end
-# @constraint(model, vcat(gamma, A * x) in MOI.SecondOrderCone(n + 1))
-@constraint(model, vcat(gamma, A * x) in MOI.NormInfinityCone(n + 1))
-@constraint(model, vcat(sqrt(n) * gamma, A * x) in MOI.NormOneCone(n + 1))
-MOI.set(model, MOI.Silent(), true)      #Diable printing information
-@benchmark optimize!(model)
 
 #Result from Mosek
 println("Three-dimensional cones via Mosek")
@@ -64,8 +46,28 @@ end
 @constraint(model, vcat(gamma, A * p) in MOI.NormInfinityCone(n + 1))
 @constraint(model, vcat(sqrt(n) * gamma, A * p) in MOI.NormOneCone(n + 1))
 MOI.set(model, MOI.Silent(), true)
-@benchmark optimize!(model)
-# println(solution_summary(model))
+optimize!(model)
+opt_val = objective_value(model)
+
+#Result from Clarabel's generalized power cone
+println("Three-dimensional cones via Clarabel")
+model = Model(Clarabel.Optimizer)
+@variable(model, x[1:n])
+@variable(model,z[1:n-1])
+@objective(model, Max, z[end])
+# trnasform a general power cone into a product of three-dimensional power cones
+power = freq[1] + freq[2]
+@constraint(model, vcat(x[2],x[1],z[1]) in MOI.PowerCone(freq[2]/power))
+for i = 1:n-2
+    global power += freq[i+2]
+    @constraint(model, vcat(x[i+2],z[i],z[i+1]) in MOI.PowerCone(freq[i+2]/power))
+end
+# @constraint(model, vcat(gamma, A * x) in MOI.SecondOrderCone(n + 1))
+@constraint(model, vcat(gamma, A * x) in MOI.NormInfinityCone(n + 1))
+@constraint(model, vcat(sqrt(n) * gamma, A * x) in MOI.NormOneCone(n + 1))
+MOI.set(model, MOI.Silent(), true)      #Diable printing information
+optimize!(model)
+@assert isapprox(opt_val,objective_value(model),atol = tol)
 
 #Result from Clarabel's generalized power cone
 println("generalized power cones via Clarabel")
@@ -78,7 +80,8 @@ model = Model(Clarabel.Optimizer)
 @constraint(model, vcat(gamma, A * x) in MOI.NormInfinityCone(n + 1))
 @constraint(model, vcat(sqrt(n) * gamma, A * x) in MOI.NormOneCone(n + 1))
 MOI.set(model, MOI.Silent(), true)      #Diable printing information
-@benchmark optimize!(model)
+optimize!(model)
+@assert isapprox(opt_val,objective_value(model),atol = tol)
 
 #Result from Hypatia
 println("generalized power cones via Hypatia")
@@ -91,5 +94,5 @@ model = Model(Hypatia.Optimizer)
 @constraint(model, vcat(gamma, A * x) in MOI.NormInfinityCone(n + 1))
 @constraint(model, vcat(sqrt(n) * gamma, A * x) in MOI.NormOneCone(n + 1))
 MOI.set(model, MOI.Silent(), true)
-@benchmark optimize!(model)
-println(solution_summary(model))
+optimize!(model)
+@assert isapprox(opt_val,objective_value(model),atol = tol)

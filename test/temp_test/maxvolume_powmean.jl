@@ -21,6 +21,8 @@ gamma = norm(A * x) / sqrt(n)
 freq = ones(n)
 freq ./= n
 
+tol = 1e-4
+
 #######################################################################
 # YC: Benchmarking should be implemented separately if you want to 
 #     obtain the plot.
@@ -37,7 +39,8 @@ model = Model(Clarabel.Optimizer)
 @constraint(model, vcat(gamma, A * x) in MOI.NormInfinityCone(n + 1))
 @constraint(model, vcat(sqrt(n) * gamma, A * x) in MOI.NormOneCone(n + 1))
 MOI.set(model, MOI.Silent(), true)      #Diable printing information
-@benchmark optimize!(model)
+optimize!(model)
+clarabel_val = objective_value(model)
 
 
 #Result from Hypatia
@@ -51,4 +54,6 @@ model = Model(Hypatia.Optimizer)
 @constraint(model, vcat(sqrt(n) * gamma, A * x) in MOI.NormOneCone(n + 1))
 MOI.set(model, MOI.Silent(), true)
 optimize!(model)
-println(solution_summary(model))
+# println(solution_summary(model))
+hypatia_val = objective_value(model)
+@assert isapprox(clarabel_val,hypatia_val,atol = tol)

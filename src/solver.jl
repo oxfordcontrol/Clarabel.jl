@@ -194,10 +194,12 @@ function solve!(
         # ----------
 
         # Scaling strategy
-        # YC: For testing generalized power cones, we set it 
-        #     to the Dual scaling strategy
-        scaling = Dual::ScalingStrategy
-        # scaling = PrimalDual::ScalingStrategy
+        # YC: For generalized power cones, we set it to the Dual scaling strategy
+        if s.cones.type_counts[GenPowerCone] > 0 || s.cones.type_counts[PowerMeanCone] > 0 || s.cones.type_counts[EntropyCone] > 0
+            scaling = Dual::ScalingStrategy
+        else
+            scaling = PrimalDual::ScalingStrategy
+        end
 
         while true
 
