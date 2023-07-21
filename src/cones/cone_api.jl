@@ -74,7 +74,7 @@ MOI.dimension(cone::EntropyConeT) = (cone.dim)
 function nvars(cone:: SupportedCone)
 
     if isa(cone, PSDTriangleConeT)
-        (cone.dim*(cone.dim+1)) >> 1
+        triangular_number(cone.dim)
     elseif isa(cone, ExponentialConeT)
         3
     elseif isa(cone, PowerConeT)

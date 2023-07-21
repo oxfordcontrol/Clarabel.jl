@@ -2,6 +2,9 @@
 # Nonnegative Cone
 # -------------------------------------
 
+degree(K::NonnegativeCone{T}) where {T} = K.dim
+numel(K::NonnegativeCone{T}) where {T} = K.dim
+
 function rectify_equilibration!(
     K::NonnegativeCone{T},
     δ::AbstractVector{T},
@@ -9,7 +12,7 @@ function rectify_equilibration!(
 ) where{T}
 
     #allow elementwise equilibration scaling
-    δ .= e
+    δ .= one(T)
     return false
 end
 
@@ -19,7 +22,11 @@ function margins(
     pd::PrimalOrDualCone
 ) where{T}
 
-    α = minimum(z)
+    if(length(z) > 0)  
+        α = minimum(z)
+    else  #catch cone of dimension zero
+        α = floatmax(T)
+    end
 
     # total positive margin is the sum of the 
     # nonnegative elements in the vector, since 

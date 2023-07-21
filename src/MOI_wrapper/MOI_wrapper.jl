@@ -11,14 +11,11 @@ const MOIU = MOI.Utilities
 const SparseTriplet{T} = Tuple{Vector{<:Integer}, Vector{<:Integer}, Vector{T}}
 
 # Cones supported by the solver
-#PJG : Support for PSD cones within ClarabelRs is manually 
-#disabled in the two implementations of supports_constraint below.
-
 const OptimizerSupportedMOICones{T} = Union{
     MOI.Zeros,
     MOI.Nonnegatives,
     MOI.SecondOrderCone,
-    MOI.PositiveSemidefiniteConeTriangle,
+    MOI.ScaledPositiveSemidefiniteConeTriangle,
     MOI.ExponentialCone,
     MOI.PowerCone{T},
     Clarabel.GenPowerConeT,
@@ -38,7 +35,7 @@ const MOItoClarabelCones = Dict([
     MOI.Zeros           => Clarabel.ZeroConeT,
     MOI.Nonnegatives    => Clarabel.NonnegativeConeT,
     MOI.SecondOrderCone => Clarabel.SecondOrderConeT,
-    MOI.PositiveSemidefiniteConeTriangle => Clarabel.PSDTriangleConeT,
+    MOI.ScaledPositiveSemidefiniteConeTriangle => Clarabel.PSDTriangleConeT,
     MOI.ExponentialCone => Clarabel.ExponentialConeT,
     MOI.PowerCone       => Clarabel.PowerConeT,
 ])
@@ -52,36 +49,42 @@ const MOItoClarabelCones = Dict([
 # something along those lines.
 
 const ClarabeltoMOITerminationStatus = Dict([
-    Clarabel.SOLVED             =>  MOI.OPTIMAL,
-    Clarabel.MAX_ITERATIONS     =>  MOI.ITERATION_LIMIT,
-    Clarabel.MAX_TIME           =>  MOI.TIME_LIMIT,
-    Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBLE,
-    Clarabel.DUAL_INFEASIBLE    =>  MOI.DUAL_INFEASIBLE,
-    Clarabel.ALMOST_SOLVED      =>  MOI.ALMOST_OPTIMAL,
-    Clarabel.NUMERICAL_ERROR    =>  MOI.NUMERICAL_ERROR,
-    Clarabel.INSUFFICIENT_PROGRESS    =>  MOI.NUMERICAL_ERROR
+    Clarabel.SOLVED                     =>  MOI.OPTIMAL,
+    Clarabel.MAX_ITERATIONS             =>  MOI.ITERATION_LIMIT,
+    Clarabel.MAX_TIME                   =>  MOI.TIME_LIMIT,
+    Clarabel.PRIMAL_INFEASIBLE          =>  MOI.INFEASIBLE,
+    Clarabel.DUAL_INFEASIBLE            =>  MOI.DUAL_INFEASIBLE,
+    Clarabel.ALMOST_SOLVED              =>  MOI.ALMOST_OPTIMAL,
+    Clarabel.ALMOST_PRIMAL_INFEASIBLE   =>  MOI.ALMOST_INFEASIBLE,
+    Clarabel.ALMOST_DUAL_INFEASIBLE     =>  MOI.ALMOST_DUAL_INFEASIBLE,
+    Clarabel.NUMERICAL_ERROR            =>  MOI.NUMERICAL_ERROR,
+    Clarabel.INSUFFICIENT_PROGRESS      =>  MOI.SLOW_PROGRESS,
 ])
 
 const ClarabeltoMOIPrimalStatus = Dict([
-    Clarabel.SOLVED             =>  MOI.FEASIBLE_POINT,
-    Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBLE_POINT,
-    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBILITY_CERTIFICATE,
-    Clarabel.ALMOST_SOLVED      =>  MOI.NEARLY_FEASIBLE_POINT,
-    Clarabel.MAX_ITERATIONS     =>  MOI.OTHER_RESULT_STATUS,
-    Clarabel.MAX_TIME           =>  MOI.OTHER_RESULT_STATUS,
-    Clarabel.NUMERICAL_ERROR    =>  MOI.OTHER_RESULT_STATUS,
-    Clarabel.INSUFFICIENT_PROGRESS => MOI.OTHER_RESULT_STATUS,
+    Clarabel.SOLVED                     =>  MOI.FEASIBLE_POINT,
+    Clarabel.PRIMAL_INFEASIBLE          =>  MOI.INFEASIBLE_POINT,
+    Clarabel.DUAL_INFEASIBLE            =>  MOI.INFEASIBILITY_CERTIFICATE,
+    Clarabel.ALMOST_SOLVED              =>  MOI.NEARLY_FEASIBLE_POINT,
+    Clarabel.ALMOST_PRIMAL_INFEASIBLE   =>  MOI.INFEASIBLE_POINT,
+    Clarabel.ALMOST_DUAL_INFEASIBLE     =>  MOI.NEARLY_INFEASIBILITY_CERTIFICATE,
+    Clarabel.MAX_ITERATIONS             =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.MAX_TIME                   =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.NUMERICAL_ERROR            =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.INSUFFICIENT_PROGRESS      =>  MOI.OTHER_RESULT_STATUS,
 ])
 
 const ClarabeltoMOIDualStatus = Dict([
-    Clarabel.SOLVED             =>  MOI.FEASIBLE_POINT,
-    Clarabel.PRIMAL_INFEASIBLE  =>  MOI.INFEASIBILITY_CERTIFICATE,
-    Clarabel.DUAL_INFEASIBLE    =>  MOI.INFEASIBLE_POINT,
-    Clarabel.ALMOST_SOLVED      =>  MOI.NEARLY_FEASIBLE_POINT,
-    Clarabel.MAX_ITERATIONS     =>  MOI.OTHER_RESULT_STATUS,
-    Clarabel.MAX_TIME           =>  MOI.OTHER_RESULT_STATUS,
-    Clarabel.NUMERICAL_ERROR    =>  MOI.OTHER_RESULT_STATUS,
-    Clarabel.INSUFFICIENT_PROGRESS => MOI.OTHER_RESULT_STATUS,
+    Clarabel.SOLVED                     =>  MOI.FEASIBLE_POINT,
+    Clarabel.PRIMAL_INFEASIBLE          =>  MOI.INFEASIBILITY_CERTIFICATE,
+    Clarabel.DUAL_INFEASIBLE            =>  MOI.INFEASIBLE_POINT,
+    Clarabel.ALMOST_SOLVED              =>  MOI.NEARLY_FEASIBLE_POINT,
+    Clarabel.ALMOST_PRIMAL_INFEASIBLE   =>  MOI.NEARLY_INFEASIBILITY_CERTIFICATE,
+    Clarabel.ALMOST_DUAL_INFEASIBLE     =>  MOI.INFEASIBLE_POINT,
+    Clarabel.MAX_ITERATIONS             =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.MAX_TIME                   =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.NUMERICAL_ERROR            =>  MOI.OTHER_RESULT_STATUS,
+    Clarabel.INSUFFICIENT_PROGRESS      =>  MOI.OTHER_RESULT_STATUS,
 ])
 
 #-----------------------------
@@ -139,10 +142,14 @@ function MOI.empty!(optimizer::Optimizer{T}) where {T}
     optimizer.rowranges = Dict{Int, UnitRange{Int}}()
 end
 
-MOI.is_empty(optimizer::Optimizer) = isnothing(optimizer.solver)
+MOI.is_empty(optimizer::Optimizer{T}) where {T} = isnothing(optimizer.solver)
 
-function MOI.optimize!(optimizer::Optimizer)
-    solution = optimizer.solver_module.solve!(optimizer.solver)
+function MOI.optimize!(optimizer::Optimizer{T}) where {T}
+    if(optimizer.solver_module === Clarabel)
+        solution = Clarabel.solve!(optimizer.solver)
+    else
+        solution = optimizer.solver_module.solve!(optimizer.solver)
+    end
     optimizer.solver_solution = solution
     optimizer.solver_info     = optimizer.solver_module.get_info(optimizer.solver)
     nothing
@@ -267,8 +274,7 @@ function MOI.get(
 
     MOI.check_result_index_bounds(opt, a)
     rows = constraint_rows(opt.rowranges, ci)
-    sout = unscalecoef(opt.solver_solution.s[rows],S)
-    return sout
+    return opt.solver_solution.s[rows]
 end
 
 MOI.supports(::Optimizer, ::MOI.ConstraintDual) = true
@@ -280,8 +286,7 @@ function MOI.get(
 
     MOI.check_result_index_bounds(opt, a)
     rows = constraint_rows(opt.rowranges, ci)
-    zout = unscalecoef(opt.solver_solution.z[rows],S)
-    return zout
+    return opt.solver_solution.z[rows]
 end
 
 MOI.supports(::Optimizer, ::MOI.TimeLimitSec) = true
@@ -309,12 +314,6 @@ function MOI.supports_constraint(
     ::Type{<:MOI.VectorAffineFunction{T}},
     t::Type{<:OptimizerSupportedMOICones{T}}
 ) where{T}  
-    # PJG: workaround so that the compiled version does not 
-    # report support for PSD constraints.   Remove once they 
-    # are supported
-    if(opt.solver_module != Clarabel && t == MOI.PositiveSemidefiniteConeTriangle)
-        return false
-    end
     true
 end
 
@@ -324,12 +323,6 @@ function MOI.supports_constraint(
     ::Type{<:MOI.VectorOfVariables},
     t::Type{<:OptimizerSupportedMOICones{T}}
 ) where {T}     
-    # PJG: workaround so that the compiled version does not 
-    # report support for PSD constraints.   Remove once they 
-    # are supported
-    if(opt.solver_module != Clarabel && t == MathOptInterface.PositiveSemidefiniteConeTriangle)
-        return false
-    end
     return true
 end
 
@@ -557,29 +550,14 @@ function push_constraint!(
     return nothing
 end
 
-# function for scaling problem data for constraints
-# in packed triangle format, since our optimizer
-# is implemented using the 'svec' style
-
-scalecoef(v,::Type{<:MOI.AbstractVectorSet})     = v #default don't scale
-scalecoef(v,idx,::Type{<:MOI.AbstractVectorSet}) = v #default don't scale
-scalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = Clarabel._triangle_unscaled_to_svec(v)
-scalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = Clarabel._triangle_unscaled_to_svec(v,idx)
-
-unscalecoef(v,::Type{<:MOI.AbstractVectorSet})     = v #default don't scale
-unscalecoef(v,idx,::Type{<:MOI.AbstractVectorSet}) = v #default don't scale
-unscalecoef(v,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle})     = Clarabel._triangle_svec_to_unscaled(v)
-unscalecoef(v,idx,::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = Clarabel._triangle_svec_to_unscaled(v,idx)
-
-
 function push_constraint_constant!(
     b::AbstractVector{T},
     rows::UnitRange{Int},
     f::MOI.VectorAffineFunction{T},
-    s::OptimizerSupportedMOICones{T},
+    ::OptimizerSupportedMOICones{T},
 ) where {T}
 
-    b[rows] .= scalecoef(f.constants,typeof(s))
+    b[rows] .= f.constants
     return nothing
 end
 
@@ -605,7 +583,6 @@ function push_constraint_linear!(
         row = rows[term.output_index]
         var = term.scalar_term.variable
         coeff = term.scalar_term.coefficient
-        coeff = scalecoef(coeff, term.output_index,typeof(s))
         col = idxmap[var].value
         push!(I, row)
         push!(J, col)
@@ -626,7 +603,7 @@ function push_constraint_linear!(
     cols = [idxmap[var].value for var in f.variables]
     append!(I, rows)
     append!(J, cols)
-    vals = scalecoef(ones(T,length(cols)),typeof(s))
+    vals = ones(T, length(cols))
     append!(V, vals)
 
     return nothing
@@ -673,7 +650,7 @@ function push_constraint_set!(
     end
 
     next_type = MOItoClarabelCones[typeof(s)]
-    next_dim  = _to_optimizer_conedim(length(rows),typeof(s))
+    next_dim  = _to_optimizer_conedim(s)
 
     # merge cones together where :
     # 1) cones of the same type appear consecutively and
@@ -693,9 +670,8 @@ end
 # converts number of elements to optimizer's internal dimension parameter.
 # For matrices, this is just the matrix side dimension.  Conversion differs
 # for square vs triangular form
-_to_optimizer_conedim(k::Int, ::Type{<:MOI.AbstractVectorSet}) = k
-_to_optimizer_conedim(k::Int, ::Type{<:MOI.AbstractSymmetricMatrixSetTriangle}) = (isqrt(8*k + 1)-1) >> 1
-_to_optimizer_conedim(k::Int, ::Type{<:MOI.AbstractSymmetricMatrixSetSquare})   = isqrt(k)
+_to_optimizer_conedim(set::MOI.AbstractVectorSet) = MOI.dimension(set)
+_to_optimizer_conedim(set::MOI.ScaledPositiveSemidefiniteConeTriangle) = set.side_dimension
 
 function push_constraint_set!(
     cone_spec::Vector{Clarabel.SupportedCone},

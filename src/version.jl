@@ -1,9 +1,9 @@
-using Pkg
+using TOML
 
 function _get_clarabel_version()
     toml_path = joinpath(@__DIR__,"../Project.toml")
-    pkg = Pkg.Types.read_package(toml_path)
-    string(pkg.version)
+    version = TOML.parsefile(toml_path)["version"]
+    string(version)
 end
 
 const SOLVER_NAME    = "Clarabel"

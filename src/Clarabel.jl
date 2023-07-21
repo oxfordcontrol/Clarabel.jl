@@ -8,6 +8,17 @@ module Clarabel
     const MOI = MathOptInterface
     const MOIU = MOI.Utilities
 
+    #internal constraint RHS limits.  This let block 
+    #hides the INFINITY field in the module and makes 
+    #it accessible only via the get/set provided
+    let 
+        _INFINITY_DEFAULT = 1e20
+        INFINITY = _INFINITY_DEFAULT
+        global default_infinity() = INFINITY = _INFINITY_DEFAULT;
+        global set_infinity(v::Float64) = INFINITY =  Float64(v)
+        global get_infinity() = INFINITY
+    end 
+    
     #version / release info
     include("./version.jl")
 
@@ -22,6 +33,7 @@ module Clarabel
     include("./settings.jl")
     include("./conicvector.jl")
     include("./statuscodes.jl")
+    include("./presolver.jl")
     include("./types.jl")
     include("./variables.jl")
     include("./residuals.jl")
@@ -78,5 +90,16 @@ module Clarabel
     end
     const Optimizer{T} = Clarabel.MOImodule.Optimizer{T}
 
-end
 
+    #precompile minimal MOI / native examples
+    using SnoopPrecompile
+    include("./precompile.jl")
+    redirect_stdout(devnull) do; 
+        SnoopPrecompile.@precompile_all_calls begin
+            __precompile_native()
+            __precompile_moi()
+        end
+    end
+    __precompile_printfcns()
+
+end #end module

@@ -8,10 +8,8 @@ struct CompositeCone{T} <: AbstractCone{T}
 
     cones::Vector{AbstractCone{T}}
 
-    #API type specs and count of each cone type
-    cone_specs::Vector{SupportedCone}
-    types::Vector{DataType}
-    type_counts::Dict{DataType,Int}
+    #count of each cone type
+    type_counts::Dict{Type,Int}
 
     #overall size of the composite cone
     numel::DefaultInt
@@ -24,35 +22,28 @@ struct CompositeCone{T} <: AbstractCone{T}
     # the flag for symmetric cone check
     _is_symmetric::Bool
 
-    function CompositeCone{T}(cone_specs::Vector{<:SupportedCone}) where {T}
-
-        #make copy to protect from user interference after setup,
-        #and explicitly cast as the abstract type.  This prevents
-        #errors arising from input vectors that are all the same cone,
-        #and therefore more concretely typed than we want
-        cone_specs = Vector{SupportedCone}(cone_specs)
+    function CompositeCone{T}(cone_specs::Vector{SupportedCone}) where {T}
 
         ncones = length(cone_specs)
         cones  = Vector{AbstractCone{T}}(undef,ncones)
-        types = Vector{DataType}(undef,ncones)
 
         #count the number of each cone type
-        type_counts = Dict{DataType,Int}()
-        for coneT in keys(ConeDict)
-            type_counts[coneT] = count(C->isa(C,coneT), cone_specs)
+        type_counts = Dict{Type,Int}()
+        for (key, val) in ConeDict
+            type_counts[val] = count(C->isa(C,key), cone_specs)
         end
 
         #assumed symmetric to start
         _is_symmetric = true
 
         #create cones with the given dims
-        for i in eachindex(cone_specs)
-            types[i] = typeof(cone_specs[i])
-            if types[i] == ExponentialConeT
-                cones[i] = ConeDict[typeof(cone_specs[i])]{T}()
+        for (i, coneT) in enumerate(cone_specs)
+            typeT = typeof(coneT)
+            if typeT == ExponentialConeT
+                cones[i] = ConeDict[typeT]{T}()
                 _is_symmetric = false
-            elseif types[i] == PowerConeT
-                cones[i] = ConeDict[typeof(cone_specs[i])]{T}(T(cone_specs[i].α))
+            elseif typeT == PowerConeT
+                cones[i] = ConeDict[typeT]{T}(T(cone_specs[i].α))
                 _is_symmetric = false
             elseif types[i] == GenPowerConeT
                 cones[i] = ConeDict[typeof(cone_specs[i])]{T}(T.(cone_specs[i].α),cone_specs[i].dim1,cone_specs[i].dim2)
@@ -64,7 +55,7 @@ struct CompositeCone{T} <: AbstractCone{T}
                 cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].dim)
                 _is_symmetric = false
             else
-                cones[i] = ConeDict[typeof(cone_specs[i])]{T}(cone_specs[i].dim)
+                cones[i] = ConeDict[typeT]{T}(cone_specs[i].dim)
             end
         end
 
@@ -77,7 +68,7 @@ struct CompositeCone{T} <: AbstractCone{T}
         headidx = Vector{Int}(undef,length(cones))
         _make_headidx!(headidx,cones)
 
-        return new(cones,cone_specs,types,type_counts,numel,degree,headidx,_is_symmetric)
+        return new(cones,type_counts,numel,degree,headidx,_is_symmetric)
     end
 end
 

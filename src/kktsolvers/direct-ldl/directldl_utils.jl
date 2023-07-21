@@ -40,13 +40,19 @@ struct LDLDataMap
         #make an index for each of the Hs blocks for each cone
         Hsblocks = _allocate_kkt_Hsblocks(Int, cones)
 
+<<<<<<< HEAD
         #now do the SOC expansion pieces and GenPow & PowerMean expansion pieces
         nsoc = cones.type_counts[Clarabel.SecondOrderConeT]
+=======
+        #now do the SOC expansion pieces
+        nsoc = cones.type_counts[Clarabel.SecondOrderCone]
+>>>>>>> original-git/main
         p    = 2*nsoc
         SOC_D = zeros(Int,p)
         SOC_u = Vector{Vector{Int}}(undef,nsoc)
         SOC_v = Vector{Vector{Int}}(undef,nsoc)
 
+<<<<<<< HEAD
         n_genpow = cones.type_counts[Clarabel.GenPowerConeT]
         p_genpow = 3*n_genpow
         GenPow_p = Vector{Vector{Int}}(undef,n_genpow)
@@ -81,6 +87,14 @@ struct LDLDataMap
                 PowM_q[count_powm] = Vector{Int}(undef,cone.d)
                 PowM_r[count_powm] = Vector{Int}(undef,1)
                 count_powm += 1
+=======
+        count = 1
+        for cone in cones
+            if isa(cone,Clarabel.SecondOrderCone)
+                SOC_u[count] = Vector{Int}(undef,numel(cone))
+                SOC_v[count] = Vector{Int}(undef,numel(cone))
+                count += 1
+>>>>>>> original-git/main
             end
         end
 
@@ -106,7 +120,7 @@ function _allocate_kkt_Hsblocks(type::Type{T}, cones) where{T <: Real}
         elseif isa(cones.cone_specs[i],Clarabel.EntropyConeT)
             numelblock = 2*nvars - 1 + cone.d
         else #dense triangle
-            numelblock = (nvars*(nvars+1))>>1 #must be Int
+            numelblock = triangular_number(nvars) #must be Int
         end
         Hsblocks[i] = Vector{T}(undef,numelblock)
     end
@@ -123,7 +137,7 @@ function _assemble_kkt_matrix(
 ) where{T}
 
     (m,n)  = (size(A,1), size(P,1))
-    n_socs = cones.type_counts[Clarabel.SecondOrderConeT]
+    n_socs = cones.type_counts[Clarabel.SecondOrderCone]
     p = 2*n_socs
     n_genpow = cones.type_counts[Clarabel.GenPowerConeT]
     p_genpow = 3*n_genpow
@@ -220,11 +234,11 @@ function _kkt_assemble_colcounts(
     #count dense columns for each SOC, GenPow, PowM
     socidx = 1  #which SOC are we working on?
 
-    for i in eachindex(cones)
-        if isa(cones.cone_specs[i],Clarabel.SecondOrderConeT)
+    for (i,cone) in enumerate(cones)
+        if isa(cone,Clarabel.SecondOrderCone)
 
             #we will add the u and v columns for this cone
-            nvars   = numel(cones[i])
+            nvars   = numel(cone)
             headidx = cones.headidx[i]
 
             #which column does v go into?
@@ -365,10 +379,10 @@ function _kkt_assemble_fill(
     genpowidx = 1  #which GenPow are we working on?
     powmidx = 1  #which PowM are we working on?
 
-    for i in eachindex(cones)
-        if isa(cones.cone_specs[i],Clarabel.SecondOrderConeT)
+    for (i,cone) in enumerate(cones)
+        if isa(cone,Clarabel.SecondOrderCone)
 
-            nvars = numel(cones[i])
+            nvars = numel(cone)
             headidx = cones.headidx[i]
 
             #which column does v go into (if triu)?

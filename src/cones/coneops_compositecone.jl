@@ -46,7 +46,6 @@ macro conedispatch(call)
     esc(_conedispatch(:cone, call))
 end
 
-dim(::CompositeCone{T}) where {T} = error("dim() not well defined for the CompositeCone");
 degree(cones::CompositeCone{T}) where {T} = cones.degree
 numel(cones::CompositeCone{T}) where {T}  = cones.numel
 
@@ -143,7 +142,7 @@ function update_scaling!(
 
     # update cone scalings by passing subview to each of
     # the appropriate cone types.
-    for (cone,type,si,zi) in zip(cones,cones.types,s.views,z.views)
+    for (cone,si,zi) in zip(cones,s.views,z.views)
         @conedispatch is_scaling_success = update_scaling!(cone,si,zi,μ,scaling_strategy)
         # YC: currently, only check whether SOC variables are in the interior;
         # we could extend the interior checkfor other cones
@@ -247,7 +246,7 @@ function step_length(
     s     = s.views
 
     # Force symmetric cones first.   
-    for (cone,type,dzi,dsi,zi,si) in zip(cones,cones.types,dz,ds,z,s)
+    for (cone,dzi,dsi,zi,si) in zip(cones,dz,ds,z,s)
 
         if !is_symmetric(cone) continue end
         @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)

@@ -47,9 +47,10 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
         #solving in sparse format.  Need this many
         #extra variables for SOCs
-        p = 2*cones.type_counts[SecondOrderConeT]
-        p_genpow = 3*cones.type_counts[GenPowerConeT]
+        p = 2*cones.type_counts[SecondOrderCone]
+        p_genpow = 3*cones.type_counts[GenPowerConeT]   #YC：remove 'T' in cone's definition
         p_powm = 3*cones.type_counts[PowerMeanConeT]
+
 
         #LHS/RHS/work for iterative refinement
         x    = Vector{T}(undef,n+m+p+p_genpow+p_powm)
@@ -224,16 +225,15 @@ function _kktsolver_update_inner!(
     #update the scaled u and v columns.
     cidx = 1        #which of the SOCs are we working on?
 
-    for (i,K) = enumerate(cones)
-        if isa(cones.cone_specs[i],SecondOrderConeT)
-
-            η2 = K.η^2
+    for (i,cone) = enumerate(cones)
+        if isa(cone,SecondOrderCone)
+            η2 = cone.η^2
 
             #off diagonal columns (or rows)
-            _update_values!(ldlsolver,KKT,map.SOC_v[cidx],K.v)
-            _update_values!(ldlsolver,KKT,map.SOC_u[cidx],K.u)
-            _scale_values!(ldlsolver,KKT,map.SOC_v[cidx],-η2)
+            _update_values!(ldlsolver,KKT,map.SOC_u[cidx],cone.u)
+            _update_values!(ldlsolver,KKT,map.SOC_v[cidx],cone.v)
             _scale_values!(ldlsolver,KKT,map.SOC_u[cidx],-η2)
+            _scale_values!(ldlsolver,KKT,map.SOC_v[cidx],-η2)
 
 
             #add η^2*(1/-1) to diagonal in the extended rows/cols
@@ -445,12 +445,11 @@ function  _iterative_refinement(
 
     #compute the initial error
     norme = _get_refine_error!(e,b,KKTsym,x)
+           
+    isfinite(norme) || return is_success = false 
 
     for i = 1:IR_maxiter
 
-        # bail on numerical error
-        if !isfinite(norme) return is_success = false end
-        # println(i,"-th error is: ",norme)
         if(norme <= IR_abstol + IR_reltol*normb)
             # within tolerance, or failed.  Exit
             break
@@ -463,7 +462,9 @@ function  _iterative_refinement(
         #prospective solution is x + dx.   Use dx space to
         #hold it for a check before applying to x
         @. dx += x
+
         norme = _get_refine_error!(e,b,KKTsym,dx)
+        isfinite(norme) || return is_success = false 
 
         improved_ratio = lastnorme/norme
         if(improved_ratio <  IR_stopratio)

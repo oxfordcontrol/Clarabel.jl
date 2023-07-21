@@ -1,5 +1,3 @@
-using PrettyTables
-
 # -------------------------------------
 # User definable settings
 # -------------------------------------
@@ -58,6 +56,8 @@ iterative\\_refinement\\_reltol         | 1e-12     | iterative refinement relat
 iterative\\_refinement\\_abstol         | 1e-12     | iterative refinement absolute tolerance
 iterative\\_refinement\\_max\\_iter     | 10        | iterative refinement maximum iterations
 iterative\\_refinement\\_stop\\_ratio   | 5.0       | iterative refinement stalling tolerance
+__Preprocessing Settings 
+presolve_enable                         | true      | enable presolve constraint reduction
 
 """
 Base.@kwdef mutable struct Settings{T <: AbstractFloat}
@@ -115,15 +115,18 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     iterative_refinement_abstol::T      = 1e-12 
 
     iterative_refinement_max_iter::Int  = 10
-    iterative_refinement_stop_ratio::T  = 5       
+    iterative_refinement_stop_ratio::T  = 5     
+    
+    #preprocessing 
+    presolve_enable::Bool               = true
 
 end
 
 Settings(args...) = Settings{DefaultFloat}(args...)
 
-function Settings(d::Dict)
+function Settings{T}(d::Dict) where{T}
 
-	settings = Settings()
+	settings = Settings{T}()
 	settings_populate!(settings,d)
     return settings
 end
@@ -141,42 +144,52 @@ end
 function Base.show(io::IO, settings::Clarabel.Settings{T}) where {T}
 
     s = get_precision_string(T)
-    println("Clarabel settings with Float precision: $s\n")
+    println(io, "Clarabel settings with Float precision: $s\n")
 
 	names   = fieldnames(Clarabel.Settings)
-	valstrs = []
-	types   = []
+	values  = String[]
+	types   = String[]
     for name in names
-        value  = getfield(settings,name)
-		type = typeof(value)
+        v = getfield(settings,name)
+		type = String(Symbol(typeof(v)))
         push!(types, type)
-        push!(valstrs,type == BigFloat ? @sprintf("%g",value) : string(value))
+        push!(values,type == BigFloat ? @sprintf("%g",v) : string(v))
     end
-	table = hcat(collect(names), types, valstrs)
+    names = collect(String.(names))
+    types = String.(Symbol.(types))
 
-	#NB: same as tf_compact, but with bolded row separator
-	tf = TextFormat(
-    up_right_corner     = ' ',
-    up_left_corner      = ' ',
-    bottom_left_corner  = ' ',
-    bottom_right_corner = ' ',
-    up_intersection     = ' ',
-    left_intersection   = ' ',
-    right_intersection  = ' ',
-    middle_intersection = ' ',
-    bottom_intersection  = ' ',
-    column              = ' ',
-    row                 = '='
-   )
+    table = [names types values]
+    titles = ["Setting","DataType","Value"]
 
-	header = ["Setting", "DataType", "Value"]
+    # pad out each column of the table to a common length 
+    dividers = String[]
+    for i in eachindex(titles)
+        len = max(8,maximum(length.(table[:,i])))
+        table[:,i] .= rpad.(table[:,i],len+1)
+        titles[i]  = rpad(titles[i],len+1)
+        push!(dividers,repeat("=",len+2))
+    end
 
-    pretty_table(table,
-		header=header,
-		compact_printing=true,
-		alignment = :l,
-		backend = Val(:text),
-		tf = tf,
-		hlines = [1])
+    # print the header ...
+    @printf(io, " ")
+    for str in titles
+        @printf(io, " %s ", str)
+    end 
+    println(io)
+    # and the divider ...
+    @printf(io, " ")
+    for str in dividers
+        @printf(io, "%s ", str)  
+    end 
+    println(io)
+    # and the settings 
+    for row in 1:size(table,1)
+        @printf(io, " ")
+        for col in 1:size(table,2)
+            @printf(io, " %s ", table[row,col])
+        end
+        println(io)
+    end
+    println(io)
 
 end
