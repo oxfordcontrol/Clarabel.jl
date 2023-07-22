@@ -49,7 +49,7 @@ function __precompile_native()
         Clarabel.SecondOrderConeT(2),
         Clarabel.ExponentialConeT(),
         Clarabel.PowerConeT(0.5),
-        # Clarabel.PSDTriangleConeT(1)  #YC: don't support nonsymmetric cone and PSD simultaneously
+        Clarabel.GenPowerConeT([0.5;0.5],2,1)
         ];
     nvars = sum(Clarabel.nvars.(cones))
     P = A = sparse(I(nvars)*1.)
@@ -95,6 +95,7 @@ function __precompile_moi()
     MOI.add_constraint(model, x, MOI.SecondOrderCone(3))
     MOI.add_constraint(model, x, MOI.ExponentialCone())
     MOI.add_constraint(model, x, MOI.PowerCone(0.5))
+    MOI.add_constraint(model, x, Clarabel.GenPowerConeT([0.5;0.5],2,1))     #Support for GeneralizedPowerCone under MOI
 
     for (i,C) in enumerate((MOI.GreaterThan,MOI.LessThan,MOI.EqualTo))
         for F in (MOI.VariableIndex, MOI.ScalarAffineFunction{Float64})

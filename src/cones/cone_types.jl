@@ -289,88 +289,6 @@ end
 GenPowerCone(args...) = GenPowerCone{DefaultFloat}(args...)
 
 
-# # ------------------------------------
-# # Power Mean Cone 
-# # ------------------------------------
-
-# gradient and Hessian for the dual barrier function
-mutable struct PowerMeanCone{T} <: AbstractCone{T}
-
-    α::Vector{T}
-    grad::Vector{T}         #gradient of the dual barrier at z 
-    z::Vector{T}            #holds copy of z at scaling point
-    d::DefaultInt               #dimension of powers
-    dim::DefaultInt                #d + 1
-    μ::T                    #central path parameter
-
-    #vectors for rank 3 update representation of H_s
-    p::Vector{T}
-    q::Vector{T}    
-    r::T
-    d1::Vector{T}           #first part of the diagonal
-    
-    #additional scalar terms for rank-2 rep
-    d2::T
-
-    function PowerMeanCone{T}(α::Vector{T},d::DefaultInt) where {T}
-        dim = d + 1
-        @assert all(α .> zero(T))
-        @assert sum(α) ≈ one(T)
-        μ = one(T)
-
-        grad   = zeros(T,dim)
-        z      = zeros(T,dim)
-        p      = zeros(T,dim)
-        q      = zeros(T,d)
-        r      = zero(T)
-        d1     = zeros(T,d)
-        d2     = zero(T)
-
-        return new(α,grad,z,d,dim,μ,p,q,r,d1,d2)
-    end
-end
-
-PowerMeanCone(args...) = PowerMeanCone{DefaultFloat}(args...)
-
-# # ------------------------------------
-# # Relative Entropy Cone (u,v,w) ∈ R^{1 × d × d}
-# # ------------------------------------
-
-# gradient and Hessian for the dual barrier function
-mutable struct EntropyCone{T} <: AbstractCone{T}
-
-    grad::Vector{T}         #gradient of the dual barrier at z 
-    z::Vector{T}            #holds copy of z at scaling point
-    d::DefaultInt           #dimension of u,w parts
-    dim::DefaultInt                #2d+1
-    μ::T                    #central path parameter
-
-    #vectors for off-diagonal parts of H_s
-    u::Vector{T}            #Hessian u,…
-    offd::Vector{T}         #Hessian v,w
-    dd::Vector{T}            #Diagonal part
-    work::Vector{T}
-
-    function EntropyCone{T}(dim::DefaultInt) where {T}
-        @assert dim > 1 
-        @assert isodd(dim)
-
-        d = (dim-1) >> 1
-        μ = one(T)
-
-        grad   = zeros(T,dim)
-        z      = zeros(T,dim)
-        u      = zeros(T,2*d)
-        offd   = zeros(T,d)
-        dd      = zeros(T,dim)
-        work = similar(grad)
-
-        return new(grad,z,d,dim,μ,u,offd,dd,work)
-    end
-end
-
-EntropyCone(args...) = EntropyCone{DefaultFloat}(args...)
-
 """
     ConeDict
 A Dict that maps the user-facing SupportedCone types to
@@ -383,7 +301,5 @@ const ConeDict = Dict{DataType,Type}(
     PSDTriangleConeT => PSDTriangleCone,
     ExponentialConeT => ExponentialCone,
           PowerConeT => PowerCone,
-       GenPowerConeT => GenPowerCone,
-       PowerMeanConeT => PowerMeanCone,
-        EntropyConeT => EntropyCone,
+       GenPowerConeT => GenPowerCone
 )

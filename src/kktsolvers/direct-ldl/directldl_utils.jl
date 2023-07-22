@@ -12,10 +12,6 @@ struct LDLDataMap
     GenPow_q::Vector{Vector{Int}}   #off diag dense columns q
     GenPow_r::Vector{Vector{Int}}   #off diag dense columns r
     GenPow_D::Vector{Int}           #diag of just the sparse GenPow expansion D
-    PowM_p::Vector{Vector{Int}}   #off diag dense columns p
-    PowM_q::Vector{Vector{Int}}   #off diag dense columns q
-    PowM_r::Vector{Vector{Int}}   #off diag dense columns r
-    PowM_D::Vector{Int}           #diag of just the sparse PowM expansion D
 
     #all of above terms should be disjoint and their union
     #should cover all of the user data in the KKT matrix.  Now
@@ -54,16 +50,9 @@ struct LDLDataMap
         GenPow_r = Vector{Vector{Int}}(undef,n_genpow)
         GenPow_D = zeros(Int,p_genpow)   
 
-        n_powm = cones.type_counts[Clarabel.PowerMeanCone]
-        p_powm = 3*n_powm
-        PowM_p = Vector{Vector{Int}}(undef,n_powm)
-        PowM_q = Vector{Vector{Int}}(undef,n_powm)
-        PowM_r = Vector{Vector{Int}}(undef,n_powm)
-        PowM_D = zeros(Int,p_powm)   
-
         count_soc = 1;
         count_genpow = 1;
-        count_powm = 1;
+
         for (i,cone) in enumerate(cones)
             if isa(cone,Clarabel.SecondOrderCone)
                 SOC_u[count_soc] = Vector{Int}(undef,numel(cone))
@@ -76,19 +65,12 @@ struct LDLDataMap
                 GenPow_r[count_genpow] = Vector{Int}(undef,cone.dim2)
                 count_genpow += 1
             end
-            if isa(cone,Clarabel.PowerMeanCone)
-                PowM_p[count_powm] = Vector{Int}(undef,numel(cone))
-                PowM_q[count_powm] = Vector{Int}(undef,cone.d)
-                PowM_r[count_powm] = Vector{Int}(undef,1)
-                count_powm += 1
-            end
         end
 
-        diag_full = zeros(Int,m+n+p+p_genpow+p_powm)
+        diag_full = zeros(Int,m+n+p+p_genpow)
 
         return new(P,A,Hsblocks,SOC_u,SOC_v,SOC_D,
                     GenPow_p,GenPow_q,GenPow_r,GenPow_D,
-                    PowM_p,PowM_q,PowM_r,PowM_D,
                     diagP,diag_full)
     end
 
@@ -103,8 +85,6 @@ function _allocate_kkt_Hsblocks(type::Type{T}, cones) where{T <: Real}
         nvars = numel(cone)
         if Hs_is_diagonal(cone) 
             numelblock = nvars
-        elseif isa(cone,Clarabel.EntropyCone)
-            numelblock = 2*nvars - 1 + cone.d
         else #dense triangle
             numelblock = triangular_number(nvars) #must be Int
         end
@@ -127,8 +107,6 @@ function _assemble_kkt_matrix(
     p = 2*n_socs
     n_genpow = cones.type_counts[Clarabel.GenPowerCone]
     p_genpow = 3*n_genpow
-    n_powm = cones.type_counts[Clarabel.PowerMeanCone]
-    p_powm = 3*n_powm
 
     maps = LDLDataMap(P,A,cones)
 
@@ -141,19 +119,15 @@ function _assemble_kkt_matrix(
     #entries in the dense columns u/v of the
     #sparse SOC expansion terms.  2 is for
     #counting elements in both columns
-    # GenPow & PowerMean has three vectors p,q,r, but length(p) = length(q) + length(r)
+    # GenPow has three vectors p,q,r, but length(p) = length(q) + length(r)
     nnz_SOC_vecs = 2*mapreduce(length, +, maps.SOC_u; init = 0)
     nnz_GenPow_vecs = mapreduce(length, +, maps.GenPow_p; init = 0)
     nnz_GenPow_vecs += mapreduce(length, +, maps.GenPow_q; init = 0)
     nnz_GenPow_vecs += mapreduce(length, +, maps.GenPow_r; init = 0)
-    nnz_PowM_vecs = mapreduce(length, +, maps.PowM_p; init = 0)
-    nnz_PowM_vecs += mapreduce(length, +, maps.PowM_q; init = 0)
-    nnz_PowM_vecs += mapreduce(length, +, maps.PowM_r; init = 0)
 
     #entries in the sparse SOC diagonal extension block
     nnz_SOC_ext = length(maps.SOC_D)
     nnz_GenPow_ext = length(maps.GenPow_D)
-    nnz_PowM_ext = length(maps.PowM_D)
 
     nnzKKT = (nnz(P) +   # Number of elements in P
     n -                  # Number of elements in diagonal top left block
@@ -163,15 +137,13 @@ function _assemble_kkt_matrix(
     nnz_SOC_vecs +       # Number of elements in sparse SOC off diagonal columns
     nnz_SOC_ext +         # Number of elements in diagonal of SOC extension
     nnz_GenPow_vecs +   # Number of elements in sparse GenPow off diagonal columns
-    nnz_GenPow_ext  +   # Number of elements in diagonal of GenPow extension
-    nnz_PowM_vecs +   # Number of elements in sparse PowM off diagonal columns
-    nnz_PowM_ext      # Number of elements in diagonal of PowM extension
+    nnz_GenPow_ext     # Number of elements in diagonal of GenPow extension
     )
 
-    K = _csc_spalloc(T, m+n+p+p_genpow+p_powm, m+n+p+p_genpow+p_powm, nnzKKT)
+    K = _csc_spalloc(T, m+n+p+p_genpow, m+n+p+p_genpow, nnzKKT)
 
-    _kkt_assemble_colcounts(K,P,A,cones,m,n,p,p_genpow,p_powm,shape)        #YC:Get stuck here
-    _kkt_assemble_fill(K,maps,P,A,cones,m,n,p,p_genpow,p_powm,shape)
+    _kkt_assemble_colcounts(K,P,A,cones,m,n,p,p_genpow,shape)        #YC:Get stuck here
+    _kkt_assemble_fill(K,maps,P,A,cones,m,n,p,p_genpow,shape)
 
     return K,maps
 
@@ -186,7 +158,6 @@ function _kkt_assemble_colcounts(
     n,
     p,
     p_genpow,
-    p_powm,
     shape::Symbol
 )
 
@@ -210,14 +181,12 @@ function _kkt_assemble_colcounts(
         blockdim = numel(cone)
         if Hs_is_diagonal(cone)
             _csc_colcount_diag(K,firstcol,blockdim)
-        elseif isa(cone,Clarabel.EntropyCone)
-            _csc_colcount_entropy(K,firstcol,blockdim,shape)
         else
             _csc_colcount_dense_triangle(K,firstcol,blockdim,shape)
         end
     end
 
-    #count dense columns for each SOC, GenPow, PowM
+    #count dense columns for each SOC, GenPow,
     socidx = 1  #which SOC are we working on?
 
     for (i,cone) in enumerate(cones)
@@ -278,41 +247,6 @@ function _kkt_assemble_colcounts(
     #to allow for the diagonal terms in GenPow expansion
     _csc_colcount_diag(K,n+m+p+1,p_genpow)
 
-    genpowidx = genpowidx - 1 #num of GenPow
-
-    powmidx = 1   #which PowM are we working on?
-    for (i,cone) in enumerate(cones)
-        if isa(cone,Clarabel.PowerMeanCone)
-
-            #we will add the p,q,r columns for this cone
-            nvars   = numel(cones[i])
-            dim1 = cones[i].d
-            dim2 = one(Int)
-            headidx = cones.headidx[i]
-
-            #which column does p go into?
-            col = m + n + 2*socidx + 3*genpowidx + 3*powmidx - 2
-
-            if shape == :triu
-                _csc_colcount_colvec(K,dim1,headidx + n, col) #q column
-                _csc_colcount_colvec(K,dim2,headidx + dim1, col+1) #r column
-                _csc_colcount_colvec(K,nvars,headidx + n, col+2)   #p column
-            else #:tril
-                _csc_colcount_rowvec(K,dim1,col, headidx + n) #q row
-                _csc_colcount_rowvec(K,dim2,col+1, headidx + n + dim1) #r row
-                _csc_colcount_rowvec(K,nvars,col+2, headidx + n) #p row
-            end
-
-            powmidx = powmidx + 1
-        end
-    end
-
-    #add diagonal block in the lower RH corner
-    #to allow for the diagonal terms in PowM expansion
-    _csc_colcount_diag(K,n+m+p+p_genpow+1,p_powm)
-
-    powmidx = powmidx - 1 #num of PowMean
-
     return nothing
 end
 
@@ -327,7 +261,6 @@ function _kkt_assemble_fill(
     n,
     p,
     p_genpow,
-    p_powm,
     shape::Symbol
 )
 
@@ -353,17 +286,14 @@ function _kkt_assemble_fill(
         blockdim = numel(cone)
         if Hs_is_diagonal(cone)
             _csc_fill_diag(K,maps.Hsblocks[i],firstcol,blockdim)
-        elseif isa(cone,Clarabel.EntropyCone)
-            _csc_fill_entropy(K,maps.Hsblocks[i],firstcol,blockdim,shape)
         else
             _csc_fill_dense_triangle(K,maps.Hsblocks[i],firstcol,blockdim,shape)
         end
     end
 
-    #fill in dense columns for each SOC and GenPow & PowM
+    #fill in dense columns for each SOC and GenPow
     socidx = 1  #which SOC are we working on?
     genpowidx = 1  #which GenPow are we working on?
-    powmidx = 1  #which PowM are we working on?
 
     for (i,cone) in enumerate(cones)
         if isa(cone,Clarabel.SecondOrderCone)
@@ -421,36 +351,6 @@ function _kkt_assemble_fill(
     _csc_fill_diag(K,maps.GenPow_D,n+m+p+1,p_genpow)
 
     genpowidx = genpowidx - 1 #num of GenPow
-
-    for (i,cone) in enumerate(cones)
-        if isa(cone,Clarabel.PowerMeanCone)
-
-            nvars = numel(cones[i])
-            dim1 = cones[i].d
-            headidx = cones.headidx[i]
-
-            #which column does p go into (if triu)?
-            col = m + n + 2*socidx + 3*genpowidx + 3*powmidx - 2
-
-            #fill structural zeros for p,q,r columns for this cone
-            if shape == :triu
-                _csc_fill_colvec(K, maps.PowM_q[powmidx], headidx + n, col)     #q 
-                _csc_fill_colvec(K, maps.PowM_r[powmidx], headidx + n + dim1, col + 1) #r 
-                _csc_fill_colvec(K, maps.PowM_p[powmidx], headidx + n, col + 2) #p
-            else #:tril
-                _csc_fill_rowvec(K, maps.PowM_q[powmidx], col, headidx + n)     #q
-                _csc_fill_rowvec(K, maps.PowM_r[powmidx], col + 1, headidx + n + dim1) #r
-                _csc_fill_rowvec(K, maps.PowM_p[powmidx], col + 2, headidx + n) #p
-            end
-
-            powmidx += 1
-        end
-    end
-
-    #fill in GenPow diagonal extension with diagonal of structural zeros
-    _csc_fill_diag(K,maps.PowM_D,n+m+p+p_genpow+1,p_powm)
-
-    powmidx = powmidx - 1 #num of PowM
 
     #backshift the colptrs to recover K.p again
     _kkt_backshift_colptrs(K)

@@ -194,8 +194,9 @@ function solve!(
         # ----------
 
         # Scaling strategy
-        # YC: For generalized power cones, we set it to the Dual scaling strategy
-        if s.cones.type_counts[GenPowerCone] > 0 || s.cones.type_counts[PowerMeanCone] > 0 || s.cones.type_counts[EntropyCone] > 0
+        # YC: For generalized power cones, we set it initially to the Dual scaling strategy
+        # or the primal-dual scaling otherwise
+        if s.cones.type_counts[GenPowerCone] > 0
             scaling = Dual::ScalingStrategy
         else
             scaling = PrimalDual::ScalingStrategy

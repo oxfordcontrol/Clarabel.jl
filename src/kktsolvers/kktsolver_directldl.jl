@@ -5,7 +5,7 @@
 mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
     # problem dimensions
-    m::Int; n::Int; p::Int; p_genpow::Int; p_powm::Int;
+    m::Int; n::Int; p::Int; p_genpow::Int;
 
     # Left and right hand sides for solves
     x::Vector{T}
@@ -48,19 +48,17 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         #solving in sparse format.  Need this many
         #extra variables for SOCs
         p = 2*cones.type_counts[SecondOrderCone]
-        p_genpow = 3*cones.type_counts[GenPowerCone]   #YC：remove 'T' in cone's definition
-        p_powm = 3*cones.type_counts[PowerMeanCone]
-
+        p_genpow = 3*cones.type_counts[GenPowerCone]  
 
         #LHS/RHS/work for iterative refinement
-        x    = Vector{T}(undef,n+m+p+p_genpow+p_powm)
-        b    = Vector{T}(undef,n+m+p+p_genpow+p_powm)
-        work_e  = Vector{T}(undef,n+m+p+p_genpow+p_powm)
-        work_dx = Vector{T}(undef,n+m+p+p_genpow+p_powm)
+        x    = Vector{T}(undef,n+m+p+p_genpow)
+        b    = Vector{T}(undef,n+m+p+p_genpow)
+        work_e  = Vector{T}(undef,n+m+p+p_genpow)
+        work_dx = Vector{T}(undef,n+m+p+p_genpow)
 
         #the expected signs of D in LDL
-        Dsigns = Vector{Int}(undef,n+m+p+p_genpow+p_powm)
-        _fill_Dsigns!(Dsigns,m,n,p,p_genpow,p_powm)
+        Dsigns = Vector{Int}(undef,n+m+p+p_genpow)
+        _fill_Dsigns!(Dsigns,m,n,p,p_genpow)
 
         #updates to the diagonal of KKT will be
         #assigned here before updating matrix entries
@@ -82,7 +80,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         #the LDL linear solver engine
         ldlsolver = ldlsolverT{T}(KKT,Dsigns,settings)
 
-        return new(m,n,p,p_genpow,p_powm,x,b,
+        return new(m,n,p,p_genpow,x,b,
                    work_e,work_dx,map,Dsigns,Hsblocks,
                    KKT,KKTsym,settings,ldlsolver,
                    diagonal_regularizer)
@@ -100,7 +98,7 @@ function _get_ldlsolver_type(s::Symbol)
     end
 end
 
-function _fill_Dsigns!(Dsigns,m,n,p,p_genpow,p_powm)
+function _fill_Dsigns!(Dsigns,m,n,p,p_genpow)
 
     Dsigns .= 1
 
@@ -116,10 +114,6 @@ function _fill_Dsigns!(Dsigns,m,n,p,p_genpow,p_powm)
     Dsigns[(n+m+p+1):3:(n+m+p+p_genpow)] .= -1  #for column w.r.t. q
     Dsigns[(n+m+p+2):3:(n+m+p+p_genpow)] .= -1  #for column w.r.t. r
 
-    #the trailing block of p_powm entries should
-    #have alternating signs
-    Dsigns[(n+m+p+p_genpow+1):3:(n+m+p+p_genpow+p_powm)] .= -1  #for column w.r.t. q
-    Dsigns[(n+m+p+p_genpow+2):3:(n+m+p+p_genpow+p_powm)] .= -1  #for column w.r.t. r
 end
 
 #update entries in the kktsolver object using the
@@ -270,32 +264,6 @@ function _kktsolver_update_inner!(
         end
     end
 
-    #update the scaled p,q,r columns.
-    cidx = 1        #which of the PowMean are we working on?
-
-    for (i,K) = enumerate(cones)
-        if isa(K,PowerMeanCone)
-
-            #YC: μ is a global parameter but it is saved multiple times for each GenPow cone
-            sqrtμ = sqrt(K.μ)
-
-            #off diagonal columns (or rows), distribute √μ to off-diagonal terms
-            _update_values!(ldlsolver,KKT,map.PowM_q[cidx],K.q)
-            _update_values!(ldlsolver,KKT,map.PowM_r[cidx],[K.r])
-            _update_values!(ldlsolver,KKT,map.PowM_p[cidx],K.p)
-            _scale_values!(ldlsolver,KKT,map.PowM_q[cidx],-sqrtμ)
-            _scale_values!(ldlsolver,KKT,map.PowM_r[cidx],-sqrtμ)
-            _scale_values!(ldlsolver,KKT,map.PowM_p[cidx],-sqrtμ)
-
-            #normalize diagonal terms to 1/-1 in the extended rows/cols
-            _update_values!(ldlsolver,KKT,[map.PowM_D[cidx*3-2]],[-one(T)])
-            _update_values!(ldlsolver,KKT,[map.PowM_D[cidx*3-1]],[-one(T)])
-            _update_values!(ldlsolver,KKT,[map.PowM_D[cidx*3]],[one(T)])
-
-            cidx += 1
-        end
-    end
-
     return _kktsolver_regularize_and_refactor!(kktsolver, ldlsolver)
 
 end
@@ -373,11 +341,11 @@ function kktsolver_setrhs!(
 ) where {T}
 
     b = kktsolver.b
-    (m,n,p,p_genpow,p_powm) = (kktsolver.m,kktsolver.n,kktsolver.p,kktsolver.p_genpow,kktsolver.p_powm)
+    (m,n,p,p_genpow) = (kktsolver.m,kktsolver.n,kktsolver.p,kktsolver.p_genpow)
 
     b[1:n]             .= rhsx
     b[(n+1):(n+m)]     .= rhsz
-    b[(n+m+1):(n+m+p+p_genpow+p_powm)] .= 0
+    b[(n+m+1):(n+m+p+p_genpow)] .= 0
 
     return nothing
 end
