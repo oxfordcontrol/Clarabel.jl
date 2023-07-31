@@ -231,6 +231,7 @@ mutable struct DefaultInfo{T} <: AbstractInfo{T}
     gap_abs::T
     gap_rel::T
     ktratio::T
+    inf_ktratio::T
 
     # previous iterate
     prev_cost_primal::T

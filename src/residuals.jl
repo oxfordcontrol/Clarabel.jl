@@ -18,14 +18,13 @@ function residuals_update!(
   #residuals.rx_inf .= -data.A'* variables.z
   mul!(residuals.rx_inf, data.A', variables.z, -one(T), zero(T))
 
-  #Same as:  residuals.rz_inf .=  data.A * variables.x + variables.s
-  @. residuals.rz_inf = variables.s
-  mul!(residuals.rz_inf, data.A, variables.x, one(T), one(T))
+  #Same as:  residuals.rz_inf .=  data.A * variables.x 
+  mul!(residuals.rz_inf, data.A, variables.x, one(T), zero(T)) 
 
-  #complete the residuals
-  @. residuals.rx = residuals.rx_inf - residuals.Px - data.q * variables.τ
-  @. residuals.rz = residuals.rz_inf - data.b * variables.τ
-  residuals.rτ    = qx + bz + variables.κ + xPx/variables.τ
+  #complete the residuals 
+  @. residuals.rx = residuals.rx_inf - residuals.Px - data.q * variables.τ 
+  @. residuals.rz = residuals.rz_inf + variables.s - data.b * variables.τ 
+  residuals.rτ    = qx + bz + variables.κ + xPx/variables.τ 
 
   #save local versions
   residuals.dot_qx  = qx
