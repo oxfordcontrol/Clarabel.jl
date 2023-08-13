@@ -11,10 +11,15 @@ mutable struct HSLMA97DirectLDLSolver{T} <: HSLDirectLDLSolver{T}
 end
 
 mutable struct HSLMA57DirectLDLSolver{T} <: HSLDirectLDLSolver{T}
+
     F::Union{Ma57,Nothing}
+    work::Vector{T}
+
     function HSLMA57DirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
         F = nothing
-        return new(F)
+        work = zeros(T,KKT.n)
+
+        return new(F,work)
     end
 end
 
@@ -88,7 +93,11 @@ function solve!(
     b::Vector{T}
 ) where{T}
 
-    x .= ma57_solve(ldlsolver.F, b) # solves without iterative refinement
+    F    = ldlsolver.F
+    work = ldlsolver.work
+
+    x .= b #solves in place
+    x .= ma57_solve!(ldlsolver.F, x, work, job = :A) # solves without iterative refinement
 end
 
 function solve!(
@@ -97,7 +106,8 @@ function solve!(
     b::Vector{T}
 ) where{T}
 
-    x .= ma97_solve(ldlsolver.F, b)
+    x .= b
+    ma97_solve!(ldlsolver.F, x; job = :A)  #NB, solves in place despite the name
 end
 
 

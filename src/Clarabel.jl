@@ -81,6 +81,8 @@ module Clarabel
             include("./kktsolvers/direct-ldl/directldl_hsl.jl")
         end 
     end
+    include("./kktsolvers/direct-ldl/directldl_hsl.jl")
+ 
 
     #MathOptInterface for JuMP/Convex.jl
     module MOImodule
