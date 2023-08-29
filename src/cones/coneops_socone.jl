@@ -12,7 +12,7 @@ function margins(
     pd::PrimalOrDualCone
 ) where{T}
 
-    α = z[1] - norm(z[2:end])
+    @views α = z[1] - norm(z[2:end])
     β = max(zero(T),α)
     (α,β)
 end
@@ -72,8 +72,8 @@ function update_scaling!(
 ) where {T}
 
     #first calculate the scaled vector w
-    @views zscale = _sqrt_soc_residual(z)
-    @views sscale = _sqrt_soc_residual(s)
+    zscale = _sqrt_soc_residual(z)
+    sscale = _sqrt_soc_residual(s)
 
     # Fail if either s or z is not an interior point
     if iszero(zscale) || iszero(sscale)
@@ -84,7 +84,11 @@ function update_scaling!(
     w = K.w
     w     .= s./(sscale)
     w[1]  += z[1]/(zscale)
-    @views w[2:end] .-= z[2:end]/(zscale)
+
+    @inbounds for i in 2:length(w)
+        w[i] -= z[i]/(zscale)
+    end
+
     wscale = _sqrt_soc_residual(w)
 
     # Fail if w is not an interior point
@@ -252,7 +256,10 @@ function mul_W!(
   c = x[1] + ζ/(1+K.w[1])
 
   y[1] = α*K.η*(K.w[1]*x[1] + ζ) + β*y[1]
-  @views y[2:end] .= (α*K.η)*(x[2:end] + c*K.w[2:end]) + β*y[2:end]
+
+  @inbounds for i in 2:length(y)
+      y[i] = α*K.η*(x[i] + c*K.w[i]) + β*y[i]
+  end
 
   return nothing
 end
@@ -275,7 +282,7 @@ function mul_Winv!(
 
     y[1] = (α/K.η)*(K.w[1]*x[1] - ζ) + β*y[1]
 
-    for i = 2:length(y)
+    @inbounds for i = 2:length(y)
         y[i] = (α/K.η)*(x[i] + c*K.w[i]) + β*y[i]
     end
 
