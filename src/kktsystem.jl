@@ -94,7 +94,7 @@ function kkt_solve_initial_point!(
     data::DefaultProblemData{T}
 ) where{T}
 
-    if true || iszero(nnz(data.P))
+    if iszero(nnz(data.P))
         # LP initialization
         # solve with [0;b] as a RHS to get (x,-s) initializers
         # zero out any sparse cone variables at end
