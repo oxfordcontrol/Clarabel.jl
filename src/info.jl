@@ -37,12 +37,8 @@ function info_update!(
                               scaled_norm(einv,residuals.rz_inf) / max(one(T), normx + norms))
 
     #absolute and relative gaps
-    info.gap_abs    = abs(info.cost_primal - info.cost_dual)
-    if(info.cost_primal > zero(T) && info.cost_dual < zero(T))
-        info.gap_rel = floatmax(T)
-    else
-        info.gap_rel = info.gap_abs / max(one(T),min(abs(info.cost_primal),abs(info.cost_dual)))
-    end
+    info.gap_abs = abs(info.cost_primal - info.cost_dual)
+    info.gap_rel = info.gap_abs / max(one(T),min(abs(info.cost_primal),abs(info.cost_dual)))
 
     #κ/τ
     info.ktratio = variables.κ / variables.τ
