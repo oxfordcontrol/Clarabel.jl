@@ -29,27 +29,29 @@ struct SecondOrderConeT <: SupportedCone
     dim::DefaultInt
 end
 
-struct PSDTriangleConeT <: SupportedCone
-    dim::DefaultInt
-end
-
-struct ExponentialConeT <: SupportedCone
-    #no fields, #dim = 3 always
-end
-
 struct PowerConeT <: SupportedCone
     #dim = 3 always
     α::DefaultFloat
 end
 
 struct GenPowerConeT <: SupportedCone
+    #PJG : one of these dimensions is redundant to len(α)
     α::Vector{DefaultFloat}
     dim1::DefaultInt
     dim2::DefaultInt
 end
-export GenPowerConeT
 GenPowerConeT(args...) = GenPowerConeT{DefaultFloat}(args...)
+
+# enable use of this type as a MOI constraint type
+export GenPowerConeT
 MOI.dimension(cone::GenPowerConeT) = (cone.dim1 + cone.dim2)
+
+struct ExponentialConeT <: SupportedCone
+    #no fields, #dim = 3 always
+end
+struct PSDTriangleConeT <: SupportedCone
+    dim::DefaultInt
+end
 
 
 # this reports the number of slack variables that
