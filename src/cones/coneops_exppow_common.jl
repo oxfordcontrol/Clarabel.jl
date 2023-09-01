@@ -35,7 +35,36 @@ function _step_length_3d_cone(
     return α
 end
 
+#YC: an extension for _step_length_3d_cone, we could merge two together
+function _step_length_n_cone(
+    K::GenPowerCone{T},
+    dq::AbstractVector{T},
+    q::AbstractVector{T},
+    α_init::T,
+    α_min::T,
+    backtrack::T,
+    is_in_cone_fcn::Function
+) where {T}
 
+    dim = K.dim
+    wq = similar(K.grad)
+    α = α_init
+    while true
+        #@. wq = q + α*dq
+        @inbounds for i = 1:dim
+            wq[i] = q[i] + α*dq[i]
+        end
+
+        if is_in_cone_fcn(wq)
+            break
+        end
+        if (α *= backtrack) < α_min
+            α = zero(T)
+            break
+        end
+    end
+    return α
+end
 
 #-------------------------------------
 # primal-dual scaling
@@ -161,4 +190,33 @@ function _use_primal_dual_scaling(
         return nothing
     end
     
+end
+
+
+#------------------------------------------------------------
+# Numerical sub-routines for primal barrier computation
+#------------------------------------------------------------
+function _newton_raphson_onesided(x0::T,f0::Function,f1::Function) where {T}
+
+    #implements NR method from a starting point assumed to be to the 
+    #left of the true value.   Once a negative step is encountered 
+    #this function will halt regardless of the calculated correction.
+
+    x = x0
+    iter = 0
+
+    while iter < 100
+
+        iter += 1
+        dfdx  =  f1(x)  
+        dx    = -f0(x)/dfdx
+
+        if (dx < eps(T)) ||
+            (abs(dx/x) < sqrt(eps(T))) ||
+            (abs(dfdx) < eps(T))
+            break
+        end
+        x += dx
+    end
+    return x
 end

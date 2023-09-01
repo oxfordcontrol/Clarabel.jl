@@ -1,10 +1,12 @@
 __precompile__()
 module Clarabel
 
-    using SparseArrays, LinearAlgebra, Printf, Requires
+    using SparseArrays, LinearAlgebra, Printf, MathOptInterface, Requires
     const DefaultFloat = Float64
     const DefaultInt   = LinearAlgebra.BlasInt
     const IdentityMatrix = UniformScaling{Bool}
+    const MOI = MathOptInterface
+    const MOIU = MOI.Utilities
 
     #internal constraint RHS limits.  This let block 
     #hides the INFINITY field in the module and makes 
@@ -60,6 +62,7 @@ module Clarabel
     include("./cones/coneops_psdtrianglecone.jl")
     include("./cones/coneops_expcone.jl")
     include("./cones/coneops_powcone.jl")
+    include("./cones/coneops_genpowcone.jl")        #Generalized power cone 
     include("./cones/coneops_compositecone.jl")
     include("./cones/coneops_exppow_common.jl")
     include("./cones/coneops_symmetric_common.jl")

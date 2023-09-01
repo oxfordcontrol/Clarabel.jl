@@ -235,6 +235,59 @@ end
 
 PowerCone(args...) = PowerCone{DefaultFloat}(args...)
 
+# # ------------------------------------
+# # Generalized Power Cone 
+# # ------------------------------------
+
+# gradient and Hessian for the dual barrier function
+mutable struct GenPowerCone{T} <: AbstractCone{T}
+
+    α::Vector{T}
+    grad::Vector{T}         #gradient of the dual barrier at z 
+    z::Vector{T}            #holds copy of z at scaling point
+    dim1::DefaultInt               #dimension of u
+    dim2::DefaultInt               #dimension of w
+    dim::DefaultInt                #dim1 + dim2
+    μ::T                    #central path parameter
+
+    #vectors for rank 3 update representation of H_s
+    p::Vector{T}
+    q::Vector{T}    
+    r::Vector{T}
+    d1::Vector{T}           #first part of the diagonal
+    
+    #additional scalar terms for rank-2 rep
+    d2::T
+
+    #additional constant for initialization in the Newton-Raphson method
+    ψ::T
+
+    function GenPowerCone{T}(α::Vector{T},dim1::DefaultInt,dim2::DefaultInt) where {T}
+        dim = dim1 + dim2
+        @assert all(α .> zero(T))
+        @assert sum(α) ≈ one(T)
+        μ = one(T)
+
+        grad   = zeros(T,dim)
+        z      = zeros(T,dim)
+        p      = zeros(T,dim)
+        q      = zeros(T,dim1)
+        r      = zeros(T,dim2)
+        d1     = zeros(T,dim1)
+        d2 = zero(T)
+
+        ψ = zero(T)
+        @inbounds for i in 1:length(α)
+            ψ += α[i]^2
+        end
+        ψ = inv(ψ)
+
+        return new(α,grad,z,dim1,dim2,dim,μ,p,q,r,d1,d2,ψ)
+    end
+end
+
+GenPowerCone(args...) = GenPowerCone{DefaultFloat}(args...)
+
 
 """
     ConeDict
@@ -248,4 +301,5 @@ const ConeDict = Dict{DataType,Type}(
     PSDTriangleConeT => PSDTriangleCone,
     ExponentialConeT => ExponentialCone,
           PowerConeT => PowerCone,
+       GenPowerConeT => GenPowerCone
 )

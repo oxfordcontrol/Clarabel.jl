@@ -193,7 +193,14 @@ function solve!(
         #  main loop
         # ----------
 
-        scaling = PrimalDual::ScalingStrategy
+        # Scaling strategy
+        # YC: For generalized power cones, we set it initially to the Dual scaling strategy
+        # or the primal-dual scaling otherwise
+        if s.cones.type_counts[GenPowerCone] > 0
+            scaling = Dual::ScalingStrategy
+        else
+            scaling = PrimalDual::ScalingStrategy
+        end
 
         while true
 
@@ -349,21 +356,21 @@ function solver_default_start!(s::Solver{T}) where {T}
     # If there are only symmetric cones, use CVXOPT style initilization
     # Otherwise, initialize along central rays
 
-    if (is_symmetric(s.cones))
-        #set all scalings to identity (or zero for the zero cone)
-        set_identity_scaling!(s.cones)
-        #Refactor
-        kkt_update!(s.kktsystem,s.data,s.cones)
-        #solve for primal/dual initial points via KKT
-        kkt_solve_initial_point!(s.kktsystem,s.variables,s.data)
-        #fix up (z,s) so that they are in the cone
-        variables_symmetric_initialization!(s.variables, s.cones)
+    # if (is_symmetric(s.cones))
+    #     #set all scalings to identity (or zero for the zero cone)
+    #     set_identity_scaling!(s.cones)
+    #     #Refactor
+    #     kkt_update!(s.kktsystem,s.data,s.cones)
+    #     #solve for primal/dual initial points via KKT
+    #     kkt_solve_initial_point!(s.kktsystem,s.variables,s.data)
+    #     #fix up (z,s) so that they are in the cone
+    #     variables_symmetric_initialization!(s.variables, s.cones)
 
-    else
-        #Assigns unit (z,s) and zeros the primal variables 
-        variables_unit_initialization!(s.variables, s.cones)
-    end
-
+    # else
+    #     #Assigns unit (z,s) and zeros the primal variables 
+    #     variables_unit_initialization!(s.variables, s.cones)
+    # end
+    variables_unit_initialization!(s.variables, s.cones)
     return nothing
 end
 
@@ -395,6 +402,7 @@ function solver_backtrack_step_to_barrier(
 
     for j = 1:50
         barrier = variables_barrier(s.variables,s.step_lhs,α,s.cones)
+        # println("barrier is: ", barrier)
         if barrier < one(T)
             return α
         else
