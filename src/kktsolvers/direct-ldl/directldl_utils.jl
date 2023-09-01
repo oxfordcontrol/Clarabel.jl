@@ -8,6 +8,10 @@ struct LDLDataMap
     SOC_u::Vector{Vector{Int}}      #off diag dense columns u
     SOC_v::Vector{Vector{Int}}      #off diag dense columns v
     SOC_D::Vector{Int}              #diag of just the sparse SOC expansion D
+    GenPow_p::Vector{Vector{Int}}   #off diag dense columns p
+    GenPow_q::Vector{Vector{Int}}   #off diag dense columns q
+    GenPow_r::Vector{Vector{Int}}   #off diag dense columns r
+    GenPow_D::Vector{Int}           #diag of just the sparse GenPow expansion D
 
     #all of above terms should be disjoint and their union
     #should cover all of the user data in the KKT matrix.  Now
@@ -36,22 +40,38 @@ struct LDLDataMap
         nsoc = cones.type_counts[Clarabel.SecondOrderCone]
         p    = 2*nsoc
         SOC_D = zeros(Int,p)
-
         SOC_u = Vector{Vector{Int}}(undef,nsoc)
         SOC_v = Vector{Vector{Int}}(undef,nsoc)
 
-        count = 1
-        for cone in cones
+        n_genpow = cones.type_counts[Clarabel.GenPowerCone]
+        p_genpow = 3*n_genpow
+        GenPow_p = Vector{Vector{Int}}(undef,n_genpow)
+        GenPow_q = Vector{Vector{Int}}(undef,n_genpow)
+        GenPow_r = Vector{Vector{Int}}(undef,n_genpow)
+        GenPow_D = zeros(Int,p_genpow)   
+
+        count_soc = 1;
+        count_genpow = 1;
+
+        for (i,cone) in enumerate(cones)
             if isa(cone,Clarabel.SecondOrderCone)
-                SOC_u[count] = Vector{Int}(undef,numel(cone))
-                SOC_v[count] = Vector{Int}(undef,numel(cone))
-                count += 1
+                SOC_u[count_soc] = Vector{Int}(undef,numel(cone))
+                SOC_v[count_soc] = Vector{Int}(undef,numel(cone))
+                count_soc += 1
+            end
+            if isa(cone,Clarabel.GenPowerCone)
+                GenPow_p[count_genpow] = Vector{Int}(undef,numel(cone))
+                GenPow_q[count_genpow] = Vector{Int}(undef,cone.dim1)
+                GenPow_r[count_genpow] = Vector{Int}(undef,cone.dim2)
+                count_genpow += 1
             end
         end
 
-        diag_full = zeros(Int,m+n+p)
+        diag_full = zeros(Int,m+n+p+p_genpow)
 
-        return new(P,A,Hsblocks,SOC_u,SOC_v,SOC_D,diagP,diag_full)
+        return new(P,A,Hsblocks,SOC_u,SOC_v,SOC_D,
+                    GenPow_p,GenPow_q,GenPow_r,GenPow_D,
+                    diagP,diag_full)
     end
 
 end
@@ -63,7 +83,7 @@ function _allocate_kkt_Hsblocks(type::Type{T}, cones) where{T <: Real}
 
     for (i, cone) in enumerate(cones)
         nvars = numel(cone)
-        if Hs_is_diagonal(cone)
+        if Hs_is_diagonal(cone) 
             numelblock = nvars
         else #dense triangle
             numelblock = triangular_number(nvars) #must be Int
@@ -85,6 +105,8 @@ function _assemble_kkt_matrix(
     (m,n)  = (size(A,1), size(P,1))
     n_socs = cones.type_counts[Clarabel.SecondOrderCone]
     p = 2*n_socs
+    n_genpow = cones.type_counts[Clarabel.GenPowerCone]
+    p_genpow = 3*n_genpow
 
     maps = LDLDataMap(P,A,cones)
 
@@ -97,23 +119,31 @@ function _assemble_kkt_matrix(
     #entries in the dense columns u/v of the
     #sparse SOC expansion terms.  2 is for
     #counting elements in both columns
+    # GenPow has three vectors p,q,r, but length(p) = length(q) + length(r)
     nnz_SOC_vecs = 2*mapreduce(length, +, maps.SOC_u; init = 0)
+    nnz_GenPow_vecs = mapreduce(length, +, maps.GenPow_p; init = 0)
+    nnz_GenPow_vecs += mapreduce(length, +, maps.GenPow_q; init = 0)
+    nnz_GenPow_vecs += mapreduce(length, +, maps.GenPow_r; init = 0)
 
     #entries in the sparse SOC diagonal extension block
     nnz_SOC_ext = length(maps.SOC_D)
+    nnz_GenPow_ext = length(maps.GenPow_D)
 
     nnzKKT = (nnz(P) +   # Number of elements in P
     n -                  # Number of elements in diagonal top left block
     nnz_diagP +          # remove double count on the diagonal if P has entries
     nnz(A) +             # Number of nonzeros in A
-    nnz_Hsblocks +     # Number of elements in diagonal below A'
+    nnz_Hsblocks +      # Number of elements in diagonal below A'
     nnz_SOC_vecs +       # Number of elements in sparse SOC off diagonal columns
-    nnz_SOC_ext)         # Number of elements in diagonal of SOC extension
+    nnz_SOC_ext +         # Number of elements in diagonal of SOC extension
+    nnz_GenPow_vecs +   # Number of elements in sparse GenPow off diagonal columns
+    nnz_GenPow_ext     # Number of elements in diagonal of GenPow extension
+    )
 
-    K = _csc_spalloc(T, m+n+p, m+n+p, nnzKKT)
+    K = _csc_spalloc(T, m+n+p+p_genpow, m+n+p+p_genpow, nnzKKT)
 
-    _kkt_assemble_colcounts(K,P,A,cones,m,n,p,shape)
-    _kkt_assemble_fill(K,maps,P,A,cones,m,n,p,shape)
+    _kkt_assemble_colcounts(K,P,A,cones,m,n,p,p_genpow,shape)        #YC:Get stuck here
+    _kkt_assemble_fill(K,maps,P,A,cones,m,n,p,p_genpow,shape)
 
     return K,maps
 
@@ -127,6 +157,7 @@ function _kkt_assemble_colcounts(
     m,
     n,
     p,
+    p_genpow,
     shape::Symbol
 )
 
@@ -155,7 +186,7 @@ function _kkt_assemble_colcounts(
         end
     end
 
-    #count dense columns for each SOC
+    #count dense columns for each SOC, GenPow,
     socidx = 1  #which SOC are we working on?
 
     for (i,cone) in enumerate(cones)
@@ -165,24 +196,56 @@ function _kkt_assemble_colcounts(
             nvars   = numel(cone)
             headidx = cones.headidx[i]
 
-            #which column does u go into?
+            #which column does v go into?
             col = m + n + 2*socidx - 1
 
             if shape == :triu
-                _csc_colcount_colvec(K,nvars,headidx + n, col)   #u column
-                _csc_colcount_colvec(K,nvars,headidx + n, col+1) #v column
+                _csc_colcount_colvec(K,nvars,headidx + n, col)   #v column
+                _csc_colcount_colvec(K,nvars,headidx + n, col+1) #u column
             else #:tril
-                _csc_colcount_rowvec(K,nvars,col,   headidx + n) #u row
-                _csc_colcount_rowvec(K,nvars,col+1, headidx + n) #v row
+                _csc_colcount_rowvec(K,nvars,col,   headidx + n) #v row
+                _csc_colcount_rowvec(K,nvars,col+1, headidx + n) #u row
             end
 
             socidx = socidx + 1
         end
     end
-
     #add diagonal block in the lower RH corner
     #to allow for the diagonal terms in SOC expansion
     _csc_colcount_diag(K,n+m+1,p)
+
+    socidx = socidx - 1 #num of SOC
+
+    genpowidx = 1   #which GenPow are we working on?
+    for (i,cone) in enumerate(cones)
+        if isa(cone,Clarabel.GenPowerCone)
+
+            #we will add the p,q,r columns for this cone
+            nvars   = numel(cones[i])
+            dim1 = cones[i].dim1
+            dim2 = cones[i].dim2
+            headidx = cones.headidx[i]
+
+            #which column does p go into?
+            col = m + n + 2*socidx + 3*genpowidx - 2
+
+            if shape == :triu
+                _csc_colcount_colvec(K,dim1,headidx + n, col) #q column
+                _csc_colcount_colvec(K,dim2,headidx + dim1, col+1) #r column
+                _csc_colcount_colvec(K,nvars,headidx + n, col+2)   #p column
+            else #:tril
+                _csc_colcount_rowvec(K,dim1,col, headidx + n) #q row
+                _csc_colcount_rowvec(K,dim2,col+1, headidx + n + dim1) #r row
+                _csc_colcount_rowvec(K,nvars,col+2, headidx + n) #p row
+            end
+
+            genpowidx = genpowidx + 1
+        end
+    end
+
+    #add diagonal block in the lower RH corner
+    #to allow for the diagonal terms in GenPow expansion
+    _csc_colcount_diag(K,n+m+p+1,p_genpow)
 
     return nothing
 end
@@ -197,6 +260,7 @@ function _kkt_assemble_fill(
     m,
     n,
     p,
+    p_genpow,
     shape::Symbol
 )
 
@@ -227,8 +291,9 @@ function _kkt_assemble_fill(
         end
     end
 
-    #fill in dense columns for each SOC
+    #fill in dense columns for each SOC and GenPow
     socidx = 1  #which SOC are we working on?
+    genpowidx = 1  #which GenPow are we working on?
 
     for (i,cone) in enumerate(cones)
         if isa(cone,Clarabel.SecondOrderCone)
@@ -236,25 +301,56 @@ function _kkt_assemble_fill(
             nvars = numel(cone)
             headidx = cones.headidx[i]
 
-            #which column does u go into (if triu)?
+            #which column does v go into (if triu)?
             col = m + n + 2*socidx - 1
 
             #fill structural zeros for u and v columns for this cone
             #note v is the first extra row/column, u is second
             if shape == :triu
-                _csc_fill_colvec(K, maps.SOC_v[socidx], headidx + n, col    ) #u
-                _csc_fill_colvec(K, maps.SOC_u[socidx], headidx + n, col + 1) #v
+                _csc_fill_colvec(K, maps.SOC_v[socidx], headidx + n, col    ) #v
+                _csc_fill_colvec(K, maps.SOC_u[socidx], headidx + n, col + 1) #u
             else #:tril
-                _csc_fill_rowvec(K, maps.SOC_v[socidx], col    , headidx + n) #u
-                _csc_fill_rowvec(K, maps.SOC_u[socidx], col + 1, headidx + n) #v
+                _csc_fill_rowvec(K, maps.SOC_v[socidx], col    , headidx + n) #v
+                _csc_fill_rowvec(K, maps.SOC_u[socidx], col + 1, headidx + n) #u
             end
 
             socidx += 1
         end
     end
-
     #fill in SOC diagonal extension with diagonal of structural zeros
     _csc_fill_diag(K,maps.SOC_D,n+m+1,p)
+
+    socidx = socidx - 1 #num of SOC
+
+    for (i,cone) in enumerate(cones)
+        if isa(cone,Clarabel.GenPowerCone)
+
+            nvars = numel(cones[i])
+            dim1 = cones[i].dim1
+            headidx = cones.headidx[i]
+
+            #which column does p go into (if triu)?
+            col = m + n + 2*socidx + 3*genpowidx - 2
+
+            #fill structural zeros for p,q,r columns for this cone
+            if shape == :triu
+                _csc_fill_colvec(K, maps.GenPow_q[genpowidx], headidx + n, col)     #q 
+                _csc_fill_colvec(K, maps.GenPow_r[genpowidx], headidx + n + dim1, col + 1) #r 
+                _csc_fill_colvec(K, maps.GenPow_p[genpowidx], headidx + n, col + 2) #p
+            else #:tril
+                _csc_fill_rowvec(K, maps.GenPow_q[genpowidx], col, headidx + n)     #q
+                _csc_fill_rowvec(K, maps.GenPow_r[genpowidx], col + 1, headidx + n + dim1) #r
+                _csc_fill_rowvec(K, maps.GenPow_p[genpowidx], col + 2, headidx + n) #p
+            end
+
+            genpowidx += 1
+        end
+    end
+
+    #fill in GenPow diagonal extension with diagonal of structural zeros
+    _csc_fill_diag(K,maps.GenPow_D,n+m+p+1,p_genpow)
+
+    genpowidx = genpowidx - 1 #num of GenPow
 
     #backshift the colptrs to recover K.p again
     _kkt_backshift_colptrs(K)

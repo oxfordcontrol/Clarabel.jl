@@ -319,10 +319,8 @@ function _newton_raphson_powcone(
     α::T
 ) where {T}
 
-    # init point x0: since our dual barrier has an additional 
-    # shift -2α*log(α) - 2(1-α)*log(1-α) > 0 in f(x),
-    # the previous selection is still feasible, i.e. f(x0) > 0
-    x0 = -one(T)/s3 + 2*(s3 + sqrt(4*ϕ*ϕ/s3/s3 + 3*ϕ))/(4*ϕ - s3*s3)
+    # init point x0: f(x0) > 0
+    x0 = -one(T)/s3 + (2*s3 + sqrt(ϕ*ϕ/s3/s3 + 3*ϕ))/(ϕ - s3*s3)
 
     # additional shift due to the choice of dual barrier
     t0 = - 2*α*logsafe(α) - 2*(1-α)*logsafe(1-α)   
@@ -344,31 +342,6 @@ function _newton_raphson_powcone(
     end
     
     return _newton_raphson_onesided(x0,f0,f1)
-end
-
-function _newton_raphson_onesided(x0::T,f0::Function,f1::Function) where {T}
-
-    #implements NR method from a starting point assumed to be to the 
-    #left of the true value.   Once a negative step is encountered 
-    #this function will halt regardless of the calculated correction.
-
-    x = x0
-    iter = 0
-
-    while iter < 100
-
-        iter += 1
-        dfdx  =  f1(x)  
-        dx    = -f0(x)/dfdx
-
-        if (dx < eps(T)) ||
-            (abs(dx/x) < sqrt(eps(T))) ||
-            (abs(dfdx) < eps(T))
-            break
-        end
-        x += dx
-    end
-    return x
 end
 
 
