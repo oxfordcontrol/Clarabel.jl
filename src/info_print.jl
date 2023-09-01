@@ -34,9 +34,10 @@ function info_print_configuration(
     print_conedims_by_type(io, cones, ZeroCone)
     print_conedims_by_type(io, cones, NonnegativeCone)
     print_conedims_by_type(io, cones, SecondOrderCone)
-    print_conedims_by_type(io, cones, PSDTriangleCone)
-    print_conedims_by_type(io, cones, PowerCone)
     print_conedims_by_type(io, cones, ExponentialCone)
+    print_conedims_by_type(io, cones, PowerCone)
+    print_conedims_by_type(io, cones, GenPowerCone)
+    print_conedims_by_type(io, cones, PSDTriangleCone)
     print_settings(io, settings)
     @printf(io, "\n")
 
@@ -191,6 +192,9 @@ function print_conedims_by_type(io::IO, cones::CompositeCone{T}, type::Type) whe
     if count == 0
         return #don't report if none
     end
+
+    #PJG: reporting for genpowercone is incomplete since it has 
+    #two dimensions to report
 
     nvars = Int64[Clarabel.numel(K) for K in cones[isa.(cones,type)]]
     name  = rpad(string(nameof(type))[1:end-4],11)  #drops "Cone" part
