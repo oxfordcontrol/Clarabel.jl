@@ -35,16 +35,14 @@ struct PowerConeT <: SupportedCone
 end
 
 struct GenPowerConeT <: SupportedCone
-    #PJG : one of these dimensions is redundant to len(α)
     α::Vector{DefaultFloat}
-    dim1::DefaultInt
     dim2::DefaultInt
 end
-GenPowerConeT(args...) = GenPowerConeT{DefaultFloat}(args...)
+dim1(cone::GenPowerConeT) = length(cone.α)
+dim2(cone::GenPowerConeT) = cone.dim2
 
 # enable use of this type as a MOI constraint type
-export GenPowerConeT
-MOI.dimension(cone::GenPowerConeT) = (cone.dim1 + cone.dim2)
+MOI.dimension(cone::GenPowerConeT) = (length(cone.α) + cone.dim2)
 
 struct ExponentialConeT <: SupportedCone
     #no fields, #dim = 3 always
@@ -67,7 +65,7 @@ function nvars(cone:: SupportedCone)
     elseif isa(cone, PowerConeT)
         3
     elseif isa(cone, GenPowerConeT)
-        cone.dim1 + cone.dim2
+        dim1(cone) + dim2(cone)
     else
         cone.dim
     end

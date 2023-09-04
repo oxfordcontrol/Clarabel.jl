@@ -181,8 +181,10 @@ function step_length(
     is_primal_feasible_fcn = s -> _is_primal_feasible_powcone(s,K.α)
     is_dual_feasible_fcn   = s -> _is_dual_feasible_powcone(s,K.α)
 
-    αz = _step_length_3d_cone(K, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn)
-    αs = _step_length_3d_cone(K, ds, s, αmax, αmin, backtrack, is_primal_feasible_fcn)
+    work = similar(K.grad)
+
+    αz = _step_length_cone(K, work, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn)
+    αs = _step_length_cone(K, work, ds, s, αmax, αmin, backtrack, is_primal_feasible_fcn)
 
     return (αz,αs)
 end

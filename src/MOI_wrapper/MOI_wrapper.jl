@@ -633,9 +633,9 @@ function push_constraint_set!(
         return nothing
     end
 
-    # handle self-defined GenPowerCone
+    # handle GenPowerCone (takes two parameters)
     if isa(s,Clarabel.GenPowerConeT)
-        push!(cone_spec, Clarabel.GenPowerConeT(s.α,s.dim1,s.dim2))
+        push!(cone_spec, Clarabel.GenPowerConeT(s.α,s.dim2))
         return nothing
     end
 

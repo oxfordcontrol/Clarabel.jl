@@ -242,12 +242,11 @@ PowerCone(args...) = PowerCone{DefaultFloat}(args...)
 # gradient and Hessian for the dual barrier function
 mutable struct GenPowerCone{T} <: AbstractCone{T}
 
-    α::Vector{T}
+    α::Vector{T}            #vector of exponents.  length determines dim1
+    dim2::DefaultInt        #dimension of w
+
     grad::Vector{T}         #gradient of the dual barrier at z 
     z::Vector{T}            #holds copy of z at scaling point
-    dim1::DefaultInt               #dimension of u
-    dim2::DefaultInt               #dimension of w
-    dim::DefaultInt                #dim1 + dim2
     μ::T                    #central path parameter
 
     #vectors for rank 3 update representation of H_s
@@ -262,12 +261,17 @@ mutable struct GenPowerCone{T} <: AbstractCone{T}
     #additional constant for initialization in the Newton-Raphson method
     ψ::T
 
-    function GenPowerCone{T}(α::Vector{T},dim1::DefaultInt,dim2::DefaultInt) where {T}
-        dim = dim1 + dim2
+    #work vector length dim, e.g. for line searches
+    work::Vector{T}
+
+    function GenPowerCone{T}(α::Vector{T},dim2::DefaultInt) where {T}
+        
+        dim1 = length(α)
+        dim  = dim1 + dim2
         @assert all(α .> zero(T))
         @assert sum(α) ≈ one(T)
-        μ = one(T)
 
+        μ      = one(T)
         grad   = zeros(T,dim)
         z      = zeros(T,dim)
         p      = zeros(T,dim)
@@ -282,7 +286,9 @@ mutable struct GenPowerCone{T} <: AbstractCone{T}
         end
         ψ = inv(ψ)
 
-        return new(α,grad,z,dim1,dim2,dim,μ,p,q,r,d1,d2,ψ)
+        work = zeros(T,dim)
+
+        return new(α,dim2,grad,z,μ,p,q,r,d1,d2,ψ,work)
     end
 end
 

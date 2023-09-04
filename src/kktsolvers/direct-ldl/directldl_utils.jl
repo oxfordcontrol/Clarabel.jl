@@ -61,8 +61,8 @@ struct LDLDataMap
             end
             if isa(cone,Clarabel.GenPowerCone)
                 GenPow_p[count_genpow] = Vector{Int}(undef,numel(cone))
-                GenPow_q[count_genpow] = Vector{Int}(undef,cone.dim1)
-                GenPow_r[count_genpow] = Vector{Int}(undef,cone.dim2)
+                GenPow_q[count_genpow] = Vector{Int}(undef,dim1(cone))
+                GenPow_r[count_genpow] = Vector{Int}(undef,dim2(cone))
                 count_genpow += 1
             end
         end
@@ -216,14 +216,18 @@ function _kkt_assemble_colcounts(
 
     socidx = socidx - 1 #num of SOC
 
+    #PJG: redundant blocks here.   PJG to reimplement
+    #Similar issues in other functions below that 
+    #separately handle SOC and GenPow
+
     genpowidx = 1   #which GenPow are we working on?
     for (i,cone) in enumerate(cones)
         if isa(cone,Clarabel.GenPowerCone)
 
             #we will add the p,q,r columns for this cone
-            nvars   = numel(cones[i])
-            dim1 = cones[i].dim1
-            dim2 = cones[i].dim2
+            nvars   = numel(cone)
+            dim1 = Clarabel.dim1(cone)
+            dim2 = Clarabel.dim2(cone)
             headidx = cones.headidx[i]
 
             #which column does p go into?
@@ -325,8 +329,8 @@ function _kkt_assemble_fill(
     for (i,cone) in enumerate(cones)
         if isa(cone,Clarabel.GenPowerCone)
 
-            nvars = numel(cones[i])
-            dim1 = cones[i].dim1
+            nvars = numel(cone)
+            dim1 = Clarabel.dim1(cone)
             headidx = cones.headidx[i]
 
             #which column does p go into (if triu)?

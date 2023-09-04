@@ -1,13 +1,10 @@
 # find the maximum step length α≥0 so that
 # q + α*dq stays in an exponential or power
 # cone, or their respective dual cones.
-#
-# NB: Not for use as a general checking
-# function because cone lengths are hardcoded
-# to R^3 for faster execution.  
 
-function _step_length_3d_cone(
-    K::Union{PowerCone{T},ExponentialCone{T}},
+function _step_length_cone(
+    K::Union{PowerCone{T},ExponentialCone{T},GenPowerCone{T}},
+    wq::Union{AbstractVector{T},NTuple{3,T}},
     dq::AbstractVector{T},
     q::AbstractVector{T},
     α_init::T,
@@ -16,11 +13,10 @@ function _step_length_3d_cone(
     is_in_cone_fcn::Function
 ) where {T}
 
-    wq = similar(K.grad)
     α = α_init
     while true
         #@. wq = q + α*dq
-        @inbounds for i = 1:3
+        @inbounds for i in eachindex(wq)
             wq[i] = q[i] + α*dq[i]
         end
 
@@ -35,36 +31,7 @@ function _step_length_3d_cone(
     return α
 end
 
-#YC: an extension for _step_length_3d_cone, we could merge two together
-function _step_length_n_cone(
-    K::GenPowerCone{T},
-    dq::AbstractVector{T},
-    q::AbstractVector{T},
-    α_init::T,
-    α_min::T,
-    backtrack::T,
-    is_in_cone_fcn::Function
-) where {T}
 
-    dim = K.dim
-    wq = similar(K.grad)
-    α = α_init
-    while true
-        #@. wq = q + α*dq
-        @inbounds for i = 1:dim
-            wq[i] = q[i] + α*dq[i]
-        end
-
-        if is_in_cone_fcn(wq)
-            break
-        end
-        if (α *= backtrack) < α_min
-            α = zero(T)
-            break
-        end
-    end
-    return α
-end
 
 #-------------------------------------
 # primal-dual scaling
