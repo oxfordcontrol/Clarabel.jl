@@ -85,9 +85,9 @@ function use_primal_dual_scaling(
 
     (Hs,H_dual) = (K.Hs,K.H_dual)
 
-    st = K.grad
-    δs = similar(st)
-    tmp = similar(st) #shared for δz, tmp, axis_z
+    st  = K.grad
+    δs  = similar(st); δs  .= zero(T)
+    tmp = similar(st); tmp .= zero(T) #shared for δz, tmp, axis_z
 
     # compute zt,st,μt locally
     # NB: zt,st have different sign convention wrt Mosek paper
@@ -97,7 +97,7 @@ function use_primal_dual_scaling(
     μt = dot(zt,st)/3
 
     δz = tmp
-    @inbounds for i = 1:3
+    @inbounds for i in eachindex(st)
         δs[i] = s[i] + μ*st[i]
         δz[i] = z[i] + μ*zt[i]
     end    

@@ -173,7 +173,7 @@ function step_length(
 
     backtrack = settings.linesearch_backtrack_step
     αmin      = settings.min_terminate_step_length
-    work      = similar(K.grad)
+    work      = similar(K.grad); work .= zero(T)
 
     is_prim_feasible_fcn = s -> is_primal_feasible(K,s)
     is_dual_feasible_fcn = s -> is_dual_feasible(K,s)
@@ -326,7 +326,7 @@ function higher_correction!(
     z = K.z
  
     #solve H*u = ds
-    cholH = similar(K.H_dual)
+    cholH = similar(K.H_dual); cholH .= zero(T)
     issuccess = cholesky_3x3_explicit_factor!(cholH,H)
     if issuccess 
         u = cholesky_3x3_explicit_solve!(cholH,ds)
@@ -334,7 +334,7 @@ function higher_correction!(
         return SVector(zero(T),zero(T),zero(T))
     end
     
-    η = similar(K.grad)
+    η = similar(K.grad); η .= zero(T)
     η[2] = one(T)
     η[3] = -z[1]/z[3]    # gradient of ψ
     η[1] = logsafe(η[3])

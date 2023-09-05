@@ -181,7 +181,7 @@ function step_length(
     is_prim_feasible_fcn = s -> is_primal_feasible(K,s,K.α)
     is_dual_feasible_fcn = s -> is_dual_feasible(K,s,K.α)
 
-    work = similar(K.grad)
+    work = similar(K.grad); work .= zero(T)
 
     αz = backtrack_search(K, work, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn)
     αs = backtrack_search(K, work, ds, s, αmax, αmin, backtrack, is_prim_feasible_fcn)
@@ -293,7 +293,7 @@ function gradient_primal(
 
     # unscaled ϕ
     ϕ = (s[1])^(2*α)*(s[2])^(2-2*α)
-    g = similar(K.grad)
+    g = similar(K.grad); g .= zero(T)
 
 
     # obtain g3 from the Newton-Raphson method
@@ -336,7 +336,7 @@ function higher_correction!(
     z = K.z
 
     #solve H*u = ds
-    cholH = similar(K.H_dual)
+    cholH = similar(K.H_dual); cholH .= zero(T)
     issuccess = cholesky_3x3_explicit_factor!(cholH,H)
     if issuccess 
         u = cholesky_3x3_explicit_solve!(cholH,ds)
@@ -352,7 +352,7 @@ function higher_correction!(
     # Reuse cholH memory for further computation
     Hψ = cholH
     
-    η = similar(K.grad)
+    η = similar(K.grad); η .= zero(T)
     η[1] = 2*α*ϕ/z[1]
     η[2] = 2*(1-α)*ϕ/z[2]
     η[3] = -2*z[3]
@@ -370,7 +370,7 @@ function higher_correction!(
     dotψu = dot(η,u)
     dotψv = dot(η,v)
 
-    Hψv = similar(K.grad)
+    Hψv = similar(K.grad); Hψv .= zero(T)
     Hψv[1] = Hψ[1,1]*v[1]+Hψ[1,2]*v[2]
     Hψv[2] = Hψ[2,1]*v[1]+Hψ[2,2]*v[2]
     Hψv[3] = -2*v[3]
