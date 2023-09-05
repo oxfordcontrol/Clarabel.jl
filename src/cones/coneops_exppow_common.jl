@@ -107,8 +107,10 @@ function use_primal_dual_scaling(
     de2 = dot(zt,H_dual,zt) - 3*μt*μt
 
     # use the primal-dual scaling
-    if (abs(de1) > sqrt(eps(T))      # too close to central path
-        && abs(de2) > eps(T) && dot_sz > 0 && dot_δsz > 0)  # for numerical stability
+    if (abs(de1) > sqrt(eps(T)) &&   # too close to central path
+        abs(de2) > eps(T) &&         # for numerical stability
+        dot_sz > zero(T) && 
+        dot_δsz > zero(T))
        
         # compute t
         # tmp = μt*st - H_dual*zt
