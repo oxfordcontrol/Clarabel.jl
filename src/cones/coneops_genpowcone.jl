@@ -244,7 +244,7 @@ end
 
 @inline function barrier_dual(
     K::GenPowerCone{T},
-    z::Union{AbstractVector{T}, NTuple{N,T}}
+    z::AbstractVector{T}, 
 ) where {N<:Integer,T}
 
     # Dual barrier
@@ -266,7 +266,7 @@ end
 
 @inline function barrier_primal(
     K::GenPowerCone{T},
-    s::Union{AbstractVector{T}, NTuple{N,T}}
+    s::AbstractVector{T}, 
 ) where {N<:Integer,T}
 
     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
@@ -333,8 +333,8 @@ end
 # solve it by the Newton-Raphson method
 function gradient_primal!(
     K::GenPowerCone{T},
-    g::Union{AbstractVector{T}, NTuple{N,T}},
-    s::Union{AbstractVector{T}, NTuple{N,T}},
+    g::AbstractVector{T},
+    s::AbstractVector{T},
 ) where {N<:Integer,T}
 
     α = K.α
