@@ -6,64 +6,56 @@ using Clarabel
 @isdefined(UnitTestFloats) || (UnitTestFloats = [Float64])
 
 function basic_genpow_data(Type::Type{T}) where {T <: AbstractFloat}
- 
+
+    #x is of dimension 7
+    # x = (x1, y, z1, x2, y2, z2)
     n = 6
-    P = sparse(I(6).*one(T))
-    q = zeros(T, n)
+    P = spzeros(T, n, n)
+    q = zeros(T, 6)
     q[3] = q[6] = -one(T)
+    A = sparse([-1. 0. 0. 0. 0. 0.;
+    0. -1. 0. 0. 0. 0.;
+    0. 0. -1. 0. 0. 0.;
+    0. 0. 0. -1. 0. 0.;
+    0. 0. 0. 0. -1. 0.;
+    0. 0. 0. 0. 0. -1.;
+    1. 2. 0. 3. 0. 0.;
+    0. 0. 0. 0. 1. 0.]
+    )
+    b = Vector([0., 0., 0., 0., 0., 0., 3., 1.])
     cones = Clarabel.SupportedCone[]
 
-    # Two power cone constraints but can be represented as GenPowerCone
-    A1 = spdiagm(0 => ones(T, n))
-    b1 = zeros(T, n)
-    α11 = T.([0.3; 0.7])
-    α12 = T.([0.6])
-    dim1 = 2
-    dim2 = 1
-    # push!(cones,Clarabel.PowerConeT(T(0.3)))
-    push!(cones,Clarabel.GenPowerConeT(α11,dim2))    
-    # push!(cones,Clarabel.PowerConeT(T(0.6)))
-    push!(cones,Clarabel.GenPowerConeT(α12,1))    
-    
-    # u1 + 3x1 == 3
-    A2 = T[-1.0 0 0 -3.0 0 0]
-    b2 = T[3.]
-    push!(cones,Clarabel.ZeroConeT(1))
+    push!(cones,Clarabel.GenPowerConeT([0.6,0.4],1))
+    push!(cones,Clarabel.GenPowerConeT([0.1,0.9],1))
+    push!(cones,Clarabel.ZeroConeT(2))
 
-    # u1 >= 1
-    # x2 >= -1
-    A3 = zeros(T,2,n)
-    A3[1,1] = 1.0
-    A3[2,5] = 1.0
-    b3 = T[-1.; 1.]
-    push!(cones,Clarabel.NonnegativeConeT(2))
-
-    # [u1, x2, x3] ∈ SOC 
-    A4 = zeros(T,3,n)
-    A4[1,1] = 1.0
-    A4[2,5] = 1.0
-    A4[3,6] = 1.0
-    b4 = zeros(T,3)
-    push!(cones,Clarabel.SecondOrderConeT(3))
-
-    A = -sparse([A1;A2;A3;A4])
-    b = [b1;b2;b3;b4]    
-
-    return (P,q,A,b,A1,A2,A3,A4,b1,b2,b3,b4,cones)
+    return (P,q,A,b,cones)
 end
 
-T = Float64
-P,q,A,b,A1,A2,A3,A4,b1,b2,b3,b4,cones = basic_genpow_data(T)
 
-n = size(A,2)
-println("\n\nJuMP\n-------------------------\n\n")
-model = Model(Clarabel.Optimizer)
-@variable(model, x[1:n])
-@constraint(model, c1, b1[1:3]-A1[1:3,:]*x in Clarabel.GenPowerConeT([0.3,0.7],1))
-@constraint(model, c2, b1[4:6]-A1[4:6,:]*x in MOI.PowerCone(0.6))
-@constraint(model, c3, b2-A2*x .== 0.)
-@constraint(model, c4, b3-A3*x .>= 0.)
-@constraint(model, c5, b4-A4*x in MOI.SecondOrderCone(3))
+@testset "Basic GenPowerCone Tests" begin
 
-@objective(model, Min, sum(q.*x) + 1/2*x'*P*x)
-optimize!(model)
+    for FloatT in UnitTestFloats
+
+        tol = FloatT(1e-3)
+
+        @testset "Basic GenPowerCone Tests (T = $(FloatT))" begin
+
+            @testset "feasible" begin
+
+                P,c,A,b,cones = basic_genpow_data(FloatT)
+                solver   = Clarabel.Solver(P,c,A,b,cones)
+                Clarabel.solve!(solver)
+
+                @test solver.info.status == Clarabel.SOLVED
+                @test isapprox(solver.info.cost_primal, FloatT(-1.8458), atol=tol)
+
+            end
+
+        end      #end "Basic GenPowerCone Tests (FloatT)"
+
+    end # UnitTestFloats
+
+end #"Basic GenPowerCone Tests"
+
+nothing

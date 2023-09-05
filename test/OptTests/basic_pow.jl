@@ -55,10 +55,10 @@ end
 
             end
 
-        end      #end "Basic ExponentialCone Tests (FloatT)"
+        end      #end "Basic PowerCone Tests (FloatT)"
 
     end # UnitTestFloats
 
-end #"Basic ExponentialCone Tests"
+end #"Basic PowerCone Tests"
 
 nothing

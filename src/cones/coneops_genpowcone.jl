@@ -19,7 +19,7 @@ function shift_to_cone!(
 ) where{T}
 
     # We should never end up shifting to this cone, since 
-    # asymmetric problems should always use unit_initialization!
+    # asymmetric problems should always use unit initialization
     error("This function should never be reached.");
     # 
 end
@@ -63,7 +63,7 @@ function update_scaling!(
 ) where {T}
 
     # update both gradient and Hessian for function f*(z) at the point z
-    _update_dual_grad_H(K,z)
+   update_dual_grad_H(K,z)
 
     # update the scaling matrix Hs
     # YC: dual-scaling at present; we time μ to the diagonal here,
@@ -152,7 +152,7 @@ function combined_ds_shift!(
     #YC: No 3rd order correction at present
 
     # #3rd order correction requires input variables z
-    # η = _higher_correction!(K,step_s,step_z)     
+    # η = higher_correction!(K,step_s,step_z)     
 
     @inbounds for i = 1:Clarabel.dim(K)
         shift[i] = K.grad[i]*σμ # - η[i]
@@ -190,13 +190,11 @@ function step_length(
     backtrack = settings.linesearch_backtrack_step
     αmin      = settings.min_terminate_step_length
 
-    #need functions as closures to capture the power K.α
-    #and use the same backtrack mechanism as the expcone
-    is_primal_feasible_fcn = s -> _is_primal_feasible_genpowcone(s,K.α,dim1(K))
-    is_dual_feasible_fcn   = s -> _is_dual_feasible_genpowcone(s,K.α,dim1(K))
+    is_prim_feasible_fcn = s -> is_primal_feasible(K,s,K.α,dim1(K))
+    is_dual_feasible_fcn = s -> is_dual_feasible(K,s,K.α,dim1(K))
 
-    αz = _step_length_cone(K, K.work, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn)
-    αs = _step_length_cone(K, K.work, ds, s, αmax, αmin, backtrack, is_primal_feasible_fcn)
+    αz = backtrack_search(K, K.work, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn)
+    αs = backtrack_search(K, K.work, ds, s, αmax, αmin, backtrack, is_prim_feasible_fcn)
 
     return (αz,αs)
 end
@@ -221,13 +219,13 @@ function compute_barrier(
     @inbounds for i = 1:dim(K)
         wq[i] = s[i] + α*ds[i]
     end
-    barrier += _barrier_primal(K, wq)
+    barrier += barrier_primal(K, wq)
 
     #dual barrier
     @inbounds for i = 1:dim(K)
         wq[i] = z[i] + α*dz[i]
     end
-    barrier += _barrier_dual(K, wq)
+    barrier += barrier_dual(K, wq)
 
     return barrier
 end
@@ -244,7 +242,7 @@ end
 # and stores the result at g
 
 
-@inline function _barrier_dual(
+@inline function barrier_dual(
     K::GenPowerCone{T},
     z::Union{AbstractVector{T}, NTuple{N,T}}
 ) where {N<:Integer,T}
@@ -266,7 +264,7 @@ end
 
 end
 
-@inline function _barrier_primal(
+@inline function barrier_primal(
     K::GenPowerCone{T},
     s::Union{AbstractVector{T}, NTuple{N,T}}
 ) where {N<:Integer,T}
@@ -274,17 +272,18 @@ end
     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
     # NB: ⟨s,g(s)⟩ = -(dim1(K)+1) = - ν
 
-    minus_g = similar(K.grad)
-    minus_gradient_primal(K,s,minus_g)     #compute g(s)
+    g = K.work
+    gradient_primal!(K,g,s)     #compute g(s)
+    g .= -g                 #negative gradient
 
-    #YC: need to consider the memory issue later
-    return -_barrier_dual(K,minus_g) - degree(K)
+    return -barrier_dual(K,g) - degree(K)
 end 
 
 
 
 # Returns true if s is primal feasible
-function _is_primal_feasible_genpowcone(
+function is_primal_feasible(
+    ::GenPowerCone{T},
     s::AbstractVector{T},
     α::AbstractVector{T},
     dim1::Int
@@ -307,7 +306,8 @@ function _is_primal_feasible_genpowcone(
 end
 
 # Returns true if z is dual feasible
-function _is_dual_feasible_genpowcone(
+function is_dual_feasible(
+    ::GenPowerCone{T},
     z::AbstractVector{T},
     α::AbstractVector{T},
     dim1::Int
@@ -331,23 +331,22 @@ end
 
 # Compute the primal gradient of f(s) at s
 # solve it by the Newton-Raphson method
-function minus_gradient_primal(
+function gradient_primal!(
     K::GenPowerCone{T},
+    g::Union{AbstractVector{T}, NTuple{N,T}},
     s::Union{AbstractVector{T}, NTuple{N,T}},
-    minus_g::Union{AbstractVector{T}, NTuple{N,T}},
 ) where {N<:Integer,T}
 
     α = K.α
-    g = minus_g
 
-    # unscaled ϕ
-    ϕ = one(T)
+    # unscaled phi
+    phi = one(T)
     @inbounds for i = 1:dim1(K)
-        ϕ *= s[i]^(2*α[i])
+        phi *= s[i]^(2*α[i])
     end
 
 
-    # obtain g3 from the Newton-Raphson method
+    # obtain g1 from the Newton-Raphson method
     p = @view s[1:dim1(K)]
     r = @view s[dim1(K)+1:end]
     gp = @view g[1:dim1(K)]
@@ -355,7 +354,7 @@ function minus_gradient_primal(
     norm_r = norm(r)
 
     if norm_r > eps(T)
-        g1 = _newton_raphson_genpowcone(norm_r,dim1(K),p,ϕ,α,K.ψ)
+        g1 = _newton_raphson_genpowcone(norm_r,p,phi,α,K.ψ)
         @. gr = g1*r/norm_r
         @. gp = -(1+α+α*g1*norm_r)/p
     else
@@ -363,55 +362,8 @@ function minus_gradient_primal(
         @. gp = -(1+α)/p
     end
 
-    g .*= -one(T)    #add the sign to it, i.e. return -g
-
+    return nothing
 end
-
-# Newton-Raphson method:
-# solve a one-dimensional equation f(x) = 0
-# x(k+1) = x(k) - f(x(k))/f'(x(k))
-# When we initialize x0 such that 0 < x0 < x* and f(x0) > 0, 
-# the Newton-Raphson method converges quadratically
-
-function _newton_raphson_genpowcone(
-    norm_r::T,
-    dim::Int,
-    p::AbstractVector{T},
-    ϕ::T,
-    α::AbstractVector{T},
-    ψ::T
-) where {T}
-
-    # init point x0: f(x0) > 0
-    dim2 = dim*dim
-    x0 = -one(T)/norm_r + (ψ*norm_r + sqrt((ϕ/norm_r/norm_r + ψ*ψ -1)*ϕ))/(ϕ - norm_r*norm_r)
-
-    # # additional shift due to the choice of dual barrier
-    # t0 = - 2*α*logsafe(α) - 2*(1-α)*logsafe(1-α)   
-
-    # function for f(x) = 0
-    function f0(x)
-        f0 = -logsafe(2*x/norm_r + x*x);
-        @inbounds for i = 1:dim
-            f0 += 2*α[i]*(logsafe(x*norm_r+(1+α[i])/α[i]) - logsafe(p[i]))
-        end
-
-        return f0
-    end
-
-    # first derivative
-    function f1(x)
-        f1 = -(2*x + 2/norm_r)/(x*x + 2*x/norm_r);
-        @inbounds for i = 1:dim
-            f1 += 2*α[i]*norm_r/(norm_r*x + (1+α[i])/α[i])
-        end
-
-        return f1
-    end
-    
-    return _newton_raphson_onesided(x0,f0,f1)
-end
-
 
 # # 3rd-order correction at the point z.  Output is η.
 
@@ -502,7 +454,7 @@ end
 
 
 # update gradient and Hessian at dual z = (u,w)
-function _update_dual_grad_H(
+function update_dual_grad_H(
     K::GenPowerCone{T},
     z::AbstractVector{T}
 ) where {T}
@@ -514,34 +466,35 @@ function _update_dual_grad_H(
     d1 = K.d1
 
     # ϕ = ∏_{i ∈ dim1}(ui/αi)^(2*αi), ζ = ϕ - ||w||^2
-    ϕ = one(T)
+    phi = one(T)
     @inbounds for i = 1:dim1(K)
-        ϕ *= (z[i]/α[i])^(2*α[i])
+        phi *= (z[i]/α[i])^(2*α[i])
     end
     norm2w = dot(z[dim1(K)+1:end],z[dim1(K)+1:end])
-    ζ = ϕ - norm2w
+    ζ = phi - norm2w
     @assert ζ > zero(T)
 
     # compute the gradient at z
     grad = K.grad
     τ = q           # τ shares memory with q
+
     @inbounds for i = 1:dim1(K)
         τ[i] = 2*α[i]/z[i]
-        grad[i] = -τ[i]*ϕ/ζ - (1-α[i])/z[i]
+        grad[i] = -τ[i]*phi/ζ - (1-α[i])/z[i]
     end
     @inbounds for i = (dim1(K)+1):dim(K)
         grad[i] = 2*z[i]/ζ
     end
 
     # compute Hessian information at z 
-    p0 = sqrt(ϕ*(ϕ+norm2w)/2)
-    p1 = -2*ϕ/p0
-    q0 = sqrt(ζ*ϕ/2)
-    r1 = 2*sqrt(ζ/(ϕ+norm2w))
+    p0 = sqrt(phi*(phi+norm2w)/2)
+    p1 = -2*phi/p0
+    q0 = sqrt(ζ*phi/2)
+    r1 = 2*sqrt(ζ/(phi+norm2w))
 
     # compute the diagonal d1,d2
     @inbounds for i = 1:dim1(K)
-        d1[i] = τ[i]*ϕ/(ζ*z[i]) + (1-α[i])/(z[i]*z[i])
+        d1[i] = τ[i]*phi/(ζ*z[i]) + (1-α[i])/(z[i]*z[i])
     end   
     K.d2 = 2/ζ
 
@@ -554,3 +507,46 @@ function _update_dual_grad_H(
 
 end
 
+
+# Newton-Raphson method:
+# solve a one-dimensional equation f(x) = 0
+# x(k+1) = x(k) - f(x(k))/f'(x(k))
+# When we initialize x0 such that 0 < x0 < x* and f(x0) > 0, 
+# the Newton-Raphson method converges quadratically
+
+function _newton_raphson_genpowcone(
+    norm_r::T,
+    p::AbstractVector{T},
+    phi::T,
+    α::AbstractVector{T},
+    ψ::T
+) where {T}
+
+    # init point x0: f(x0) > 0
+    x0 = -one(T)/norm_r + (ψ*norm_r + sqrt((phi/norm_r/norm_r + ψ*ψ - one(T))*phi))/(phi - norm_r*norm_r)
+
+    # # additional shift due to the choice of dual barrier
+    # t0 = - 2*α*logsafe(α) - 2*(1-α)*logsafe(1-α)   
+
+    # function for f(x) = 0
+    function f0(x)
+        f0 = -logsafe(2*x/norm_r + x*x);
+        @inbounds for i in eachindex(α)
+            f0 += 2*α[i]*(logsafe(x*norm_r+(1+α[i])/α[i]) - logsafe(p[i]))
+        end
+
+        return f0
+    end
+
+    # first derivative
+    function f1(x)
+        f1 = -(2*x + 2/norm_r)/(x*x + 2*x/norm_r);
+        @inbounds for i in eachindex(α)
+            f1 += 2*α[i]*norm_r/(norm_r*x + (1+α[i])/α[i])
+        end
+
+        return f1
+    end
+    
+    return _newton_raphson_onesided(x0,f0,f1)
+end

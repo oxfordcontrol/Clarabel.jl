@@ -69,10 +69,10 @@ function update_scaling!(
 ) where {T}
 
     # update both gradient and Hessian for function f*(z) at the point z
-    _update_dual_grad_H(K,z)
+    update_dual_grad_H(K,z)
 
     # update the scaling matrix Hs
-    _update_Hs(K,s,z,μ,scaling_strategy)
+    update_Hs(K,s,z,μ,scaling_strategy)
 
     # K.z .= z
     @inbounds for i = 1:3
@@ -136,7 +136,7 @@ function combined_ds_shift!(
 ) where {T}
 
     #3rd order correction requires input variables z
-    η = _higher_correction!(K,step_s,step_z)             
+    η = higher_correction!(K,step_s,step_z)             
 
     @inbounds for i = 1:3
         shift[i] = K.grad[i]*σμ - η[i]
@@ -174,9 +174,13 @@ function step_length(
     backtrack = settings.linesearch_backtrack_step
     αmin      = settings.min_terminate_step_length
     work      = similar(K.grad)
+
+    is_prim_feasible_fcn = s -> is_primal_feasible(K,s)
+    is_dual_feasible_fcn = s -> is_dual_feasible(K,s)
     
-    αz = _step_length_cone(K, work, dz, z, αmax, αmin,  backtrack, _is_dual_feasible_expcone)
-    αs = _step_length_cone(K, work, ds, s, αmax, αmin,  backtrack, _is_primal_feasible_expcone)
+    #PJG : difference in name and order from Rust backtrack
+    αz = backtrack_search(K, work, dz, z, αmax, αmin,  backtrack, is_dual_feasible_fcn)
+    αs = backtrack_search(K, work, ds, s, αmax, αmin,  backtrack, is_prim_feasible_fcn)
 
     return (αz,αs)
 end
@@ -198,15 +202,15 @@ function compute_barrier(
     cur_z    = (z[1] + α*dz[1], z[2] + α*dz[2], z[3] + α*dz[3])
     cur_s    = (s[1] + α*ds[1], s[2] + α*ds[2], s[3] + α*ds[3])
 
-    barrier += _barrier_dual(K, cur_z)
-    barrier += _barrier_primal(K, cur_s)
+    barrier += barrier_dual(K, cur_z)
+    barrier += barrier_primal(K, cur_s)
 
     return barrier
 end
 
 
 # -----------------------------------------
-# internal operations for exponential cones
+# nonsymmetric cone operations for exponential cones
 #
 # Primal exponential cone: s3 ≥ s2*e^(s1/s2), s3,s2 > 0
 # Dual exponential cone: z3 ≥ -z1*e^(z2/z1 - 1), z3 > 0, z1 < 0
@@ -215,8 +219,8 @@ end
 # -----------------------------------------
 
 
-@inline function _barrier_dual(
-    K::ExponentialCone{T},
+@inline function barrier_dual(
+    ::ExponentialCone{T},
     z::Union{AbstractVector{T}, NTuple{3,T}}
 ) where {T}
 
@@ -226,8 +230,8 @@ end
 
 end 
 
-@inline function _barrier_primal(
-    K::ExponentialCone{T},
+@inline function barrier_primal(
+    ::ExponentialCone{T},
     s::Union{AbstractVector{T}, NTuple{3,T}}
 ) where {T}
 
@@ -245,7 +249,10 @@ end
 
 
 # Returns true if s is primal feasible
-function _is_primal_feasible_expcone(s::AbstractVector{T}) where {T}
+function is_primal_feasible(
+    ::ExponentialCone{T},
+    s::AbstractVector{T}
+) where {T}
 
     if (s[3] > 0 && s[2] > zero(T))   #feasible
         res = s[2]*logsafe(s[3]/s[2]) - s[1]
@@ -258,7 +265,10 @@ function _is_primal_feasible_expcone(s::AbstractVector{T}) where {T}
 end
 
 # Returns true if z is dual feasible
-function _is_dual_feasible_expcone(z::AbstractVector{T}) where {T}
+function is_dual_feasible(
+    ::ExponentialCone{T},
+    z::AbstractVector{T}
+) where {T}
 
     if (z[3] > 0 && z[1] < zero(T))
         res = z[2] - z[1] - z[1]*logsafe(-z[3]/z[1])
@@ -270,8 +280,8 @@ function _is_dual_feasible_expcone(z::AbstractVector{T}) where {T}
 end
 
 # Compute the primal gradient of f(s) at s
-function _gradient_primal(
-    K::ExponentialCone{T},
+function gradient_primal(
+    ::ExponentialCone{T},
     s::Union{AbstractVector{T}, NTuple{3,T}},
 ) where {T}
 
@@ -283,73 +293,6 @@ function _gradient_primal(
 
     SVector(g1,g2,g3)
 
-end
-
-# ω(z) is the Wright-Omega function
-# Computes the value ω(z) defined as the solution y to
-# y+log(y) = z for reals z>=1.
-#
-# Follows Algorithm 4, §8.4 of thesis of Santiago Serrango:
-#  Algorithms for Unsymmetric Cone Optimization and an
-#  Implementation for Problems with the Exponential Cone 
-#  https://web.stanford.edu/group/SOL/dissertations/ThesisAkleAdobe-augmented.pdf
-
-function _wright_omega(z::T) where {T}
-
- 	if(z< zero(T))
-        throw(error("argument not in supported range : ", z)); 
-    end
-
-	if(z<one(T)+π)      
-        #Initialize with the taylor series
-        zm1 = z - one(T)
-        p = zm1            #(z-1)
-        w = 1+0.5*p
-        p *= zm1         #(z-1)^2
-        w += (1/16.0)*p
-        p *= zm1          #(z-1)^3
-        w -= (1/192.0)*p
-        p *= zm1          #(z-1)^4
-        w -= (1/3072.0)*p
-        p *= zm1         #(z-1)^5
-        w += (13/61440.0)*p
-    else
-        # Initialize with:
-        # w(z) = z - log(z) + 
-        #        log(z)/z + 
-        #        log(z)/z^2(log(z)/2-1) + 
-        #        log(z)/z^3(1/3log(z)^2-3/2log(z)+1)
-
-        logz = logsafe(z)
-        zinv = inv(z)
-        w = z - logz
-
-        # add log(z)/z 
-        q = logz*zinv  # log(z)/z 
-        w += q
-
-        # add log(z)/z^2(log(z)/2-1)
-        q *= zinv      # log(z)/(z^2) 
-        w += q * (logz/2 - one(T))
-
-        # add log(z)/z^3(1/3log(z)^2-3/2log(z)+1)
-        q * zinv       # log(z)/(z^3) 
-        w += q * (logz*logz/3. - (3/2.)*logz + one(T))
-
-    end
-
-    # Initialize the residual
-    r = z - w - logsafe(w)
-
-    # Santiago suggests two refinement iterations only
-    @inbounds for i = 1:2
-        wp1 = (w + one(T))
-        t = wp1 * (wp1 + (2. * r)/3.0 )
-        w *= 1 + (r/wp1) * ( t - 0.5 * r) / (t - r)
-        r = (2*w*w-8*w-1)/(72.0*(wp1*wp1*wp1*wp1*wp1*wp1))*r*r*r*r
-    end 
-
-    return w;
 end
 
 # 3rd-order correction at the point z.  Output is η.
@@ -372,7 +315,7 @@ end
 # Hψu = Hψ*u
 #gψ is used inside η
 
-function _higher_correction!(
+function higher_correction!(
     K::ExponentialCone{T},
     ds::AbstractVector{T},
     v::AbstractVector{T}
@@ -423,7 +366,7 @@ end
 
 
 # update gradient and Hessian at dual z
-function _update_dual_grad_H(
+function update_dual_grad_H(
     K::ExponentialCone{T},
     z::AbstractVector{T}
 ) where {T}
@@ -454,3 +397,71 @@ function _update_dual_grad_H(
     return nothing
 end
 
+
+
+# ω(z) is the Wright-Omega function
+# Computes the value ω(z) defined as the solution y to
+# y+log(y) = z for reals z>=1.
+#
+# Follows Algorithm 4, §8.4 of thesis of Santiago Serrango:
+#  Algorithms for Unsymmetric Cone Optimization and an
+#  Implementation for Problems with the Exponential Cone 
+#  https://web.stanford.edu/group/SOL/dissertations/ThesisAkleAdobe-augmented.pdf
+
+function _wright_omega(z::T) where {T}
+
+    if(z< zero(T))
+       throw(error("argument not in supported range : ", z)); 
+   end
+
+   if(z<one(T)+π)      
+       #Initialize with the taylor series
+       zm1 = z - one(T)
+       p = zm1            #(z-1)
+       w = 1+0.5*p
+       p *= zm1         #(z-1)^2
+       w += (1/16.0)*p
+       p *= zm1          #(z-1)^3
+       w -= (1/192.0)*p
+       p *= zm1          #(z-1)^4
+       w -= (1/3072.0)*p
+       p *= zm1         #(z-1)^5
+       w += (13/61440.0)*p
+   else
+       # Initialize with:
+       # w(z) = z - log(z) + 
+       #        log(z)/z + 
+       #        log(z)/z^2(log(z)/2-1) + 
+       #        log(z)/z^3(1/3log(z)^2-3/2log(z)+1)
+
+       logz = logsafe(z)
+       zinv = inv(z)
+       w = z - logz
+
+       # add log(z)/z 
+       q = logz*zinv  # log(z)/z 
+       w += q
+
+       # add log(z)/z^2(log(z)/2-1)
+       q *= zinv      # log(z)/(z^2) 
+       w += q * (logz/2 - one(T))
+
+       # add log(z)/z^3(1/3log(z)^2-3/2log(z)+1)
+       q * zinv       # log(z)/(z^3) 
+       w += q * (logz*logz/3. - (3/2.)*logz + one(T))
+
+   end
+
+   # Initialize the residual
+   r = z - w - logsafe(w)
+
+   # Santiago suggests two refinement iterations only
+   @inbounds for i = 1:2
+       wp1 = (w + one(T))
+       t = wp1 * (wp1 + (2. * r)/3.0 )
+       w *= 1 + (r/wp1) * ( t - 0.5 * r) / (t - r)
+       r = (2*w*w-8*w-1)/(72.0*(wp1*wp1*wp1*wp1*wp1*wp1))*r*r*r*r
+   end 
+
+   return w;
+end

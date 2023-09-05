@@ -2,8 +2,8 @@
 # q + α*dq stays in an exponential or power
 # cone, or their respective dual cones.
 
-function _step_length_cone(
-    K::Union{PowerCone{T},ExponentialCone{T},GenPowerCone{T}},
+function backtrack_search(
+    ::Union{PowerCone{T},ExponentialCone{T},GenPowerCone{T}},
     wq::Union{AbstractVector{T},NTuple{3,T}},
     dq::AbstractVector{T},
     q::AbstractVector{T},
@@ -45,7 +45,7 @@ end
 
 
 # update the scaling matrix Hs
-function _update_Hs(
+function update_Hs(
     K::Union{PowerCone{T},ExponentialCone{T}},
     s::AbstractVector{T},
     z::AbstractVector{T},
@@ -56,17 +56,17 @@ function _update_Hs(
 # Choose the scaling strategy
     if(scaling_strategy == Dual::ScalingStrategy)
         # Dual scaling: Hs = μ*H
-        _use_dual_scaling(K,μ)
+        use_dual_scaling(K,μ)
     else
         # Primal-dual scaling
-        _use_primal_dual_scaling(K,s,z)
+        use_primal_dual_scaling(K,s,z)
     end 
 
 end
 
 
 # use the dual scaling strategy
-function _use_dual_scaling(
+function use_dual_scaling(
     K::Union{PowerCone{T},ExponentialCone{T}},
     μ::T
 ) where {T}
@@ -77,7 +77,7 @@ end
 
 
 # use the primal-dual scaling strategy
-function _use_primal_dual_scaling(
+function use_primal_dual_scaling(
     K::Union{PowerCone{T},ExponentialCone{T}},
     s::AbstractVector{T},
     z::AbstractVector{T}
@@ -91,7 +91,7 @@ function _use_primal_dual_scaling(
 
     # compute zt,st,μt locally
     # NB: zt,st have different sign convention wrt Mosek paper
-    zt = _gradient_primal(K,s)
+    zt = gradient_primal(K,s)
     dot_sz = dot(z,s)
     μ = dot_sz/3
     μt = dot(zt,st)/3
@@ -152,7 +152,7 @@ function _use_primal_dual_scaling(
         return nothing
     else
         # Hs = μ*H_dual when s,z are on the central path
-        _use_dual_scaling(K,μ)
+        use_dual_scaling(K,μ)
 
         return nothing
     end
@@ -169,8 +169,8 @@ function _newton_raphson_onesided(x0::T,f0::Function,f1::Function) where {T}
     #left of the true value.   Once a negative step is encountered 
     #this function will halt regardless of the calculated correction.
 
-    x = x0
     iter = 0
+    x = x0
 
     while iter < 100
 
