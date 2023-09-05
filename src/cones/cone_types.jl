@@ -268,19 +268,23 @@ mutable struct GenPowerCone{T} <: AbstractCone{T}
 
     function GenPowerCone{T}(α::Vector{T},dim2::DefaultInt) where {T}
         
+        println(typeof(α))
+        println(α)
         dim1 = length(α)
         dim  = dim1 + dim2
         @assert all(α .> zero(T))
-        @assert sum(α) ≈ one(T)
 
-        μ      = one(T)
-        grad   = zeros(T,dim)
-        z      = zeros(T,dim)
-        p      = zeros(T,dim)
-        q      = zeros(T,dim1)
-        r      = zeros(T,dim2)
-        d1     = zeros(T,dim1)
-        d2 = zero(T)
+        #α always user specified as Float64
+        @assert isapprox(sum(α),one(T), atol=eps(Float64)*length(α)/2)
+
+        μ    = one(T)
+        grad = zeros(T,dim)
+        z    = zeros(T,dim)
+        p    = zeros(T,dim)
+        q    = zeros(T,dim1)
+        r    = zeros(T,dim2)
+        d1   = zeros(T,dim1)
+        d2   = zero(T)
 
         ψ = zero(T)
         @inbounds for i in 1:length(α)

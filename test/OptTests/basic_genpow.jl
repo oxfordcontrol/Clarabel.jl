@@ -12,7 +12,7 @@ function basic_genpow_data(Type::Type{T}) where {T <: AbstractFloat}
     P = spzeros(T, n, n)
     q = zeros(T, 6)
     q[3] = q[6] = -one(T)
-    A = sparse([-1. 0. 0. 0. 0. 0.;
+    A = sparse(T[-1. 0. 0. 0. 0. 0.;
     0. -1. 0. 0. 0. 0.;
     0. 0. -1. 0. 0. 0.;
     0. 0. 0. -1. 0. 0.;
@@ -21,7 +21,7 @@ function basic_genpow_data(Type::Type{T}) where {T <: AbstractFloat}
     1. 2. 0. 3. 0. 0.;
     0. 0. 0. 0. 1. 0.]
     )
-    b = Vector([0., 0., 0., 0., 0., 0., 3., 1.])
+    b = T[0., 0., 0., 0., 0., 0., 3., 1.]
     cones = Clarabel.SupportedCone[]
 
     push!(cones,Clarabel.GenPowerConeT([0.6,0.4],1))
