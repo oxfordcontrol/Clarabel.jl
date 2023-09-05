@@ -5,7 +5,7 @@ using Test, LinearAlgebra, SparseArrays, Random
 
 function basic_pow_data(Type::Type{T}) where {T <: AbstractFloat}
  
-    #x is of dimension 7
+    #x is of dimension 6
     # x = (x1, y, z1, x2, y2, z2)
     n = 6
     P = spzeros(T, n, n)
