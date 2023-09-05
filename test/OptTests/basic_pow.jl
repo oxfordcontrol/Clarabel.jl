@@ -1,4 +1,4 @@
-using Test, LinearAlgebra, SparseArrays, Random
+using Test, LinearAlgebra, SparseArrays, Clarabel
 
 #if not run in full test setup, just do it for one float type
 @isdefined(UnitTestFloats) || (UnitTestFloats = [Float64])

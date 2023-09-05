@@ -1,13 +1,12 @@
-using LinearAlgebra, SparseArrays
-using JuMP,Mosek,MosekTools
-using Clarabel
+using Test, LinearAlgebra, SparseArrays, Clarabel
+
 
 #if not run in full test setup, just do it for one float type
 @isdefined(UnitTestFloats) || (UnitTestFloats = [Float64])
 
 function basic_genpow_data(Type::Type{T}) where {T <: AbstractFloat}
 
-    #x is of dimension 7
+    #x is of dimension 6
     # x = (x1, y, z1, x2, y2, z2)
     n = 6
     P = spzeros(T, n, n)

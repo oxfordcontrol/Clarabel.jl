@@ -263,6 +263,8 @@ mutable struct GenPowerCone{T} <: AbstractCone{T}
 
     #work vector length dim, e.g. for line searches
     work::Vector{T}
+    #work vector exclusively for computing the primal barrier function.   
+    work_pb::Vector{T}
 
     function GenPowerCone{T}(α::Vector{T},dim2::DefaultInt) where {T}
         
@@ -287,8 +289,9 @@ mutable struct GenPowerCone{T} <: AbstractCone{T}
         ψ = inv(ψ)
 
         work = zeros(T,dim)
+        work_pb = zeros(T,dim)
 
-        return new(α,dim2,grad,z,μ,p,q,r,d1,d2,ψ,work)
+        return new(α,dim2,grad,z,μ,p,q,r,d1,d2,ψ,work,work_pb)
     end
 end
 

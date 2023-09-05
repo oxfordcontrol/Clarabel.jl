@@ -12,6 +12,7 @@ degree(K::GenPowerCone{T}) where {T} = dim1(K) + 1
 numel(K::GenPowerCone{T}) where {T} = dim(K)
 
 is_symmetric(::GenPowerCone{T}) where {T} = false
+allows_primal_dual_scaling(::GenPowerCone{T}) where {T} = false
 
 function shift_to_cone!(
     K::GenPowerCone{T},
@@ -245,7 +246,7 @@ end
 @inline function barrier_dual(
     K::GenPowerCone{T},
     z::AbstractVector{T}, 
-) where {N<:Integer,T}
+) where {T}
 
     # Dual barrier
     α = K.α
@@ -267,14 +268,17 @@ end
 @inline function barrier_primal(
     K::GenPowerCone{T},
     s::AbstractVector{T}, 
-) where {N<:Integer,T}
+) where {T}
 
     # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
     # NB: ⟨s,g(s)⟩ = -(dim1(K)+1) = - ν
 
-    g = K.work
-    gradient_primal!(K,g,s)     #compute g(s)
-    g .= -g                 #negative gradient
+    # can't use "work" here because it was already
+    # used to construct the argument s in some cases
+    g = K.work_pb
+
+    gradient_primal!(K,g,s)      
+    g .= -g                 #-g(s)
 
     return -barrier_dual(K,g) - degree(K)
 end 
@@ -335,7 +339,7 @@ function gradient_primal!(
     K::GenPowerCone{T},
     g::AbstractVector{T},
     s::AbstractVector{T},
-) where {N<:Integer,T}
+) where {T}
 
     α = K.α
 
