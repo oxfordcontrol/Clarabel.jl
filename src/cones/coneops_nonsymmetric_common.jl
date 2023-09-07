@@ -4,16 +4,18 @@
 
 function backtrack_search(
     ::Union{PowerCone{T},ExponentialCone{T},GenPowerCone{T}},
-    wq::Union{AbstractVector{T},NTuple{3,T}},
     dq::AbstractVector{T},
     q::AbstractVector{T},
     α_init::T,
     α_min::T,
     backtrack::T,
-    is_in_cone_fcn::Function
+    is_in_cone_fcn::Function,
+    work::Union{AbstractVector{T},NTuple{3,T}},
 ) where {T}
 
     α = α_init
+    wq = work
+    
     while true
         #@. wq = q + α*dq
         @inbounds for i in eachindex(wq)

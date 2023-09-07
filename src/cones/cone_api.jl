@@ -37,6 +37,13 @@ end
 struct GenPowerConeT <: SupportedCone
     α::Vector{DefaultFloat}
     dim2::DefaultInt
+    function GenPowerConeT(α::Vector{DefaultFloat}, dim2::DefaultInt)
+
+        @assert all(α .> zero(DefaultFloat))
+        @assert isapprox(sum(α),one(DefaultFloat), atol=eps()*length(α)/2)
+
+        new(copy(α), dim2)
+    end
 end
 dim1(cone::GenPowerConeT) = length(cone.α)
 dim2(cone::GenPowerConeT) = cone.dim2

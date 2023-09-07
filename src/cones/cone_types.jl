@@ -3,6 +3,7 @@ using StaticArrays
 # abstract type defs
 # -------------------------------------
 abstract type AbstractCone{T <: AbstractFloat} end
+abstract type AbstractSparseCone{T} <: AbstractCone{T} end
 
 #NB: this enum can't use Primal and Dual as its markers, 
 #since Dual is already used in the solve strategies.  Julia
@@ -62,7 +63,7 @@ NonnegativeCone(args...) = NonnegativeCone{DefaultFloat}(args...)
 # Second Order Cone
 # ----------------------------------------------------
 
-mutable struct SecondOrderCone{T} <: AbstractCone{T}
+mutable struct SecondOrderCone{T} <: AbstractSparseCone{T}
 
     dim::DefaultInt
 
@@ -99,7 +100,7 @@ SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
 # Positive Semidefinite Cone (Scaled triangular form)
 # ------------------------------------
 
-mutable struct PSDConeWork{T}
+mutable struct PSDConeData{T}
 
     cholS::Union{Nothing,Cholesky{T,Matrix{T}}}
     cholZ::Union{Nothing,Cholesky{T,Matrix{T}}}
@@ -118,7 +119,7 @@ mutable struct PSDConeWork{T}
     workmat3::Matrix{T}
     workvec::Vector{T}
 
-    function PSDConeWork{T}(n::Int) where {T}
+    function PSDConeData{T}(n::Int) where {T}
 
         #there is no obvious way of pre-allocating
         #or recycling memory in these factorizations
@@ -147,15 +148,15 @@ struct PSDTriangleCone{T} <: AbstractCone{T}
 
         n::DefaultInt  #this is the matrix dimension, i.e. matrix is n /times n
     numel::DefaultInt  #this is the total number of elements (lower triangle of) the matrix
-     work::PSDConeWork{T}
+     data::PSDConeData{T}
 
     function PSDTriangleCone{T}(n) where {T}
 
         n >= 0 || throw(DomainError(n, "dimension must be non-negative"))
         numel = triangular_number(n)
-        work = PSDConeWork{T}(n)
+        data = PSDConeData{T}(n)
 
-        return new(n,numel,work)
+        return new(n,numel,data)
 
     end
 
@@ -239,11 +240,7 @@ PowerCone(args...) = PowerCone{DefaultFloat}(args...)
 # # Generalized Power Cone 
 # # ------------------------------------
 
-# gradient and Hessian for the dual barrier function
-mutable struct GenPowerCone{T} <: AbstractCone{T}
-
-    α::Vector{T}            #vector of exponents.  length determines dim1
-    dim2::DefaultInt        #dimension of w
+mutable struct GenPowerConeData{T}
 
     grad::Vector{T}         #gradient of the dual barrier at z 
     z::Vector{T}            #holds copy of z at scaling point
@@ -266,16 +263,10 @@ mutable struct GenPowerCone{T} <: AbstractCone{T}
     #work vector exclusively for computing the primal barrier function.   
     work_pb::Vector{T}
 
-    function GenPowerCone{T}(α::Vector{T},dim2::DefaultInt) where {T}
-        
-        println(typeof(α))
-        println(α)
-        dim1 = length(α)
-        dim  = dim1 + dim2
-        @assert all(α .> zero(T))
+    function GenPowerConeData{T}(α::AbstractVector{T},dim2::Int) where {T}
 
-        #α always user specified as Float64
-        @assert isapprox(sum(α),one(T), atol=eps(Float64)*length(α)/2)
+        dim1 = length(α)
+        dim = dim1 + dim2
 
         μ    = one(T)
         grad = zeros(T,dim)
@@ -285,17 +276,28 @@ mutable struct GenPowerCone{T} <: AbstractCone{T}
         r    = zeros(T,dim2)
         d1   = zeros(T,dim1)
         d2   = zero(T)
-
-        ψ = zero(T)
-        @inbounds for i in 1:length(α)
-            ψ += α[i]^2
-        end
-        ψ = inv(ψ)
+        ψ = inv(dot(α,α))
 
         work = zeros(T,dim)
         work_pb = zeros(T,dim)
 
-        return new(α,dim2,grad,z,μ,p,q,r,d1,d2,ψ,work,work_pb)
+        return new(grad,z,μ,p,q,r,d1,d2,ψ,work,work_pb)
+    end
+end
+
+
+# gradient and Hessian for the dual barrier function
+mutable struct GenPowerCone{T} <: AbstractSparseCone{T}
+
+    α::Vector{T}            #vector of exponents.  length determines dim1
+    dim2::DefaultInt        #dimension of w
+    data::GenPowerConeData{T}
+
+    function GenPowerCone{T}(α::AbstractVector{T},dim2::DefaultInt) where {T}
+
+        data = GenPowerConeData{T}(α, dim2)
+
+        return new(α,dim2,data)
     end
 end
 

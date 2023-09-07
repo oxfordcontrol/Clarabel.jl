@@ -5,7 +5,7 @@
 mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
     # problem dimensions
-    m::Int; n::Int; p::Int; p_genpow::Int;
+    m::Int; n::Int; p::Int; 
 
     # Left and right hand sides for solves
     x::Vector{T}
@@ -45,31 +45,29 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
     function DirectLDLKKTSolver{T}(P,A,cones,m,n,settings) where {T}
 
-        #solving in sparse format.  Need this many
-        #extra variables for SOCs
-        p = 2*cones.type_counts[SecondOrderCone]
-        p_genpow = 3*cones.type_counts[GenPowerCone]  
-
-        #LHS/RHS/work for iterative refinement
-        x    = Vector{T}(undef,n+m+p+p_genpow)
-        b    = Vector{T}(undef,n+m+p+p_genpow)
-        work_e  = Vector{T}(undef,n+m+p+p_genpow)
-        work_dx = Vector{T}(undef,n+m+p+p_genpow)
-
-        #the expected signs of D in LDL
-        Dsigns = Vector{Int}(undef,n+m+p+p_genpow)
-        _fill_Dsigns!(Dsigns,m,n,p,p_genpow)
-
-        #updates to the diagonal of KKT will be
-        #assigned here before updating matrix entries
-        Hsblocks = _allocate_kkt_Hsblocks(T, cones)
-
         #which LDL solver should I use?
         ldlsolverT = _get_ldlsolver_type(settings.direct_solve_method)
 
         #does it want a :triu or :tril KKT matrix?
         kktshape = required_matrix_shape(ldlsolverT)
         KKT, map = _assemble_kkt_matrix(P,A,cones,kktshape)
+
+        #Need this many extra variables for sparse cones
+        p = pdim(map.sparse_maps)
+
+        #LHS/RHS/work for iterative refinement
+        x    = Vector{T}(undef,n+m+p)
+        b    = Vector{T}(undef,n+m+p)
+        work_e  = Vector{T}(undef,n+m+p)
+        work_dx = Vector{T}(undef,n+m+p)
+
+        #the expected signs of D in LDL
+        Dsigns = Vector{Int}(undef,n+m+p)     
+        _fill_Dsigns!(Dsigns,m,n,map)
+
+        #updates to the diagonal of KKT will be
+        #assigned here before updating matrix entries
+        Hsblocks = _allocate_kkt_Hsblocks(T, cones)
 
         diagonal_regularizer = zero(T)
 
@@ -80,7 +78,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         #the LDL linear solver engine
         ldlsolver = ldlsolverT{T}(KKT,Dsigns,settings)
 
-        return new(m,n,p,p_genpow,x,b,
+        return new(m,n,p,x,b,
                    work_e,work_dx,map,Dsigns,Hsblocks,
                    KKT,KKTsym,settings,ldlsolver,
                    diagonal_regularizer)
@@ -98,22 +96,20 @@ function _get_ldlsolver_type(s::Symbol)
     end
 end
 
-function _fill_Dsigns!(Dsigns,m,n,p,p_genpow)
+function _fill_Dsigns!(Dsigns,m,n,map)
 
     Dsigns .= 1
 
     #flip expected negative signs of D in LDL
     Dsigns[n+1:n+m] .= -1
 
-    #the trailing block of p entries should
-    #have alternating signs
-    Dsigns[(n+m+1):2:(n+m+p)] .= -1             #for column w.r.t. v
-
-    #the trailing block of p_genpow entries should
-    #have alternating signs
-    Dsigns[(n+m+p+1):3:(n+m+p+p_genpow)] .= -1  #for column w.r.t. q
-    Dsigns[(n+m+p+2):3:(n+m+p+p_genpow)] .= -1  #for column w.r.t. r
-
+    p = m + n + 1
+    # assign D signs for sparse expansion cones
+    for thismap in map.sparse_maps
+        thisp = pdim(thismap)
+        Dsigns[p:(p+thisp-1)] .= Clarabel.Dsigns(thismap)   
+        p += thisp
+    end
 end
 
 #update entries in the kktsolver object using the
@@ -121,8 +117,8 @@ end
 function _update_values!(
     ldlsolver::AbstractDirectLDLSolver{T},
     KKT::SparseMatrixCSC{T,Ti},
-    index::Vector{Ti},
-    values::Vector{T}
+    index::AbstractVector{Ti},
+    values::AbstractVector{T}
 ) where{T,Ti}
 
     #Update values in the KKT matrix K
@@ -138,8 +134,8 @@ end
 #updates KKT matrix values
 function _update_values_KKT!(
     KKT::SparseMatrixCSC{T,Int},
-    index::Vector{Ti},
-    values::Vector{T}
+    index::AbstractVector{Ti},
+    values::AbstractVector{T}
 ) where{T,Ti}
 
     #Update values in the KKT matrix K
@@ -152,7 +148,7 @@ end
 function _scale_values!(
     ldlsolver::AbstractDirectLDLSolver{T},
     KKT::SparseMatrixCSC{T,Ti},
-    index::Vector{Ti},
+    index::AbstractVector{Ti},
     scale::T
 ) where{T,Ti}
 
@@ -169,7 +165,7 @@ end
 #updates KKT matrix values
 function _scale_values_KKT!(
     KKT::SparseMatrixCSC{T,Int},
-    index::Vector{Ti},
+    index::AbstractVector{Ti},
     scale::T
 ) where{T,Ti}
 
@@ -201,8 +197,6 @@ function _kktsolver_update_inner!(
 
     #real implementation is here, and now ldlsolver
     #will be compiled to something concrete.
-
-    settings  = kktsolver.settings
     map       = kktsolver.map
     KKT       = kktsolver.KKT
 
@@ -211,57 +205,21 @@ function _kktsolver_update_inner!(
 
     for (index, values) in zip(map.Hsblocks,kktsolver.Hsblocks)
         #change signs to get -W^TW
-        # values .= -values
         @. values *= -one(T)
         _update_values!(ldlsolver,KKT,index,values)
     end
 
-    #update the scaled u and v columns.
-    cidx = 1        #which of the SOCs are we working on?
+    sparse_map_iter = Iterators.Stateful(map.sparse_maps)
 
-    for (i,cone) = enumerate(cones)
-        if isa(cone,SecondOrderCone)
-            η2 = cone.η^2
+    updateFcn = (index,values) -> _update_values!(ldlsolver,KKT,index,values)
+    scaleFcn  = (index,scale)  -> _scale_values!(ldlsolver,KKT,index,scale)
 
-            #off diagonal columns (or rows)
-            _update_values!(ldlsolver,KKT,map.SOC_u[cidx],cone.u)
-            _update_values!(ldlsolver,KKT,map.SOC_v[cidx],cone.v)
-            _scale_values!(ldlsolver,KKT,map.SOC_u[cidx],-η2)
-            _scale_values!(ldlsolver,KKT,map.SOC_v[cidx],-η2)
-
-
-            #add η^2*(1/-1) to diagonal in the extended rows/cols
-            _update_values!(ldlsolver,KKT,[map.SOC_D[cidx*2-1]],[-η2])
-            _update_values!(ldlsolver,KKT,[map.SOC_D[cidx*2  ]],[+η2])
-
-            cidx += 1
-        end
-    end
-
-    #update the scaled p,q,r columns.
-    cidx = 1        #which of the GenPow are we working on?
-
-    for (i,K) = enumerate(cones)
-        if isa(K,GenPowerCone)
-
-            #YC: μ is a global parameter but it is saved multiple times for each GenPow cone
-            sqrtμ = sqrt(K.μ)
-
-            #off diagonal columns (or rows), distribute √μ to off-diagonal terms
-            _update_values!(ldlsolver,KKT,map.GenPow_q[cidx],K.q)
-            _update_values!(ldlsolver,KKT,map.GenPow_r[cidx],K.r)
-            _update_values!(ldlsolver,KKT,map.GenPow_p[cidx],K.p)
-            _scale_values!(ldlsolver,KKT,map.GenPow_q[cidx],-sqrtμ)
-            _scale_values!(ldlsolver,KKT,map.GenPow_r[cidx],-sqrtμ)
-            _scale_values!(ldlsolver,KKT,map.GenPow_p[cidx],-sqrtμ)
-
-            #normalize diagonal terms to 1/-1 in the extended rows/cols
-            _update_values!(ldlsolver,KKT,[map.GenPow_D[cidx*3-2]],[-one(T)])
-            _update_values!(ldlsolver,KKT,[map.GenPow_D[cidx*3-1]],[-one(T)])
-            _update_values!(ldlsolver,KKT,[map.GenPow_D[cidx*3]],[one(T)])
-
-            cidx += 1
-        end
+    for cone in cones
+        #add sparse expansions columns for sparse cones 
+        if isa(cone,AbstractSparseCone)
+            thismap = popfirst!(sparse_map_iter)
+            _csc_update_sparsecone(cone,thismap,updateFcn,scaleFcn)
+        end 
     end
 
     return _kktsolver_regularize_and_refactor!(kktsolver, ldlsolver)
@@ -341,11 +299,11 @@ function kktsolver_setrhs!(
 ) where {T}
 
     b = kktsolver.b
-    (m,n,p,p_genpow) = (kktsolver.m,kktsolver.n,kktsolver.p,kktsolver.p_genpow)
+    (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p,kktsolver)
 
     b[1:n]             .= rhsx
     b[(n+1):(n+m)]     .= rhsz
-    b[(n+m+1):(n+m+p+p_genpow)] .= 0
+    b[(n+m+1):(n+m+p)] .= 0
 
     return nothing
 end

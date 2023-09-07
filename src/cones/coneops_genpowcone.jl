@@ -64,18 +64,12 @@ function update_scaling!(
 ) where {T}
 
     # update both gradient and Hessian for function f*(z) at the point z
-   update_dual_grad_H(K,z)
-
-    # update the scaling matrix Hs
-    # YC: dual-scaling at present; we time μ to the diagonal here,
-    # but this could be implemented elsewhere; μ is also used later 
-    # when updating the off-diagonal terms of Hs; Recording μ is redundant 
-    # for the dual scaling as it is a global parameter
-    K.μ = μ
+    update_dual_grad_H(K,z)
+    K.data.μ = μ
 
     # K.z .= z
     @inbounds for i in eachindex(z)
-        K.z[i] = z[i]
+        K.data.z[i] = z[i]
     end
 
     return is_scaling_success = true
@@ -99,9 +93,10 @@ function get_Hs!(
     #The ConicVector for s and z (and its views) don't
     #know anything about the 3 extra sparsifying entries
     dim1 = Clarabel.dim1(K)
-    μ = K.μ
-    @. Hsblock[1:dim1]    = μ*K.d1
-    @. Hsblock[dim1+1:end] = μ*K.d2
+    data = K.data
+    
+    @. Hsblock[1:dim1]     = data.μ*data.d1
+    @. Hsblock[dim1+1:end] = data.μ*data.d2
 
 end
 
@@ -115,18 +110,20 @@ function mul_Hs!(
 
     # Hs = μ*(D + pp' -qq' -rr')
 
+    data = K.data
+
     rng1 = 1:dim1(K)
     rng2 = (dim1(K)+1):dim(K)
 
-    coef_p = dot(K.p,x)
-    @views coef_q = dot(K.q,x[rng1])
-    @views coef_r = dot(K.r,x[rng2])
+    coef_p = dot(data.p,x)
+    @views coef_q = dot(data.q,x[rng1])
+    @views coef_r = dot(data.r,x[rng2])
     
-    @. y[rng1] = K.d1*x[rng1] - coef_q*K.q
-    @. y[rng2] = K.d2*x[rng2] - coef_r*K.r
+    @. y[rng1] = data.d1*x[rng1] - coef_q*K.data.q
+    @. y[rng2] = data.d2*x[rng2] - coef_r*K.data.r
 
-    @. y += coef_p*K.p
-    @. y *= K.μ
+    @. y += coef_p*data.p
+    @. y *= data.μ
 
 end
 
@@ -156,7 +153,7 @@ function combined_ds_shift!(
     # η = higher_correction!(K,step_s,step_z)     
 
     @inbounds for i = 1:Clarabel.dim(K)
-        shift[i] = K.grad[i]*σμ # - η[i]
+        shift[i] = K.data.grad[i]*σμ # - η[i]
     end
 
     return nothing
@@ -188,14 +185,15 @@ function step_length(
      αmax::T,
 ) where {T}
 
-    backtrack = settings.linesearch_backtrack_step
-    αmin      = settings.min_terminate_step_length
+    step = settings.linesearch_backtrack_step
+    αmin = settings.min_terminate_step_length
+    work = K.data.work
 
-    is_prim_feasible_fcn = s -> is_primal_feasible(K,s,K.α,dim1(K))
-    is_dual_feasible_fcn = s -> is_dual_feasible(K,s,K.α,dim1(K))
+    is_prim_feasible_fcn = s -> is_primal_feasible(K,s)
+    is_dual_feasible_fcn = s -> is_dual_feasible(K,s)
 
-    αz = backtrack_search(K, K.work, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn)
-    αs = backtrack_search(K, K.work, ds, s, αmax, αmin, backtrack, is_prim_feasible_fcn)
+    αz = backtrack_search(K, dz, z, αmax, αmin, step, is_dual_feasible_fcn,work)
+    αs = backtrack_search(K, ds, s, αmax, αmin, step, is_prim_feasible_fcn,work)
 
     return (αz,αs)
 end
@@ -210,23 +208,19 @@ function compute_barrier(
 ) where {T}
 
     barrier = zero(T)
-
-    # we want to avoid allocating a vector for the intermediate 
-    # sums, so the two barrier functions are written to accept 
-    # both vectors and MVectors. 
-    wq = K.work
+    work = K.data.work
 
     #primal barrier
     @inbounds for i = 1:dim(K)
-        wq[i] = s[i] + α*ds[i]
+        work[i] = s[i] + α*ds[i]
     end
-    barrier += barrier_primal(K, wq)
+    barrier += barrier_primal(K, work)
 
     #dual barrier
     @inbounds for i = 1:dim(K)
-        wq[i] = z[i] + α*dz[i]
+        work[i] = z[i] + α*dz[i]
     end
-    barrier += barrier_dual(K, wq)
+    barrier += barrier_dual(K, work)
 
     return barrier
 end
@@ -275,7 +269,7 @@ end
 
     # can't use "work" here because it was already
     # used to construct the argument s in some cases
-    g = K.work_pb
+    g = K.data.work_pb
 
     gradient_primal!(K,g,s)      
     g .= -g                 #-g(s)
@@ -287,13 +281,12 @@ end
 
 # Returns true if s is primal feasible
 function is_primal_feasible(
-    ::GenPowerCone{T},
+    K::GenPowerCone{T},
     s::AbstractVector{T},
-    α::AbstractVector{T},
-    dim1::Int
 ) where {T}
 
-    #PJG: dim1 not needed here.   Just use α length
+    dim1 = Clarabel.dim1(K)
+    α = K.α
 
     if (all(s[1:dim1] .> zero(T)))
         res = zero(T)
@@ -311,13 +304,12 @@ end
 
 # Returns true if z is dual feasible
 function is_dual_feasible(
-    ::GenPowerCone{T},
+    K::GenPowerCone{T},
     z::AbstractVector{T},
-    α::AbstractVector{T},
-    dim1::Int
 ) where {T}
 
-    #PJG: dim1 not needed here.   Just use α length
+    dim1 = Clarabel.dim1(K)
+    α = K.α
 
     if (all(z[1:dim1] .> zero(T)))
         res = zero(T)
@@ -342,6 +334,7 @@ function gradient_primal!(
 ) where {T}
 
     α = K.α
+    data = K.data
 
     # unscaled phi
     phi = one(T)
@@ -358,7 +351,7 @@ function gradient_primal!(
     norm_r = norm(r)
 
     if norm_r > eps(T)
-        g1 = _newton_raphson_genpowcone(norm_r,p,phi,α,K.ψ)
+        g1 = _newton_raphson_genpowcone(norm_r,p,phi,α,data.ψ)
         @. gr = g1*r/norm_r
         @. gp = -(1+α+α*g1*norm_r)/p
     else
@@ -464,10 +457,11 @@ function update_dual_grad_H(
 ) where {T}
     
     α = K.α
-    p = K.p
-    q = K.q
-    r = K.r 
-    d1 = K.d1
+    data = K.data
+    p = data.p
+    q = data.q
+    r = data.r 
+    d1 = data.d1
 
     # ϕ = ∏_{i ∈ dim1}(ui/αi)^(2*αi), ζ = ϕ - ||w||^2
     phi = one(T)
@@ -479,7 +473,7 @@ function update_dual_grad_H(
     @assert ζ > zero(T)
 
     # compute the gradient at z
-    grad = K.grad
+    grad = data.grad
     τ = q           # τ shares memory with q
 
     @inbounds for i = 1:dim1(K)
@@ -500,7 +494,7 @@ function update_dual_grad_H(
     @inbounds for i = 1:dim1(K)
         d1[i] = τ[i]*phi/(ζ*z[i]) + (1-α[i])/(z[i]*z[i])
     end   
-    K.d2 = 2/ζ
+    data.d2 = 2/ζ
 
     # compute p, q, r where τ shares memory with q
     p[1:dim1(K)] .= p0*τ/ζ

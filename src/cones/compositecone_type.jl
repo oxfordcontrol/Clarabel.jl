@@ -82,6 +82,9 @@ Base.length(S::CompositeCone{T}) where{T} = length(S.cones)
 Base.eachindex(S::CompositeCone{T}) where{T} = eachindex(S.cones)
 Base.IndexStyle(S::CompositeCone{T}) where{T} = IndexStyle(S.cones)
 
+function get_type_count(cones::CompositeCone{T}, type::Type) where {T}
+    return cones.type_counts[type]
+end
 
 function _make_headidx!(headidx,cones)
 

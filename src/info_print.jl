@@ -186,15 +186,12 @@ function print_conedims_by_type(io::IO, cones::CompositeCone{T}, type::Type) whe
     maxlistlen = 5
 
     #how many of this type of cone?
-    count = cones.type_counts[type]
+    count = get_type_count(cones,type)
 
     #skip if there are none of this type
     if count == 0
         return #don't report if none
     end
-
-    #PJG: reporting for genpowercone is incomplete since it has 
-    #two dimensions to report
 
     nvars = Int64[Clarabel.numel(K) for K in cones[isa.(cones,type)]]
     name  = rpad(string(nameof(type))[1:end-4],11)  #drops "Cone" part

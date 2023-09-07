@@ -178,9 +178,8 @@ function step_length(
     is_prim_feasible_fcn = s -> is_primal_feasible(K,s)
     is_dual_feasible_fcn = s -> is_dual_feasible(K,s)
     
-    #PJG : difference in name and order from Rust backtrack
-    αz = backtrack_search(K, work, dz, z, αmax, αmin,  backtrack, is_dual_feasible_fcn)
-    αs = backtrack_search(K, work, ds, s, αmax, αmin,  backtrack, is_prim_feasible_fcn)
+    αz = backtrack_search(K, dz, z, αmax, αmin,  backtrack, is_dual_feasible_fcn, work)
+    αs = backtrack_search(K, ds, s, αmax, αmin,  backtrack, is_prim_feasible_fcn, work)
 
     return (αz,αs)
 end

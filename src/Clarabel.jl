@@ -64,7 +64,7 @@ module Clarabel
     include("./cones/coneops_powcone.jl")
     include("./cones/coneops_genpowcone.jl")        #Generalized power cone 
     include("./cones/coneops_compositecone.jl")
-    include("./cones/coneops_exppow_common.jl")
+    include("./cones/coneops_nonsymmetric_common.jl")
     include("./cones/coneops_symmetric_common.jl")
 
     #various algebraic utilities

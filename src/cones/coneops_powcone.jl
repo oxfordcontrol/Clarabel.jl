@@ -183,8 +183,8 @@ function step_length(
 
     work = similar(K.grad); work .= zero(T)
 
-    αz = backtrack_search(K, work, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn)
-    αs = backtrack_search(K, work, ds, s, αmax, αmin, backtrack, is_prim_feasible_fcn)
+    αz = backtrack_search(K, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn, work)
+    αs = backtrack_search(K, ds, s, αmax, αmin, backtrack, is_prim_feasible_fcn, work)
 
     return (αz,αs)
 end
