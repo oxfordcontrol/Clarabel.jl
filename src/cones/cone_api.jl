@@ -77,3 +77,22 @@ function nvars(cone:: SupportedCone)
         cone.dim
     end
 end
+
+
+# we use the SupportedCone as a user facing marker
+# for the constraint types, and then map them through
+# make_cone to get the internal cone representations.
+function make_cone(T::Type, coneT)
+
+    typeT = typeof(coneT)
+    if typeT == ExponentialConeT
+        cone = ConeDict[typeT]{T}()
+    elseif typeT == PowerConeT
+        cone = ConeDict[typeT]{T}(T(coneT.α))
+    elseif typeT == GenPowerConeT
+        cone = ConeDict[typeof(coneT)]{T}(T.(coneT.α),coneT.dim2)
+    else
+        cone = ConeDict[typeT]{T}(coneT.dim)
+    end
+
+end

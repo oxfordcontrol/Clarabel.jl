@@ -313,8 +313,8 @@ const ConeDict = Dict{DataType,Type}(
            ZeroConeT => ZeroCone,
     NonnegativeConeT => NonnegativeCone,
     SecondOrderConeT => SecondOrderCone,
-    PSDTriangleConeT => PSDTriangleCone,
     ExponentialConeT => ExponentialCone,
           PowerConeT => PowerCone,
-       GenPowerConeT => GenPowerCone
+       GenPowerConeT => GenPowerCone,
+    PSDTriangleConeT => PSDTriangleCone,
 )
