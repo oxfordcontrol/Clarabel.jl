@@ -21,10 +21,10 @@ const OptimizerSupportedMOICones{T} = Union{
     Clarabel.GenPowerConeT
 } where {T}
 
-Base.copy(cone::OptimizerSupportedMOICones) = cone 
+# enable use of this type as a MOI constraint type
+MOI.dimension(cone::Clarabel.GenPowerConeT) = Clarabel.dim(cone)
 
 #Optimizer will consolidate cones of these types if possible
-
 const OptimizerMergeableTypes = [Clarabel.ZeroConeT, Clarabel.NonnegativeConeT]
 
 #mappings between MOI and internal definitions

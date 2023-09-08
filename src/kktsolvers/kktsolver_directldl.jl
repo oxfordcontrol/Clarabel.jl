@@ -5,7 +5,7 @@
 mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
     # problem dimensions
-    m::Int; n::Int; p::Int; 
+    m::Int; n::Int; p::Int
 
     # Left and right hand sides for solves
     x::Vector{T}

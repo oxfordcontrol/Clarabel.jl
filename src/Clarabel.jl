@@ -1,12 +1,10 @@
 __precompile__()
 module Clarabel
 
-    using SparseArrays, LinearAlgebra, Printf, MathOptInterface, Requires
+    using SparseArrays, LinearAlgebra, Printf, Requires
     const DefaultFloat = Float64
     const DefaultInt   = LinearAlgebra.BlasInt
     const IdentityMatrix = UniformScaling{Bool}
-    const MOI = MathOptInterface
-    const MOIU = MOI.Utilities
 
     #internal constraint RHS limits.  This let block 
     #hides the INFINITY field in the module and makes 

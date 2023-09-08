@@ -15,7 +15,7 @@ The currently supported concrete types are:
 * `GenPowerConeT`   : The generalized power cone with power α
 
 """
-abstract type SupportedCone <: MOI.AbstractVectorSet end
+abstract type SupportedCone end
 
 struct ZeroConeT <: SupportedCone
     dim::DefaultInt
@@ -47,10 +47,7 @@ struct GenPowerConeT <: SupportedCone
 end
 dim1(cone::GenPowerConeT) = length(cone.α)
 dim2(cone::GenPowerConeT) = cone.dim2
-
-# enable use of this type as a MOI constraint type
-MOI.dimension(cone::GenPowerConeT) = (length(cone.α) + cone.dim2)
-
+dim(cone::GenPowerConeT) = (dim1(cone) + dim2(cone))
 struct ExponentialConeT <: SupportedCone
     #no fields, #dim = 3 always
 end
