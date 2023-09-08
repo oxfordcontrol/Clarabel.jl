@@ -95,7 +95,7 @@ function __precompile_moi()
     MOI.add_constraint(model, x, MOI.SecondOrderCone(3))
     MOI.add_constraint(model, x, MOI.ExponentialCone())
     MOI.add_constraint(model, x, MOI.PowerCone(0.5))
-    MOI.add_constraint(model, x, Clarabel.GenPowerConeT([0.5;0.5],1))     #Support for GeneralizedPowerCone under MOI
+    MOI.add_constraint(model, x, Clarabel.MOI.GenPowerCone([0.5;0.5],1))     #Support for GeneralizedPowerCone under MOI
 
     for (i,C) in enumerate((MOI.GreaterThan,MOI.LessThan,MOI.EqualTo))
         for F in (MOI.VariableIndex, MOI.ScalarAffineFunction{Float64})

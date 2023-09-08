@@ -81,10 +81,13 @@ module Clarabel
     end
 
     #MathOptInterface for JuMP/Convex.jl
-    module MOImodule
+    module MOI  #extensions providing non-standard MOI constraint types
+        include("./MOI_wrapper/MOI_extensions.jl")
+    end
+    module MOIwrapper #our actual MOI interface
          include("./MOI_wrapper/MOI_wrapper.jl")
     end
-    const Optimizer{T} = Clarabel.MOImodule.Optimizer{T}
+    const Optimizer{T} = Clarabel.MOIwrapper.Optimizer{T}
 
 
     #precompile minimal MOI / native examples
