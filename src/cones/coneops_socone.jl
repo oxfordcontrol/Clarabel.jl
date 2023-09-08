@@ -336,7 +336,7 @@ function inv_circ_op!(
     @views v = dot(y[2:end],z[2:end])
 
     x[1]      = (y[1]*z[1] - v)*pinv
-    @views x[2:end] .= pinv*(v/y[1] - z[1]).*y[2:end] + (1/y[1]).*z[2:end]
+    @views x[2:end] .= pinv.*(v/y[1] - z[1]).*y[2:end] + (1/y[1]).*z[2:end]
 
     return nothing
 end
