@@ -137,6 +137,58 @@ function kkt_solve!(
     steptype::Symbol   #:affine or :combined
 ) where{T}
 
+    is_success = kkt_solve_inner!(kktsystem,lhs,rhs,data,variables,cones,steptype)
+
+    #compute the error residual 
+
+    for i in 1:10
+
+        e = deepcopy(lhs)
+        dx = deepcopy(lhs)
+
+        variables_refine_step_rhs!(e,lhs,variables,data)
+
+        #e = b - Ax (???)
+        e.x .=  -(rhs.x + e.x)
+        e.z .=  -(rhs.z + e.z )
+        e.s .=  -(0)
+        e.τ =  -(rhs.τ +  e.τ)
+        e.κ =  -(rhs.κ + e.κ )
+
+        is_success = kkt_solve_inner!(kktsystem,dx,e,data,variables,cones,steptype)
+
+        lhs.x .-=  dx.x
+        lhs.z .-=  dx.z 
+        lhs.s .-=  dx.s
+        lhs.τ -=  dx.τ
+        lhs.κ -=  dx.κ 
+
+        println("Refine error x ", norm(e.x))
+        println("Refine error z ", norm(e.z))
+        println("Refine error s ", norm(e.s))
+        println("Refine error τ ", norm(e.τ))
+        println("Refine error κ ", norm(e.κ))
+        println("Refine step ", i, " error = ", variables_norm(e))
+    end
+
+    # we don't check the validity of anything
+    # after the KKT solve, so just return is_success
+    # without further validation
+    return is_success
+
+end
+
+
+function kkt_solve_inner!(
+    kktsystem::DefaultKKTSystem{T},
+    lhs::DefaultVariables{T},
+    rhs::DefaultVariables{T},
+    data::DefaultProblemData{T},
+    variables::DefaultVariables{T},
+    cones::CompositeCone{T},
+    steptype::Symbol   #:affine or :combined
+) where{T}
+
     (x1,z1) = (kktsystem.x1, kktsystem.z1)
     (x2,z2) = (kktsystem.x2, kktsystem.z2)
     (workx,workz) = (kktsystem.workx, kktsystem.workz)
@@ -201,6 +253,7 @@ function kkt_solve!(
     #solve for Δκ
     #--------------
     lhs.κ = -(rhs.κ + variables.κ * lhs.τ) / variables.τ
+
 
     # we don't check the validity of anything
     # after the KKT solve, so just return is_success
