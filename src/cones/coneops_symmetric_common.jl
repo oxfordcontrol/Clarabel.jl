@@ -59,15 +59,15 @@ end
     ξ_s::AbstractVector{T},
 ) where {T}
 
-
-    #PJG: TESTING.   ALLOCS HERE
-
     mul_W!(K,:N,ds,ξ_z,one(T),zero(T))
     mul_Winv!(K,:T,ds,ξ_s,one(T),one(T))
-    work = deepcopy(ds)
 
-    λ_circ_op!(K,ds,work) 
+    #PJG: TESTING.   PROBLEM FOR PSD HERE MAYBE
 
+    #was using "Work" here, but giving ds twice seems 
+    #to work as well.   Probably would fail in Rust though
+    #and needs a workspace.  Also for SDP.
+    λ_circ_op!(K,ds,ds) 
 
 
 end

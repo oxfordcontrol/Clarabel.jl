@@ -113,13 +113,12 @@ function variables_refine_step_rhs!(
 ) where{T}
 
     d.x .=  - data.P*ξ.x - data.A'*ξ.z - data.q*ξ.τ
-    d.z .=    data.A*ξ.x#+  ξ.s - data.b*ξ.τ
-    println("refine step norm Ax = ", norm(data.A*ξ.x))
+    d.z .=    data.A*ξ.x +  ξ.s - data.b*ξ.τ
     refine_ds!(cones,d.s,ξ.z,ξ.s)
 
-    p = variables.x / variables.τ
+    P   = Symmetric(data.P)
 
-    d.τ  =  ξ.κ + dot(ξ.x,data.q) + 2*p'*data.P*ξ.x + dot(ξ.z,data.b) - p'*data.P*p*ξ.τ
+    d.τ  =  ξ.κ + dot(ξ.x,data.q) + 2*quad_form(variables.x,P,ξ.x)/variables.τ + dot(ξ.z,data.b) - quad_form(variables.x,P,variables.x)*ξ.τ/variables.τ/variables.τ
     d.κ  =   variables.κ *ξ.τ + variables.τ*ξ.κ
 
     return nothing
