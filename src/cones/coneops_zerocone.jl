@@ -134,6 +134,19 @@ function combined_ds_shift!(
     return nothing
 end
 
+# returns x = λ ∘ λ for the socone
+function refine_ds!(
+    K::ZeroCone{T},
+    ds::AbstractVector{T},
+    ξ_z::AbstractVector{T},
+    ξ_s::AbstractVector{T},
+) where {T}
+
+   ds .= zero(T)
+
+    return nothing
+end
+
 function Δs_from_Δz_offset!(
     K::ZeroCone{T},
     out::AbstractVector{T},

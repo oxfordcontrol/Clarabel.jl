@@ -109,16 +109,19 @@ function variables_refine_step_rhs!(
     ξ::DefaultVariables{T},
     variables::DefaultVariables{T},
     data::DefaultProblemData{T},
+    cones::CompositeCone{T}
 ) where{T}
 
     d.x .=  - data.P*ξ.x - data.A'*ξ.z - data.q*ξ.τ
-    d.z .=  data.A*ξ.x +  ξ.s - data.b*ξ.τ
-    d.s .=  zero(T)
-    d.τ  =  ξ.κ + dot(ξ.x,data.q) + 2*variables.x'*data.P*ξ.x + dot(ξ.z,data.b) - variables.x'*data.P*variables.x*ξ.τ
+    d.z .=    data.A*ξ.x#+  ξ.s - data.b*ξ.τ
+    println("refine step norm Ax = ", norm(data.A*ξ.x))
+    refine_ds!(cones,d.s,ξ.z,ξ.s)
+
+    p = variables.x / variables.τ
+
+    d.τ  =  ξ.κ + dot(ξ.x,data.q) + 2*p'*data.P*ξ.x + dot(ξ.z,data.b) - p'*data.P*p*ξ.τ
     d.κ  =   variables.κ *ξ.τ + variables.τ*ξ.κ
 
-    println("d.τ pieces: ", ξ.κ, " ", dot(ξ.x,data.q), " ", dot(ξ.z,data.b))
-    
     return nothing
 end
 
@@ -126,7 +129,7 @@ function variables_norm(
     variables::DefaultVariables{T},
 ) where{T}
 
-    return max(norm(variables.x),norm(variables.z),norm(variables.s),abs(variables.τ),abs(variables.κ))
+    return sqrt(norm(variables.x)^2 + norm(variables.z)^2  + norm(variables.s)^2  + (variables.τ)^2 + norm(variables.κ)^2)
     return nothing
 end
 
@@ -145,6 +148,25 @@ function variables_affine_step_rhs!(
 
     return nothing
 end
+
+function isequal(lhs::DefaultVariables{T},rhs::DefaultVariables{T}) where {T} 
+
+    return (isequal(lhs.x,rhs.x) && 
+            isequal(lhs.z,rhs.z) && 
+            isequal(lhs.s,rhs.s) && 
+            isequal(lhs.τ,rhs.τ) && 
+            isequal(lhs.κ,rhs.κ))
+end
+
+function negate!(vars::DefaultVariables{T}) where {T} 
+
+    vars.x .= -vars.x
+    vars.z .= -vars.z
+    vars.s .= -vars.s 
+    vars.τ  = -vars.τ
+    vars.κ  = -vars.κ
+end
+ 
 
 
 function variables_combined_step_rhs!(

@@ -126,6 +126,54 @@ function kkt_solve_initial_point!(
 
 end
 
+function _debug_check_residuals(    
+    kktsystem::DefaultKKTSystem{T},
+    lhs::DefaultVariables{T},
+    rhs::DefaultVariables{T},
+    data::DefaultProblemData{T},
+    variables::DefaultVariables{T},
+    cones::CompositeCone{T},) where{T}
+
+
+    dz = deepcopy(rhs.z)
+    dτ = deepcopy(rhs.τ)
+    ds = deepcopy(rhs.s)
+    dx = deepcopy(rhs.x)
+    dκ = deepcopy(rhs.κ)
+    ξ = variables.x/variables.τ
+
+    # manually check (44a)
+    row1 = dx - data.P*lhs.x - data.A'*lhs.z - data.q*lhs.τ 
+    row2 = dz.vec + data.A*lhs.x #+ lhs.s - data.b*lhs.τ 
+
+    println("debug check norm Ax = ", norm(data.A*lhs.x))
+    println("debug check norm dz = ", norm(dz.vec))
+    println("debug check norm Ax + dz = ", norm(row2))
+    println("debug check norm Ax + dz = ", norm(data.A*lhs.x + 0.5*dz.vec))
+
+    row3 = dτ + lhs.κ + (data.q + 2*data.P*ξ)'*lhs.x + dot(data.b,lhs.z) - ξ'*data.P*ξ*lhs.τ
+    
+    row4 = deepcopy(rhs.s); row4.vec .= 0.
+    refine_ds!(cones,row4,lhs.z,lhs.s)
+    row4 = ds + row4
+    
+    
+    row5 = dκ + (variables.κ*lhs.τ + variables.τ*lhs.κ)
+
+
+
+    println("(44a) errors: row 1 = ", norm(row1))
+    println("(44a) errors: row 2 = ", norm(row2))
+    println("(44a) errors: row 3 = ", norm(row3))
+    println("(44a) errors: row 4 = ", norm(row4))
+    println("(44a) errors: row 5 = ", norm(row5))
+
+
+    # ξ = variables.x / variables.τ
+    # Δκ = - dτ - (data.q + 2*data.P*ξ)'*lhs.x - dot(data.b,lhs.z) + ξ'*data.P*ξ*lhs.τ
+
+end 
+
 
 function kkt_solve!(
     kktsystem::DefaultKKTSystem{T},
@@ -137,39 +185,53 @@ function kkt_solve!(
     steptype::Symbol   #:affine or :combined
 ) where{T}
 
+    b = deepcopy(rhs); negate!(b)
+    rhscopy = deepcopy(rhs)
+    dx = deepcopy(lhs)
+
     is_success = kkt_solve_inner!(kktsystem,lhs,rhs,data,variables,cones,steptype)
+
+    _debug_check_residuals(    
+        kktsystem,lhs,rhscopy,data,variables,cones) 
+
+    dz = deepcopy(rhs.z)
+    dτ = deepcopy(rhs.τ)
 
     #compute the error residual 
 
-    for i in 1:10
+    for i in 1:1
 
         e = deepcopy(lhs)
-        dx = deepcopy(lhs)
 
-        variables_refine_step_rhs!(e,lhs,variables,data)
+        variables_refine_step_rhs!(e,deepcopy(lhs),variables,data,cones)
+
+        # println("$i: norm(Ax)_x = ", norm(e.x))
+        # println("$i: norm(b)_x = ", norm(rhs.x))
 
         #e = b - Ax (???)
-        e.x .=  -(rhs.x + e.x)
-        e.z .=  -(rhs.z + e.z )
-        e.s .=  -(0)
-        e.τ =  -(rhs.τ +  e.τ)
-        e.κ =  -(rhs.κ + e.κ )
+        e.x .=  b.x - e.x
+        e.z .=  b.z - e.z 
+        println("check b.z = ", norm(b.z))
+        e.s .=  b.s - e.s  #PJG: wrong
+        e.τ  =  b.τ - e.τ
+        e.κ  =  b.κ - e.κ 
 
-        is_success = kkt_solve_inner!(kktsystem,dx,e,data,variables,cones,steptype)
+        println("$i: ex residual = ", norm(e.x))
+        println("$i: ez residual = ", norm(e.z))
+        println("$i: eτ residual = ", norm(e.τ))
+        println("$i: es residual = ", norm(e.s))
+        println("$i: eκ residual = ", norm(e.κ))
 
-        lhs.x .-=  dx.x
-        lhs.z .-=  dx.z 
-        lhs.s .-=  dx.s
-        lhs.τ -=  dx.τ
-        lhs.κ -=  dx.κ 
+        # is_success = kkt_solve_inner!(kktsystem,dx,e,data,variables,cones,steptype)
 
-        println("Refine error x ", norm(e.x))
-        println("Refine error z ", norm(e.z))
-        println("Refine error s ", norm(e.s))
-        println("Refine error τ ", norm(e.τ))
-        println("Refine error κ ", norm(e.κ))
-        println("Refine step ", i, " error = ", variables_norm(e))
+        # lhs.x .+=  dx.x
+        # lhs.z .+=  dx.z 
+        # lhs.s .+=  dx.s
+        # lhs.τ +=  dx.τ
+        # lhs.κ +=  dx.κ 
+
     end
+
 
     # we don't check the validity of anything
     # after the KKT solve, so just return is_success
@@ -249,6 +311,9 @@ function kkt_solve_inner!(
     # cones and Hs = μH(z) for asymmetric cones
     mul_Hs!(cones,lhs.s,lhs.z,workz)
     @. lhs.s = -(lhs.s + Δs_const_term)
+
+    #ALTERNATIVE: just take direftly from our paper (14a)
+    #lhs.s .= -(data.A*lhs.x - data.b*lhs.τ + rhs.z)
 
     #solve for Δκ
     #--------------

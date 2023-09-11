@@ -213,6 +213,22 @@ function combined_ds_shift!(
     return nothing
 end
 
+
+function refine_ds!(
+    cones::CompositeCone{T},
+    ds::AbstractVector{T},
+    ξ_z::AbstractVector{T},
+    ξ_s::AbstractVector{T},
+) where {T}
+
+    for (cone,dsi,ξ_zi,ξ_si) in zip(cones,ds.views,ξ_z.views,ξ_s.views)
+        @conedispatch refine_ds!(cone,dsi,ξ_zi,ξ_si)
+    end
+
+    return nothing
+end
+
+
 function Δs_from_Δz_offset!(
     cones::CompositeCone{T},
     out::ConicVector{T},

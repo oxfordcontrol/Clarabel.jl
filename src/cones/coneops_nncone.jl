@@ -137,6 +137,20 @@ function combined_ds_shift!(
 
 end
 
+# returns x = λ ∘ λ for the socone
+function refine_ds!(
+    K::NonnegativeCone{T},
+    ds::AbstractVector{T},
+    ξ_z::AbstractVector{T},
+    ξ_s::AbstractVector{T},
+) where {T}
+
+    _refine_ds_symmetric!(K,ds,ξ_z,ξ_s);
+
+    return nothing
+end
+
+
 function Δs_from_Δz_offset!(
     K::NonnegativeCone{T},
     out::AbstractVector{T},
@@ -239,6 +253,18 @@ function λ_inv_circ_op!(
 ) where {T}
 
     inv_circ_op!(K, x, K.λ, z)
+
+end
+
+# implements x = λ ∘ z for the nn cone, where λ
+# is the internally maintained scaling variable.
+function λ_circ_op!(
+    K::NonnegativeCone{T},
+    x::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+
+    circ_op!(K, x, K.λ, z)
 
 end
 
