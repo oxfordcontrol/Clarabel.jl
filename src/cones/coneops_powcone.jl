@@ -138,7 +138,7 @@ function refine_ds!(
 ) where {T}
 
     #PJG: temp for testing 
-    warning("refine_ds! not implemented for power cone")
+    @warn("refine_ds! not implemented for power cone")
     ds .= zero(T)
 
     return nothing

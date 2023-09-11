@@ -229,7 +229,7 @@ function refine_ds!(
 ) where {T}
 
     #PJG: temp for testing 
-    warning("refine_ds! not implemented for psd cone")
+    @warn("refine_ds! not implemented for psd cone")
     ds .= zero(T)
 
     return nothing

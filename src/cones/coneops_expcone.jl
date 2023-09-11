@@ -136,7 +136,7 @@ function refine_ds!(
 ) where {T}
 
     #PJG: temp for testing 
-    warning("refine_ds! not implemented for exponential cone")
+    @warn("refine_ds! not implemented for exponential cone")
     ds .= zero(T)
 
     return nothing
