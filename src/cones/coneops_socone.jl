@@ -54,11 +54,15 @@ function set_identity_scaling!(
     K::SecondOrderCone{T}
 ) where {T}
 
-    K.d  = one(T)
+    K.w .= zero(T)
+    K.w[1] = one(T)
+
+    K.d  = T(0.5)
     K.u .= zero(T)
+    K.u[1] = sqrt(T(0.5))
     K.v .= zero(T)
     K.η  = one(T)
-    K.w .= zero(T)
+
 
     return nothing
 end
