@@ -112,11 +112,15 @@ function variables_refine_step_rhs!(
     cones::CompositeCone{T}
 ) where{T}
 
-    d.x .=  - data.P*ξ.x - data.A'*ξ.z - data.q*ξ.τ
-    d.z .=    data.A*ξ.x +  ξ.s - data.b*ξ.τ
-    refine_ds!(cones,d.s,ξ.z,ξ.s)
 
-    P   = Symmetric(data.P)
+    P = Symmetric(data.P)
+
+    d.x .=  - P*ξ.x - data.A'*ξ.z - data.q*ξ.τ
+    
+    #use d.z as temporary workspace 
+    refine_ds!(cones,d.s,ξ.z,ξ.s,d.z)
+
+    d.z .=    data.A*ξ.x +  ξ.s - data.b*ξ.τ
 
     d.τ  =  ξ.κ + dot(ξ.x,data.q) + 2*quad_form(variables.x,P,ξ.x)/variables.τ + dot(ξ.z,data.b) - quad_form(variables.x,P,variables.x)*ξ.τ/variables.τ/variables.τ
     d.κ  =   variables.κ *ξ.τ + variables.τ*ξ.κ
@@ -129,6 +133,34 @@ function variables_norm(
 ) where{T}
 
     return sqrt(norm(variables.x)^2 + norm(variables.z)^2  + norm(variables.s)^2  + (variables.τ)^2 + norm(variables.κ)^2)
+    return nothing
+end
+
+function variables_norminf(
+    variables::DefaultVariables{T},
+) where{T}
+
+    return max(norm(variables.x,Inf),
+               norm(variables.z,Inf),
+               norm(variables.s,Inf),
+               abs(variables.τ),
+               abs(variables.κ))
+    return nothing
+end
+
+function variables_axpby!(
+        y::DefaultVariables{T},
+        x::DefaultVariables{T},
+        a::T,
+        b::T
+) where{T}
+    
+    @. y.x = a*x.x + b*y.x
+    @. y.z = a*x.z + b*y.z
+    @. y.s = a*x.s + b*y.s
+    y.τ    = a*x.τ + b*y.τ
+    y.κ    = a*x.κ + b*y.κ
+
     return nothing
 end
 

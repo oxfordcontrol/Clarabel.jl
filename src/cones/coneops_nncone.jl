@@ -133,8 +133,9 @@ function combined_ds_shift!(
     σμ::T
 ) where {T}
 
-    _combined_ds_shift_symmetric!(K,dz,step_z,step_s,σμ);
+    _combined_ds_shift_symmetric!(K,dz,step_z,step_s,σμ)
 
+    return nothing
 end
 
 # returns x = λ ∘ λ for the socone
@@ -143,9 +144,10 @@ function refine_ds!(
     ds::AbstractVector{T},
     ξ_z::AbstractVector{T},
     ξ_s::AbstractVector{T},
+    work::AbstractVector{T}
 ) where {T}
 
-    _refine_ds_symmetric!(K,ds,ξ_z,ξ_s);
+    _refine_ds_symmetric!(K,ds,ξ_z,ξ_s,work)
 
     return nothing
 end
