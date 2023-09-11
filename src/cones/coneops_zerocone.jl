@@ -140,6 +140,7 @@ function refine_ds!(
     ds::AbstractVector{T},
     ξ_z::AbstractVector{T},
     ξ_s::AbstractVector{T},
+    work::AbstractVector{T}
 ) where {T}
 
    ds .= zero(T)

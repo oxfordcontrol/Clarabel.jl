@@ -20,6 +20,10 @@ mutable struct DefaultKKTSystem{T} <: AbstractKKTSystem{T}
     workz::ConicVector{T}
     work_conic::ConicVector{T}
 
+    #workspace for outer iterative refinement 
+    vars_dx::DefaultVariables{T}
+    vars_e::DefaultVariables{T}
+
         function DefaultKKTSystem{T}(
             data::DefaultProblemData{T},
             cones::CompositeCone{T},
@@ -44,10 +48,14 @@ mutable struct DefaultKKTSystem{T} <: AbstractKKTSystem{T}
         workx   = Vector{T}(undef,n)
         workz   = ConicVector{T}(cones)
 
+        #workspace for outer iterative refinement
+        vars_dx = DefaultVariables{T}(n,cones)
+        vars_e  = DefaultVariables{T}(n,cones)
+
         #additional conic workspace vector compatible with s and z
         work_conic = ConicVector{T}(cones)
 
-        return new(kktsolver,x1,z1,x2,z2,workx,workz,work_conic)
+        return new(kktsolver,x1,z1,x2,z2,workx,workz,work_conic,vars_dx,vars_e)
 
     end
 
@@ -142,27 +150,31 @@ function _debug_check_residuals(
     dκ = deepcopy(rhs.κ)
     ξ = variables.x/variables.τ
 
+    P = Symmetric(data.P)
+
     # manually check (44a)
-    row1 = dx - data.P*lhs.x - data.A'*lhs.z - data.q*lhs.τ 
+    row1 = dx - P*lhs.x - data.A'*lhs.z - data.q*lhs.τ 
     row2 = dz.vec + data.A*lhs.x + lhs.s - data.b*lhs.τ 
 
 
-    row3 = dτ + lhs.κ + (data.q + 2*data.P*ξ)'*lhs.x + dot(data.b,lhs.z) - ξ'*data.P*ξ*lhs.τ
+    row3 = dτ + lhs.κ + 2*quad_form(ξ,P,lhs.x) +  dot(data.q,lhs.x) + dot(data.b,lhs.z) - ξ'*P*ξ*lhs.τ
     
     row4 = deepcopy(rhs.s); row4.vec .= 0.
-    refine_ds!(cones,row4,lhs.z,lhs.s)
+
+    #dz was used.  Recycle as workspace 
+    refine_ds!(cones,row4,lhs.z,lhs.s, dz)
     row4 = ds + row4
     
-    
+
     row5 = dκ + (variables.κ*lhs.τ + variables.τ*lhs.κ)
 
 
 
-    # println("(44a) errors: row 1 = ", norm(row1))
-    # println("(44a) errors: row 2 = ", norm(row2))
-    # println("(44a) errors: row 3 = ", norm(row3))
-    # println("(44a) errors: row 4 = ", norm(row4))
-    # println("(44a) errors: row 5 = ", norm(row5))
+    println("(44a) errors: row 1 = ", norm(row1,Inf))
+    println("(44a) errors: row 2 = ", norm(row2,Inf))
+    println("(44a) errors: row 3 = ", norm(row3,Inf))
+    println("(44a) errors: row 4 = ", norm(row4,Inf))
+    println("(44a) errors: row 5 = ", norm(row5,Inf))
 
 
     # ξ = variables.x / variables.τ
@@ -181,17 +193,21 @@ function kkt_solve!(
     steptype::Symbol   #:affine or :combined
 ) where{T}
 
-    dx = deepcopy(lhs)
-    e = deepcopy(lhs)
+    dx = kktsystem.vars_dx
+    e  = kktsystem.vars_e
+
+    # println("rhs.x  = ", norm(rhs.x,Inf))
+    # println("rhs.z  = ", norm(rhs.z,Inf))
+    # println("rhs.τ  = ", abs(rhs.τ))
+    # println("rhs.s  = ", norm(rhs.s,Inf))
+    # println("rhs.κ  = ", abs(rhs.κ))
 
     is_success = kkt_solve_inner!(kktsystem,lhs,rhs,data,variables,cones,steptype)
 
-    #println("\n----IR start -----\n")
+    # _debug_check_residuals(    
+    #         kktsystem,lhs,rhs,data,variables,cones) 
 
-
-   # _debug_check_residuals(    
-   #     kktsystem,lhs,rhscopy,data,variables,cones) 
-
+    rhs_norminf = variables_norminf(rhs)
 
     #compute the error residual 
 
@@ -199,39 +215,47 @@ function kkt_solve!(
 
         variables_refine_step_rhs!(e,lhs,variables,data,cones)
 
-        # println("$i: norm(Ax)_x = ", norm(e.x))
-        # println("$i: norm(b)_x = ", norm(rhs.x))
+        #e = b - Ax  :: NB b = -rhs ??? 
+        #PJG: some sign weirdness here.   Fixing 
+        #it would maybe make the correction term 
+        #below come out with a more attractive "+" sign
+        #variables_axpby!(e,rhs,-one(T),-one(T))
+        e.x .+=  rhs.x
+        e.z .+=  rhs.z 
+        e.s .+=  rhs.s
+        e.τ  +=  rhs.τ
+        e.κ  +=  rhs.κ 
 
-        #e = b - Ax (???)
-        e.x .=  (-rhs.x - e.x)
-        e.z .=  (-rhs.z - e.z) 
-        e.s .=  (-rhs.s - e.s)
-        e.τ  =  (-rhs.τ - e.τ)
-        e.κ  =  (-rhs.κ - e.κ) 
+        e_norminf = variables_norminf(e)
 
-        # println("$i: ex residual = ", norm(e.x))
-        # println("$i: ez residual = ", norm(e.z))
-        # println("$i: eτ residual = ", norm(e.τ))
-        # println("$i: es residual = ", norm(e.s))
-        # println("$i: eκ residual = ", norm(e.κ))
-        #println("$i: e total = ", variables_norm(e))
+        # println("$i: ex  = ", norm(e.x,Inf))
+        # println("$i: ez  = ", norm(e.z,Inf))
+        # println("$i: eτ  = ", abs(e.τ))
+        # println("$i: es  = ", norm(e.s,Inf))
+        # println("$i: eκ  = ", abs(e.κ))
+
+
+        if e_norminf <= 1e-10*(1 + rhs_norminf)
+           break 
+        end
+        #println("Refining: norms = ($e_norminf, $rhs_norminf)")
 
         is_success = kkt_solve_inner!(kktsystem,dx,e,data,variables,cones,:refine)
 
-        lhs.x .-=  dx.x
-        lhs.z .-=  dx.z 
-        lhs.s .-=  dx.s
-        lhs.τ -=  dx.τ
-        lhs.κ -=  dx.κ 
+        lhs.x .+=  dx.x
+        lhs.z .+=  dx.z 
+        lhs.s .+=  dx.s
+        lhs.τ +=  dx.τ
+        lhs.κ +=  dx.κ 
 
-        # println("$i: dx correction = ", norm(dx.x))
-        # println("$i: dz correction = ", norm(dx.z))
-        # println("$i: dτ correction = ", norm(dx.τ))
-        # println("$i: ds correction = ", norm(dx.s))
-        # println("$i: dκ correction = ", norm(dx.κ))
+        # println("$i: ex  = ", norm(e.x,Inf))
+        # println("$i: ez  = ", norm(e.z,Inf))
+        # println("$i: eτ  = ", abs(e.τ))
+        # println("$i: es  = ", norm(e.s,Inf))
+        # println("$i: eκ  = ", abs(e.κ))
 
-       # _debug_check_residuals(    
-        #    kktsystem,lhs,rhscopy,data,variables,cones) 
+    #    _debug_check_residuals(    
+    #        kktsystem,lhs,rhs,data,variables,cones) 
 
     end
 
@@ -320,8 +344,9 @@ function kkt_solve_inner!(
     mul_Hs!(cones,lhs.s,lhs.z,workz)
     @. lhs.s = -(lhs.s + Δs_const_term)
 
-    #ALTERNATIVE: just take direftly from our paper (14a)
+    #ALTERNATIVE: just take directly from our paper (14a)
     #lhs.s .= -(data.A*lhs.x - data.b*lhs.τ + rhs.z)
+    #println("s recovery error = ", norm(lhs.s.vec - s2,Inf))
 
     #solve for Δκ
     #--------------

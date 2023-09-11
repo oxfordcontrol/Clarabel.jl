@@ -216,13 +216,14 @@ end
 
 function refine_ds!(
     cones::CompositeCone{T},
-    ds::AbstractVector{T},
-    ξ_z::AbstractVector{T},
-    ξ_s::AbstractVector{T},
+    ds::ConicVector{T},
+    ξ_z::ConicVector{T},
+    ξ_s::ConicVector{T},
+    work::ConicVector{T}
 ) where {T}
 
-    for (cone,dsi,ξ_zi,ξ_si) in zip(cones,ds.views,ξ_z.views,ξ_s.views)
-        @conedispatch refine_ds!(cone,dsi,ξ_zi,ξ_si)
+    for (cone,dsi,ξ_zi,ξ_si,worki) in zip(cones,ds.views,ξ_z.views,ξ_s.views,work.views)
+        @conedispatch refine_ds!(cone,dsi,ξ_zi,ξ_si,worki)
     end
 
     return nothing

@@ -180,9 +180,10 @@ function refine_ds!(
     ds::AbstractVector{T},
     ξ_z::AbstractVector{T},
     ξ_s::AbstractVector{T},
+    work::AbstractVector{T}
 ) where {T}
 
-    _refine_ds_symmetric!(K,ds,ξ_z,ξ_s);
+    _refine_ds_symmetric!(K,ds,ξ_z,ξ_s,work)
 
     return nothing
 end

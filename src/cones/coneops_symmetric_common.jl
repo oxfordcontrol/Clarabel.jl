@@ -52,22 +52,17 @@ end
 end
 
 # out = λ ∘ (W ξ_z + W^{-T} ξ_s)
-@inline function _refine_ds_symmetric!(
+function _refine_ds_symmetric!(
     K::Union{NonnegativeCone{T},SecondOrderCone{T},PSDTriangleCone{T}},
     ds::AbstractVector{T},
     ξ_z::AbstractVector{T},
     ξ_s::AbstractVector{T},
+    work::AbstractVector{T},
 ) where {T}
 
-    mul_W!(K,:N,ds,ξ_z,one(T),zero(T))
-    mul_Winv!(K,:T,ds,ξ_s,one(T),one(T))
-
-    #PJG: TESTING.   PROBLEM FOR PSD HERE MAYBE
-
-    #was using "Work" here, but giving ds twice seems 
-    #to work as well.   Probably would fail in Rust though
-    #and needs a workspace.  Also for SDP.
-    λ_circ_op!(K,ds,ds) 
+    mul_W!(K,:N,work,ξ_z,one(T),zero(T))
+    mul_Winv!(K,:T,work,ξ_s,one(T),one(T))
+    λ_circ_op!(K,ds,work) 
 
 
 end
