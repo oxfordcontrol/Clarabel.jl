@@ -144,12 +144,8 @@ function _debug_check_residuals(
 
     # manually check (44a)
     row1 = dx - data.P*lhs.x - data.A'*lhs.z - data.q*lhs.τ 
-    row2 = dz.vec + data.A*lhs.x #+ lhs.s - data.b*lhs.τ 
+    row2 = dz.vec + data.A*lhs.x + lhs.s - data.b*lhs.τ 
 
-    println("debug check norm Ax = ", norm(data.A*lhs.x))
-    println("debug check norm dz = ", norm(dz.vec))
-    println("debug check norm Ax + dz = ", norm(row2))
-    println("debug check norm Ax + dz = ", norm(data.A*lhs.x + 0.5*dz.vec))
 
     row3 = dτ + lhs.κ + (data.q + 2*data.P*ξ)'*lhs.x + dot(data.b,lhs.z) - ξ'*data.P*ξ*lhs.τ
     
@@ -162,11 +158,11 @@ function _debug_check_residuals(
 
 
 
-    println("(44a) errors: row 1 = ", norm(row1))
-    println("(44a) errors: row 2 = ", norm(row2))
-    println("(44a) errors: row 3 = ", norm(row3))
-    println("(44a) errors: row 4 = ", norm(row4))
-    println("(44a) errors: row 5 = ", norm(row5))
+    # println("(44a) errors: row 1 = ", norm(row1))
+    # println("(44a) errors: row 2 = ", norm(row2))
+    # println("(44a) errors: row 3 = ", norm(row3))
+    # println("(44a) errors: row 4 = ", norm(row4))
+    # println("(44a) errors: row 5 = ", norm(row5))
 
 
     # ξ = variables.x / variables.τ
@@ -185,52 +181,61 @@ function kkt_solve!(
     steptype::Symbol   #:affine or :combined
 ) where{T}
 
-    b = deepcopy(rhs); negate!(b)
-    rhscopy = deepcopy(rhs)
     dx = deepcopy(lhs)
+    e = deepcopy(lhs)
 
     is_success = kkt_solve_inner!(kktsystem,lhs,rhs,data,variables,cones,steptype)
 
-    _debug_check_residuals(    
-        kktsystem,lhs,rhscopy,data,variables,cones) 
+    #println("\n----IR start -----\n")
 
-    dz = deepcopy(rhs.z)
-    dτ = deepcopy(rhs.τ)
+
+   # _debug_check_residuals(    
+   #     kktsystem,lhs,rhscopy,data,variables,cones) 
+
 
     #compute the error residual 
 
-    for i in 1:1
+    for i in 1:3
 
-        e = deepcopy(lhs)
-
-        variables_refine_step_rhs!(e,deepcopy(lhs),variables,data,cones)
+        variables_refine_step_rhs!(e,lhs,variables,data,cones)
 
         # println("$i: norm(Ax)_x = ", norm(e.x))
         # println("$i: norm(b)_x = ", norm(rhs.x))
 
         #e = b - Ax (???)
-        e.x .=  b.x - e.x
-        e.z .=  b.z - e.z 
-        println("check b.z = ", norm(b.z))
-        e.s .=  b.s - e.s  #PJG: wrong
-        e.τ  =  b.τ - e.τ
-        e.κ  =  b.κ - e.κ 
+        e.x .=  (-rhs.x - e.x)
+        e.z .=  (-rhs.z - e.z) 
+        e.s .=  (-rhs.s - e.s)
+        e.τ  =  (-rhs.τ - e.τ)
+        e.κ  =  (-rhs.κ - e.κ) 
 
-        println("$i: ex residual = ", norm(e.x))
-        println("$i: ez residual = ", norm(e.z))
-        println("$i: eτ residual = ", norm(e.τ))
-        println("$i: es residual = ", norm(e.s))
-        println("$i: eκ residual = ", norm(e.κ))
+        # println("$i: ex residual = ", norm(e.x))
+        # println("$i: ez residual = ", norm(e.z))
+        # println("$i: eτ residual = ", norm(e.τ))
+        # println("$i: es residual = ", norm(e.s))
+        # println("$i: eκ residual = ", norm(e.κ))
+        #println("$i: e total = ", variables_norm(e))
 
-        # is_success = kkt_solve_inner!(kktsystem,dx,e,data,variables,cones,steptype)
+        is_success = kkt_solve_inner!(kktsystem,dx,e,data,variables,cones,:refine)
 
-        # lhs.x .+=  dx.x
-        # lhs.z .+=  dx.z 
-        # lhs.s .+=  dx.s
-        # lhs.τ +=  dx.τ
-        # lhs.κ +=  dx.κ 
+        lhs.x .-=  dx.x
+        lhs.z .-=  dx.z 
+        lhs.s .-=  dx.s
+        lhs.τ -=  dx.τ
+        lhs.κ -=  dx.κ 
+
+        # println("$i: dx correction = ", norm(dx.x))
+        # println("$i: dz correction = ", norm(dx.z))
+        # println("$i: dτ correction = ", norm(dx.τ))
+        # println("$i: ds correction = ", norm(dx.s))
+        # println("$i: dκ correction = ", norm(dx.κ))
+
+       # _debug_check_residuals(    
+        #    kktsystem,lhs,rhscopy,data,variables,cones) 
 
     end
+
+    #println("\n----IR done -----\n")
 
 
     # we don't check the validity of anything
@@ -265,6 +270,9 @@ function kkt_solve_inner!(
 
     if steptype == :affine
         @. Δs_const_term = variables.s
+
+    elseif steptype == :refine 
+        @. Δs_const_term .= zero(T)
 
     else  #:combined expected, but any general RHS should do this
         #we can use the overall LHS output as additional workspace for the moment
