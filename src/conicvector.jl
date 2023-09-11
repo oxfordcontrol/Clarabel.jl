@@ -94,3 +94,6 @@ LinearAlgebra.mul!(
     C::AbstractVector,
     A::Adjoint{<:Any, <:AbstractVecOrMat},
     B::ConicVector, α::Number, β::Number) = mul!(C, A, B.vec, α, β)
+
+LinearAlgebra.norm(x::ConicVector{T}) where {T} = norm(x.vec)
+LinearAlgebra.norm(x::ConicVector{T},p::Real) where {T} = norm(x.vec,p)
