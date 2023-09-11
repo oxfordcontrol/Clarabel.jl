@@ -174,6 +174,19 @@ function affine_ds!(
     return nothing
 end
 
+# returns x = λ ∘ λ for the socone
+function refine_ds!(
+    K::SecondOrderCone{T},
+    ds::AbstractVector{T},
+    ξ_z::AbstractVector{T},
+    ξ_s::AbstractVector{T},
+) where {T}
+
+    _refine_ds_symmetric!(K,ds,ξ_z,ξ_s);
+
+    return nothing
+end
+
 function combined_ds_shift!(
     K::SecondOrderCone{T},
     shift::AbstractVector{T},
@@ -300,6 +313,19 @@ function λ_inv_circ_op!(
     inv_circ_op!(K, x, K.λ, z)
 
 end
+
+# implements x = λ ∘ z for the socone, where λ
+# is the internally maintained scaling variable.
+function λ_circ_op!(
+    K::SecondOrderCone{T},
+    x::AbstractVector{T},
+    z::AbstractVector{T}
+) where {T}
+
+    circ_op!(K, x, K.λ, z)
+
+end
+
 
 # ---------------------------------------------
 # Jordan algebra operations for symmetric cones 

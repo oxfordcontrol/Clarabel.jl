@@ -50,3 +50,24 @@ end
     mul_W!(K,:T,out,work,one(T),zero(T))
 
 end
+
+# out = λ ∘ (W ξ_z + W^{-T} ξ_s)
+@inline function _refine_ds_symmetric!(
+    K::Union{NonnegativeCone{T},SecondOrderCone{T},PSDTriangleCone{T}},
+    ds::AbstractVector{T},
+    ξ_z::AbstractVector{T},
+    ξ_s::AbstractVector{T},
+) where {T}
+
+
+    #PJG: TESTING.   ALLOCS HERE
+
+    mul_W!(K,:N,ds,ξ_z,one(T),zero(T))
+    mul_Winv!(K,:T,ds,ξ_s,one(T),one(T))
+    work = deepcopy(ds)
+
+    λ_circ_op!(K,ds,work) 
+
+
+
+end
