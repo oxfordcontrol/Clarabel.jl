@@ -128,7 +128,7 @@ function affine_ds!(
 end
 
 function refine_ds!(
-    K::NonnegativeCone{T},
+    K::ExponentialCone{T},
     ds::AbstractVector{T},
     ξ_z::AbstractVector{T},
     ξ_s::AbstractVector{T},
