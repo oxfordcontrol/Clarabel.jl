@@ -127,6 +127,21 @@ function affine_ds!(
 
 end
 
+function refine_ds!(
+    K::NonnegativeCone{T},
+    ds::AbstractVector{T},
+    ξ_z::AbstractVector{T},
+    ξ_s::AbstractVector{T},
+    work::AbstractVector{T}
+) where {T}
+
+    #PJG: temp for testing 
+    warning("refine_ds! not implemented for exponential cone")
+    ds .= zero(T)
+
+    return nothing
+end
+
 function combined_ds_shift!(
     K::ExponentialCone{T},
     shift::AbstractVector{T},
