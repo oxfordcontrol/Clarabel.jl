@@ -117,31 +117,32 @@ function update_scaling!(
     #λ = Wz
     mul_W!(K,:N,K.λ,z,one(T),zero(T))
 
-    #The remainder are sparse calcs 
-    if isnothing(K.sparse_data)
-        return is_scaling_success = true
-    end
+    sparse_data = K.sparse_data
 
-    #various intermediate calcs for u,v,d
-    α  = 2*w[1]
-
-    #Scalar d is the upper LH corner of the diagonal
-    #term in the rank-2 update form of W^TW
-    wsqinv = 1/wsq
-    K.sparse_data.d    = wsqinv / 2
-
-    #the vectors for the rank two update
-    #representation of W^TW
-    u0  = sqrt(wsq - K.sparse_data.d)
-    u1 = α/u0
-    v0 = zero(T)
-    v1 = sqrt( 2*(2 + wsqinv)/(2*wsq - wsqinv))
+    #Populate sparse expansion terms if allocated
     
-    K.sparse_data.u[1] = u0
-    @views K.sparse_data.u[2:end] .= u1.*K.w[2:end]
-    K.sparse_data.v[1] = v0
-    @views K.sparse_data.v[2:end] .= v1.*K.w[2:end]
+    if !isnothing(sparse_data)
+        #various intermediate calcs for u,v,d
+        α  = 2*w[1]
 
+        #Scalar d is the upper LH corner of the diagonal
+        #term in the rank-2 update form of W^TW
+        wsqinv = 1/wsq
+        sparse_data.d    = wsqinv / 2
+
+        #the vectors for the rank two update
+        #representation of W^TW
+        u0  = sqrt(wsq - sparse_data.d)
+        u1 = α/u0
+        v0 = zero(T)
+        v1 = sqrt( 2*(2 + wsqinv)/(2*wsq - wsqinv))
+        
+        sparse_data.u[1] = u0
+        @views K.sparse_data.u[2:end] .= u1.*w[2:end]
+        sparse_data.v[1] = v0
+        @views sparse_data.v[2:end] .= v1.*w[2:end]
+
+    end 
 
     return is_scaling_success = true
 end
