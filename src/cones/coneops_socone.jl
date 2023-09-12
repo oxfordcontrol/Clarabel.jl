@@ -151,32 +151,37 @@ function get_Hs!(
     Hsblock::AbstractVector{T}
 ) where {T}
 
-    #NB: we are returning here the diagonal D block from the
-    #sparse representation of W^TW, but not the
-    #extra two entries at the bottom right of the block.
-    #The ConicVector for s and z (and its views) don't
-    #know anything about the 2 extra sparsifying entries
     if is_sparse_expanded(K)
+        #For sparse form, we are returning here the diagonal D block 
+        #from the sparse representation of W^TW, but not the
+        #extra two entries at the bottom right of the block.
+        #The ConicVector for s and z (and its views) don't
+        #know anything about the 2 extra sparsifying entries
         Hsblock    .= K.η^2
         Hsblock[1] *= K.sparse_data.d
+    
     else 
-        #This is totally hacktastic 
-        
-        w0 = K.w[1]
-        w1 = K.w[2:end]
-        w = K.w
-        W = K.η .* [w0 w1'; w1  (I + (1/(1+w0))*w1*w1')]
+        #for dense form, we return H = \eta^2 (2*ww^T - J), where 
+        #J = diag(1,-I).  We are packing into dense triu form
 
-        J = -I(length(w))
-        J[1,1] = 1.
+        Hsblock[1] = 2*K.w[1]^2 - 1
+        hidx = 2
 
-        H = K.η^2 .* (2*w*w' - J)
-
-        mask = triu(trues(size(H)))
-        Hsblock .= H[:][mask[:]]
+        @inbounds for col in 2:K.dim
+            wcol = K.w[col]
+            @inbounds for row in 1:col 
+                Hsblock[hidx] = 2*K.w[row]*wcol
+                hidx += 1
+            end 
+            #go back to add the offset term from J 
+            Hsblock[hidx-1] += 1
+        end
+        Hsblock .*= K.η^2
     end
 
     return nothing
+
+    
 end
 
 #All cones have diagonal Hs blocks #unless specifically overridden

@@ -99,14 +99,14 @@ mutable struct SecondOrderCone{T} <: AbstractSparseCone{T}
 
     function SecondOrderCone{T}(dim::Integer) where {T}
 
-        SPARSE_SIZE_THRESHOLD = 3
+        SOC_NO_EXPANSION_MAX_SIZE = 4
 
         dim >= 2 ? new(dim) : throw(DomainError(dim, "dimension must be >= 2"))
         w = zeros(T,dim)
         λ = zeros(T,dim)
         η = zero(T)
 
-        if dim > SPARSE_SIZE_THRESHOLD
+        if dim > SOC_NO_EXPANSION_MAX_SIZE
             sparse_data = SecondOrderConeSparseData{T}(dim)
         else
             sparse_data = nothing
