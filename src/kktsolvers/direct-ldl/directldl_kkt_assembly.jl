@@ -95,7 +95,7 @@ function _kkt_assemble_colcounts(
         end
 
         #add sparse expansions columns for sparse cones 
-        if isa(cone,AbstractSparseCone)
+        if isa(cone,AbstractSparseCone) && is_sparse_expanded(cone)
             thismap = popfirst!(sparse_map_iter)
             _csc_colcount_sparsecone(cone,thismap,K,row,pcol,shape)
             pcol += pdim(thismap) #next sparse column to fill 
@@ -149,7 +149,7 @@ function _kkt_assemble_fill(
         end
 
         #add sparse expansions columns for sparse cones 
-        if isa(cone,AbstractSparseCone)
+        if isa(cone,AbstractSparseCone) && is_sparse_expanded(cone)
             thismap = popfirst!(sparse_map_iter)
             _csc_fill_sparsecone(cone,thismap,K,row,pcol,shape)
             pcol += pdim(thismap) #next sparse column to fill 

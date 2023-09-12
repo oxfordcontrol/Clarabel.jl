@@ -68,8 +68,8 @@ function _csc_update_sparsecone(
     η2 = cone.η^2
 
     #off diagonal columns (or rows)
-    updateFcn(map.u,cone.u)
-    updateFcn(map.v,cone.v)
+    updateFcn(map.u,cone.sparse_data.u)
+    updateFcn(map.v,cone.sparse_data.v)
     scaleFcn(map.u,-η2)
     scaleFcn(map.v,-η2)
 
@@ -202,7 +202,7 @@ struct LDLDataMap
         sizehint!(sparse_maps,nsparse)
 
         for cone in cones
-            if isa(cone,AbstractSparseCone)
+            if isa(cone,AbstractSparseCone) && is_sparse_expanded(cone)
                 push!(sparse_maps,expansion_map(cone))
             end
         end

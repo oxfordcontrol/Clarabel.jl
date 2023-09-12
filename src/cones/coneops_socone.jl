@@ -6,6 +6,10 @@
 degree(K::SecondOrderCone{T}) where {T} = 1
 numel(K::SecondOrderCone{T}) where {T} = K.dim
 
+function is_sparse_expanded(K::SecondOrderCone)
+    return !isnothing(K.sparse_data)
+end
+
 function margins(
     K::SecondOrderCone{T},
     z::AbstractVector{T},
@@ -54,11 +58,16 @@ function set_identity_scaling!(
     K::SecondOrderCone{T}
 ) where {T}
 
-    K.d  = one(T)
-    K.u .= zero(T)
-    K.v .= zero(T)
-    K.η  = one(T)
     K.w .= zero(T)
+    K.w[1] = one(T)
+    K.η  = one(T)
+
+    if !isnothing(K.sparse_data)
+        K.sparse_data.d  = T(0.5)
+        K.sparse_data.u .= zero(T)
+        K.sparse_data.u[1] = sqrt(T(0.5))
+        K.sparse_data.v .= zero(T)
+    end 
 
     return nothing
 end
@@ -91,6 +100,9 @@ function update_scaling!(
 
     wscale = _sqrt_soc_residual(w)
 
+    #the leading scalar term for W^TW
+    K.η = sqrt(sscale/zscale)
+
     # Fail if w is not an interior point
     if iszero(wscale)
         return is_scaling_success = false
@@ -102,31 +114,34 @@ function update_scaling!(
     w[1] = sqrt(1 + w1sq)
     wsq    = w[1]*w[1] + w1sq
 
-    #various intermediate calcs for u,v,d,η
+    #λ = Wz
+    mul_W!(K,:N,K.λ,z,one(T),zero(T))
+
+    #The remainder are sparse calcs 
+    if isnothing(K.sparse_data)
+        return is_scaling_success = true
+    end
+
+    #various intermediate calcs for u,v,d
     α  = 2*w[1]
 
     #Scalar d is the upper LH corner of the diagonal
     #term in the rank-2 update form of W^TW
     wsqinv = 1/wsq
-    K.d    = wsqinv / 2
-
-    #the leading scalar term for W^TW
-    K.η = sqrt(sscale/zscale)
+    K.sparse_data.d    = wsqinv / 2
 
     #the vectors for the rank two update
     #representation of W^TW
-    u0  = sqrt(wsq - K.d)
+    u0  = sqrt(wsq - K.sparse_data.d)
     u1 = α/u0
     v0 = zero(T)
     v1 = sqrt( 2*(2 + wsqinv)/(2*wsq - wsqinv))
     
-    K.u[1] = u0
-    @views K.u[2:end] .= u1.*K.w[2:end]
-    K.v[1] = v0
-    @views K.v[2:end] .= v1.*K.w[2:end]
+    K.sparse_data.u[1] = u0
+    @views K.sparse_data.u[2:end] .= u1.*K.w[2:end]
+    K.sparse_data.v[1] = v0
+    @views K.sparse_data.v[2:end] .= v1.*K.w[2:end]
 
-    #λ = Wz
-    mul_W!(K,:N,K.λ,z,one(T),zero(T))
 
     return is_scaling_success = true
 end
@@ -141,11 +156,34 @@ function get_Hs!(
     #extra two entries at the bottom right of the block.
     #The ConicVector for s and z (and its views) don't
     #know anything about the 2 extra sparsifying entries
+    if is_sparse_expanded(K)
+        Hsblock    .= K.η^2
+        Hsblock[1] *= K.sparse_data.d
+    else 
+        #This is totally hacktastic 
+        
+        w0 = K.w[1]
+        w1 = K.w[2:end]
+        w = K.w
+        W = K.η .* [w0 w1'; w1  (I + (1/(1+w0))*w1*w1')]
 
-    Hsblock    .= (K.η^2)
-    Hsblock[1] *= K.d
+        J = -I(length(w))
+        J[1,1] = 1.
+
+        H = K.η^2 .* (2*w*w' - J)
+
+        mask = triu(trues(size(H)))
+        Hsblock .= H[:][mask[:]]
+    end
 
     return nothing
+end
+
+#All cones have diagonal Hs blocks #unless specifically overridden
+function Hs_is_diagonal(
+    K::SecondOrderCone{T}
+) where{T}
+    return is_sparse_expanded(K)
 end
 
 # compute the product y = WᵀWx

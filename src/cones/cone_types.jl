@@ -71,10 +71,14 @@ mutable struct SecondOrderConeSparseData{T}
 
     #additional scalar terms for rank-2 rep
     d::T
-    η::T
 
     function SecondOrderConeSparseData{T}(dim::Int) where {T}
-        return new(u,v,d,η)
+
+        u = zeros(T,dim)
+        v = zeros(T,dim)
+        d = zero(T)
+
+        return new(u,v,d)
     end
 end
 
@@ -88,24 +92,27 @@ mutable struct SecondOrderCone{T} <: AbstractSparseCone{T}
     #scaled version of (s,z)
     λ::Vector{T}
 
+    η::T
+
     #sparse representation of W^2
     sparse_data::Union{Nothing,SecondOrderConeSparseData{T}}
 
     function SecondOrderCone{T}(dim::Integer) where {T}
 
-        SPARSE_SIZE_THRESHOLD = 1
+        SPARSE_SIZE_THRESHOLD = 3
 
         dim >= 2 ? new(dim) : throw(DomainError(dim, "dimension must be >= 2"))
         w = zeros(T,dim)
         λ = zeros(T,dim)
+        η = zero(T)
 
-        if dim <= SPARSE_SIZE_THRESHOLD
+        if dim > SPARSE_SIZE_THRESHOLD
             sparse_data = SecondOrderConeSparseData{T}(dim)
         else
             sparse_data = nothing
         end
 
-        return new(dim,w,λ,sparse_data)
+        return new(dim,w,λ,η,sparse_data)
     end
 
 end
