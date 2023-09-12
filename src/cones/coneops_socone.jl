@@ -112,7 +112,6 @@ function update_scaling!(
     #try to force badly scaled w to come out normalized
     @views w1sq = sumsq(w[2:end])
     w[1] = sqrt(1 + w1sq)
-    wsq    = w[1]*w[1] + w1sq
 
     #λ = Wz
     mul_W!(K,:N,K.λ,z,one(T),zero(T))
@@ -120,13 +119,14 @@ function update_scaling!(
     sparse_data = K.sparse_data
 
     #Populate sparse expansion terms if allocated
-    
+
     if !isnothing(sparse_data)
         #various intermediate calcs for u,v,d
         α  = 2*w[1]
 
         #Scalar d is the upper LH corner of the diagonal
         #term in the rank-2 update form of W^TW
+        wsq    = w[1]*w[1] + w1sq
         wsqinv = 1/wsq
         sparse_data.d    = wsqinv / 2
 
@@ -165,7 +165,7 @@ function get_Hs!(
         #for dense form, we return H = \eta^2 (2*ww^T - J), where 
         #J = diag(1,-I).  We are packing into dense triu form
 
-        Hsblock[1] = 2*K.w[1]^2 - 1
+        Hsblock[1] = 2*K.w[1]^2 - one(T)
         hidx = 2
 
         @inbounds for col in 2:K.dim
