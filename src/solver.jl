@@ -391,16 +391,15 @@ function solver_backtrack_step_to_barrier(
     s::Solver{T}, αinit::T
 ) where {T}
 
-    backtrack = s.settings.linesearch_backtrack_step
+    step = s.settings.linesearch_backtrack_step
     α = αinit
 
     for j = 1:50
         barrier = variables_barrier(s.variables,s.step_lhs,α,s.cones)
-        # println("barrier is: ", barrier)
         if barrier < one(T)
             return α
         else
-            α = backtrack*α   #backtrack line search
+            α = step*α   #backtrack line search
         end
     end
 

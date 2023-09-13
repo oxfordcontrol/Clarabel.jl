@@ -45,9 +45,7 @@ struct GenPowerConeT <: SupportedCone
         new(copy(α), dim2)
     end
 end
-dim1(cone::GenPowerConeT) = length(cone.α)
-dim2(cone::GenPowerConeT) = cone.dim2
-dim(cone::GenPowerConeT) = (dim1(cone) + dim2(cone))
+
 struct ExponentialConeT <: SupportedCone
     #no fields, #dim = 3 always
 end
@@ -69,7 +67,7 @@ function nvars(cone:: SupportedCone)
     elseif isa(cone, PowerConeT)
         3
     elseif isa(cone, GenPowerConeT)
-        dim1(cone) + dim2(cone)
+        length(cone.α) + cone.dim2
     else
         cone.dim
     end

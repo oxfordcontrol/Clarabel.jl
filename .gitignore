@@ -5,6 +5,7 @@ _*.jl
 *.cov
 .DS_Store*
 .vscode
+statprof
 
 # Pkg generated files
 Manifest.toml
