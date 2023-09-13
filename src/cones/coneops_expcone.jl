@@ -135,8 +135,10 @@ function combined_ds_shift!(
     σμ::T
 ) where {T}
 
+    η = similar(K.grad); η .= zero(T)
+
     #3rd order correction requires input variables z
-    η = higher_correction!(K,step_s,step_z)             
+    higher_correction!(K,η,step_s,step_z)             
 
     @inbounds for i = 1:3
         shift[i] = K.grad[i]*σμ - η[i]
@@ -171,15 +173,15 @@ function step_length(
      αmax::T
 ) where {T}
 
-    backtrack = settings.linesearch_backtrack_step
-    αmin      = settings.min_terminate_step_length
-    work      = similar(K.grad); work .= zero(T)
+    step = settings.linesearch_backtrack_step
+    αmin = settings.min_terminate_step_length
+    work = similar(K.grad); work .= zero(T)
 
     is_prim_feasible_fcn = s -> is_primal_feasible(K,s)
     is_dual_feasible_fcn = s -> is_dual_feasible(K,s)
     
-    αz = backtrack_search(K, dz, z, αmax, αmin,  backtrack, is_dual_feasible_fcn, work)
-    αs = backtrack_search(K, ds, s, αmax, αmin,  backtrack, is_prim_feasible_fcn, work)
+    αz = backtrack_search(K, dz, z, αmax, αmin, step, is_dual_feasible_fcn, work)
+    αs = backtrack_search(K, ds, s, αmax, αmin, step, is_prim_feasible_fcn, work)
 
     return (αz,αs)
 end
@@ -316,6 +318,7 @@ end
 
 function higher_correction!(
     K::ExponentialCone{T},
+    η::AbstractVector{T},
     ds::AbstractVector{T},
     v::AbstractVector{T}
 ) where {T}
@@ -333,7 +336,6 @@ function higher_correction!(
         return SVector(zero(T),zero(T),zero(T))
     end
     
-    η = similar(K.grad); η .= zero(T)
     η[2] = one(T)
     η[3] = -z[1]/z[3]    # gradient of ψ
     η[1] = logsafe(η[3])

@@ -8,7 +8,7 @@ function backtrack_search(
     q::AbstractVector{T},
     α_init::T,
     α_min::T,
-    backtrack::T,
+    step::T,
     is_in_cone_fcn::Function,
     work::Union{AbstractVector{T},NTuple{3,T}},
 ) where {T}
@@ -25,7 +25,7 @@ function backtrack_search(
         if is_in_cone_fcn(wq)
             break
         end
-        if (α *= backtrack) < α_min
+        if (α *= step) < α_min
             α = zero(T)
             break
         end

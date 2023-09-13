@@ -150,7 +150,8 @@ function combined_ds_shift!(
     #YC: No 3rd order correction at present
 
     # #3rd order correction requires input variables z
-    # η = higher_correction!(K,step_s,step_z)     
+    # and an allocated vector for the correction η
+    # higher_correction!(K,η,step_s,step_z)     
 
     @inbounds for i = 1:Clarabel.dim(K)
         shift[i] = K.data.grad[i]*σμ # - η[i]
@@ -237,48 +238,6 @@ end
 # and stores the result at g
 
 
-@inline function barrier_dual(
-    K::GenPowerCone{T},
-    z::AbstractVector{T}, 
-) where {T}
-
-    # Dual barrier
-    α = K.α
-
-    res = zero(T)
-    @inbounds for i = 1:dim1(K)
-        res += 2*α[i]*logsafe(z[i]/α[i])
-    end
-    res = exp(res) - dot(z[dim1(K)+1:end],z[dim1(K)+1:end])
-    barrier = -logsafe(res) 
-    @inbounds for i = 1:dim1(K)
-        barrier -= (one(T)-α[i])*logsafe(z[i])
-    end
-
-    return barrier
-
-end
-
-@inline function barrier_primal(
-    K::GenPowerCone{T},
-    s::AbstractVector{T}, 
-) where {T}
-
-    # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
-    # NB: ⟨s,g(s)⟩ = -(dim1(K)+1) = - ν
-
-    # can't use "work" here because it was already
-    # used to construct the argument s in some cases
-    g = K.data.work_pb
-
-    gradient_primal!(K,g,s)      
-    g .= -g                 #-g(s)
-
-    return -barrier_dual(K,g) - degree(K)
-end 
-
-
-
 # Returns true if s is primal feasible
 function is_primal_feasible(
     K::GenPowerCone{T},
@@ -325,42 +284,47 @@ function is_dual_feasible(
     return false
 end
 
-# Compute the primal gradient of f(s) at s
-# solve it by the Newton-Raphson method
-function gradient_primal!(
+@inline function barrier_primal(
     K::GenPowerCone{T},
-    g::AbstractVector{T},
-    s::AbstractVector{T},
+    s::AbstractVector{T}, 
 ) where {T}
 
+    # Primal barrier: f(s) = ⟨s,g(s)⟩ - f*(-g(s))
+    # NB: ⟨s,g(s)⟩ = -(dim1(K)+1) = - ν
+
+    # can't use "work" here because it was already
+    # used to construct the argument s in some cases
+    g = K.data.work_pb
+
+    gradient_primal!(K,g,s)      
+    g .= -g                 #-g(s)
+
+    return -barrier_dual(K,g) - degree(K)
+end 
+
+
+@inline function barrier_dual(
+    K::GenPowerCone{T},
+    z::AbstractVector{T}, 
+) where {T}
+
+    # Dual barrier
     α = K.α
-    data = K.data
 
-    # unscaled phi
-    phi = one(T)
+    res = zero(T)
     @inbounds for i = 1:dim1(K)
-        phi *= s[i]^(2*α[i])
+        res += 2*α[i]*logsafe(z[i]/α[i])
+    end
+    res = exp(res) - dot(z[dim1(K)+1:end],z[dim1(K)+1:end])
+    barrier = -logsafe(res) 
+    @inbounds for i = 1:dim1(K)
+        barrier -= (one(T)-α[i])*logsafe(z[i])
     end
 
+    return barrier
 
-    # obtain g1 from the Newton-Raphson method
-    p = @view s[1:dim1(K)]
-    r = @view s[dim1(K)+1:end]
-    gp = @view g[1:dim1(K)]
-    gr = @view g[dim1(K)+1:end]
-    norm_r = norm(r)
-
-    if norm_r > eps(T)
-        g1 = _newton_raphson_genpowcone(norm_r,p,phi,α,data.ψ)
-        @. gr = g1*r/norm_r
-        @. gp = -(1+α+α*g1*norm_r)/p
-    else
-        @. gr = zero(T)
-        @. gp = -(1+α)/p
-    end
-
-    return nothing
 end
+
 
 # update gradient and Hessian at dual z = (u,w)
 function update_dual_grad_H(
@@ -417,6 +381,45 @@ function update_dual_grad_H(
 
 end
 
+# Compute the primal gradient of f(s) at s
+# solve it by the Newton-Raphson method
+function gradient_primal!(
+    K::GenPowerCone{T},
+    g::AbstractVector{T},
+    s::AbstractVector{T},
+) where {T}
+
+    α = K.α
+    data = K.data
+
+    # unscaled phi
+    phi = one(T)
+    @inbounds for i = 1:dim1(K)
+        phi *= s[i]^(2*α[i])
+    end
+
+
+    # obtain g1 from the Newton-Raphson method
+    p = @view s[1:dim1(K)]
+    r = @view s[dim1(K)+1:end]
+    gp = @view g[1:dim1(K)]
+    gr = @view g[dim1(K)+1:end]
+    norm_r = norm(r)
+
+    if norm_r > eps(T)
+        g1 = _newton_raphson_genpowcone(norm_r,p,phi,α,data.ψ)
+        @. gr = g1*r/norm_r
+        @. gp = -(1+α+α*g1*norm_r)/p
+    else
+        @. gr = zero(T)
+        @. gp = -(1+α)/p
+    end
+
+    return nothing
+end
+
+# ----------------------------------------------
+#  internal operations for generalized power cones
 
 # Newton-Raphson method:
 # solve a one-dimensional equation f(x) = 0

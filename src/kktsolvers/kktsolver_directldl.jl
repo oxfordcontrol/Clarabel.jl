@@ -45,11 +45,11 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
     function DirectLDLKKTSolver{T}(P,A,cones,m,n,settings) where {T}
 
-        #which LDL solver should I use?
-        ldlsolverT = _get_ldlsolver_type(settings.direct_solve_method)
+        # get a constructor for the LDL solver we should use,
+        # and also the matrix shape it requires
+        (kktshape, ldlsolverT) = _get_ldlsolver_config(settings)
 
-        #does it want a :triu or :tril KKT matrix?
-        kktshape = required_matrix_shape(ldlsolverT)
+        #construct a KKT matrix of the right shape
         KKT, map = _assemble_kkt_matrix(P,A,cones,kktshape)
 
         #Need this many extra variables for sparse cones
@@ -95,6 +95,18 @@ function _get_ldlsolver_type(s::Symbol)
         throw(error("Unsupported direct LDL linear solver :", s))
     end
 end
+
+function _get_ldlsolver_config(settings::Settings)
+
+    #which LDL solver should I use?
+    ldlsolverT = _get_ldlsolver_type(settings.direct_solve_method)
+
+    #does it want a :triu or :tril KKT matrix?
+    kktshape = required_matrix_shape(ldlsolverT)
+
+    (kktshape,ldlsolverT)
+end 
+
 
 function _fill_Dsigns!(Dsigns,m,n,map)
 
@@ -299,7 +311,7 @@ function kktsolver_setrhs!(
 ) where {T}
 
     b = kktsolver.b
-    (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p,kktsolver)
+    (m,n,p) = (kktsolver.m,kktsolver.n,kktsolver.p)
 
     b[1:n]             .= rhsx
     b[(n+1):(n+m)]     .= rhsz

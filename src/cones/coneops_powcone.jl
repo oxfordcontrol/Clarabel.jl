@@ -136,9 +136,11 @@ function combined_ds_shift!(
     step_s::AbstractVector{T},
     σμ::T
 ) where {T}
-    
+
+    η = similar(K.grad); η .= zero(T)
+
     #3rd order correction requires input variables z
-    η = higher_correction!(K,step_s,step_z)     
+    higher_correction!(K, η, step_s,step_z)     
 
     @inbounds for i = 1:3
         shift[i] = K.grad[i]*σμ - η[i]
@@ -173,18 +175,17 @@ function step_length(
      αmax::T,
 ) where {T}
 
-    backtrack = settings.linesearch_backtrack_step
-    αmin      = settings.min_terminate_step_length
+    step = settings.linesearch_backtrack_step
+    αmin = settings.min_terminate_step_length
+    work = similar(K.grad); work .= zero(T)
 
     #need functions as closures to capture the power K.α
     #and use the same backtrack mechanism as the expcone
     is_prim_feasible_fcn = s -> is_primal_feasible(K,s,K.α)
     is_dual_feasible_fcn = s -> is_dual_feasible(K,s,K.α)
 
-    work = similar(K.grad); work .= zero(T)
-
-    αz = backtrack_search(K, dz, z, αmax, αmin, backtrack, is_dual_feasible_fcn, work)
-    αs = backtrack_search(K, ds, s, αmax, αmin, backtrack, is_prim_feasible_fcn, work)
+    αz = backtrack_search(K, dz, z, αmax, αmin, step, is_dual_feasible_fcn, work)
+    αs = backtrack_search(K, ds, s, αmax, αmin, step, is_prim_feasible_fcn, work)
 
     return (αz,αs)
 end
@@ -327,6 +328,7 @@ end
 #         0                       0                          -2;]
 function higher_correction!(
     K::PowerCone{T},
+    η::AbstractVector{T},
     ds::AbstractVector{T},
     v::AbstractVector{T}
 ) where {T}
@@ -352,7 +354,6 @@ function higher_correction!(
     # Reuse cholH memory for further computation
     Hψ = cholH
     
-    η = similar(K.grad); η .= zero(T)
     η[1] = 2*α*ϕ/z[1]
     η[2] = 2*(1-α)*ϕ/z[2]
     η[3] = -2*z[3]
