@@ -25,6 +25,7 @@ module Clarabel
 
     #cone type definitions
     include("./cones/cone_types.jl")
+    include("./cones/cone_dispatch.jl")
     include("./cones/compositecone_type.jl")
 
     #core solver components

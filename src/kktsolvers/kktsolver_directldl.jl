@@ -55,8 +55,6 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         #Need this many extra variables for sparse cones
         p = pdim(map.sparse_maps)
 
-        println("p dimension = $p")
-
         #LHS/RHS/work for iterative refinement
         x    = Vector{T}(undef,n+m+p)
         b    = Vector{T}(undef,n+m+p)
@@ -230,7 +228,7 @@ function _kktsolver_update_inner!(
 
     for cone in cones
         #add sparse expansions columns for sparse cones 
-        if isa(cone,AbstractSparseCone) && is_sparse_expanded(cone)
+        if @conedispatch is_sparse_expandable(cone)
             thismap = popfirst!(sparse_map_iter)
             _csc_update_sparsecone(cone,thismap,updateFcn,scaleFcn)
         end 

@@ -3,7 +3,6 @@ using StaticArrays
 # abstract type defs
 # -------------------------------------
 abstract type AbstractCone{T <: AbstractFloat} end
-abstract type AbstractSparseCone{T} <: AbstractCone{T} end
 
 #NB: this enum can't use Primal and Dual as its markers, 
 #since Dual is already used in the solve strategies.  Julia
@@ -82,7 +81,7 @@ mutable struct SecondOrderConeSparseData{T}
     end
 end
 
-mutable struct SecondOrderCone{T} <: AbstractSparseCone{T}
+mutable struct SecondOrderCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
 
@@ -101,7 +100,7 @@ mutable struct SecondOrderCone{T} <: AbstractSparseCone{T}
 
         SOC_NO_EXPANSION_MAX_SIZE = 4
 
-        dim >= 2 ? new(dim) : throw(DomainError(dim, "dimension must be >= 2"))
+        dim >= 2 || throw(DomainError(dim, "dimension must be >= 2"))
         w = zeros(T,dim)
         λ = zeros(T,dim)
         η = zero(T)
@@ -310,7 +309,7 @@ end
 
 
 # gradient and Hessian for the dual barrier function
-mutable struct GenPowerCone{T} <: AbstractSparseCone{T}
+mutable struct GenPowerCone{T} <: AbstractCone{T}
 
     α::Vector{T}            #vector of exponents.  length determines dim1
     dim2::DefaultInt        #dimension of w

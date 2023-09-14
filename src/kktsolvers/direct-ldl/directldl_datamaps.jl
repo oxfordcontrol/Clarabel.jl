@@ -122,11 +122,11 @@ function _csc_colcount_sparsecone(
 end
 
 function _csc_fill_sparsecone(
-    cone::GenPowerCone,
+    cone::GenPowerCone{T},
     map::GenPowExpansionMap,
-    K::SparseMatrixCSC,
+    K::SparseMatrixCSC{T},
     row::Int,col::Int,shape::Symbol
-)
+) where{T}
 
     dim1  = Clarabel.dim1(cone)
 
@@ -181,7 +181,7 @@ struct LDLDataMap
     diagP::Vector{Int}
     diag_full::Vector{Int}
 
-    function LDLDataMap(Pmat,Amat,cones)
+    function LDLDataMap(Pmat::SparseMatrixCSC{T},Amat::SparseMatrixCSC{T},cones) where{T}
 
         (m,n) = (size(Amat,1), size(Pmat,1))
         P = zeros(Int,nnz(Pmat))
@@ -197,12 +197,12 @@ struct LDLDataMap
         Hsblocks = _allocate_kkt_Hsblocks(Int, cones)
 
         #now do the sparse cone expansion pieces
-        nsparse = count(v->isa(v,AbstractSparseCone),cones)
+        nsparse = count(cone->(@conedispatch is_sparse_expandable(cone)),cones)
         sparse_maps = Vector{SparseExpansionMap}(); 
         sizehint!(sparse_maps,nsparse)
 
         for cone in cones
-            if isa(cone,AbstractSparseCone) && is_sparse_expanded(cone)
+            if @conedispatch is_sparse_expandable(cone) 
                 push!(sparse_maps,expansion_map(cone))
             end
         end

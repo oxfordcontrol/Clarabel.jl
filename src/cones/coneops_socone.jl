@@ -6,7 +6,7 @@
 degree(K::SecondOrderCone{T}) where {T} = 1
 numel(K::SecondOrderCone{T}) where {T} = K.dim
 
-function is_sparse_expanded(K::SecondOrderCone)
+function is_sparse_expandable(K::SecondOrderCone{T}) where{T}
     return !isnothing(K.sparse_data)
 end
 
@@ -89,6 +89,9 @@ function update_scaling!(
         return is_scaling_success = false
     end
 
+    #the leading scalar term for W^TW
+    K.η = sqrt(sscale/zscale)
+
     # construct w and normalize
     w = K.w
     w     .= s./(sscale)
@@ -99,10 +102,6 @@ function update_scaling!(
     end
 
     wscale = _sqrt_soc_residual(w)
-
-    #the leading scalar term for W^TW
-    K.η = sqrt(sscale/zscale)
-
     # Fail if w is not an interior point
     if iszero(wscale)
         return is_scaling_success = false
@@ -152,7 +151,7 @@ function get_Hs!(
     Hsblock::AbstractVector{T}
 ) where {T}
 
-    if is_sparse_expanded(K)
+    if is_sparse_expandable(K)
         #For sparse form, we are returning here the diagonal D block 
         #from the sparse representation of W^TW, but not the
         #extra two entries at the bottom right of the block.
@@ -175,7 +174,7 @@ function get_Hs!(
                 hidx += 1
             end 
             #go back to add the offset term from J 
-            Hsblock[hidx-1] += 1
+            Hsblock[hidx-1] += one(T)
         end
         Hsblock .*= K.η^2
     end
@@ -185,11 +184,10 @@ function get_Hs!(
     
 end
 
-#All cones have diagonal Hs blocks #unless specifically overridden
 function Hs_is_diagonal(
     K::SecondOrderCone{T}
 ) where{T}
-    return is_sparse_expanded(K)
+    return is_sparse_expandable(K)
 end
 
 # compute the product y = WᵀWx
