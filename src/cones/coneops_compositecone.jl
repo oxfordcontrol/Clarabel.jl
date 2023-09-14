@@ -12,6 +12,14 @@ function is_symmetric(cones::CompositeCone{T}) where {T}
     return cones._is_symmetric
 end
 
+function is_sparse_expandable(cones::CompositeCone{T}) where {T}
+    
+    #This should probably never be called
+    #any(is_sparse_expandable, cones)
+    ErrorException("This function should not be reachable")
+    
+end
+
 function allows_primal_dual_scaling(cones::CompositeCone{T}) where {T}
     all(allows_primal_dual_scaling, cones)
 end
