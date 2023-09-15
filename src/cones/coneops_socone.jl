@@ -119,10 +119,12 @@ function update_scaling!(
     ϕ = sqrt(sscale*zscale)
     γ = 0.5 * wscale
     K.λ[1] = γ 
-    K.λ[2:end] .= (γ + z[1]/zscale)*s[2:end]/sscale + (γ + s[1]/sscale)*z[2:end]/zscale 
+    s1 = @view s[2:end];
+    z1 = @view z[2:end];
+    λ1 = @view K.λ[2:end];
+    λ1 .= ((γ + z[1]/zscale)/sscale).*s1 +((γ + s[1]/sscale)/zscale).*z1 
     K.λ[2:end] *= inv(s[1]/sscale + z[1]/zscale + 2*γ)
     K.λ .*= ϕ 
-
     #DEBUG ALTERNATIVE λ
     #--------------------
 
@@ -212,10 +214,10 @@ function mul_Hs!(
     #mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
     #mul_W!(K,:T,y,work,one(T),zero(T))    #y = c Wᵀwork = W^TWx
 
-    ξ = dot(K.w,x)
+    c = 2*dot(K.w,x)
     y .= x
     y[1] = -x[1]
-    y .+= 2*ξ*K.w
+    y .+= c*K.w
     y .*= K.η^2  
     return nothing
 end
@@ -264,10 +266,10 @@ if false
         @views λ1ds1  = dot(K.λ[2:end],ds[2:end])
         @views w1ds1  = dot(K.w[2:end],ds[2:end])
 
-        out[1] = z[1]
-        @views out[2:end] .= -z[2:end]
+        out .= -z
+        out[1] = +z[1]
   
-        c = (K.λ[1]*ds[1] - λ1ds1)
+        c = K.λ[1]*ds[1] - λ1ds1
         out .*= c/resz
 
         out[1]              += K.η*w1ds1

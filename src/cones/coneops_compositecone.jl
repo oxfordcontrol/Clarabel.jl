@@ -228,7 +228,7 @@ function step_length(
     # Force asymmetric cones last.  
     for (cone,dzi,dsi,zi,si) in zip(cones,dz,ds,z,s)
 
-        if is_symmetric(cone) continue end
+        if @conedispatch(is_symmetric(cone)) continue end
         @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
         α = min(α,nextαz,nextαs)
     end
