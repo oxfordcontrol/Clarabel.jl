@@ -115,6 +115,35 @@ function update_scaling!(
     #λ = Wz
     mul_W!(K,:N,K.λ,z,one(T),zero(T))
 
+
+    #---------------------
+    #DEBUG ALTERNATIVE λ
+    s0 = s[1] 
+    s1 = @view s[2:end]
+    z0 = z[1] 
+    z1 = @view z[2:end]
+    ϕ2 = (sscale*zscale)
+    ϕ = sqrt(ϕ2)
+    η2 = (sscale/zscale)
+    η = sqrt(η2)
+
+    λalt = similar(K.λ)
+    γ = 0.5 * wscale
+    λalt[1] = γ 
+    λalt[2:end] = (γ + z0/zscale)*s1/sscale + (γ + s0/sscale)*z1/zscale 
+    λalt[2:end] *= inv(s0/sscale + z0/zscale + 2*γ)
+    λalt .*= ϕ 
+    K.λ .= λalt
+
+    if length(w)  == 19998
+        println("wscale - 2γ = ",abs(wscale - 2γ))
+        println("γ = ",γ)
+    end
+
+    #--------------------
+    #DEBUG ALTERNATIVE λ
+
+
     sparse_data = K.sparse_data
 
     #Populate sparse expansion terms if allocated
@@ -200,6 +229,18 @@ function mul_Hs!(
 
     mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
     mul_W!(K,:T,y,work,one(T),zero(T))    #y = c Wᵀwork = W^TWx
+
+    ξ = dot(K.w,x)
+    y .= x
+    y[1] = -x[1]
+    y .+= 2*ξ*K.w
+    y .*= K.η^2
+
+    # wsq      = dot(K.w,K.w)
+    # @views ζ = dot(K.w[2:end],x[2:end])
+    # y[1]  = wsq * x[1] + 2 * ζ * K.w[1]
+    # @views y[2:end] = 2*(K.w[1]*x[1] + ζ).*K.w[2:end] .+ x[2:end]
+    # y .*= K.η^2
   
     return nothing
 end
@@ -235,8 +276,31 @@ function Δs_from_Δz_offset!(
     z::AbstractVector{T}
 ) where {T}
  
+if false        
     #Wᵀ(λ \ ds)
        _Δs_from_Δz_offset_symmetric!(K,out,ds,work)
+
+    else    
+        #PJG: Alternative implementation.  Keeping it here 
+        #for reference, but it is not obviously more stable 
+        #than the simple implementation above  
+        resz = _soc_residual(z)
+
+        @views λ1ds1  = dot(K.λ[2:end],ds[2:end])
+        @views w1ds1  = dot(K.w[2:end],ds[2:end])
+
+        out[1] = z[1]
+        @views out[2:end] .= -z[2:end]
+  
+        c = (K.λ[1]*ds[1] - λ1ds1)
+        out .*= c/resz
+
+        out[1]              += K.η*w1ds1
+        @views out[2:end]  .+= K.η*(ds[2:end] + w1ds1/(1+K.w[1]).*K.w[2:end])
+
+        out .*= (1/K.λ[1])
+
+    end 
 end
 
 #return maximum allowable step length while remaining in the socone
