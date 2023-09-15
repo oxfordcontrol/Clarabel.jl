@@ -112,37 +112,19 @@ function update_scaling!(
     @views w1sq = sumsq(w[2:end])
     w[1] = sqrt(1 + w1sq)
 
-    #λ = Wz
-    mul_W!(K,:N,K.λ,z,one(T),zero(T))
-
-
     #---------------------
     #DEBUG ALTERNATIVE λ
-    s0 = s[1] 
-    s1 = @view s[2:end]
-    z0 = z[1] 
-    z1 = @view z[2:end]
-    ϕ2 = (sscale*zscale)
-    ϕ = sqrt(ϕ2)
-    η2 = (sscale/zscale)
-    η = sqrt(η2)
-
-    λalt = similar(K.λ)
+    #λ = Wz
+    #mul_W!(K,:N,K.λ,z,one(T),zero(T))
+    ϕ = sqrt(sscale*zscale)
     γ = 0.5 * wscale
-    λalt[1] = γ 
-    λalt[2:end] = (γ + z0/zscale)*s1/sscale + (γ + s0/sscale)*z1/zscale 
-    λalt[2:end] *= inv(s0/sscale + z0/zscale + 2*γ)
-    λalt .*= ϕ 
-    K.λ .= λalt
+    K.λ[1] = γ 
+    K.λ[2:end] .= (γ + z[1]/zscale)*s[2:end]/sscale + (γ + s[1]/sscale)*z[2:end]/zscale 
+    K.λ[2:end] *= inv(s[1]/sscale + z[1]/zscale + 2*γ)
+    K.λ .*= ϕ 
 
-    if length(w)  == 19998
-        println("wscale - 2γ = ",abs(wscale - 2γ))
-        println("γ = ",γ)
-    end
-
-    #--------------------
     #DEBUG ALTERNATIVE λ
-
+    #--------------------
 
     sparse_data = K.sparse_data
 
@@ -227,21 +209,14 @@ function mul_Hs!(
     work::AbstractVector{T}
 ) where {T}
 
-    mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
-    mul_W!(K,:T,y,work,one(T),zero(T))    #y = c Wᵀwork = W^TWx
+    #mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
+    #mul_W!(K,:T,y,work,one(T),zero(T))    #y = c Wᵀwork = W^TWx
 
     ξ = dot(K.w,x)
     y .= x
     y[1] = -x[1]
     y .+= 2*ξ*K.w
-    y .*= K.η^2
-
-    # wsq      = dot(K.w,K.w)
-    # @views ζ = dot(K.w[2:end],x[2:end])
-    # y[1]  = wsq * x[1] + 2 * ζ * K.w[1]
-    # @views y[2:end] = 2*(K.w[1]*x[1] + ζ).*K.w[2:end] .+ x[2:end]
-    # y .*= K.η^2
-  
+    y .*= K.η^2  
     return nothing
 end
 
