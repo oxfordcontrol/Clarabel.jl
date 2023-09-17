@@ -12,6 +12,8 @@ degree(K::GenPowerCone{T}) where {T} = dim1(K) + 1
 numel(K::GenPowerCone{T}) where {T} = dim(K)
 
 function is_sparse_expandable(::GenPowerCone{T}) where{T}
+    # we do not curently have a way of representing
+    # this cone in non-expanded form
     return true
 end
 
@@ -256,7 +258,7 @@ function is_primal_feasible(
         @inbounds for i = 1:dim1
             res += 2*α[i]*logsafe(s[i])
         end
-        res = exp(res) - dot(s[dim1+1:end],s[dim1+1:end])
+        res = exp(res) - sumsq(@view s[dim1+1:end])
         if res > zero(T)
             return true
         end
@@ -279,7 +281,7 @@ function is_dual_feasible(
         @inbounds for i = 1:dim1
             res += 2*α[i]*logsafe(z[i]/α[i])
         end
-        res = exp(res) - dot(z[dim1+1:end],z[dim1+1:end])
+        res = exp(res) - sumsq(@view z[dim1+1:end])
         if res > zero(T)
             return true
         end
@@ -319,7 +321,7 @@ end
     @inbounds for i = 1:dim1(K)
         res += 2*α[i]*logsafe(z[i]/α[i])
     end
-    res = exp(res) - dot(z[dim1(K)+1:end],z[dim1(K)+1:end])
+    res = exp(res) - sumsq(@view z[dim1(K)+1:end])
     barrier = -logsafe(res) 
     @inbounds for i = 1:dim1(K)
         barrier -= (one(T)-α[i])*logsafe(z[i])
@@ -348,7 +350,7 @@ function update_dual_grad_H(
     @inbounds for i = 1:dim1(K)
         phi *= (z[i]/α[i])^(2*α[i])
     end
-    norm2w = dot(z[dim1(K)+1:end],z[dim1(K)+1:end])
+    norm2w = sumsq(@view z[dim1(K)+1:end])
     ζ = phi - norm2w
     @assert ζ > zero(T)
 
@@ -378,10 +380,10 @@ function update_dual_grad_H(
 
     # compute p, q, r where τ shares memory with q
     p[1:dim1(K)] .= p0*τ/ζ
-    p[(dim1(K)+1):end] .= p1*z[(dim1(K)+1):end]/ζ
+    @views p[(dim1(K)+1):end] .= p1*z[(dim1(K)+1):end]/ζ
 
     q .*= q0/ζ      #τ is abandoned
-    r .= r1*z[(dim1(K)+1):end]/ζ
+    @views r .= r1*z[(dim1(K)+1):end]/ζ
 
 end
 
