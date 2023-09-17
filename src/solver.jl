@@ -193,7 +193,8 @@ function solve!(
         #  main loop
         # ----------
 
-        scaling = PrimalDual::ScalingStrategy
+        # Scaling strategy
+        scaling = allows_primal_dual_scaling(s.cones) ? PrimalDual::ScalingStrategy : Dual::ScalingStrategy;
 
         while true
 
@@ -390,7 +391,7 @@ function solver_backtrack_step_to_barrier(
     s::Solver{T}, αinit::T
 ) where {T}
 
-    backtrack = s.settings.linesearch_backtrack_step
+    step = s.settings.linesearch_backtrack_step
     α = αinit
 
     for j = 1:50
@@ -398,7 +399,7 @@ function solver_backtrack_step_to_barrier(
         if barrier < one(T)
             return α
         else
-            α = backtrack*α   #backtrack line search
+            α = step*α   #backtrack line search
         end
     end
 

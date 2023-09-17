@@ -25,6 +25,7 @@ function _csc_colcount_dense_triangle(K,initcol,blockcols,shape)
     end
 end
 
+
 #increment the K.colptr by the number of nonzeros
 #in a square diagonal matrix placed on the diagonal.
 function _csc_colcount_diag(K,initcol,blockcols)
@@ -185,7 +186,6 @@ function _fill_dense_triangle_tril(K,blocktoKKT,offset,blockdim)
         end
     end
 end
-
 
 #Populate the diagonal with 0s using the K.colptr as indicator of
 #next fill location in each row

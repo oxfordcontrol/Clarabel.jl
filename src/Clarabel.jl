@@ -60,8 +60,9 @@ module Clarabel
     include("./cones/coneops_psdtrianglecone.jl")
     include("./cones/coneops_expcone.jl")
     include("./cones/coneops_powcone.jl")
+    include("./cones/coneops_genpowcone.jl")        #Generalized power cone 
     include("./cones/coneops_compositecone.jl")
-    include("./cones/coneops_exppow_common.jl")
+    include("./cones/coneops_nonsymmetric_common.jl")
     include("./cones/coneops_symmetric_common.jl")
 
     #various algebraic utilities
@@ -80,10 +81,13 @@ module Clarabel
     end
 
     #MathOptInterface for JuMP/Convex.jl
-    module MOImodule
+    module MOI  #extensions providing non-standard MOI constraint types
+        include("./MOI_wrapper/MOI_extensions.jl")
+    end
+    module MOIwrapper #our actual MOI interface
          include("./MOI_wrapper/MOI_wrapper.jl")
     end
-    const Optimizer{T} = Clarabel.MOImodule.Optimizer{T}
+    const Optimizer{T} = Clarabel.MOIwrapper.Optimizer{T}
 
 
     #precompile minimal MOI / native examples
