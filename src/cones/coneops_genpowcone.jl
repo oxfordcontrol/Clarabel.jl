@@ -11,6 +11,10 @@ dim(K::GenPowerCone{T}) where {T} = dim1(K) + dim2(K)
 degree(K::GenPowerCone{T}) where {T} = dim1(K) + 1
 numel(K::GenPowerCone{T}) where {T} = dim(K)
 
+function is_sparse_expandable(::GenPowerCone{T}) where{T}
+    return true
+end
+
 is_symmetric(::GenPowerCone{T}) where {T} = false
 allows_primal_dual_scaling(::GenPowerCone{T}) where {T} = false
 

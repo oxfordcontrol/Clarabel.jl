@@ -63,7 +63,45 @@ NonnegativeCone(args...) = NonnegativeCone{DefaultFloat}(args...)
 # Second Order Cone
 # ----------------------------------------------------
 
-mutable struct SecondOrderCone{T} <: AbstractSparseCone{T}
+mutable struct SecondOrderConeSparseData{T}
+
+    #vectors for rank 2 update representation of W^2
+    u::Vector{T}
+    v::Vector{T}
+
+    #additional scalar terms for rank-2 rep
+    d::T
+
+    function SecondOrderConeSparseData{T}(dim::Int) where {T}
+
+        u = zeros(T,dim)
+        v = zeros(T,dim)
+        d = zero(T)
+
+        return new(u,v,d)
+    end
+end
+
+mutable struct SecondOrderConeSparseData{T}
+
+    #vectors for rank 2 update representation of W^2
+    u::Vector{T}
+    v::Vector{T}
+
+    #additional scalar terms for rank-2 rep
+    d::T
+
+    function SecondOrderConeSparseData{T}(dim::Int) where {T}
+
+        u = zeros(T,dim)
+        v = zeros(T,dim)
+        d = zero(T)
+
+        return new(u,v,d)
+    end
+end
+
+mutable struct SecondOrderCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
 
@@ -73,23 +111,27 @@ mutable struct SecondOrderCone{T} <: AbstractSparseCone{T}
     #scaled version of (s,z)
     λ::Vector{T}
 
-    #vectors for rank 2 update representation of W^2
-    u::Vector{T}
-    v::Vector{T}
-
-    #additional scalar terms for rank-2 rep
-    d::T
     η::T
 
+    #sparse representation of W^2
+    sparse_data::Union{Nothing,SecondOrderConeSparseData{T}}
+
     function SecondOrderCone{T}(dim::Integer) where {T}
-        dim >= 2 ? new(dim) : throw(DomainError(dim, "dimension must be >= 2"))
+
+        SOC_NO_EXPANSION_MAX_SIZE = 4
+
+        dim >= 2 || throw(DomainError(dim, "dimension must be >= 2"))
         w = zeros(T,dim)
         λ = zeros(T,dim)
-        u = zeros(T,dim)
-        v = zeros(T,dim)
-        d = one(T)
         η = zero(T)
-        return new(dim,w,λ,u,v,d,η)
+
+        if dim > SOC_NO_EXPANSION_MAX_SIZE
+            sparse_data = SecondOrderConeSparseData{T}(dim)
+        else
+            sparse_data = nothing
+        end
+
+        return new(dim,w,λ,η,sparse_data)
     end
 
 end
@@ -287,7 +329,7 @@ end
 
 
 # gradient and Hessian for the dual barrier function
-mutable struct GenPowerCone{T} <: AbstractSparseCone{T}
+mutable struct GenPowerCone{T} <: AbstractCone{T}
 
     α::Vector{T}            #vector of exponents.  length determines dim1
     dim2::DefaultInt        #dimension of w

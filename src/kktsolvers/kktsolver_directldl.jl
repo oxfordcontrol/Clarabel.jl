@@ -228,7 +228,7 @@ function _kktsolver_update_inner!(
 
     for cone in cones
         #add sparse expansions columns for sparse cones 
-        if isa(cone,AbstractSparseCone)
+        if @conedispatch is_sparse_expandable(cone)
             thismap = popfirst!(sparse_map_iter)
             _csc_update_sparsecone(cone,thismap,updateFcn,scaleFcn)
         end 
