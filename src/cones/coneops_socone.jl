@@ -102,7 +102,7 @@ function update_scaling!(
     w ./= wscale
 
     #try to force badly scaled w to come out normalized
-    @views w1sq = dot(w[2:end],w[2:end])
+    @views w1sq = sumsq(w[2:end])
     w[1] = sqrt(1 + w1sq)
     wsq    = w[1]*w[1] + w1sq
 
@@ -340,7 +340,7 @@ function inv_circ_op!(
     @views v = dot(y[2:end],z[2:end])
 
     x[1]      = (y[1]*z[1] - v)*pinv
-    @views x[2:end] .= pinv*(v/y[1] - z[1]).*y[2:end] + (1/y[1]).*z[2:end]
+    @views x[2:end] .= pinv.*(v/y[1] - z[1]).*y[2:end] + (1/y[1]).*z[2:end]
 
     return nothing
 end
@@ -351,7 +351,7 @@ end
 
 @inline function _soc_residual(z:: AbstractVector{T}) where {T} 
 
-    @views z[1]*z[1] - dot(z[2:end],z[2:end])
+    @views z[1]*z[1] - sumsq(z[2:end])
 end 
 
 @inline function _sqrt_soc_residual(z:: AbstractVector{T}) where {T} 

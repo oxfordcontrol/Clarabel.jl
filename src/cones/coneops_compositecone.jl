@@ -59,6 +59,11 @@ function is_symmetric(cones::CompositeCone{T}) where {T}
     return cones._is_symmetric
 end
 
+function allows_primal_dual_scaling(cones::CompositeCone{T}) where {T}
+    all(allows_primal_dual_scaling, cones)
+end
+
+
 function rectify_equilibration!(
     cones::CompositeCone{T},
      δ::ConicVector{T},

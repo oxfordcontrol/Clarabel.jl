@@ -19,6 +19,9 @@ end
 #All cones default to symmetric unless overridden
 is_symmetric(::AbstractCone{T}) where {T} = true
 
+#All cones support primal dual scaling unless otherwise specified
+allows_primal_dual_scaling(::AbstractCone{T}) where {T} = true
+
 
 # converts an elementwise scaling into
 # a scaling that preserves cone memership
