@@ -82,24 +82,6 @@ mutable struct SecondOrderConeSparseData{T}
     end
 end
 
-mutable struct SecondOrderConeSparseData{T}
-
-    #vectors for rank 2 update representation of W^2
-    u::Vector{T}
-    v::Vector{T}
-
-    #additional scalar terms for rank-2 rep
-    d::T
-
-    function SecondOrderConeSparseData{T}(dim::Int) where {T}
-
-        u = zeros(T,dim)
-        v = zeros(T,dim)
-        d = zero(T)
-
-        return new(u,v,d)
-    end
-end
 
 mutable struct SecondOrderCone{T} <: AbstractCone{T}
 
