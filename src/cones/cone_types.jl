@@ -3,7 +3,6 @@ using StaticArrays
 # abstract type defs
 # -------------------------------------
 abstract type AbstractCone{T <: AbstractFloat} end
-abstract type AbstractSparseCone{T} <: AbstractCone{T} end
 
 #NB: this enum can't use Primal and Dual as its markers, 
 #since Dual is already used in the solve strategies.  Julia
