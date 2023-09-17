@@ -112,11 +112,7 @@ function update_scaling!(
     @views w1sq = sumsq(w[2:end])
     w[1] = sqrt(1 + w1sq)
 
-    #---------------------
-    #DEBUG ALTERNATIVE λ
-    #λ = Wz
-    #mul_W!(K,:N,K.λ,z,one(T),zero(T))
-    ϕ = sqrt(sscale*zscale)
+    #Compute the scaling point λ.   Should satisfy λ = Wz = W^{-T}s
     γ = 0.5 * wscale
     K.λ[1] = γ 
     s1 = @view s[2:end];
@@ -124,15 +120,13 @@ function update_scaling!(
     λ1 = @view K.λ[2:end];
     λ1 .= ((γ + z[1]/zscale)/sscale).*s1 +((γ + s[1]/sscale)/zscale).*z1 
     K.λ[2:end] *= inv(s[1]/sscale + z[1]/zscale + 2*γ)
-    K.λ .*= ϕ 
-    #DEBUG ALTERNATIVE λ
-    #--------------------
-
-    sparse_data = K.sparse_data
+    K.λ .*= sqrt(sscale*zscale)
 
     #Populate sparse expansion terms if allocated
+    if is_sparse_expandable(K)
 
-    if !isnothing(sparse_data)
+        sparse_data = K.sparse_data
+
         #various intermediate calcs for u,v,d
         α  = 2*w[1]
 
@@ -211,9 +205,8 @@ function mul_Hs!(
     work::AbstractVector{T}
 ) where {T}
 
-    #mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
-    #mul_W!(K,:T,y,work,one(T),zero(T))    #y = c Wᵀwork = W^TWx
-
+    # y = = H^{-1}x = W^TWx
+    # where H^{-1} = \eta^{-2} (2*ww^T - J)
     c = 2*dot(K.w,x)
     y .= x
     y[1] = -x[1]
@@ -252,32 +245,26 @@ function Δs_from_Δz_offset!(
     work::AbstractVector{T},
     z::AbstractVector{T}
 ) where {T}
- 
-if false        
-    #Wᵀ(λ \ ds)
-       _Δs_from_Δz_offset_symmetric!(K,out,ds,work)
+   
+    #out = Wᵀ(λ \ ds).  Below is equivalent,
+    #but appears to be a little more stable 
+    
+    resz = _soc_residual(z)
 
-    else    
-        #PJG: Alternative implementation.  Keeping it here 
-        #for reference, but it is not obviously more stable 
-        #than the simple implementation above  
-        resz = _soc_residual(z)
+    @views λ1ds1  = dot(K.λ[2:end],ds[2:end])
+    @views w1ds1  = dot(K.w[2:end],ds[2:end])
 
-        @views λ1ds1  = dot(K.λ[2:end],ds[2:end])
-        @views w1ds1  = dot(K.w[2:end],ds[2:end])
+    out .= -z
+    out[1] = +z[1]
 
-        out .= -z
-        out[1] = +z[1]
-  
-        c = K.λ[1]*ds[1] - λ1ds1
-        out .*= c/resz
+    c = K.λ[1]*ds[1] - λ1ds1
+    out .*= c/resz
 
-        out[1]              += K.η*w1ds1
-        @views out[2:end]  .+= K.η*(ds[2:end] + w1ds1/(1+K.w[1]).*K.w[2:end])
+    out[1]              += K.η*w1ds1
+    @views out[2:end]  .+= K.η*(ds[2:end] + w1ds1/(1+K.w[1]).*K.w[2:end])
 
-        out .*= (1/K.λ[1])
+    out .*= (1/K.λ[1])
 
-    end 
 end
 
 #return maximum allowable step length while remaining in the socone
