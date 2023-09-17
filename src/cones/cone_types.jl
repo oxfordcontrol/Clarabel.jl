@@ -81,7 +81,6 @@ mutable struct SecondOrderConeSparseData{T}
     end
 end
 
-
 mutable struct SecondOrderCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
