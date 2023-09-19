@@ -15,7 +15,7 @@ const OptimizerSupportedMOICones{T} = Union{
     MOI.Zeros,
     MOI.Nonnegatives,
     MOI.SecondOrderCone,
-    MOI.ScaledPositiveSemidefiniteConeTriangle,
+    MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle},
     MOI.ExponentialCone,
     MOI.PowerCone{T},
     Clarabel.MOI.GenPowerCone{T}
@@ -33,7 +33,7 @@ const MOItoClarabelCones = Dict([
     MOI.ExponentialCone => Clarabel.ExponentialConeT,
     MOI.PowerCone       => Clarabel.PowerConeT,
     Clarabel.MOI.GenPowerCone => Clarabel.GenPowerConeT,
-    MOI.ScaledPositiveSemidefiniteConeTriangle => Clarabel.PSDTriangleConeT,
+    MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle} => Clarabel.PSDTriangleConeT,
 ])
 
 # PJG: PrimalStatus/DualStatus just reported as "NEARLY_FEASIBLE"
@@ -660,7 +660,7 @@ end
 # For matrices, this is just the matrix side dimension.  Conversion differs
 # for square vs triangular form
 _to_optimizer_conedim(set::MOI.AbstractVectorSet) = MOI.dimension(set)
-_to_optimizer_conedim(set::MOI.ScaledPositiveSemidefiniteConeTriangle) = set.side_dimension
+_to_optimizer_conedim(set::MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle}) = MOI.side_dimension(set)
 
 function push_constraint_set!(
     cone_spec::Vector{Clarabel.SupportedCone},
