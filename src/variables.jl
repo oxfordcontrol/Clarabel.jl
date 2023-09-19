@@ -184,7 +184,7 @@ function _shift_to_cone_interior!(
 ) where {T}
     
     (min_margin, pos_margin) = margins(cones,z,pd)
-    target  =  max(1.,0.1 * pos_margin / degree(cones))
+    target  =  max(one(T),T(0.1) * pos_margin / degree(cones))
 
     if min_margin <= 0  #at least some component is outside its cone
         #done in two stages since otherwise (1-α) = -α for

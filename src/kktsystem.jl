@@ -94,14 +94,15 @@ function kkt_solve_initial_point!(
     data::DefaultProblemData{T}
 ) where{T}
 
-    if iszero(nnz(data.P))
+    if nnz(data.P) == 0
         # LP initialization
-        # solve with [0;b] as a RHS to get (x,s) initializers
+        # solve with [0;b] as a RHS to get (x,-s) initializers
         # zero out any sparse cone variables at end
         kktsystem.workx .= zero(T)
         kktsystem.workz .= data.b
         kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
         is_success = kktsolver_solve!(kktsystem.kktsolver, variables.x, variables.s)
+        variables.s .= -variables.s
 
         if !is_success return is_success end
 
@@ -116,6 +117,7 @@ function kkt_solve_initial_point!(
         # QP initialization
         @. kktsystem.workx = -data.q
         @. kktsystem.workz = data.b
+
         kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, kktsystem.workz)
         is_success = kktsolver_solve!(kktsystem.kktsolver, variables.x, variables.z)
         @. variables.s = -variables.z

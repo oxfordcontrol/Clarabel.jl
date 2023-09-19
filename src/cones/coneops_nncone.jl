@@ -33,7 +33,7 @@ function margins(
     # we treat this as an n-times composition of R_+
     β = zero(T)
     for i in eachindex(z)
-            β += z[i] > 0 ? z[i] : 0.;
+            β += z[i] > 0 ? z[i] : zero(T);
     end
     return (α,β)
 end

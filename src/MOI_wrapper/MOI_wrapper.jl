@@ -18,10 +18,10 @@ const OptimizerSupportedMOICones{T} = Union{
     MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle},
     MOI.ExponentialCone,
     MOI.PowerCone{T},
+    Clarabel.MOI.GenPowerCone{T}
 } where {T}
 
 #Optimizer will consolidate cones of these types if possible
-
 const OptimizerMergeableTypes = [Clarabel.ZeroConeT, Clarabel.NonnegativeConeT]
 
 #mappings between MOI and internal definitions
@@ -30,9 +30,10 @@ const MOItoClarabelCones = Dict([
     MOI.Zeros           => Clarabel.ZeroConeT,
     MOI.Nonnegatives    => Clarabel.NonnegativeConeT,
     MOI.SecondOrderCone => Clarabel.SecondOrderConeT,
-    MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle} => Clarabel.PSDTriangleConeT,
     MOI.ExponentialCone => Clarabel.ExponentialConeT,
     MOI.PowerCone       => Clarabel.PowerConeT,
+    Clarabel.MOI.GenPowerCone => Clarabel.GenPowerConeT,
+    MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle} => Clarabel.PSDTriangleConeT,
 ])
 
 # PJG: PrimalStatus/DualStatus just reported as "NEARLY_FEASIBLE"
@@ -627,6 +628,13 @@ function push_constraint_set!(
     if isa(s,MOI.ExponentialCone)
         pow_cone_type = MOItoClarabelCones[MOI.ExponentialCone]
         push!(cone_spec, pow_cone_type())
+        return nothing
+    end
+
+    # handle GenPowerCone (takes two parameters)
+    if isa(s,Clarabel.MOI.GenPowerCone)
+        genpow_cone_type = MOItoClarabelCones[Clarabel.MOI.GenPowerCone]
+        push!(cone_spec, genpow_cone_type(s.α,s.dim2))
         return nothing
     end
 

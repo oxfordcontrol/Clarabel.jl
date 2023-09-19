@@ -16,9 +16,14 @@ function numel(K::AbstractCone{T}) where {T}
     error("Incomplete cone operation specification: ",typeof(K))
 end
 
+#All cones assumed to provide only dense Hessians / no expansion unless overridden
+is_sparse_expandable(::AbstractCone{T}) where {T} = false
+
 #All cones default to symmetric unless overridden
 is_symmetric(::AbstractCone{T}) where {T} = true
 
+#All cones support primal dual scaling unless otherwise specified
+allows_primal_dual_scaling(::AbstractCone{T}) where {T} = true
 
 # converts an elementwise scaling into
 # a scaling that preserves cone memership
