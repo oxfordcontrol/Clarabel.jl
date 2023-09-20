@@ -8,7 +8,7 @@ Version numbering in this project adheres to [Semantic Versioning](https://semve
 
 
 
-## [0.6.0] - 2023-02-06
+## [0.6.0] - 2023-20-09
 ### Changed 
 
 - Introduces support for the generalized power cone. 
