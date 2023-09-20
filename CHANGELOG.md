@@ -7,11 +7,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Version numbering in this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).  We aim to keep the core solver functionality and minor releases in sync between the Rust/Python and Julia implementations.   Small fixes that affect one implementation only may result in the patch release versions differing.
 
 
+
+## [0.6.0] - 2023-20-09
+### Changed 
+
+- Introduces support for the generalized power cone. 
+- Implements stability and speed improvements for SOC problems.  SOCs with dimension less than or equal to 4 are now treated as special cases with dense Hessian blocks.
+- Fixes bad initialization point for non-quadratic objectives 
+- Improved convergence speed for QPs with no constraints or only ZeroCone constraints.
+- Internal code restructuring for cones with sparsifiable Hessian blocks.
+
+### Julia specific changes
+- Fixed a type error for Float32 problems [#135](https://github.com/oxfordcontrol/Clarabel.jl/issues/135)
+- Update to ScaledPSDCone handling in MOI interface [#141](https://github.com/oxfordcontrol/Clarabel.jl/issues/141)
+
 ## [0.5.1] - 2023-02-06
 ### Changed 
 Fixes convergence edge case in KKT direct solve iterative refinement.
 ### Julia specific changes
-Updates to MOI interface to support scaled PSD cones directly (#131) and to add missing termination status codes (#132)
+Updates to MOI interface to support scaled PSD cones directly [#131](https://github.com/oxfordcontrol/Clarabel.jl/issues/131) and to add missing termination status codes [#132](https://github.com/oxfordcontrol/Clarabel.jl/issues/132)
 
 ## [0.5.0] - 2023-25-04
 ### Changed 
@@ -73,6 +87,7 @@ Internal modifications to SDP cone implementation to reduce allocations.
 
 - Initial release
 
+[0.6.0]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.4.0...v0.4.1

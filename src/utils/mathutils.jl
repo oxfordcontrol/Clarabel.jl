@@ -40,9 +40,14 @@ end
         si = s[i] + α*ds[i]
         out += zi*si
     end 
-
     return out
 
+end
+
+function sumsq(v::AbstractVector{T}) where{T}
+    # Slower when using init = zero(T).   See 
+    # See: https://github.com/JuliaLang/julia/issues/47216
+    length(v) == 0 ? zero(T) : sum(x->x*x,v)
 end
 
 

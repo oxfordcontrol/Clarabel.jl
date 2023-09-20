@@ -15,13 +15,13 @@ const OptimizerSupportedMOICones{T} = Union{
     MOI.Zeros,
     MOI.Nonnegatives,
     MOI.SecondOrderCone,
-    MOI.ScaledPositiveSemidefiniteConeTriangle,
+    MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle},
     MOI.ExponentialCone,
     MOI.PowerCone{T},
+    Clarabel.MOI.GenPowerCone{T}
 } where {T}
 
 #Optimizer will consolidate cones of these types if possible
-
 const OptimizerMergeableTypes = [Clarabel.ZeroConeT, Clarabel.NonnegativeConeT]
 
 #mappings between MOI and internal definitions
@@ -30,9 +30,10 @@ const MOItoClarabelCones = Dict([
     MOI.Zeros           => Clarabel.ZeroConeT,
     MOI.Nonnegatives    => Clarabel.NonnegativeConeT,
     MOI.SecondOrderCone => Clarabel.SecondOrderConeT,
-    MOI.ScaledPositiveSemidefiniteConeTriangle => Clarabel.PSDTriangleConeT,
     MOI.ExponentialCone => Clarabel.ExponentialConeT,
     MOI.PowerCone       => Clarabel.PowerConeT,
+    Clarabel.MOI.GenPowerCone => Clarabel.GenPowerConeT,
+    MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle} => Clarabel.PSDTriangleConeT,
 ])
 
 # PJG: PrimalStatus/DualStatus just reported as "NEARLY_FEASIBLE"
@@ -630,6 +631,13 @@ function push_constraint_set!(
         return nothing
     end
 
+    # handle GenPowerCone (takes two parameters)
+    if isa(s,Clarabel.MOI.GenPowerCone)
+        genpow_cone_type = MOItoClarabelCones[Clarabel.MOI.GenPowerCone]
+        push!(cone_spec, genpow_cone_type(s.α,s.dim2))
+        return nothing
+    end
+
     next_type = MOItoClarabelCones[typeof(s)]
     next_dim  = _to_optimizer_conedim(s)
 
@@ -652,7 +660,7 @@ end
 # For matrices, this is just the matrix side dimension.  Conversion differs
 # for square vs triangular form
 _to_optimizer_conedim(set::MOI.AbstractVectorSet) = MOI.dimension(set)
-_to_optimizer_conedim(set::MOI.ScaledPositiveSemidefiniteConeTriangle) = set.side_dimension
+_to_optimizer_conedim(set::MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle}) = MOI.side_dimension(set)
 
 function push_constraint_set!(
     cone_spec::Vector{Clarabel.SupportedCone},

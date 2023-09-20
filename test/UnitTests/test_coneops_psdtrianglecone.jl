@@ -78,7 +78,7 @@ FloatT = Float64
         Clarabel.circ_op!(K,z,λ,x)
 
         #W should now be the solution to 1/2(ΛW + WΛ) = Z
-        K.work.λ .= λdiag        #diagonal internal scaling
+        K.data.λ .= λdiag        #diagonal internal scaling
         Clarabel.λ_inv_circ_op!(K,w,z)
         Clarabel._svec_to_mat!(W,w)
 
@@ -126,7 +126,7 @@ FloatT = Float64
         strategy = Clarabel.PrimalDual
         Clarabel.update_scaling!(K,s,z,μ,strategy)
 
-        f = K.work
+        f = K.data
         R = f.R
         Rinv = f.Rinv
         Λ = Diagonal(f.λ)
@@ -203,7 +203,7 @@ FloatT = Float64
         @test norm(v2-s) ≈ 0   atol = 1e-10
 
         #check W^Tλ = s
-        Λ = Matrix(Diagonal(K.work.λ))
+        Λ = Matrix(Diagonal(K.data.λ))
         λ = Λ[triu(ones(n,n)) .== true]  #upper triangle (diagonal only)
         Clarabel.mul_W!(K,:T,v1,λ,one(FloatT),zero(FloatT)) #v1 = W^Tλ
         @test norm(v1-s) ≈ 0   atol = 1e-10
@@ -225,8 +225,8 @@ FloatT = Float64
         strategy = Clarabel.PrimalDual
         Clarabel.update_scaling!(K,s,z,μ,strategy)
 
-        R    = K.work.R
-        Rinv = K.work.Rinv
+        R    = K.data.R
+        Rinv = K.data.Rinv
 
         #compare different ways of multiplying v by W and W^T
         # v2 = W*v1

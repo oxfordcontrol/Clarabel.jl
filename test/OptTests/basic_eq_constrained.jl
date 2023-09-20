@@ -27,6 +27,41 @@ using Test, LinearAlgebra, SparseArrays
 
             end
 
+            @testset "equality constrained (2)" begin
+
+                P = sparse(I(3).*one(FloatT))
+                c = FloatT[1., 2., 3.]
+                A = sparse(FloatT[1. 1. 1.;0. 1. -1.]) #two constraints only
+                b = FloatT[2.,0.]
+                cones = [Clarabel.ZeroConeT(2)]
+
+                solver   = Clarabel.Solver(P,c,A,b,cones)
+                Clarabel.solve!(solver)
+
+                @test isapprox(norm(solver.solution.x - FloatT[10., 1., 1.]./6), zero(FloatT), atol=tol)
+                @test solver.solution.status == Clarabel.SOLVED
+
+            end
+
+            @testset "equality constrained (redundant rows)" begin
+
+                P = sparse(I(3).*one(FloatT))
+                c = zeros(FloatT,3)
+                A = sparse(FloatT[0. 1. 1.;0. 1. -1.]) #two constraints only
+                b = FloatT[2.,0.]
+                cones = [Clarabel.ZeroConeT(2)]
+                A = sparse([A;A])
+                b = [b;b]
+                cones = [cones;cones]
+
+                solver   = Clarabel.Solver(P,c,A,b,cones)
+                Clarabel.solve!(solver)
+
+                @test isapprox(norm(solver.solution.x - FloatT[0., 1., 1.]), zero(FloatT), atol=tol)
+                @test solver.solution.status == Clarabel.SOLVED
+
+            end
+
             @testset "equality constrained primal infeasible" begin
 
                 P = sparse(I(3).*one(FloatT))

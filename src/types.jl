@@ -81,11 +81,7 @@ struct DefaultEquilibration{T} <: AbstractEquilibration{T}
         #Left/Right diagonal scaling for problem data
         d    = ones(T,nvars)
         dinv = ones(T,nvars)
-
-        # PJG : note that this double initializes
-        # e and einv because the ConicVector constructor
-        # first initializes to zero.   Could be improved.
-        e    = ConicVector{T}(cones); e .= one(T)
+        e    = ConicVector{T}(cones); e    .= one(T)
         einv = ConicVector{T}(cones); einv .= one(T)
 
         c    = Ref(T(1.))

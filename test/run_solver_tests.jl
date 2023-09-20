@@ -16,6 +16,7 @@ UnitTestFloats = [Float64,BigFloat]
         include("./OptTests/basic_exp.jl")
         include("./OptTests/basic_pow.jl")
         include("./OptTests/basic_sdp.jl")
+        include("./OptTests/basic_genpow.jl")
         include("./OptTests/presolve.jl")
 
     end

@@ -62,6 +62,25 @@ NonnegativeCone(args...) = NonnegativeCone{DefaultFloat}(args...)
 # Second Order Cone
 # ----------------------------------------------------
 
+mutable struct SecondOrderConeSparseData{T}
+
+    #vectors for rank 2 update representation of W^2
+    u::Vector{T}
+    v::Vector{T}
+
+    #additional scalar terms for rank-2 rep
+    d::T
+
+    function SecondOrderConeSparseData{T}(dim::Int) where {T}
+
+        u = zeros(T,dim)
+        v = zeros(T,dim)
+        d = zero(T)
+
+        return new(u,v,d)
+    end
+end
+
 mutable struct SecondOrderCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
@@ -72,23 +91,27 @@ mutable struct SecondOrderCone{T} <: AbstractCone{T}
     #scaled version of (s,z)
     λ::Vector{T}
 
-    #vectors for rank 2 update representation of W^2
-    u::Vector{T}
-    v::Vector{T}
-
-    #additional scalar terms for rank-2 rep
-    d::T
     η::T
 
+    #sparse representation of W^2
+    sparse_data::Union{Nothing,SecondOrderConeSparseData{T}}
+
     function SecondOrderCone{T}(dim::Integer) where {T}
-        dim >= 2 ? new(dim) : throw(DomainError(dim, "dimension must be >= 2"))
+
+        SOC_NO_EXPANSION_MAX_SIZE = 4
+
+        dim >= 2 || throw(DomainError(dim, "dimension must be >= 2"))
         w = zeros(T,dim)
         λ = zeros(T,dim)
-        u = zeros(T,dim)
-        v = zeros(T,dim)
-        d = one(T)
         η = zero(T)
-        return new(dim,w,λ,u,v,d,η)
+
+        if dim > SOC_NO_EXPANSION_MAX_SIZE
+            sparse_data = SecondOrderConeSparseData{T}(dim)
+        else
+            sparse_data = nothing
+        end
+
+        return new(dim,w,λ,η,sparse_data)
     end
 
 end
@@ -99,7 +122,7 @@ SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
 # Positive Semidefinite Cone (Scaled triangular form)
 # ------------------------------------
 
-mutable struct PSDConeWork{T}
+mutable struct PSDConeData{T}
 
     cholS::Union{Nothing,Cholesky{T,Matrix{T}}}
     cholZ::Union{Nothing,Cholesky{T,Matrix{T}}}
@@ -118,7 +141,7 @@ mutable struct PSDConeWork{T}
     workmat3::Matrix{T}
     workvec::Vector{T}
 
-    function PSDConeWork{T}(n::Int) where {T}
+    function PSDConeData{T}(n::Int) where {T}
 
         #there is no obvious way of pre-allocating
         #or recycling memory in these factorizations
@@ -147,15 +170,15 @@ struct PSDTriangleCone{T} <: AbstractCone{T}
 
         n::DefaultInt  #this is the matrix dimension, i.e. matrix is n /times n
     numel::DefaultInt  #this is the total number of elements (lower triangle of) the matrix
-     work::PSDConeWork{T}
+     data::PSDConeData{T}
 
     function PSDTriangleCone{T}(n) where {T}
 
         n >= 0 || throw(DomainError(n, "dimension must be non-negative"))
         numel = triangular_number(n)
-        work = PSDConeWork{T}(n)
+        data = PSDConeData{T}(n)
 
-        return new(n,numel,work)
+        return new(n,numel,data)
 
     end
 
@@ -235,6 +258,73 @@ end
 
 PowerCone(args...) = PowerCone{DefaultFloat}(args...)
 
+# # ------------------------------------
+# # Generalized Power Cone 
+# # ------------------------------------
+
+mutable struct GenPowerConeData{T}
+
+    grad::Vector{T}         #gradient of the dual barrier at z 
+    z::Vector{T}            #holds copy of z at scaling point
+    μ::T                    #central path parameter
+
+    #vectors for rank 3 update representation of H_s
+    p::Vector{T}
+    q::Vector{T}    
+    r::Vector{T}
+    d1::Vector{T}           #first part of the diagonal
+    
+    #additional scalar terms for rank-2 rep
+    d2::T
+
+    #additional constant for initialization in the Newton-Raphson method
+    ψ::T
+
+    #work vector length dim, e.g. for line searches
+    work::Vector{T}
+    #work vector exclusively for computing the primal barrier function.   
+    work_pb::Vector{T}
+
+    function GenPowerConeData{T}(α::AbstractVector{T},dim2::Int) where {T}
+
+        dim1 = length(α)
+        dim = dim1 + dim2
+
+        μ    = one(T)
+        grad = zeros(T,dim)
+        z    = zeros(T,dim)
+        p    = zeros(T,dim)
+        q    = zeros(T,dim1)
+        r    = zeros(T,dim2)
+        d1   = zeros(T,dim1)
+        d2   = zero(T)
+        ψ = inv(dot(α,α))
+
+        work = zeros(T,dim)
+        work_pb = zeros(T,dim)
+
+        return new(grad,z,μ,p,q,r,d1,d2,ψ,work,work_pb)
+    end
+end
+
+
+# gradient and Hessian for the dual barrier function
+mutable struct GenPowerCone{T} <: AbstractCone{T}
+
+    α::Vector{T}            #vector of exponents.  length determines dim1
+    dim2::DefaultInt        #dimension of w
+    data::GenPowerConeData{T}
+
+    function GenPowerCone{T}(α::AbstractVector{T},dim2::DefaultInt) where {T}
+
+        data = GenPowerConeData{T}(α, dim2)
+
+        return new(α,dim2,data)
+    end
+end
+
+GenPowerCone(args...) = GenPowerCone{DefaultFloat}(args...)
+
 
 """
     ConeDict
@@ -245,7 +335,8 @@ const ConeDict = Dict{DataType,Type}(
            ZeroConeT => ZeroCone,
     NonnegativeConeT => NonnegativeCone,
     SecondOrderConeT => SecondOrderCone,
-    PSDTriangleConeT => PSDTriangleCone,
     ExponentialConeT => ExponentialCone,
           PowerConeT => PowerCone,
+       GenPowerConeT => GenPowerCone,
+    PSDTriangleConeT => PSDTriangleCone,
 )
