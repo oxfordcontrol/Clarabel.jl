@@ -17,12 +17,12 @@ function margins(
         e = T[]
         α = floatmax(T)
     else
-        Z = K.work.workmat1
+        Z = K.data.workmat1
         _svec_to_mat!(Z,z)
         e = eigvals!(Hermitian(Z))  #NB: GenericLinearAlgebra doesn't support eigvals!(::Symmetric(...))
         α = minimum(e)  #minimum eigenvalue. 
     end
-    β = reduce((x,y) -> y > 0 ? x + y : x, e, init = 0.) # = sum(e[e.>0]) (no alloc)
+    β = reduce((x,y) -> y > 0 ? x + y : x, e, init = zero(T)) # = sum(e[e.>0]) (no alloc)
     (α,β)
     
 end
@@ -68,9 +68,9 @@ function unit_initialization!(
     K::PSDTriangleCone{T}
 ) where {T}
 
-    K.work.R    .= I(K.n)
-    K.work.Rinv .= K.work.R
-    K.work.Hs   .= I(size(K.work.Hs,1))
+    K.data.R    .= I(K.n)
+    K.data.Rinv .= K.data.R
+    K.data.Hs   .= I(size(K.data.Hs,1))
 
     return nothing
 end
@@ -89,7 +89,7 @@ function update_scaling!(
         return true;
     end
 
-    f = K.work
+    f = K.data
 
     (S,Z) = (f.workmat1,f.workmat2)
     map((M,v)->_svec_to_mat!(M,v),(S,Z),(s,z))
@@ -170,7 +170,7 @@ function get_Hs!(
     Hsblock::AbstractVector{T}
 ) where {T}
 
-    pack_triu(Hsblock,K.work.Hs)
+    pack_triu(Hsblock,K.data.Hs)
 
     return nothing
 end
@@ -215,7 +215,7 @@ function affine_ds!(
 
     #same as X = Λ*Λ
     for k = 1:K.n
-        ds[triangular_index(k)] = K.work.λ[k]^2
+        ds[triangular_index(k)] = K.data.λ[k]^2
     end
 
 end
@@ -253,9 +253,9 @@ function step_length(
      αmax::T
 ) where {T}
 
-    Λisqrt = K.work.Λisqrt
-    d      = K.work.workvec
-    workΔ  = K.work.workmat1
+    Λisqrt = K.data.Λisqrt
+    d      = K.data.workvec
+    workΔ  = K.data.workmat1
 
     #d = Δz̃ = WΔz
     mul_W!(K, :N, d, dz, one(T), zero(T))
@@ -309,10 +309,10 @@ function mul_W!(
         y,x,
         α,
         β,
-        K.work.R,
-        K.work.workmat1,
-        K.work.workmat2,
-        K.work.workmat3)
+        K.data.R,
+        K.data.workmat1,
+        K.data.workmat2,
+        K.data.workmat3)
 end
 
 # implements y = αW^{-1}x + βy for the psd cone
@@ -330,10 +330,10 @@ function mul_Winv!(
         y,x,
         α,
         β,
-        K.work.Rinv,
-        K.work.workmat1,
-        K.work.workmat2,
-        K.work.workmat3)
+        K.data.Rinv,
+        K.data.workmat1,
+        K.data.workmat2,
+        K.data.workmat3)
     
 end
 
@@ -344,10 +344,10 @@ function λ_inv_circ_op!(
     z::AbstractVector{T}
 ) where {T}
 
-    (X,Z) = (K.work.workmat1,K.work.workmat2)
+    (X,Z) = (K.data.workmat1,K.data.workmat2)
     map((M,v)->_svec_to_mat!(M,v),(X,Z),(x,z))
 
-    λ = K.work.λ
+    λ = K.data.λ
     for i = 1:K.n
         for j = 1:K.n
             X[i,j] = 2*Z[i,j]/(λ[i] + λ[j])
@@ -370,10 +370,10 @@ function circ_op!(
     z::AbstractVector{T}
 ) where {T}
 
-    (Y,Z) = (K.work.workmat1,K.work.workmat2)
+    (Y,Z) = (K.data.workmat1,K.data.workmat2)
     map((M,v)->_svec_to_mat!(M,v),(Y,Z),(y,z))
 
-    X = K.work.workmat3;
+    X = K.data.workmat3;
 
     #X  .= (Y*Z + Z*Y)/2 
     # NB: Y and Z are both symmetric

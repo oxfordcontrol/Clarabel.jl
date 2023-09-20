@@ -34,9 +34,10 @@ function info_print_configuration(
     print_conedims_by_type(io, cones, ZeroCone)
     print_conedims_by_type(io, cones, NonnegativeCone)
     print_conedims_by_type(io, cones, SecondOrderCone)
-    print_conedims_by_type(io, cones, PSDTriangleCone)
-    print_conedims_by_type(io, cones, PowerCone)
     print_conedims_by_type(io, cones, ExponentialCone)
+    print_conedims_by_type(io, cones, PowerCone)
+    print_conedims_by_type(io, cones, GenPowerCone)
+    print_conedims_by_type(io, cones, PSDTriangleCone)
     print_settings(io, settings)
     @printf(io, "\n")
 
@@ -185,7 +186,7 @@ function print_conedims_by_type(io::IO, cones::CompositeCone{T}, type::Type) whe
     maxlistlen = 5
 
     #how many of this type of cone?
-    count = cones.type_counts[type]
+    count = get_type_count(cones,type)
 
     #skip if there are none of this type
     if count == 0

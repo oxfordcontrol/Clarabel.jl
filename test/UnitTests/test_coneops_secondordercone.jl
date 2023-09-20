@@ -31,7 +31,7 @@ FloatT = Float64
 
     @testset "test_coneops_W_construction" begin
 
-        n = 5
+        n = 5  #must be > 4 to avoid dense representation
         K = Clarabel.SecondOrderCone(n)
         s = randn(n)
         z = randn(n)
@@ -49,13 +49,22 @@ FloatT = Float64
         Clarabel.update_scaling!(K,s,z,μ,scaling)
 
         #extract values that should reconstruct W
-        η = K.η; d = K.d
-        u = K.u; v = K.v
+        η = K.η
+        d = K.sparse_data.d
+        u = K.sparse_data.u
+        v = K.sparse_data.v
+        w = K.w
         D = I(n)*1.
         D[1,1] = d
 
         #this should be W^TW
         W2_A = η^2 .* (D + u*u' - v*v')
+
+        #W^TW should agree with Hinv 
+        J = -I(n).*1.; J[1,1] = 1.
+        Hinv = η^2 .* (2*w*w' - J)
+
+        @test norm(W2_A-Hinv) ≈ 0 atol = 1e-14
 
         #now get W and Winv by repeated multiplication
         W_Binv = zeros(n,n)

@@ -1,7 +1,7 @@
 name = "Clarabel"
 uuid = "61c947e1-3e6d-4ee4-985a-eec8c727bd6e"
 authors = ["Paul Goulart <paul.goulart@eng.ox.ac.uk>"]
-version = "0.5.1"
+version = "0.6.0"
 
 [deps]
 AMD = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
@@ -21,7 +21,7 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 [compat]
 AMD = "0.4, 0.5"
 GenericLinearAlgebra = "0.3"
-MathOptInterface = "1.6"
+MathOptInterface = "1.20"
 QDLDL = "0.4"
 Requires = "1"
 SnoopPrecompile = "1"

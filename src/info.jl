@@ -37,12 +37,8 @@ function info_update!(
                               scaled_norm(einv,residuals.rz_inf) / max(one(T), normx + norms))
 
     #absolute and relative gaps
-    info.gap_abs    = abs(info.cost_primal - info.cost_dual)
-    if(info.cost_primal > zero(T) && info.cost_dual < zero(T))
-        info.gap_rel = floatmax(T)
-    else
-        info.gap_rel = info.gap_abs / max(one(T),min(abs(info.cost_primal),abs(info.cost_dual)))
-    end
+    info.gap_abs = abs(info.cost_primal - info.cost_dual)
+    info.gap_rel = info.gap_abs / max(one(T),min(abs(info.cost_primal),abs(info.cost_dual)))
 
     #κ/τ
     info.ktratio = variables.κ / variables.τ
@@ -267,7 +263,7 @@ function _check_convergence(
     dinf_status::SolverStatus,
 ) where {T}
 
-    if info.ktratio < tol_ktratio && _is_solved(info, tol_gap_abs, tol_gap_rel, tol_feas)
+    if info.ktratio <= one(T) && _is_solved(info, tol_gap_abs, tol_gap_rel, tol_feas)
         info.status = solved_status
     elseif info.ktratio > 1000. / tol_ktratio
         if _is_primal_infeasible(info, residuals, tol_infeas_abs, tol_infeas_rel)
