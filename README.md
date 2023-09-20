@@ -43,7 +43,7 @@ The convex set $\mathcal{K}$ is a composition of convex cones.
 
 __For more information see the Clarabel Documentation ([stable](https://oxfordcontrol.github.io/ClarabelDocs/stable) |  [dev](https://oxfordcontrol.github.io/ClarabelDocs/dev)).__
 
-Clarabel is also available in a Rust / Python implementation.  See [here](https://github.com/oxfordcontrol/Clarabel.rs).
+Clarabel is also available in a Rust implementation with additional language interfaces.  See [here](https://github.com/oxfordcontrol/Clarabel.rs).
 
 ## Features
 
