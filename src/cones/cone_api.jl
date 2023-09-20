@@ -9,10 +9,10 @@ The currently supported concrete types are:
 * `ZeroConeT`       : The zero cone.  Used to define equalities.
 * `NonnegativeConeT`: The nonnegative orthant.
 * `SecondOrderConeT`: The second order / Lorentz / ice-cream cone.
-* `PSDTriangleConeT`: The positive semidefinite cone (triangular format).
 * `ExponentialConeT`:         The exponential cone (in R^3)
 * `PowerConeT`      : The power cone with power α (in R^3)
-* `GenPowerConeT`   : The generalized power cone with power α
+* `GenPowerConeT`   : The generalized power cone 
+* `PSDTriangleConeT`: The positive semidefinite cone (triangular format).
 
 """
 abstract type SupportedCone end
