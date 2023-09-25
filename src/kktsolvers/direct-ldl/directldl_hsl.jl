@@ -1,22 +1,17 @@
-using HSL
+using HSL, AMD
 
 abstract type HSLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T} end
 
-mutable struct HSLMA97DirectLDLSolver{T} <: HSLDirectLDLSolver{T}
-    F::Union{Ma97,Nothing}
-    function HSLMA97DirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
-        F = nothing
-        return new(F)
-    end
-end
-
 mutable struct HSLMA57DirectLDLSolver{T} <: HSLDirectLDLSolver{T}
 
-    F::Union{Ma57,Nothing}
+    F::Union{Nothing,Ma57}
     work::Vector{T}
 
     function HSLMA57DirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
+        
         F = nothing
+
+        # work vector for solves
         work = zeros(T,KKT.n)
 
         return new(F,work)
@@ -25,9 +20,7 @@ end
 
 
 DirectLDLSolversDict[:hsl_ma57] = HSLMA57DirectLDLSolver
-DirectLDLSolversDict[:hsl_ma97] = HSLMA97DirectLDLSolver
 required_matrix_shape(::Type{HSLMA57DirectLDLSolver}) = :tril
-required_matrix_shape(::Type{HSLMA97DirectLDLSolver}) = :tril
 
 
 #update entries in the KKT matrix using the
@@ -59,32 +52,25 @@ end
 #refactor the linear system
 function refactor!(ldlsolver::HSLMA57DirectLDLSolver{T}, K::SparseMatrixCSC{T}) where{T}
 
-    if ldlsolver.F === nothing
-        ldlsolver.F = Ma57(K)
-        _ma57_config(ldlsolver.F)
+    if isnothing(ldlsolver.F)
+        #instantiates the HSL MA57 solver
+        F = Ma57(K; perm = invperm(amd(K)), sqd = true, print_level = 0, pivot_order = 1)
+
+        #try to force LDL with diagonal D
+        ma57_config(F)
+
+        ldlsolver.F = F
     else
         ldlsolver.F.vals .= K.nzval
-    end
+    end 
+    ldlsolver.F.control.icntl[5] = 0  #3 -> force print
     ma57_factorize!(ldlsolver.F)
+    ldlsolver.F.control.icntl[5] = 0  #disable print
 
     #info[1] is negative on failure, and positive 
     #for a warning.  Zero is success.
     return ldlsolver.F.info.info[1] == 0
 end
-
-function refactor!(ldlsolver::HSLMA97DirectLDLSolver{T}, K::SparseMatrixCSC{T}) where{T}
-
-    if ldlsolver.F === nothing
-        ldlsolver.F = Ma97(K)
-        _ma97_config(ldlsolver.F)
-    else
-        ldlsolver.F.nzval .= K.nzval
-    end
-    ma97_factorize!(ldlsolver.F)
-
-    return true
-end
-
 
 #solve the linear system
 function solve!(
@@ -100,31 +86,22 @@ function solve!(
     x .= ma57_solve!(ldlsolver.F, x, work, job = :A) # solves without iterative refinement
 end
 
-function solve!(
-    ldlsolver::HSLMA97DirectLDLSolver{T},
-    x::Vector{T},
-    b::Vector{T}
-) where{T}
 
-    x .= b
-    ma97_solve!(ldlsolver.F, x; job = :A)  #NB, solves in place despite the name
-end
+function ma57_config(F::Ma57)
 
-
-function _ma57_config(F::Ma57)
-
-    #threshhold pivoting.  Set to zero in attempt
-    #to force LDL with diagonal D
-    F.control.cntl[1] = 0.0  
-    F.control.icntl[1] = 1 #enable pivoting value set in cntl[1]
+    #Best guess at settings that will force LDL with diagonal D
+    F.control.cntl[1] = eps() 
+    #F.control.cntl[2] = 0.0
+    #F.control.icntl[7] = 3 
+    #F.control.icntl[15] = 0 #no scaling
 end 
 
 
-function _ma97_config(F::Ma97)
+# function _ma97_config(F::Ma97)
 
-    #threshhold pivoting.  Set to zero in attempt
-    #to force LDL with diagonal D.  doesnt seem to 
-    #work with ma97 though
-    F.control.u = 0.0  
-    F.control.small = 0.0
-end 
+#     #threshhold pivoting.  Set to zero in attempt
+#     #to force LDL with diagonal D.  doesnt seem to 
+#     #work with ma97 though
+#     F.control.u = 0.0  
+#     F.control.small = 0.0
+# end 
