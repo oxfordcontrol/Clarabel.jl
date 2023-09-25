@@ -5,7 +5,7 @@
   <source media="(prefers-color-scheme: light)" srcset="https://github.com/oxfordcontrol/ClarabelDocs/blob/main/docs/src/assets/logo-banner-light-jl.png" width=60%>
   <img alt="Clarabel.jl logo" src="https://github.com/oxfordcontrol/ClarabelDocs/blob/main/docs/src/assets/logo-banner-light-jl.png" height="25">
 </picture>
-<h1>
+<h1 align="center" margin=0px>
 Interior Point Conic Optimization for Julia
 </h1>
    <a href="https://github.com/oxfordcontrol/Clarabel.jl/actions"><img src="https://github.com/oxfordcontrol/Clarabel.jl/workflows/ci/badge.svg?branch=main"></a>
