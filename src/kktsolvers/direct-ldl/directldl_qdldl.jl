@@ -18,7 +18,7 @@ struct QDLDLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
         #make a logical factorization to fix memory allocations
         factors = QDLDL.qdldl(
             KKT;
-            Dsigns = Dsigns,
+            Dsigns = Dsigns, 
             regularize_eps   = settings.dynamic_regularization_eps,
             regularize_delta = settings.dynamic_regularization_delta,
             logical          = true,
@@ -63,10 +63,32 @@ end
 #refactor the linear system
 function refactor!(ldlsolver::QDLDLDirectLDLSolver{T}, K::SparseMatrixCSC) where{T}
 
+
+    Dsigns = ldlsolver.factors.workspace.Dsigns
+
+    #disable Dsigns in the factorisation 
+    ldlsolver.factors.workspace.Dsigns = nothing
+
     # K is not used because QDLDL maintains
     # the update matrix entries for itself using the
     # offset/update methods implemented above.
     QDLDL.refactor!(ldlsolver.factors)
+
+    # apply a regulization to the diagonal here instead 
+    D = ldlsolver.factors.workspace.D
+    regularize_eps = ldlsolver.factors.workspace.regularize_eps
+    regularize_delta = ldlsolver.factors.workspace.regularize_delta
+
+    for k = 1:length(Dsigns)
+        if Dsigns[k]*D[k] < regularize_eps
+            D[k] = regularize_delta * Dsigns[k]
+        end
+    end
+    ldlsolver.factors.Dinv.diag .= 1 ./ D
+
+    #restore Dsigns so we can read them again 
+    #here later 
+    ldlsolver.factors.workspace.Dsigns = Dsigns
 
     return all(isfinite, ldlsolver.factors.Dinv.diag)
 
