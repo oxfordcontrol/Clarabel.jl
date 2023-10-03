@@ -411,58 +411,58 @@ end
 
 function _wright_omega(z::T) where {T}
 
-    if(z< zero(T))
-       throw(error("argument not in supported range : ", z)); 
-   end
+    if z < zero(T)
+        throw(error("argument not in supported range : ", z)); 
+    end
 
-   if(z<one(T)+π)      
-       #Initialize with the taylor series
-       zm1 = z - one(T)
-       p = zm1            #(z-1)
-       w = 1+0.5*p
-       p *= zm1         #(z-1)^2
-       w += (1/16.0)*p
-       p *= zm1          #(z-1)^3
-       w -= (1/192.0)*p
-       p *= zm1          #(z-1)^4
-       w -= (1/3072.0)*p
-       p *= zm1         #(z-1)^5
-       w += (13/61440.0)*p
-   else
-       # Initialize with:
-       # w(z) = z - log(z) + 
-       #        log(z)/z + 
-       #        log(z)/z^2(log(z)/2-1) + 
-       #        log(z)/z^3(1/3log(z)^2-3/2log(z)+1)
+   if z < one(T) + T(π)     
+        #Initialize with the taylor series
+        zm1 = z - one(T)
+        p = zm1            #(z-1)
+        w = 1+0.5*p
+        p *= zm1         #(z-1)^2
+        w += (1/16.0)*p
+        p *= zm1          #(z-1)^3
+        w -= (1/192.0)*p
+        p *= zm1          #(z-1)^4
+        w -= (1/3072.0)*p
+        p *= zm1         #(z-1)^5
+        w += (13/61440.0)*p
+    else
+        # Initialize with:
+        # w(z) = z - log(z) + 
+        #        log(z)/z + 
+        #        log(z)/z^2(log(z)/2-1) + 
+        #        log(z)/z^3(1/3log(z)^2-3/2log(z)+1)
 
-       logz = logsafe(z)
-       zinv = inv(z)
-       w = z - logz
+        logz = logsafe(z)
+        zinv = inv(z)
+        w = z - logz
 
-       # add log(z)/z 
-       q = logz*zinv  # log(z)/z 
-       w += q
+        # add log(z)/z 
+        q = logz*zinv  # log(z)/z 
+        w += q
 
-       # add log(z)/z^2(log(z)/2-1)
-       q *= zinv      # log(z)/(z^2) 
-       w += q * (logz/2 - one(T))
+        # add log(z)/z^2(log(z)/2-1)
+        q *= zinv      # log(z)/(z^2) 
+        w += q * (logz/2 - one(T))
 
-       # add log(z)/z^3(1/3log(z)^2-3/2log(z)+1)
-       q * zinv       # log(z)/(z^3) 
-       w += q * (logz*logz/3. - (3/2.)*logz + one(T))
+        # add log(z)/z^3(1/3log(z)^2-3/2log(z)+1)
+        q * zinv       # log(z)/(z^3) 
+        w += q * (logz*logz/3. - (3/2.)*logz + one(T))
 
-   end
+    end
 
-   # Initialize the residual
-   r = z - w - logsafe(w)
+    # Initialize the residual
+    r = z - w - logsafe(w)
 
-   # Santiago suggests two refinement iterations only
-   @inbounds for i = 1:2
-       wp1 = (w + one(T))
-       t = wp1 * (wp1 + (2. * r)/3.0 )
-       w *= 1 + (r/wp1) * ( t - 0.5 * r) / (t - r)
-       r = (2*w*w-8*w-1)/(72.0*(wp1*wp1*wp1*wp1*wp1*wp1))*r*r*r*r
-   end 
+    # Santiago suggests two refinement iterations only
+    @inbounds for i = 1:2
+        wp1 = (w + one(T))
+        t = wp1 * (wp1 + (2. * r)/3.0 )
+        w *= 1 + (r/wp1) * ( t - 0.5 * r) / (t - r)
+        r = (2*w*w-8*w-1)/(72.0*(wp1*wp1*wp1*wp1*wp1*wp1))*r*r*r*r
+    end 
 
-   return w;
+    return w
 end
