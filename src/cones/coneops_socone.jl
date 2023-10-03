@@ -453,7 +453,7 @@ function _step_length_soc_component(
 
     @views a = _soc_residual(y) #NB: could be negative
     @views b = 2*(x[1]*y[1] - dot(x[2:end],y[2:end]))
-    @views c = max(0.,_soc_residual(x)) #should be ≥0
+    @views c = max(zero(T),_soc_residual(x)) #should be ≥0
     d = b^2 - 4*a*c
 
     if(c < 0)
