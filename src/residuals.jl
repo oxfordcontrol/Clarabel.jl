@@ -5,11 +5,11 @@ function residuals_update!(
 ) where {T}
 
   # various products used multiple times
-  qx  = dot(data.q,variables.x)
-  bz  = dot(data.b,variables.z)
-  sz  = dot(variables.s,variables.z)
+  qx  = mydot(data.q,variables.x)
+  bz  = mydot(data.b,variables.z)
+  sz  = mydot(variables.s,variables.z)
   mul!(residuals.Px,Symmetric(data.P),variables.x)
-  xPx = dot(variables.x,residuals.Px)
+  xPx = mydot(variables.x,residuals.Px)
 
   #partial residual calc so we can check primal/dual
   #infeasibility conditions

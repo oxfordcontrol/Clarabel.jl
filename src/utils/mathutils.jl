@@ -47,7 +47,8 @@ end
 function sumsq(v::AbstractVector{T}) where{T}
     # Slower when using init = zero(T).   See 
     # See: https://github.com/JuliaLang/julia/issues/47216
-    length(v) == 0 ? zero(T) : sum(x->x*x,v)
+   # length(v) == 0 ? zero(T) : sum(x->x*x,v)
+   mydot(v,v)
 end
 
 

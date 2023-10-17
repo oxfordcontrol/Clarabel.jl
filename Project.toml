@@ -5,6 +5,7 @@ version = "0.6.0"
 
 [deps]
 AMD = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
+AccurateArithmetic = "22286c92-06ac-501d-9306-4abd417d9753"
 GenericLinearAlgebra = "14197337-ba66-59df-a3e3-ca00e7dcff7a"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"

@@ -70,9 +70,16 @@ Base.unsafe_convert(::Type{Ptr{T}}, s::ConicVector{T}) where {T} =
            Base.unsafe_convert(Ptr{T}, s.vec)
 
 #dot
-LinearAlgebra.dot(x::AbstractVector{T},y::ConicVector{T}) where {T} = dot(x,y.vec)
-LinearAlgebra.dot(x::ConicVector{T},y::AbstractVector{T}) where {T} = dot(x.vec,y)
-LinearAlgebra.dot(x::ConicVector{T},y::ConicVector{T}) where {T} = dot(x.vec,y.vec)
+#mydot(x,y) = LinearAlgebra.dot(x,y)
+mydot(x,y) = AccurateArithmetic.dot_oro(x,y)
+
+dot(x::AbstractVector{T},y::AbstractVector{T}) where {T} = mydot(x,y)
+mydot(x::AbstractVector{T},y::ConicVector{T}) where {T} = mydot(x,y.vec)
+mydot(x::ConicVector{T},y::AbstractVector{T}) where {T} = mydot(x.vec,y)
+mydot(x::ConicVector{T},y::ConicVector{T}) where {T} = mydot(x.vec,y.vec)
+dot(x::AbstractVector{T},y::ConicVector{T}) where {T} = mydot(x,y.vec)
+dot(x::ConicVector{T},y::AbstractVector{T}) where {T} = mydot(x.vec,y)
+dot(x::ConicVector{T},y::ConicVector{T}) where {T} = mydot(x.vec,y.vec)
 
 #mul!
 LinearAlgebra.mul!(

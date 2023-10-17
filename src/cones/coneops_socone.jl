@@ -207,7 +207,7 @@ function mul_Hs!(
 
     # y = = H^{-1}x = W^TWx
     # where H^{-1} = \eta^{-2} (2*ww^T - J)
-    c = 2*dot(K.w,x)
+    c = 2*mydot(K.w,x)
     y .= x
     y[1] = -x[1]
     y .+= c*K.w
@@ -251,8 +251,8 @@ function Δs_from_Δz_offset!(
     
     resz = _soc_residual(z)
 
-    @views λ1ds1  = dot(K.λ[2:end],ds[2:end])
-    @views w1ds1  = dot(K.w[2:end],ds[2:end])
+    @views λ1ds1  = mydot(K.λ[2:end],ds[2:end])
+    @views w1ds1  = mydot(K.w[2:end],ds[2:end])
 
     out .= -z
     out[1] = +z[1]
@@ -322,7 +322,7 @@ function mul_W!(
   #NB: symmetric, so ignore transpose
 
   # use the fast product method from ECOS ECC paper
-  @views ζ = dot(K.w[2:end],x[2:end])
+  @views ζ = mydot(K.w[2:end],x[2:end])
   c = x[1] + ζ/(1+K.w[1])
 
   y[1] = α*K.η*(K.w[1]*x[1] + ζ) + β*y[1]
@@ -347,7 +347,7 @@ function mul_Winv!(
     #NB: symmetric, so ignore transpose
 
     # use the fast inverse product method from ECOS ECC paper
-    @views ζ = dot(K.w[2:end],x[2:end])
+    @views ζ = mydot(K.w[2:end],x[2:end])
     c = -x[1] + ζ/(1+K.w[1])
 
     y[1] = (α/K.η)*(K.w[1]*x[1] - ζ) + β*y[1]
@@ -383,7 +383,7 @@ function circ_op!(
     z::AbstractVector{T}
 ) where {T}
 
-    x[1] = dot(y,z)
+    x[1] = mydot(y,z)
     y0   = y[1]
     z0   = z[1]
     for i = 2:length(x)
@@ -403,7 +403,7 @@ function inv_circ_op!(
 
     p = _soc_residual(y)
     pinv = 1/p
-    @views v = dot(y[2:end],z[2:end])
+    @views v = mydot(y[2:end],z[2:end])
 
     x[1]      = (y[1]*z[1] - v)*pinv
     @views x[2:end] .= pinv.*(v/y[1] - z[1]).*y[2:end] + (1/y[1]).*z[2:end]
@@ -452,7 +452,7 @@ function _step_length_soc_component(
     # of the quadratic equation:  ||x₁+αy₁||^2 = (x₀ + αy₀)^2
 
     @views a = _soc_residual(y) #NB: could be negative
-    @views b = 2*(x[1]*y[1] - dot(x[2:end],y[2:end]))
+    @views b = 2*(x[1]*y[1] - mydot(x[2:end],y[2:end]))
     @views c = max(zero(T),_soc_residual(x)) #should be ≥0
     d = b^2 - 4*a*c
 
