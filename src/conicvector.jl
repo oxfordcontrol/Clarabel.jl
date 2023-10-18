@@ -70,7 +70,6 @@ Base.unsafe_convert(::Type{Ptr{T}}, s::ConicVector{T}) where {T} =
            Base.unsafe_convert(Ptr{T}, s.vec)
 
 #dot
-#mydot(x,y) = LinearAlgebra.dot(x,y)
 mydot(x,y) = AccurateArithmetic.dot_oro(x,y)
 
 dot(x::AbstractVector{T},y::AbstractVector{T}) where {T} = mydot(x,y)

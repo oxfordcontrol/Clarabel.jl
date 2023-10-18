@@ -1,7 +1,9 @@
 __precompile__()
 module Clarabel
 
-    using SparseArrays, LinearAlgebra, Printf, Requires
+    using SparseArrays, Printf, Requires
+    using .LinearAlgebra: Diagonal, SVD, Cholesky, SVD, UniformScaling, Adjoint, Symmetric
+    using .LinearAlgebra: triu, tril, norm, mul!
     using AccurateArithmetic
     const DefaultFloat = Float64
     const DefaultInt   = LinearAlgebra.BlasInt

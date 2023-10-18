@@ -95,14 +95,14 @@ function update_scaling!(
     map((M,v)->_svec_to_mat!(M,v),(S,Z),(s,z))
 
     #compute Cholesky factors
-    f.cholS = cholesky!(S, check = true)
-    f.cholZ = cholesky!(Z, check = true)
+    f.cholS = LinearAlgebra.cholesky!(S, check = true)
+    f.cholZ = LinearAlgebra.cholesky!(Z, check = true)
     (L1,L2) = (f.cholS.L,f.cholZ.L)
 
     #SVD of L2'*L1,
     tmp = f.workmat1;
     mul!(tmp,L2',L1)   
-    f.SVD = svd(tmp)
+    f.SVD = LinearAlgebra.svd(tmp)
 
     #assemble λ (diagonal), R and Rinv.
     f.λ           .= f.SVD.S
