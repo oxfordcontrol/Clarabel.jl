@@ -1,5 +1,3 @@
-import LinearAlgebra: dot
-
 
 function clip(
     s::Real,
