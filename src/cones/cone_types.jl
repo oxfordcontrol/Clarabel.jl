@@ -242,6 +242,7 @@ mutable struct PowerCone{T,M3T,V3T} <: AbstractCone{T}
     Hs::M3T          #scaling matrix
     grad::V3T        #gradient of the dual barrier at z 
     z::V3T           #holds copy of z at scaling point
+    ψ::T             #additional constant for initialization in the Newton-Raphson method
 
     function PowerCone{T}(α::T) where {T}
 
@@ -251,8 +252,9 @@ mutable struct PowerCone{T,M3T,V3T} <: AbstractCone{T}
         Hs     = M3T(zeros(T,3,3))
         grad   = V3T(zeros(T,3))
         z      = V3T(zeros(T,3))
-
-        return new{T,M3T,V3T}(α,H_dual,Hs,grad,z)
+        ψ      = inv(α*α+(1-α)*(1-α))
+        
+        return new{T,M3T,V3T}(α,H_dual,Hs,grad,z,ψ)
     end
 end
 

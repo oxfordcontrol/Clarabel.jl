@@ -91,7 +91,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     #cones and line search parameters
     linesearch_backtrack_step::T        = 0.8     
-    min_switch_step_length::T           = 1e-1   
+    min_switch_step_length::T           = 1e-2   
     min_terminate_step_length::T        = 1e-4    
 
     #the direct linear solver to use

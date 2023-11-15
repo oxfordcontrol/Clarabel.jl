@@ -247,6 +247,7 @@ end
     α = K.α
 
     g = gradient_primal(K,s)     #compute g(s)
+    # @assert(abs(dot(g,s)+3) < 1e-5)
     return logsafe((-g[1]/α)^(2*α) * (-g[2]/(1-α))^(2-2*α) - g[3]*g[3]) + (1-α)*logsafe(-g[1]) + α*logsafe(-g[2]) - 3
 end 
 
@@ -298,14 +299,13 @@ function gradient_primal(
 
 
     # obtain g3 from the Newton-Raphson method
-    abs_s = abs(s[3])
-    if abs_s > eps(T)
-        g[3] = _newton_raphson_powcone(abs_s,ϕ,α)
-        if s[3] < zero(T)
-            g[3] = -g[3]
-        end
-        g[1] = -(α*g[3]*s[3] + 1 + α)/s[1]
-        g[2] = -((1-α)*g[3]*s[3] + 2 - α)/s[2]
+    abs_s3 = abs(s[3])
+    if abs_s3 > eps(T)
+        root = _newton_raphson_powcone(abs_s3,s,ϕ,α,K.ψ)
+
+        g[3] = s[3]>zero(T) ? root : -root
+        g[1] = -(α*root*abs_s3 + 1 + α)/s[1]
+        g[2] = -((1-α)*root*abs_s3 + 2 - α)/s[2]
     else
         g[3] = zero(T)
         g[1] = -(1+α)/s[1]
@@ -447,31 +447,27 @@ end
 # the Newton-Raphson method converges quadratically
 
 function _newton_raphson_powcone(
-    s3::T,
+    abs_s3::T,
+    s::Union{AbstractVector{T}, NTuple{3,T}},
     ϕ::T,
-    α::T
+    α::T,
+    ψ::T
 ) where {T}
 
+    s1 = s[1]
+    s2 = s[2]
+
     # init point x0: f(x0) > 0
-    x0 = -one(T)/s3 + (2*s3 + sqrt(ϕ*ϕ/s3/s3 + 3*ϕ))/(ϕ - s3*s3)
+    x0 = -one(T)/abs_s3 + (ψ*abs_s3 + sqrt((ϕ/abs_s3/abs_s3 + ψ*ψ - one(T))*ϕ))/(ϕ - abs_s3*abs_s3)
 
-    # additional shift due to the choice of dual barrier
-    t0 = - 2*α*logsafe(α) - 2*(1-α)*logsafe(1-α)   
-
-    # function for f(x) = 0
+    #find zero value of function f0
     function f0(x)
-        t1 = x*x; t2 = 2*x/s3;
-        2*α*logsafe(2*α*t1 + (1+α)*t2) + 
-             2*(1-α)*logsafe(2*(1-α)*t1 + (2-α)*t2) - 
-             logsafe(ϕ) - logsafe(t1+t2) - 
-             2*logsafe(t2) + t0
+        -logsafe(2*x/abs_s3 + x*x) + 2*α*(logsafe(x*abs_s3+(1+α)/α) - logsafe(s1)) + 2*(1-α)*(logsafe(x*abs_s3+(2-α)/(1-α)) - logsafe(s2))
     end
 
     # first derivative
     function f1(x)
-        t1 = x*x; t2 = x*2/s3;
-        2*α*α/(α*x + (1+α)/s3) + 2*(1-α)*(1-α)/((1-α)*x + 
-             (2-α)/s3) - 2*(x + 1/s3)/(t1 + t2)
+        -(2*x + 2/abs_s3)/(x*x + 2*x/abs_s3) + 2*α*abs_s3/(abs_s3*x + (1+α)/α) + 2*(1-α)*abs_s3/(abs_s3*x + (2-α)/(1-α)) 
     end
     
      return _newton_raphson_onesided(x0,f0,f1)
