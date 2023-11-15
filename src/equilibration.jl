@@ -39,10 +39,6 @@ function data_equilibrate!(
 		dwork .= inv.(sqrt.(dwork))
 		ework .= inv.(sqrt.(ework))
 
-		# do not scale on extreme column norms 
-		limit_scaling!(dwork, inv(scale_max^2), inv(scale_min^2)) 
-		limit_scaling!(ework, inv(scale_max^2), inv(scale_min^2)) 
-
 		#bound the cumulative scaling 
 		@. dwork = clip(dwork, scale_min/d, scale_max/d)
 		@. ework = clip(ework, scale_min/e, scale_max/e)
