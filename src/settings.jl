@@ -86,8 +86,8 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 	#data equilibration
 	equilibrate_enable::Bool            = true
 	equilibrate_max_iter::UInt32        = 10
-	equilibrate_min_scaling::T          = 1e-4
-	equilibrate_max_scaling::T          = 1e+4
+	equilibrate_min_scaling::T          = 1e-6
+	equilibrate_max_scaling::T          = 1e+6
 
     #cones and line search parameters
     linesearch_backtrack_step::T        = 0.8     
