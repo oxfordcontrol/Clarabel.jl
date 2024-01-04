@@ -70,6 +70,9 @@ module Clarabel
     include("./utils/mathutils.jl")
     include("./utils/csc_assembly.jl")
 
+    #data updating
+    include("./data_updating.jl")
+
     #optional dependencies.  
     #NB: This __init__ function and its @require statements 
     #should be removed upon update of this package for use 

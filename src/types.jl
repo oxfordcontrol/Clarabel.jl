@@ -153,8 +153,8 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     m::DefaultInt
     equilibration::DefaultEquilibration{T}
 
-    normq::T
-    normb::T
+    normq::T  #unscaled inf norm of q
+    normb::T  #unscaled inf norm of b
 
     presolver::Presolver{T}
 

@@ -66,6 +66,15 @@ function scaled_norm(m::AbstractVector{T},v::AbstractVector{T}) where{T}
     return sqrt(t)
 end
 
+#inf-norm of the product a.*b
+function scaled_norm_inf(m::AbstractVector{T},v::AbstractVector{T}) where{T}
+    t = zero(T)
+    for i in eachindex(v)
+        t = max(t,abs(m[i]*v[i]))
+    end
+    return t
+end
+
 
 
 function kkt_col_norms!(
@@ -163,7 +172,6 @@ function row_norms_no_reset!(
 	end
 	return nothing
 end
-
 
 function scalarmul!(A::SparseMatrixCSC, c::Real)
 	A.nzval .*= c
@@ -282,6 +290,13 @@ end
 function mean(v::AbstractArray{T}) where {T}
     sum(v)/length(v)
 end
+
+function isequal_sparsity(A::SparseMatrixCSC, B::SparseMatrixCSC)
+	return size(A) == size(B) &&
+        isequal(A.colptr, B.colptr) &&
+        isequal(A.rowval, B.rowval)
+end
+
 
 
 # ---------------------------------

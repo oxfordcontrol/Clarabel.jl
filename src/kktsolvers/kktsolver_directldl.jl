@@ -363,6 +363,22 @@ function kktsolver_solve!(
     return is_success
 end
 
+# update methods for P and A 
+function kktsolver_update_P!(
+    kktsolver::AbstractKKTSolver{T},
+    P::SparseMatrixCSC{T}
+) where{T}
+    _update_values!(kktsolver.ldlsolver,kktsolver.KKT,kktsolver.map.P,P.nzval)
+end
+
+function kktsolver_update_A!(
+    kktsolver::AbstractKKTSolver{T},
+    A::SparseMatrixCSC{T}
+) where{T}
+    _update_values!(kktsolver.ldlsolver,kktsolver.KKT,kktsolver.map.A,A.nzval)
+end
+
+
 function  _iterative_refinement(
     kktsolver::DirectLDLKKTSolver{T},
     ldlsolver::AbstractDirectLDLSolver{T}
