@@ -76,6 +76,29 @@ end
 
             end
 
+            @testset "updata P (tuple)" begin 
+                
+                #original problem 
+                P,q,A,b,cones,settings = updating_test_data(FloatT)
+                solver1   = Clarabel.Solver(P,q,A,b,cones,settings)
+                Clarabel.solve!(solver1)
+
+                #revised original solver
+                values = FloatT[3.,5.]
+                index  = [2,3]
+                Pdata  = zip(index,values)
+                Clarabel.update_P!(solver1,Pdata)
+                Clarabel.solve!(solver1)
+
+                #new solver 
+                P2 = sparse(FloatT[4. 3; 0 5])
+                solver2 = Clarabel.Solver(P2,q,A,b,cones,settings)
+                Clarabel.solve!(solver2)
+
+                @test isapprox(norm(solver1.solution.x - solver2.solution.x), zero(FloatT), atol=tol)
+
+            end
+
             @testset "updata A (matrix form)" begin 
                 
                 #original problem 
@@ -122,7 +145,31 @@ end
 
             end
 
-            @testset "updata q" begin 
+            @testset "updata A (tuple)" begin 
+                
+                #original problem 
+                P,q,A,b,cones,settings = updating_test_data(FloatT)
+                solver1   = Clarabel.Solver(P,q,A,b,cones,settings)
+                Clarabel.solve!(solver1)
+
+                #revised original solver
+                values = FloatT[0.5,-0.5]
+                index  = [2,3]
+                Adata  = zip(index,values)
+                Clarabel.update_A!(solver1,Adata)
+                Clarabel.solve!(solver1)
+
+                #new solver 
+                A2 = deepcopy(A)
+                A2.nzval[index] .= values
+                solver2 = Clarabel.Solver(P,q,A2,b,cones,settings)
+                Clarabel.solve!(solver2)
+
+                @test isapprox(norm(solver1.solution.x - solver2.solution.x), zero(FloatT), atol=tol)
+
+            end
+
+            @testset "updata q (vector)" begin 
                 
                 #original problem 
                 P,q,A,b,cones,settings = updating_test_data(FloatT)
@@ -145,7 +192,31 @@ end
 
             end
 
-            @testset "updata b" begin 
+            @testset "updata q (tuple)" begin 
+                
+                #original problem 
+                P,q,A,b,cones,settings = updating_test_data(FloatT)
+                solver1   = Clarabel.Solver(P,q,A,b,cones,settings)
+                Clarabel.solve!(solver1)
+
+                #revised original solver
+                values = FloatT[1000.]
+                index = [2]
+                qdata = zip(index,values)
+                Clarabel.update_q!(solver1,qdata)
+                Clarabel.solve!(solver1)
+
+                #new solver 
+                q2 = deepcopy(q)
+                q2[index] .= values
+                solver2 = Clarabel.Solver(P,q2,A,b,cones,settings)
+                Clarabel.solve!(solver2)
+
+                @test isapprox(norm(solver1.solution.x - solver2.solution.x), zero(FloatT), atol=tol)
+
+            end
+
+            @testset "updata b (vector)" begin 
                 
                 #original problem 
                 P,q,A,b,cones,settings = updating_test_data(FloatT)
@@ -161,6 +232,30 @@ end
                 Clarabel.solve!(solver1)
 
                 #new solver 
+                solver2 = Clarabel.Solver(P,q,A,b2,cones,settings)
+                Clarabel.solve!(solver2)
+
+                @test isapprox(norm(solver1.solution.x - solver2.solution.x), zero(FloatT), atol=tol)
+
+            end
+
+            @testset "updata b (tuple)" begin 
+                
+                #original problem 
+                P,q,A,b,cones,settings = updating_test_data(FloatT)
+                solver1   = Clarabel.Solver(P,q,A,b,cones,settings)
+                Clarabel.solve!(solver1)
+
+                #revised original solver
+                values = FloatT[0., 0.]
+                index = [2,4]
+                bdata = zip(index,values)
+                Clarabel.update_b!(solver1,bdata)
+                Clarabel.solve!(solver1)
+
+                #new solver 
+                b2 = deepcopy(b)
+                b2[index] .= values
                 solver2 = Clarabel.Solver(P,q,A,b2,cones,settings)
                 Clarabel.solve!(solver2)
 

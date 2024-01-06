@@ -109,29 +109,14 @@ function scale_data!(
 ) where {T <: AbstractFloat}
 
     if(!isnothing(d))
-        scale_P!(P,d)
-		scale_A!(A,e,d)
-        scale_q!(q,d)
+        lrscale!(d, P, d) # P[:,:] = Ds*P*Ds
+		lrscale!(e, A, d) # A[:,:] = Es*A*Ds
+        @. q *= d
     else
         lscale!(e, A) # A[:,:] = Es*A
     end
 
-	scale_b!(b,e)
+	@. b *= e
     return nothing
 end
 
-function scale_P!(P,d)
-	lrscale!(d, P, d) # P[:,:] = Ds*P*Ds
-end
-
-function scale_A!(A,e,d)
-	lrscale!(e, A, d) # A[:,:] = Es*A*Ds
-end
-
-function scale_q!(q,d)
-	@. q *= d
-end
-
-function scale_b!(b,e)
-	@. b *= e
-end
