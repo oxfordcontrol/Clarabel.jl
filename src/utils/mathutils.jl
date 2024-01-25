@@ -75,8 +75,8 @@ function norm_inf_scaled(m::AbstractVector{T},v::AbstractVector{T}) where{T}
     return t
 end
 
-#inf-norm of the product a.*b
-function norm_inf_scaled(m::AbstractVector{T},v::AbstractVector{T}) where{T}
+#one-norm of the product a.*b
+function norm_one_scaled(m::AbstractVector{T},v::AbstractVector{T}) where{T}
     t = zero(T)
     for i in eachindex(v)
         t += abs(m[i]*v[i])
