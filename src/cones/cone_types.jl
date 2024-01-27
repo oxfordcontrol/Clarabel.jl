@@ -124,8 +124,8 @@ SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
 
 mutable struct PSDConeData{T}
 
-    cholS::Union{Nothing,Cholesky{T,Matrix{T}}}
-    cholZ::Union{Nothing,Cholesky{T,Matrix{T}}}
+    chol1::Union{Nothing,Cholesky{T,Matrix{T}}}
+    chol2::Union{Nothing,Cholesky{T,Matrix{T}}}
     SVD::Union{Nothing,SVD{T,T,Matrix{T}}}
     λ::Vector{T}
     Λisqrt::Diagonal{T,Vector{T}}
@@ -145,7 +145,7 @@ mutable struct PSDConeData{T}
 
         #there is no obvious way of pre-allocating
         #or recycling memory in these factorizations
-        (cholS,cholZ,SVD) = (nothing,nothing,nothing)
+        (chol1,chol2,SVD) = (nothing,nothing,nothing)
 
         λ      = zeros(T,n)
         Λisqrt = Diagonal(zeros(T,n))
@@ -160,7 +160,7 @@ mutable struct PSDConeData{T}
         workmat3 = zeros(T,n,n)
         workvec  = zeros(T,triangular_number(n))
 
-        return new(cholS,cholZ,SVD,λ,Λisqrt,R,Rinv,
+        return new(chol1,chol2,SVD,λ,Λisqrt,R,Rinv,
                    kronRR,B,Hs,workmat1,workmat2,workmat3,workvec)
     end
 end
