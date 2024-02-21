@@ -57,44 +57,6 @@ end
 
 
 # ---------------
-# equilibration data
-# ---------------
-
-struct DefaultEquilibration{T} <: AbstractEquilibration{T}
-
-    #scaling matrices for problem data equilibration
-    #fields d,e,dinv,einv are vectors of scaling values
-    #to be treated as diagonal scaling data
-    d::Vector{T}
-    dinv::Vector{T}
-    e::ConicVector{T}
-    einv::ConicVector{T}
-
-    #overall scaling for objective function
-    c::Base.RefValue{T}
-
-    function DefaultEquilibration{T}(
-        nvars::Int,
-        cones::CompositeCone{T},
-    ) where {T}
-
-        #Left/Right diagonal scaling for problem data
-        d    = ones(T,nvars)
-        dinv = ones(T,nvars)
-        e    = ConicVector{T}(cones); e    .= one(T)
-        einv = ConicVector{T}(cones); einv .= one(T)
-
-        c    = Ref(T(1.))
-
-        new(d,dinv,e,einv,c)
-    end
-
-end
-
-DefaultEquilibration(args...) = DefaultEquilibration{DefaultFloat}(args...)
-
-
-# ---------------
 # residuals
 # ---------------
 
@@ -140,6 +102,44 @@ DefaultResiduals(args...) = DefaultResiduals{DefaultFloat}(args...)
 
 
 # ---------------
+# equilibration data
+# ---------------
+
+struct DefaultEquilibration{T} <: AbstractEquilibration{T}
+
+    #scaling matrices for problem data equilibration
+    #fields d,e,dinv,einv are vectors of scaling values
+    #to be treated as diagonal scaling data
+    d::Vector{T}
+    dinv::Vector{T}
+    e::ConicVector{T}
+    einv::ConicVector{T}
+
+    #overall scaling for objective function
+    c::Base.RefValue{T}
+
+    function DefaultEquilibration{T}(
+        nvars::Int,
+        cones::CompositeCone{T},
+    ) where {T}
+
+        #Left/Right diagonal scaling for problem data
+        d    = ones(T,nvars)
+        dinv = ones(T,nvars)
+        e    = ConicVector{T}(cones); e    .= one(T)
+        einv = ConicVector{T}(cones); einv .= one(T)
+
+        c    = Ref(T(1.))
+
+        new(d,dinv,e,einv,c)
+    end
+
+end
+
+DefaultEquilibration(args...) = DefaultEquilibration{DefaultFloat}(args...)
+
+
+# ---------------
 # problem data
 # ---------------
 
@@ -153,8 +153,12 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     m::DefaultInt
     equilibration::DefaultEquilibration{T}
 
-    normq::T  #unscaled inf norm of q
-    normb::T  #unscaled inf norm of b
+    # unscaled inf norms of linear terms.  Set to "nothing"
+    # during data updating to allow for multiple updates, and 
+    # then recalculated during solve if needed
+
+    normq::Union{T,Nothing}  #unscaled inf norm of q
+    normb::Union{T,Nothing}  #unscaled inf norm of b
 
     presolver::Presolver{T}
 

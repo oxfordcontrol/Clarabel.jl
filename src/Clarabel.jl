@@ -36,7 +36,7 @@ module Clarabel
     include("./types.jl")
     include("./variables.jl")
     include("./residuals.jl")
-    include("./equilibration.jl")
+    include("./data.jl")
     include("./info.jl")
     include("./solution.jl")
 

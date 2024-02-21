@@ -115,8 +115,8 @@ function update_q!(
     dinv = s.data.equilibration.dinv
     _update_vector(data,s.data.q,d)
 
-    # recover unscaled norm
-    s.data.normq = norm_inf_scaled(s.data.q,dinv)
+    # flush unscaled norm.   Will be recalculated during solve
+    s.data.normq = nothing
 
     return nothing
 end 

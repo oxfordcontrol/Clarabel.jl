@@ -28,8 +28,8 @@ function info_update!(
     normz = norm_scaled(einv,variables.z) * τinv
     norms = norm_scaled(einv,variables.s) * τinv
 
-    info.res_primal  = norm_scaled(einv,residuals.rz) * τinv / max(one(T), data.normb + normx + norms)
-    info.res_dual    = norm_scaled(dinv,residuals.rx) * τinv / max(one(T), data.normq + normx + normz)
+    info.res_primal  = norm_scaled(einv,residuals.rz) * τinv / max(one(T), data_normb!(data) + normx + norms)
+    info.res_dual    = norm_scaled(dinv,residuals.rx) * τinv / max(one(T), data_normq!(data) + normx + normz)
 
     #primal and dual infeasibility residuals.   Need to invert the equilibration
     info.res_primal_inf = norm_scaled(dinv,residuals.rx_inf) / max(one(T), normz)

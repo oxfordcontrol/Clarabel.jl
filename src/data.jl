@@ -1,7 +1,26 @@
 import LinearAlgebra
 
-#Ruiz Equilibration procedure, using same method as in COSMO.jl
+function data_normq!(data::DefaultProblemData{T}) where {T}
 
+	if isnothing(data.normq)
+		# recover unscaled norm
+		dinv = data.equilibration.dinv
+		data.normq = norm_inf_scaled(data.q,dinv)
+	end
+	return data.normq
+end 
+
+function data_normb!(data::DefaultProblemData{T}) where {T}
+
+	if isnothing(data.normb)
+		# recover unscaled norm
+		einv = data.equilibration.einv
+		data.normb = norm_inf_scaled(data.b,einv)
+	end
+	return data.normb
+end 
+
+#Ruiz Equilibration procedure, using same method as in COSMO.jl
 function data_equilibrate!(
         data::DefaultProblemData{T},
         cones::CompositeCone{T},
