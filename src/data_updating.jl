@@ -139,8 +139,8 @@ function update_b!(
     einv = s.data.equilibration.einv.vec  #einv is a conic vector type
     _update_vector(data,s.data.b,e)
 
-    # recover unscaled norm
-    s.data.normb = norm_inf_scaled(s.data.b,einv)
+    # flush unscaled norm.   Will be recalculated during solve
+    s.data.normb = nothing
 
     return nothing
 end 
