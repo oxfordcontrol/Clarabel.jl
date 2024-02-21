@@ -9,6 +9,7 @@ function solution_finalize!(
 
 	solution.status  = info.status
 	solution.obj_val = info.cost_primal
+	solution.obj_val_dual = info.cost_dual
 
     #if we have an infeasible problem, normalize
     #using κ to get an infeasibility certificate.
@@ -16,6 +17,7 @@ function solution_finalize!(
     if status_is_infeasible(info.status)
         scaleinv = one(T) / variables.κ
 		solution.obj_val = NaN
+		solution.obj_val_dual = NaN
     else
         scaleinv = one(T) / variables.τ
     end
