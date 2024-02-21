@@ -6,5 +6,11 @@ using Random, Test
     include("./UnitTests/test_coneops_psdtrianglecone.jl")
     include("./UnitTests/test_coneops_secondordercone.jl")
 
+    #tests on constructors 
+    include("./UnitTests/test_constructors.jl")
+
+    #tests on equilibration
+    include("./UnitTests/test_equilibration_bounds.jl")
+
 end
 nothing

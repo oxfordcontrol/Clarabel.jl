@@ -36,6 +36,10 @@ function data_equilibrate!(
 
 		kkt_col_norms!(P, A, dwork, ework)
 
+		#zero rows or columns should not get scaled
+		@. dwork = ifelse(dwork == zero(T),one(T),dwork)
+		@. ework = ifelse(ework == zero(T),one(T),ework)
+
 		dwork .= inv.(sqrt.(dwork))
 		ework .= inv.(sqrt.(ework))
 
