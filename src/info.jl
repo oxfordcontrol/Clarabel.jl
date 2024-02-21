@@ -11,6 +11,10 @@ function info_update!(
     #the pre-homogenization x and z variables.
     τinv = inv(variables.τ)
 
+    #unscaled linear term norms
+    normb = data_get_normb!(data)
+    normq = data_get_normq!(data)
+
     #shortcuts for the equilibration matrices
     d = data.equilibration.d; dinv = data.equilibration.dinv
     e = data.equilibration.e; einv = data.equilibration.einv
@@ -28,8 +32,8 @@ function info_update!(
     normz = norm_scaled(einv,variables.z) * τinv
     norms = norm_scaled(einv,variables.s) * τinv
 
-    info.res_primal  = norm_scaled(einv,residuals.rz) * τinv / max(one(T), data_normb!(data) + normx + norms)
-    info.res_dual    = norm_scaled(dinv,residuals.rx) * τinv / max(one(T), data_normq!(data) + normx + normz)
+    info.res_primal  = norm_scaled(einv,residuals.rz) * τinv / max(one(T), normb + normx + norms)
+    info.res_dual    = norm_scaled(dinv,residuals.rx) * τinv / max(one(T), normq + normx + normz)
 
     #primal and dual infeasibility residuals.   Need to invert the equilibration
     info.res_primal_inf = norm_scaled(dinv,residuals.rx_inf) / max(one(T), normz)

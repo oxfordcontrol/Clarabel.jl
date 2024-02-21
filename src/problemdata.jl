@@ -1,6 +1,6 @@
 import LinearAlgebra
 
-function data_normq!(data::DefaultProblemData{T}) where {T}
+function data_get_normq!(data::DefaultProblemData{T}) where {T}
 
 	if isnothing(data.normq)
 		# recover unscaled norm
@@ -10,7 +10,7 @@ function data_normq!(data::DefaultProblemData{T}) where {T}
 	return data.normq
 end 
 
-function data_normb!(data::DefaultProblemData{T}) where {T}
+function data_get_normb!(data::DefaultProblemData{T}) where {T}
 
 	if isnothing(data.normb)
 		# recover unscaled norm
@@ -18,6 +18,14 @@ function data_normb!(data::DefaultProblemData{T}) where {T}
 		data.normb = norm_inf_scaled(data.b,einv)
 	end
 	return data.normb
+end 
+
+function data_clear_normq!(data::DefaultProblemData{T}) where {T}
+		data.normq = nothing
+end 
+
+function data_clear_normb!(data::DefaultProblemData{T}) where {T}
+		data.normb = nothing
 end 
 
 #Ruiz Equilibration procedure, using same method as in COSMO.jl

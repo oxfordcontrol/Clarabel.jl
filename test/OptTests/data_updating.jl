@@ -26,7 +26,7 @@ end
 
     for FloatT in UnitTestFloats
 
-        tol = FloatT(1e-6)
+        tol = FloatT(1e-7)
 
         @testset "Data Updating Tests (T = $(FloatT))" begin
 
@@ -178,7 +178,7 @@ end
 
                 #change q and re-solve 
                 q2 = deepcopy(q)
-                q2[1] = 1000.
+                q2[1] = 10.
 
                 #revised original solver 
                 Clarabel.update_q!(solver1,q2)
@@ -200,7 +200,7 @@ end
                 Clarabel.solve!(solver1)
 
                 #revised original solver
-                values = FloatT[1000.]
+                values = FloatT[10.]
                 index = [2]
                 qdata = zip(index,values)
                 Clarabel.update_q!(solver1,qdata)

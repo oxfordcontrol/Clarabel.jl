@@ -116,7 +116,7 @@ function update_q!(
     _update_vector(data,s.data.q,d)
 
     # flush unscaled norm.   Will be recalculated during solve
-    s.data.normq = nothing
+    data_clear_normq!(s.data)
 
     return nothing
 end 
@@ -140,7 +140,7 @@ function update_b!(
     _update_vector(data,s.data.b,e)
 
     # flush unscaled norm.   Will be recalculated during solve
-    s.data.normb = nothing
+    data_clear_normb!(s.data)
 
     return nothing
 end 
