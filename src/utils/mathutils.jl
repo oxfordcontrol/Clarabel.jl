@@ -4,10 +4,8 @@ import LinearAlgebra: dot
 function clip(
     s::Real,
     min_thresh::Real,
-    max_thresh::Real,
-    min_new::Real = min_thresh,
-    max_new::Real = max_thresh)
-	s = ifelse(s < min_thresh, min_new, ifelse(s > max_thresh, max_new, s))
+    max_thresh::Real)
+	s = ifelse(s < min_thresh, min_thresh, ifelse(s > max_thresh, max_thresh, s))
     return s
 end
 

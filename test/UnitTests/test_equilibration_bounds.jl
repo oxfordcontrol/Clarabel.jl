@@ -23,19 +23,12 @@ end
 
     for FloatT in UnitTestFloats
 
-        tol = FloatT(1e-3)
-
         @testset "Equilibration Test (T = $(FloatT))" begin
 
             @testset "equilibrate lower bound" begin
 
-                lbound = FloatT(1e-4)
-                ubound = FloatT(1e+4)
-
                 P,c,A,b,cones = equilibration_test_data(FloatT)
                 settings = Clarabel.Settings{FloatT}()
-                settings.equilibrate_min_scaling = lbound
-                settings.equilibrate_max_scaling = ubound
 
                 P[1,1] = FloatT(1e-15)
 
@@ -44,22 +37,17 @@ end
                 d = solver.data.equilibration.d
                 e = solver.data.equilibration.e
 
-                @test minimum(d) >= lbound
-                @test minimum(e) >= lbound
-                @test maximum(d) <= ubound
-                @test maximum(e) <= ubound
+                @test minimum(d) >= settings.equilibrate_min_scaling
+                @test minimum(e) >= settings.equilibrate_min_scaling
+                @test maximum(d) <= settings.equilibrate_max_scaling
+                @test maximum(e) <= settings.equilibrate_max_scaling
             
             end
 
             @testset "equilibrate upper bound" begin
 
-                lbound = FloatT(1e-4)
-                ubound = FloatT(1e+4)
-
                 P,c,A,b,cones = equilibration_test_data(FloatT)
                 settings = Clarabel.Settings{FloatT}()
-                settings.equilibrate_min_scaling = lbound
-                settings.equilibrate_max_scaling = ubound
 
                 A[1,1] = FloatT(1e+15)
 
@@ -68,23 +56,19 @@ end
                 d = solver.data.equilibration.d
                 e = solver.data.equilibration.e
 
-                @test minimum(d) >= lbound
-                @test minimum(e) >= lbound
-                @test maximum(d) <= ubound
-                @test maximum(e) <= ubound
+                @test minimum(d) >= settings.equilibrate_min_scaling
+                @test minimum(e) >= settings.equilibrate_min_scaling
+                @test maximum(d) <= settings.equilibrate_max_scaling
+                @test maximum(e) <= settings.equilibrate_max_scaling
+            
             
             end
 
             @testset "equilibrate zero rows" begin
 
-                lbound = FloatT(1e-4)
-                ubound = FloatT(1e+4)
-
                 P,c,A,b,cones = equilibration_test_data(FloatT)
                 A.nzval .= zero(FloatT)
                 settings = Clarabel.Settings{FloatT}()
-                settings.equilibrate_min_scaling = lbound
-                settings.equilibrate_max_scaling = ubound
 
                 solver   = Clarabel.Solver(P,c,A,b,cones,settings)
 

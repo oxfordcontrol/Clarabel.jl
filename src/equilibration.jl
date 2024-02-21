@@ -93,21 +93,6 @@ function data_equilibrate!(
 end
 
 
-#PJG: not needed?
-function limit_scaling!(s::AbstractVector{T}, minval::T, maxval::T) where {T}
-	@. s = clip(s, minval, maxval, one(T))
-
-	return nothing
-end
-
-#PJG: not needed?
-function limit_scaling(s::T, minval::T, maxval::T) where {T}
-	s = clip(s, minval, maxval, one(T))
-
-	return s
-end
-
-
 function scale_data!(
     P::AbstractMatrix{T},
     A::AbstractMatrix{T},
