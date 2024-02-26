@@ -36,7 +36,7 @@ module Clarabel
     include("./types.jl")
     include("./variables.jl")
     include("./residuals.jl")
-    include("./equilibration.jl")
+    include("./problemdata.jl")
     include("./info.jl")
     include("./solution.jl")
 
@@ -69,6 +69,9 @@ module Clarabel
     #various algebraic utilities
     include("./utils/mathutils.jl")
     include("./utils/csc_assembly.jl")
+
+    #data updating
+    include("./data_updating.jl")
 
     #optional dependencies.  
     #NB: This __init__ function and its @require statements 
