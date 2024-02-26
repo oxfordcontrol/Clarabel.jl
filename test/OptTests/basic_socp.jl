@@ -47,6 +47,8 @@ end
                 FloatT[ -0.5 ; 0.435603 ;  -0.245459]),
                 zero(FloatT), atol=tol)
                 @test isapprox(solver.solution.obj_val, FloatT(-8.4590e-01), atol=tol)
+                @test isapprox(solver.solution.obj_val_dual, FloatT(-8.4590e-01), atol=tol)
+
 
             end
 
@@ -59,6 +61,8 @@ end
                 Clarabel.solve!(solver)
 
                 @test solver.solution.status == Clarabel.PRIMAL_INFEASIBLE
+                @test isnan(solver.solution.obj_val)
+                @test isnan(solver.solution.obj_val_dual)
 
             end
 

@@ -56,6 +56,8 @@ end
                 Clarabel.solve!(solver)
                 @test isapprox(norm(solver.solution.x - FloatT[0.]), zero(FloatT), atol=tol)
                 @test isapprox(solver.solution.obj_val, FloatT(0.), atol=tol)
+                @test isapprox(solver.solution.obj_val_dual, FloatT(0.), atol=tol)
+
 
             end
 
@@ -68,6 +70,7 @@ end
                 @test solver.solution.status == Clarabel.SOLVED
                 @test isapprox(norm(solver.solution.x - FloatT[0.3; 0.7]), zero(FloatT), atol=tol)
                 @test isapprox(solver.solution.obj_val, FloatT(1.8800000298331538), atol=tol)
+                @test isapprox(solver.solution.obj_val_dual, FloatT(1.8800000298331538), atol=tol)
 
             end
 
@@ -81,6 +84,8 @@ end
                 Clarabel.solve!(solver)
 
                 @test solver.solution.status == Clarabel.PRIMAL_INFEASIBLE
+                @test isnan(solver.solution.obj_val)
+                @test isnan(solver.solution.obj_val_dual)
 
             end
 
@@ -91,6 +96,8 @@ end
                 Clarabel.solve!(solver)
 
                 @test solver.solution.status == Clarabel.DUAL_INFEASIBLE
+                @test isnan(solver.solution.obj_val)
+                @test isnan(solver.solution.obj_val_dual)
             end
 
             @testset "dual infeasible (non-QSD KKT)" begin
@@ -104,6 +111,8 @@ end
                 Clarabel.solve!(solver)
 
                 @test solver.solution.status == Clarabel.DUAL_INFEASIBLE
+                @test isnan(solver.solution.obj_val)
+                @test isnan(solver.solution.obj_val_dual)
             end
 
         end      #end "Basic QP Tests (FloatT)"

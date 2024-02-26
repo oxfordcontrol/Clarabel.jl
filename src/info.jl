@@ -11,6 +11,10 @@ function info_update!(
     #the pre-homogenization x and z variables.
     τinv = inv(variables.τ)
 
+    #unscaled linear term norms
+    normb = data_get_normb!(data)
+    normq = data_get_normq!(data)
+
     #shortcuts for the equilibration matrices
     d = data.equilibration.d; dinv = data.equilibration.dinv
     e = data.equilibration.e; einv = data.equilibration.einv
@@ -24,17 +28,17 @@ function info_update!(
     info.cost_dual   =  (-residuals.dot_bz*τinv - xPx_τinvsq_over2)/cscale
 
     #primal and dual relative residuals.   Need to invert the equilibration
-    normx = scaled_norm(dinv,variables.x) * τinv
-    normz = scaled_norm(einv,variables.z) * τinv
-    norms = scaled_norm(einv,variables.s) * τinv
+    normx = norm_scaled(dinv,variables.x) * τinv
+    normz = norm_scaled(einv,variables.z) * τinv
+    norms = norm_scaled(einv,variables.s) * τinv
 
-    info.res_primal  = scaled_norm(einv,residuals.rz) * τinv / max(one(T), data.normb + normx + norms)
-    info.res_dual    = scaled_norm(dinv,residuals.rx) * τinv / max(one(T), data.normq + normx + normz)
+    info.res_primal  = norm_scaled(einv,residuals.rz) * τinv / max(one(T), normb + normx + norms)
+    info.res_dual    = norm_scaled(dinv,residuals.rx) * τinv / max(one(T), normq + normx + normz)
 
     #primal and dual infeasibility residuals.   Need to invert the equilibration
-    info.res_primal_inf = scaled_norm(dinv,residuals.rx_inf) / max(one(T), normz)
-    info.res_dual_inf   = max(scaled_norm(dinv,residuals.Px) / max(one(T), normx),
-                              scaled_norm(einv,residuals.rz_inf) / max(one(T), normx + norms))
+    info.res_primal_inf = norm_scaled(dinv,residuals.rx_inf) / max(one(T), normz)
+    info.res_dual_inf   = max(norm_scaled(dinv,residuals.Px) / max(one(T), normx),
+                              norm_scaled(einv,residuals.rz_inf) / max(one(T), normx + norms))
 
     #absolute and relative gaps
     info.gap_abs = abs(info.cost_primal - info.cost_dual)
