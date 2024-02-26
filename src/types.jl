@@ -266,7 +266,8 @@ x | Vector{T}| Primal variable
 z | Vector{T}| Dual variable
 s | Vector{T}| (Primal) set variable
 status | Symbol | Solution status
-obj_val | T | Objective value
+obj_val | T | Objective value (primal)
+obj_val_dual | T | Objective value (dual)
 solve_time | T | Solver run time
 iterations | Int | Number of solver iterations
 r_prim       | primal residual at termination
@@ -282,6 +283,7 @@ mutable struct DefaultSolution{T} <: AbstractSolution{T}
     s::Vector{T}
     status::SolverStatus
     obj_val::T
+    obj_val_dual::T
     solve_time::T
     iterations::UInt32
     r_prim::T
@@ -298,12 +300,13 @@ function DefaultSolution{T}(m,n) where {T <: AbstractFloat}
     # seemingly reasonable defaults
     status  = UNSOLVED
     obj_val = T(NaN)
+    obj_val_dual = T(NaN)
     solve_time = zero(T)
     iterations = 0
     r_prim     = T(NaN)
     r_dual     = T(NaN)
 
-  return DefaultSolution{T}(x,z,s,status,obj_val,solve_time,iterations,r_prim,r_dual)
+  return DefaultSolution{T}(x,z,s,status,obj_val,obj_val_dual,solve_time,iterations,r_prim,r_dual)
 end
 
 DefaultSolution(args...) = DefaultSolution{DefaultFloat}(args...)
