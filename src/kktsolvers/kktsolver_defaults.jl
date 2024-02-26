@@ -23,19 +23,17 @@ function kktsolver_solve!(
     error("function not implemented")
 end
 
-
-# check whether the factorization is successful
-function kktsolver_checkfact!(
-    kktsolver::AbstractKKTSolver{T}
+# update methods for P and A 
+function kktsolver_update_P!(
+    kktsolver::AbstractKKTSolver{T},
+    P::SparseMatrixCSC{T}
 ) where{T}
     error("function not implemented")
 end
 
-
-# check whether the condition number is poors
-function kktsolver_is_ill_conditioned!(
-    kktsolver::AbstractKKTSolver{T}
+function kktsolver_update_A!(
+    kktsolver::AbstractKKTSolver{T},
+    A::SparseMatrixCSC{T}
 ) where{T}
     error("function not implemented")
 end
-

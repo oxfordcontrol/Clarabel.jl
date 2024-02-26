@@ -33,8 +33,8 @@ __Data Equilibration Settings__||
 ||
 equilibrate\\_enable                    | true      | enable data equilibration pre-scaling
 equilibrate\\_max\\_iter                | 10        | maximum equilibration scaling iterations
-equilibrate\\_min\\_scaling             | 1e-4      | minimum equilibration scaling allowed
-equilibrate\\_max\\_scaling             | 1e+4      | maximum equilibration scaling allowed
+equilibrate\\_min\\_scaling             | 1e-5      | minimum equilibration scaling allowed
+equilibrate\\_max\\_scaling             | 1e+5      | maximum equilibration scaling allowed
 ||
 __Step Size Settings__||
 linesearch\\_backtrack\\_step           | 0.8       | linesearch backtracking
@@ -86,8 +86,8 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 	#data equilibration
 	equilibrate_enable::Bool            = true
 	equilibrate_max_iter::UInt32        = 10
-	equilibrate_min_scaling::T          = 1e-4
-	equilibrate_max_scaling::T          = 1e+4
+	equilibrate_min_scaling::T          = 1e-5
+	equilibrate_max_scaling::T          = 1e+5
 
     #cones and line search parameters
     linesearch_backtrack_step::T        = 0.8     

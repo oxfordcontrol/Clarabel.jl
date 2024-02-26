@@ -76,12 +76,6 @@ function test_MOI_standard()
             # and MOI version.  They both converge to reasonable accuracy locally.
             "test_conic_GeometricMeanCone",
             "test_constraint_qcp_duplicate_diagonal",
-            #
-            # these tests require support for mix of SDP and power/expcone, 
-            # which are not yet supported  
-            "test_conic_RootDetConeSquare",
-            "test_conic_RootDetConeTriangle",
-
         ],
         # This argument is useful to prevent tests from failing on future
         # releases of MOI that add new tests.

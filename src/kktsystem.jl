@@ -209,3 +209,20 @@ function kkt_solve!(
     return is_success
 
 end
+
+#update the KKT system with new P and A
+function kkt_update_P!(
+    kktsystem::DefaultKKTSystem{T},
+    P::SparseMatrixCSC{T}
+) where{T}
+    kktsolver_update_P!(kktsystem.kktsolver,P)
+    return nothing
+end
+
+function kkt_update_A!(
+    kktsystem::DefaultKKTSystem{T},
+    A::SparseMatrixCSC{T}
+) where{T}
+    kktsolver_update_A!(kktsystem.kktsolver,A)
+    return nothing
+end

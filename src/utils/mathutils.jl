@@ -4,10 +4,8 @@ import LinearAlgebra: dot
 function clip(
     s::Real,
     min_thresh::Real,
-    max_thresh::Real,
-    min_new::Real = min_thresh,
-    max_new::Real = max_thresh)
-	s = ifelse(s < min_thresh, min_new, ifelse(s > max_thresh, max_new, s))
+    max_thresh::Real)
+	s = ifelse(s < min_thresh, min_thresh, ifelse(s > max_thresh, max_thresh, s))
     return s
 end
 
@@ -51,13 +49,13 @@ function sumsq(v::AbstractVector{T}) where{T}
 end
 
 
-#2-norm of the product M*v
-function scaled_norm(M::Diagonal{T},v::AbstractVector{T}) where{T}
-    return scaled_norm(M.diag,v)
+#2-norm of the product M*v, with M a diagonal matrix
+function norm_scaled(M::Diagonal{T},v::AbstractVector{T}) where{T}
+    return norm_scaled(M.diag,v)
 end
 
 #2-norm of the product a.*b
-function scaled_norm(m::AbstractVector{T},v::AbstractVector{T}) where{T}
+function norm_scaled(m::AbstractVector{T},v::AbstractVector{T}) where{T}
     t = zero(T)
     for i in eachindex(v)
         p  = m[i]*v[i]
@@ -66,6 +64,23 @@ function scaled_norm(m::AbstractVector{T},v::AbstractVector{T}) where{T}
     return sqrt(t)
 end
 
+#inf-norm of the product a.*b
+function norm_inf_scaled(m::AbstractVector{T},v::AbstractVector{T}) where{T}
+    t = zero(T)
+    for i in eachindex(v)
+        t = max(t,abs(m[i]*v[i]))
+    end
+    return t
+end
+
+#one-norm of the product a.*b
+function norm_one_scaled(m::AbstractVector{T},v::AbstractVector{T}) where{T}
+    t = zero(T)
+    for i in eachindex(v)
+        t += abs(m[i]*v[i])
+    end
+    return t
+end
 
 
 function kkt_col_norms!(
@@ -163,7 +178,6 @@ function row_norms_no_reset!(
 	end
 	return nothing
 end
-
 
 function scalarmul!(A::SparseMatrixCSC, c::Real)
 	A.nzval .*= c
@@ -283,6 +297,19 @@ function mean(v::AbstractArray{T}) where {T}
     sum(v)/length(v)
 end
 
+function isequal_sparsity(A::SparseMatrixCSC, B::SparseMatrixCSC)
+	return size(A) == size(B) &&
+        isequal(A.colptr, B.colptr) &&
+        isequal(A.rowval, B.rowval)
+end
+
+# Returns the (row,col) coordinates of the given linear index.
+function index_to_coord(A::SparseMatrixCSC,idx)
+    @assert idx ∈ 0:nnz(A)
+    row = A.rowval[idx]
+    col = searchsortedlast(A.colptr,idx)
+    (row,col)
+end 
 
 # ---------------------------------
 # functions for manipulating data in packed triu form
