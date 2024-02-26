@@ -27,18 +27,28 @@ function info_update!(
     info.cost_primal =  (+residuals.dot_qx*τinv + xPx_τinvsq_over2)/cscale
     info.cost_dual   =  (-residuals.dot_bz*τinv - xPx_τinvsq_over2)/cscale
 
-    #primal and dual relative residuals.   Need to invert the equilibration
-    normx = norm_scaled(dinv,variables.x) * τinv
-    normz = norm_scaled(einv,variables.z) * τinv
-    norms = norm_scaled(einv,variables.s) * τinv
+    #variables norms, undoing the equilibration.  Do not unscale
+    #by τ yet because the infeasibility residuals are ratios of 
+    #terms that have no affine parts anyway
+    normx = norm_scaled(dinv,variables.x)
+    normz = norm_scaled(einv,variables.z)
+    norms = norm_scaled(einv,variables.s)
 
+    #primal and dual infeasibility residuals.   
+    info.res_primal_inf = norm_scaled(dinv,residuals.rx_inf) / max(one(T), normz)
+    info.res_dual_inf   = max(
+        norm_scaled(dinv,residuals.Px) / max(one(T), normx),
+        norm_scaled(einv,residuals.rz_inf) / max(one(T), normx + norms)
+    )
+
+    #now back out the τ scaling so we can normalize the unscaled primal / dual errors 
+    normx *= τinv
+    normz *= τinv
+    norms *= τinv
+
+    #primal and dual relative residuals.  
     info.res_primal  = norm_scaled(einv,residuals.rz) * τinv / max(one(T), normb + normx + norms)
     info.res_dual    = norm_scaled(dinv,residuals.rx) * τinv / max(one(T), normq + normx + normz)
-
-    #primal and dual infeasibility residuals.   Need to invert the equilibration
-    info.res_primal_inf = norm_scaled(dinv,residuals.rx_inf) / max(one(T), normz)
-    info.res_dual_inf   = max(norm_scaled(dinv,residuals.Px) / max(one(T), normx),
-                              norm_scaled(einv,residuals.rz_inf) / max(one(T), normx + norms))
 
     #absolute and relative gaps
     info.gap_abs = abs(info.cost_primal - info.cost_dual)
