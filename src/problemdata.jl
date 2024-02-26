@@ -63,11 +63,16 @@ function data_equilibrate!(
 
 		kkt_col_norms!(P, A, dwork, ework)
 
-		limit_scaling!(dwork, scale_min, scale_max)
-		limit_scaling!(ework, scale_min, scale_max)
+		#zero rows or columns should not get scaled
+		@. dwork = ifelse(dwork == zero(T),one(T),dwork)
+		@. ework = ifelse(ework == zero(T),one(T),ework)
 
 		dwork .= inv.(sqrt.(dwork))
 		ework .= inv.(sqrt.(ework))
+
+		#bound the cumulative scaling 
+		@. dwork = clip(dwork, scale_min/d, scale_max/d)
+		@. ework = clip(ework, scale_min/e, scale_max/e)
 
 		# Scale the problem data and update the
 		# equilibration matrices
@@ -85,8 +90,8 @@ function data_equilibrate!(
 		if mean_col_norm_P  != zero(T) && inf_norm_q != zero(T)
 
 			scale_cost = max(inf_norm_q, mean_col_norm_P)
-			scale_cost = limit_scaling(scale_cost, scale_min, scale_max)
 			ctmp = one(T) / scale_cost
+			ctmp = clip(ctmp, scale_min/c[], scale_max/c[])
 
 			# scale the penalty terms and overall scaling
 			scalarmul!(P, ctmp)
@@ -97,7 +102,10 @@ function data_equilibrate!(
 	end #end Ruiz scaling loop
 
 	# fix scalings in cones for which elementwise
-    # scaling can't be applied
+    # scaling can't be applied.   Rectification should 
+	# either do nothing or take a convex combination of
+	# scalings over a cone, so shouldn't need to check  
+	# bounds on the scalings here 
 	if rectify_equilibration!(cones, ework, e)
 		#only rescale again if some cones were rectified
 		scale_data!(P, A, q, b, nothing, ework)
@@ -109,20 +117,6 @@ function data_equilibrate!(
 	@. equil.einv = one(T) / e
 
 	return nothing
-end
-
-
-function limit_scaling!(s::AbstractVector{T}, minval::T, maxval::T) where {T}
-	@. s = clip(s, minval, maxval, one(T))
-
-	return nothing
-end
-
-
-function limit_scaling(s::T, minval::T, maxval::T) where {T}
-	s = clip(s, minval, maxval, one(T))
-
-	return s
 end
 
 

@@ -71,7 +71,7 @@ end
 
                 P,c,A,b,cones = basic_LP_data(FloatT)
                 A[1,1] = eps(FloatT)
-                A[4,1] = -eps(FloatT)
+                A[4,1] = 0.0
                 c .= FloatT[1.;0;0]
 
                 solver   = Clarabel.Solver(P,c,A,b,cones)
