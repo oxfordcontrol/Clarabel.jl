@@ -95,8 +95,14 @@ function update_scaling!(
     map((M,v)->_svec_to_mat!(M,v),(S,Z),(s,z))
 
     #compute Cholesky factors (PG: this is allocating)
-    f.chol1 = cholesky!(S, check = true)
-    f.chol2 = cholesky!(Z, check = true)
+    f.chol1 = cholesky!(S, check = false)
+    f.chol2 = cholesky!(Z, check = false)
+
+    # bail if the cholesky factorization fails
+    if !(issuccess(f.chol1) && issuccess(f.chol2))
+        return is_scaling_success = false
+    end
+
     (L1,L2) = (f.chol1.L,f.chol2.L)
 
     #SVD of L2'*L1,
