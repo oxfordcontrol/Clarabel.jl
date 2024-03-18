@@ -364,6 +364,18 @@ function kktsolver_solve!(
     return is_success
 end
 
+function kktsolver_residual!(kktsolver, ex, ez)
+    #PJG: temporary implemention.   This would be broken if iterative 
+    #refinement is disabld since there would be no residual to exploit
+    
+    #I think (?) that the last error residual will be in work1
+    e = kktsolver.work1
+    (m,n) = (kktsolver.m,kktsolver.n)
+    @views ex .= e[1:n]
+    @views ez .= e[(n+1):(n+m)]
+end
+
+
 # update methods for P and A 
 function kktsolver_update_P!(
     kktsolver::DirectLDLKKTSolver{T},

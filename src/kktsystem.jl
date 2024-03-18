@@ -15,6 +15,12 @@ mutable struct DefaultKKTSystem{T} <: AbstractKKTSystem{T}
     x2::Vector{T}
     z2::Vector{T}
 
+    #error residuals for phase 1 and phase 2 solves 
+    ex1::Vector{T}
+    ez1::Vector{T}
+    ex2::Vector{T}
+    ez2::Vector{T}
+
     #work vectors for assembling/disassembling vectors
     workx::Vector{T}
     workz::ConicVector{T}
@@ -40,6 +46,12 @@ mutable struct DefaultKKTSystem{T} <: AbstractKKTSystem{T}
         x2   = Vector{T}(undef,n)
         z2   = Vector{T}(undef,m)
 
+        #error residuals 
+        ex1   = Vector{T}(undef,n)
+        ez1   = Vector{T}(undef,m)
+        ex2   = Vector{T}(undef,n)
+        ez2   = Vector{T}(undef,m)
+
         #workspace compatible with (x,z)
         workx   = Vector{T}(undef,n)
         workz   = ConicVector{T}(cones)
@@ -47,7 +59,7 @@ mutable struct DefaultKKTSystem{T} <: AbstractKKTSystem{T}
         #additional conic workspace vector compatible with s and z
         work_conic = ConicVector{T}(cones)
 
-        return new(kktsolver,x1,z1,x2,z2,workx,workz,work_conic)
+        return new(kktsolver,x1,z1,x2,z2,ex1,ez1,ex2,ez2,workx,workz,work_conic)
 
     end
 
@@ -82,6 +94,10 @@ function _kkt_solve_constant_rhs!(
 
     kktsolver_setrhs!(kktsystem.kktsolver, kktsystem.workx, data.b)
     is_success = kktsolver_solve!(kktsystem.kktsolver, kktsystem.x2, kktsystem.z2)
+
+    if is_success 
+        kktsolver_residual!(kktsystem.kktsolver,kktsystem.ex2,kktsystem.ez2)
+    end
 
     return is_success
 
@@ -140,6 +156,8 @@ function kkt_solve!(
 
     (x1,z1) = (kktsystem.x1, kktsystem.z1)
     (x2,z2) = (kktsystem.x2, kktsystem.z2)
+    (ex1,ez1) = (kktsystem.ex1, kktsystem.ez1)
+    (ex2,ez2) = (kktsystem.ex2, kktsystem.ez2)
     (workx,workz) = (kktsystem.workx, kktsystem.workz)
 
     #solve for (x1,z1)
@@ -168,6 +186,9 @@ function kkt_solve!(
 
     if !is_success return false end
 
+    kktsolver_residual!(kktsystem.kktsolver,ex1,ez1)
+
+
     #solve for Δτ.
     #-----------
     # Numerator first
@@ -184,6 +205,14 @@ function kkt_solve!(
 
     tau_den  = variables.κ/variables.τ - dot(data.q,x2) - dot(data.b,z2)
     tau_den += quad_form(ξ_minus_x2,P,ξ_minus_x2) - quad_form(x2,P,x2)
+    
+    if true
+        #don't assume exact solves, so remove quadratic consolidation terms in tau_den 
+        #tau_den = variables.κ/variables.τ + quad_form(ξ,P,ξ) - dot(data.q,x2) - dot(data.b,z2) - 2*quad_form(ξ,P,x2)
+
+        tau_num -= (dot(ex1,ex2) + dot(ez1,ez2))/tau_den
+        tau_den += (dot(ex2,ex2) + dot(ez2,ez2))/tau_den
+    end
 
     #solve for (Δx,Δz)
     #-----------
