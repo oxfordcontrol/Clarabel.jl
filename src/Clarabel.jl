@@ -65,6 +65,10 @@ module Clarabel
     include("./cones/coneops_nonsymmetric_common.jl")
     include("./cones/coneops_symmetric_common.jl")
 
+
+    #chordal decomposition
+    include("./chordal/chordal_decomposition.jl")
+
     #various algebraic utilities
     include("./utils/mathutils.jl")
     include("./utils/csc_assembly.jl")
