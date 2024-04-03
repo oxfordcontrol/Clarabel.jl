@@ -253,7 +253,7 @@ function compute_barrier(
 ) where {T}
     barrier = zero(T)
 
-    for (cone,rng) in zip(cones,cones.rng_blocks)
+    for (cone,rng) in zip(cones,cones.rng_cones)
         zi = view(z,rng)
         si = view(s,rng)
         dzi = view(dz,rng)
