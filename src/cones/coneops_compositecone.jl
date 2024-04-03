@@ -202,7 +202,6 @@ function Δs_from_Δz_offset!(
 end
 
 # maximum allowed step length over all cones
-# PJG: for loop block repeats below.   Consolidate. 
 function step_length(
      cones::CompositeCone{T},
         dz::Vector{T},
@@ -215,16 +214,21 @@ function step_length(
 
     α = αmax
 
-    # Force symmetric cones first.   
-    for (cone,rng) in zip(cones,cones.rng_cones)
-        if @conedispatch !is_symmetric(cone)
-            continue 
+    function innerfcn(α,symcond)
+        for (cone,rng) in zip(cones,cones.rng_cones)
+            if @conedispatch is_symmetric(cone) == symcond
+                continue 
+            end
+            (dzi,dsi) = (view(dz,rng),view(ds,rng))
+            (zi,si)  = (view(z,rng),view(s,rng))
+            @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
+            α = min(α,nextαz,nextαs)
         end
-        (dzi,dsi) = (view(dz,rng),view(ds,rng))
-        (zi,si)  = (view(z,rng),view(s,rng))
-        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
-        α = min(α,nextαz,nextαs)
+        return α
     end
+
+    # Force symmetric cones first.   
+    α = innerfcn(α,true)
         
     #if we have any nonsymmetric cones, then back off from full steps slightly
     #so that centrality checks and logarithms don't fail right at the boundaries
@@ -232,16 +236,8 @@ function step_length(
         α = min(α,settings.max_step_fraction)
     end
 
-    for (cone,rng) in zip(cones,cones.rng_cones)
-
-        if @conedispatch is_symmetric(cone)
-            continue 
-        end
-        (dzi,dsi) = (view(dz,rng),view(ds,rng))
-        (zi,si)  = (view(z,rng),view(s,rng))
-        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
-        α = min(α,nextαz,nextαs)
-    end
+    # now the nonsymmetric cones
+    α = innerfcn(α,false)
 
     return (α,α)
 end
