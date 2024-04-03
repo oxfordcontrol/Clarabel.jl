@@ -99,7 +99,7 @@ function setup!(
         s.data   = DefaultProblemData{T}(P,q,A,b,s.cones,presolver)
         s.data.m == s.cones.numel || throw(DimensionMismatch())
 
-        s.variables = DefaultVariables{T}(s.data.n,s.cones)
+        s.variables = DefaultVariables{T}(s.data.n,s.data.m)
         s.residuals = DefaultResiduals{T}(s.data.n,s.data.m)
 
         #equilibrate problem data immediately on setup.
@@ -114,11 +114,11 @@ function setup!(
         end
 
         # work variables for assembling step direction LHS/RHS
-        s.step_rhs  = DefaultVariables{T}(s.data.n,s.cones)
-        s.step_lhs  = DefaultVariables{T}(s.data.n,s.cones)
+        s.step_rhs  = DefaultVariables{T}(s.data.n,s.data.m)
+        s.step_lhs  = DefaultVariables{T}(s.data.n,s.data.m)
 
         # a saved copy of the previous iterate
-        s.prev_vars = DefaultVariables{T}(s.data.n,s.cones)
+        s.prev_vars = DefaultVariables{T}(s.data.n,s.data.m)
 
         # user facing results go here
         s.solution    = DefaultSolution{T}(s.data.presolver.mfull,s.data.n)

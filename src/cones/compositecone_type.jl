@@ -15,9 +15,12 @@ struct CompositeCone{T} <: AbstractCone{T}
     numel::DefaultInt
     degree::DefaultInt
 
-    #a vector showing the overall index of the
-    #first element in each cone.  For convenience
-    headidx::Vector{Int}
+    #ranges for the indices of the constituent cones
+    rng_cones::Vector{UnitRange{Int64}}
+
+    #ranges for the indices of the constituent Hs blocks
+    #associated with each cone
+    rng_blocks::Vector{UnitRange{Int64}}
 
     # the flag for symmetric cone check
     _is_symmetric::Bool
@@ -52,12 +55,14 @@ struct CompositeCone{T} <: AbstractCone{T}
         numel  = sum(cone -> Clarabel.numel(cone), cones; init = 0)
         degree = sum(cone -> Clarabel.degree(cone), cones; init = 0)
 
-        #headidx gives the index of the first element
-        #of each constituent cone
-        headidx = Vector{Int}(undef,length(cones))
-        _make_headidx!(headidx,cones)
+        #ranges for the subvectors associated with each cone,
+        #and the range for the corresponding entries
+        #in the Hs sparse block
 
-        return new(cones,type_counts,numel,degree,headidx,_is_symmetric)
+        rng_cones = _make_rng_cones(cones);
+        rng_blocks = _make_rng_blocks(cones);
+
+        return new(cones,type_counts,numel,degree,rng_cones,rng_blocks,_is_symmetric)
     end
 end
 
@@ -85,14 +90,39 @@ function get_type_count(cones::CompositeCone{T}, type::Type) where {T}
     end
 end
 
-function _make_headidx!(headidx,cones)
+function _make_rng_cones(cones)
 
-    if(length(cones) > 0)
-        #index of first element in each cone
-        headidx[1] = 1
-        for i = 2:length(cones)
-            headidx[i] = headidx[i-1] + numel(cones[i-1])
+    rngs = UnitRange{Int64}[]
+    sizehint!(rngs,length(cones))
+
+    if !isempty(cones)
+        start = 1
+        for cone in cones
+            stop = start + numel(cone) - 1
+            push!(rngs,start:stop)
+            start = stop + 1
         end
     end
-    return nothing
+    return rngs
 end
+
+function _make_rng_blocks(cones)
+
+    rngs = UnitRange{Int64}[]
+    sizehint!(rngs,length(cones))
+
+    if !isempty(cones)
+        start = 1
+        for cone in cones
+            nvars = numel(cone)
+            if Hs_is_diagonal(cone)
+                stop = start + nvars - 1
+            else
+                stop = start + triangular_number(nvars) - 1
+            end
+            push!(rngs,start:stop)
+            start = stop + 1
+        end
+    end
+    return rngs
+end 

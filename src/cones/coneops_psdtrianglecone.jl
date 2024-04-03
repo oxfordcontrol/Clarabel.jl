@@ -202,7 +202,6 @@ function mul_Hs!(
     # needed to populate the KKT Hs block.   For a direct 
     # method that block is never needed, so better to only 
     # form it in memory if get_Hs is actually called and 
-    # provides a place for it.
     mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
     mul_W!(K,:T,y,work,one(T),zero(T))    #y = Wᵀwork = W^TWx
 

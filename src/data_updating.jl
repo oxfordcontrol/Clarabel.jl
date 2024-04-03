@@ -89,7 +89,7 @@ function update_A!(
     isnothing(data) && return
     _check_presolve_disabled(s)
     d = s.data.equilibration.d
-    e = s.data.equilibration.e.vec #e is a conic vector type
+    e = s.data.equilibration.e 
     _update_matrix(data,s.data.A,e,d)
     # overwrite KKT data 
     kkt_update_A!(s.kktsystem,s.data.A)
@@ -135,8 +135,8 @@ function update_b!(
 
     isnothing(data) && return
     _check_presolve_disabled(s)
-    e    = s.data.equilibration.e.vec     #e is a conic vector type
-    einv = s.data.equilibration.einv.vec  #einv is a conic vector type
+    e    = s.data.equilibration.e     
+    einv = s.data.equilibration.einv
     _update_vector(data,s.data.b,e)
 
     # flush unscaled norm.   Will be recalculated during solve

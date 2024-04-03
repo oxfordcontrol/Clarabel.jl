@@ -30,7 +30,6 @@ module Clarabel
 
     #core solver components
     include("./settings.jl")
-    include("./conicvector.jl")
     include("./statuscodes.jl")
     include("./presolver.jl")
     include("./types.jl")

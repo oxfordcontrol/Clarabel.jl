@@ -231,9 +231,9 @@ function variables_rescale!(variables)
     invscale = 1/scale;
     
     variables.x .*= invscale
-    variables.z.vec .*= invscale
-    variables.s.vec .*= invscale
-    variables.τ *= invscale
-    variables.κ *= invscale
+    variables.z .*= invscale
+    variables.s .*= invscale
+    variables.τ  *= invscale
+    variables.κ  *= invscale
     
 end

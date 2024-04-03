@@ -24,19 +24,19 @@ abstract type AbstractSolver{T <: AbstractFloat}   end
 mutable struct DefaultVariables{T} <: AbstractVariables{T}
 
     x::Vector{T}
-    s::ConicVector{T}
-    z::ConicVector{T}
+    s::Vector{T}
+    z::Vector{T}
     τ::T
     κ::T
 
     function DefaultVariables{T}(
         n::Integer, 
-        cones::CompositeCone{T}
+        m::Integer,
     ) where {T}
 
-        x = Vector{T}(undef,n)
-        s = ConicVector{T}(cones)
-        z = ConicVector{T}(cones)
+        x = zeros(T,n)
+        s = zeros(T,m)
+        z = zeros(T,m)
         τ = T(1)
         κ = T(1)
 
@@ -84,14 +84,14 @@ mutable struct DefaultResiduals{T} <: AbstractResiduals{T}
     function DefaultResiduals{T}(n::Integer,
                                  m::Integer) where {T}
 
-        rx = Vector{T}(undef,n)
-        rz = Vector{T}(undef,m)
+        rx = zeros(T,n)
+        rz = zeros(T,m)
         rτ = T(1)
 
-        rx_inf = Vector{T}(undef,n)
-        rz_inf = Vector{T}(undef,m)
+        rx_inf = zeros(T,n)
+        rz_inf = zeros(T,m)
 
-        Px = Vector{T}(undef,n)
+        Px = zeros(T,n)
 
         new(rx,rz,rτ,rx_inf,rz_inf,zero(T),zero(T),zero(T),zero(T),Px)
     end
@@ -112,22 +112,22 @@ struct DefaultEquilibration{T} <: AbstractEquilibration{T}
     #to be treated as diagonal scaling data
     d::Vector{T}
     dinv::Vector{T}
-    e::ConicVector{T}
-    einv::ConicVector{T}
+    e::Vector{T}
+    einv::Vector{T}
 
     #overall scaling for objective function
     c::Base.RefValue{T}
 
     function DefaultEquilibration{T}(
-        nvars::Int,
-        cones::CompositeCone{T},
+        n::Int64,
+        m::Int64,
     ) where {T}
 
         #Left/Right diagonal scaling for problem data
-        d    = ones(T,nvars)
-        dinv = ones(T,nvars)
-        e    = ConicVector{T}(cones); e    .= one(T)
-        einv = ConicVector{T}(cones); einv .= one(T)
+        d    = ones(T,n)
+        dinv = ones(T,n)
+        e    = ones(T,m)
+        einv = ones(T,m)
 
         c    = Ref(T(1.))
 
@@ -198,7 +198,7 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
         #this ensures m is the *reduced* size m
         (m,n) = size(A)
 
-        equilibration = DefaultEquilibration{T}(n,cones)
+        equilibration = DefaultEquilibration{T}(n,m)
 
         normq = norm(q, Inf)
         normb = norm(b, Inf)
@@ -297,9 +297,9 @@ end
 
 function DefaultSolution{T}(m,n) where {T <: AbstractFloat}
 
-    x = Vector{T}(undef,n)
-    z = Vector{T}(undef,m)
-    s = Vector{T}(undef,m)
+    x = zeros(T,n)
+    z = zeros(T,m)
+    s = zeros(T,m)
 
     # seemingly reasonable defaults
     status  = UNSOLVED

@@ -1,21 +1,14 @@
 using SparseArrays, StaticArrays
 
-function _allocate_kkt_Hsblocks(type::Type{T}, cones) where{T <: Real}
+function _allocate_kkt_Hsblocks(
+    ::Type{Z}, 
+    cones::CompositeCone{T}
+) where{T <: AbstractFloat, Z <: Real}
 
-    ncones    = length(cones)
-    Hsblocks = Vector{Vector{T}}(undef,ncones)
+    rng_blocks = cones.rng_blocks
+    nnz = length(rng_blocks) == 0 ? 0 : last(rng_blocks[end])
+    zeros(Z,nnz)
 
-    for (i, cone) in enumerate(cones)
-        nvars = numel(cone)
-        if Hs_is_diagonal(cone) 
-            numelblock = nvars
-        else #dense triangle
-            numelblock = triangular_number(nvars) #must be Int
-        end
-        Hsblocks[i] = Vector{T}(undef,numelblock)
-    end
-
-    return Hsblocks
 end
 
 
@@ -84,7 +77,7 @@ function _kkt_assemble_colcounts(
     sparse_map_iter = Iterators.Stateful(map.sparse_maps)
     
     for (i,cone) = enumerate(cones)
-        row = cones.headidx[i] + n
+        row = first(cones.rng_cones[i]) + n
 
         #add the the Hs blocks in the lower right
         blockdim = numel(cone)
@@ -137,15 +130,16 @@ function _kkt_assemble_fill(
     sparse_map_iter = Iterators.Stateful(map.sparse_maps)
 
     for (i,cone) = enumerate(cones)
-        row = cones.headidx[i] + n
+        row = first(cones.rng_cones[i]) + n
 
         #add the the Hs blocks in the lower right
         blockdim = numel(cone)
+        block    = view(map.Hsblocks,cones.rng_blocks[i])
 
         if Hs_is_diagonal(cone)
-            _csc_fill_diag(K,map.Hsblocks[i],row,blockdim)
+            _csc_fill_diag(K,block,row,blockdim)
         else
-            _csc_fill_dense_triangle(K,map.Hsblocks[i],row,blockdim,shape)
+            _csc_fill_dense_triangle(K,block,row,blockdim,shape)
         end
 
         #add sparse expansions columns for sparse cones 
