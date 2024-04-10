@@ -4,7 +4,10 @@ module Clarabel
     using SparseArrays, LinearAlgebra, Printf, Requires
     const DefaultFloat = Float64
     const DefaultInt   = LinearAlgebra.BlasInt
-    const IdentityMatrix = UniformScaling{Bool}
+
+    # Rust-like Option type
+    # PJG: todo.   change code throughout to use this type
+    const Option{T} = Union{Nothing,T} 
 
     #internal constraint RHS limits.  This let block 
     #hides the INFINITY field in the module and makes 
@@ -32,6 +35,7 @@ module Clarabel
     include("./settings.jl")
     include("./statuscodes.jl")
     include("./presolver.jl")
+    include("./chordal/include.jl")
     include("./types.jl")
     include("./variables.jl")
     include("./residuals.jl")
@@ -64,10 +68,6 @@ module Clarabel
     include("./cones/coneops_compositecone.jl")
     include("./cones/coneops_nonsymmetric_common.jl")
     include("./cones/coneops_symmetric_common.jl")
-
-
-    #chordal decomposition
-    include("./chordal/chordal_decomposition.jl")
 
     #various algebraic utilities
     include("./utils/mathutils.jl")

@@ -1,5 +1,6 @@
 using TimerOutputs
 
+
 # -------------------------------------
 # abstract type defs
 # -------------------------------------
@@ -149,6 +150,7 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     q::Vector{T}
     A::AbstractMatrix{T}
     b::Vector{T}
+    cones::Vector{SupportedCone}
     n::DefaultInt
     m::DefaultInt
     equilibration::DefaultEquilibration{T}
@@ -157,55 +159,11 @@ mutable struct DefaultProblemData{T} <: AbstractProblemData{T}
     # during data updating to allow for multiple updates, and 
     # then recalculated during solve if needed
 
-    normq::Union{T,Nothing}  #unscaled inf norm of q
-    normb::Union{T,Nothing}  #unscaled inf norm of b
+    normq::Option{T}  #unscaled inf norm of q
+    normb::Option{T}  #unscaled inf norm of b
 
-    presolver::Presolver{T}
-
-    function DefaultProblemData{T}(
-        P::AbstractMatrix{T},
-        q::AbstractVector{T},
-        A::AbstractMatrix{T},
-        b::AbstractVector{T},
-        cones::CompositeCone{T},
-        presolver::Presolver{T},
-    ) where {T}
-
-        # dimension checks will have already been
-        # performed during problem setup, so skip here
-
-        #take an internal copy of all problem
-        #data, since we are going to scale it
-        P = triu(P)
-        q = deepcopy(q)
-
-        (A,b) = let  
-            map = presolver.reduce_map;  
-            if !isnothing(map)
-                (
-                    A[map.keep_logical,:],
-                    b[map.keep_logical]
-                )
-            else
-                (deepcopy(A),deepcopy(b))
-            end
-        end 
-
-        #cap entries in b at INFINITY.  This is important 
-        #for inf values that were not in a reduced cone
-        @. b .= min(b,T(presolver.infbound))
-
-        #this ensures m is the *reduced* size m
-        (m,n) = size(A)
-
-        equilibration = DefaultEquilibration{T}(n,m)
-
-        normq = norm(q, Inf)
-        normb = norm(b, Inf)
-
-        new(P,q,A,b,n,m,equilibration,normq,normb,presolver)
-
-    end
+    presolver::Option{Presolver{T}}
+    chordal_info::Option{ChordalInfo{T}}
 
 end
 
@@ -295,7 +253,7 @@ mutable struct DefaultSolution{T} <: AbstractSolution{T}
 
 end
 
-function DefaultSolution{T}(m,n) where {T <: AbstractFloat}
+function DefaultSolution{T}(n,m) where {T <: AbstractFloat}
 
     x = zeros(T,n)
     z = zeros(T,m)

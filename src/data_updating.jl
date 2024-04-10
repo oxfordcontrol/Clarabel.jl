@@ -25,7 +25,7 @@ allocations.   See [`update_P!`](@ref), [`update_q!`](@ref), [`update_A!`](@ref)
 function update_data!(
     s::Solver{T},
     P::VectorProblemDataUpdate{T} ,
-    q::Union{Vector{T},Nothing},
+    q::Option{Vector{T}},
     A::MatrixProblemDataUpdate{T},
     b::VectorProblemDataUpdate{T} 
 ) where{T}
@@ -148,8 +148,11 @@ end
 function _check_presolve_disabled(s)
     # Fail if presolve is enabled even if the sparsity is the same.
     # Not strictly necessary but may avoid confusion about expectations.
-    if s.settings.presolve_enable 
-        error("Disable presolve to allow data updates.")
+    # PJG: maybe should check for the existence of a presolver 
+    # and / or a chordal decompsition instead of the flags.  It 
+    # would be annoying to git this error with QP, for example 
+    if s.settings.presolve_enable || s.settings.chordal_decomposition_enable
+        error("Disable presolve and chordal decomposition to allow data updates.")
     end
 end 
 

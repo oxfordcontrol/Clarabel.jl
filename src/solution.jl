@@ -23,14 +23,13 @@ function solution_finalize!(
     end
 
 	#also undo the equilibration
-	d = data.equilibration.d; dinv = data.equilibration.dinv
+	d = data.equilibration.d
 	e = data.equilibration.e; einv = data.equilibration.einv
 	cscale = data.equilibration.c[]
 
 	@. solution.x = variables.x * d * scaleinv
 
-	map = data.presolver.reduce_map
-	if !isnothing(map) 
+	if !isnothing(data.presolver) 
 		map = data.presolver.reduce_map
 		@. solution.z[map.keep_index] = variables.z * e * (scaleinv / cscale)
 		@. solution.s[map.keep_index] = variables.s * einv * scaleinv
@@ -45,11 +44,10 @@ function solution_finalize!(
 		@. solution.s = variables.s * einv * scaleinv
 	end
  
-
 	solution.iterations  = info.iterations
 	solution.solve_time  = info.solve_time
-	solution.r_prim 	   = info.res_primal
-	solution.r_dual 	   = info.res_dual
+	solution.r_prim 	 = info.res_primal
+	solution.r_dual 	 = info.res_dual
 
 	return nothing
 

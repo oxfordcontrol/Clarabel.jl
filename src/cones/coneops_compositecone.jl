@@ -264,7 +264,3 @@ function compute_barrier(
     return barrier
 end
 
-
-function has_psd_cones(cones::CompositeCone{T}) where {T}
-    return any(c -> isa(c,PSDTriangleCone), cones)
-end

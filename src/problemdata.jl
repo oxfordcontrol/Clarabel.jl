@@ -1,5 +1,80 @@
 import LinearAlgebra
 
+function DefaultProblemData{T}(
+	P::AbstractMatrix{T},
+	q::AbstractVector{T},
+	A::AbstractMatrix{T},
+	b::AbstractVector{T},
+	cones::Vector{SupportedCone},
+	settings::Settings{T}
+) where {T}
+
+	# some caution is required to ensure we take a minimal,
+	# but nonzero, number of data copies during presolve steps 
+	P_new, q_new, A_new, b_new, cones_new = (nothing,nothing,nothing,nothing,nothing)
+
+	# make a copy if badly formatted.  istriu is very fast
+	if !istriu(P)
+		P_new = triu(P)  #copies 
+		P = P_new 	     #rust borrow
+	end 
+
+	# presolve : return nothing if disabled or no reduction
+	# --------------------------------------
+	presolver = presolve(A,b,cones,settings)
+
+	if !isnothing(presolver)
+		(A_new, b_new, cones_new) = presolve(presolver, A, b, cones)
+		(A, b, cones) = (A_new, b_new, cones_new)
+	end
+
+	# chordal decomposition : return nothing if disabled or no decomp
+	# --------------------------------------
+	chordal_info = chordal_decomposition(A,b,cones,settings)
+
+	if !isnothing(chordal_info)
+		(P_new, q_new, A_new, b_new, cones_new) = let 
+			if settings.chordal_decomposition_compact 
+				augment_compact!(chordal_info, P, q, A, b, cones)
+			else
+				augment_standard!(chordal_info, P, q, A, b, cones)
+			end
+		end 
+		(P, q, A, b, cones) = (P_new, q_new, A_new, b_new, cones_new)
+	end 
+
+	# now make sure we have a clean copy of everything if we
+	#haven't made one already.   Necessary since we will scale
+	# scale the internal copy and don't want to step on the user
+	isnothing(P_new) && (P_new = deepcopy(P))
+	isnothing(q_new) && (q_new = deepcopy(q))
+	isnothing(A_new) && (A_new = deepcopy(A))
+	isnothing(b_new) && (b_new = deepcopy(b))
+	isnothing(cones_new) && (cones_new = deepcopy(cones))
+
+	#cap entries in b at INFINITY.  This is important 
+	#for inf values that were not in a reduced cone
+	#this is not considered part of the "presolve", so
+	#can always happen regardless of user settings 
+	@. b_new .= min(b_new,T(Clarabel.get_infinity()))
+	
+	#this ensures m is the *reduced* size m
+	(m,n) = size(A_new)
+
+	equilibration = DefaultEquilibration{T}(n,m)
+
+	normq = norm(q_new, Inf)
+	normb = norm(b_new, Inf)
+
+	DefaultProblemData{T}(
+		P_new,q_new,A_new,b_new,cones_new,
+		n,m,equilibration,normq,normb,
+		presolver,chordal_info)
+
+end
+
+
+
 function data_get_normq!(data::DefaultProblemData{T}) where {T}
 
 	if isnothing(data.normq)
@@ -22,6 +97,30 @@ end
 
 function data_clear_normq!(data::DefaultProblemData{T}) where {T}
 		data.normq = nothing
+end 
+
+function data_get_solution_dims(data::DefaultProblemData{T}) where {T}
+
+	#return the dimension of the solution for the problem in 
+	#its original form, i.e. without presolve or chordal decomp 
+	#PJG: ignoring chordal decomp here since for the moment 
+	#I will just allow transformation to the decomposed problem 
+	(m,n) = size(data.A)
+
+	#if presolve enabled, m is the *original* number of constraints 
+	if !isnothing(data.presolver)
+		m = data.presolver.mfull
+	end 
+
+	# PJG: if things get very complicated with chordal decomp, 
+	# could just hold the initial problem dimensions as seen 
+	# at the start of the ProblemData constructor.   That's 
+	# probably easier 
+
+	#PJG Maybe this is actually dead code.  I will use input 
+	#dimensions in Solver constructor for now
+
+	(n,m)
 end 
 
 function data_clear_normb!(data::DefaultProblemData{T}) where {T}

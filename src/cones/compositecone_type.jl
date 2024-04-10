@@ -27,9 +27,7 @@ struct CompositeCone{T} <: AbstractCone{T}
 
     function CompositeCone{T}(cone_specs::Vector{SupportedCone}) where {T}
 
-        ncones = length(cone_specs)
-        cones  = AbstractCone{T}[]
-        sizehint!(cones,ncones)
+        cones  = sizehint!(AbstractCone{T}[],length(cone_specs))
 
         type_counts = Dict{Type,Int}()
 
@@ -92,8 +90,7 @@ end
 
 function _make_rng_cones(cones)
 
-    rngs = UnitRange{Int64}[]
-    sizehint!(rngs,length(cones))
+    rngs = sizehint!(UnitRange{Int64}[],length(cones))
 
     if !isempty(cones)
         start = 1
@@ -108,8 +105,7 @@ end
 
 function _make_rng_blocks(cones)
 
-    rngs = UnitRange{Int64}[]
-    sizehint!(rngs,length(cones))
+    rngs = sizehint!(UnitRange{Int64}[],length(cones))
 
     if !isempty(cones)
         start = 1

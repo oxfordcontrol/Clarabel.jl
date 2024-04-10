@@ -198,8 +198,7 @@ struct LDLDataMap
 
         #now do the sparse cone expansion pieces
         nsparse = count(cone->(@conedispatch is_sparse_expandable(cone)),cones)
-        sparse_maps = Vector{SparseExpansionMap}(); 
-        sizehint!(sparse_maps,nsparse)
+        sparse_maps = sizehint!(SparseExpansionMap[],nsparse)
 
         for cone in cones
             if @conedispatch is_sparse_expandable(cone) 

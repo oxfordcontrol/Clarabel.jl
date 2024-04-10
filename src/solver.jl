@@ -82,6 +82,10 @@ function setup!(
     cones::Vector{<:SupportedCone},
 ) where{T}
 
+    # project against cones with overly specific type, e.g. 
+    # when all of the cones are NonnegativeConeT
+    cones = convert(Vector{SupportedCone},cones)
+
     #sanity check problem dimensions
     _check_dimensions(P,q,A,b,cones)
 
@@ -90,13 +94,13 @@ function setup!(
 
     @timeit s.timers "setup!" begin
 
-        #reduce the cone sizes.  (A,b) will be reduced 
-        #within the problem data constructor.  Also makes
-        #an internal copy of the user cone specification
-        presolver = Presolver{T}(A,b,cones,s.settings)
+        # presolve / chordal decomposition if needed,
+        # then take an internal copy of the problem data
+        @timeit s.timers "presolve" begin
+            s.data = DefaultProblemData{T}(P,q,A,b,cones,s.settings)
+        end 
 
-        s.cones  = CompositeCone{T}(presolver.cone_specs)
-        s.data   = DefaultProblemData{T}(P,q,A,b,s.cones,presolver)
+        s.cones  = CompositeCone{T}(s.data.cones)
         s.data.m == s.cones.numel || throw(DimensionMismatch())
 
         s.variables = DefaultVariables{T}(s.data.n,s.data.m)
@@ -120,9 +124,14 @@ function setup!(
         # a saved copy of the previous iterate
         s.prev_vars = DefaultVariables{T}(s.data.n,s.data.m)
 
-        # user facing results go here
-        s.solution    = DefaultSolution{T}(s.data.presolver.mfull,s.data.n)
-
+        # user facing results go here  
+        # PJG: for now, I will use the data dimensions, but 
+        # this is wrong because it will fail if the 
+        # presolver is used.   I am doing this because I 
+        # can't get turn a chordal solution back into its 
+        # original form 
+        (m,n) = size(s.data.A)
+        s.solution    = DefaultSolution{T}(n,m)
     end
 
     return s

@@ -30,7 +30,6 @@ reduced\\_tol\\_infeas_rel		        | 5e-5      | reduced relative infeasibility
 reduced\\_tol\\_ktratio                 | 1e-4      | reduced κ/τ tolerance
 ||
 __Data Equilibration Settings__||
-||
 equilibrate\\_enable                    | true      | enable data equilibration pre-scaling
 equilibrate\\_max\\_iter                | 10        | maximum equilibration scaling iterations
 equilibrate\\_min\\_scaling             | 1e-5      | minimum equilibration scaling allowed
@@ -42,7 +41,6 @@ min\\_switch\\_step\\_length            | 1e-1      | minimum step size allowed 
 min\\_terminate\\_step\\_length         | 1e-4      | minimum step size allowed for symmetric cones && asymmetric cones with Dual scaling
 ||
 __Linear Solver Settings__||
-||
 direct\\_kkt\\_solver                   | true      | use a direct linear solver method (required true)
 direct\\_solve\\_method                 | :qdldl    | direct linear solver (:qdldl, :mkl or :cholmod)
 static\\_regularization\\_enable        | true      | enable KKT static regularization
@@ -56,8 +54,14 @@ iterative\\_refinement\\_reltol         | 1e-12     | iterative refinement relat
 iterative\\_refinement\\_abstol         | 1e-12     | iterative refinement absolute tolerance
 iterative\\_refinement\\_max\\_iter     | 10        | iterative refinement maximum iterations
 iterative\\_refinement\\_stop\\_ratio   | 5.0       | iterative refinement stalling tolerance
+||
 __Preprocessing Settings 
 presolve_enable                         | true      | enable presolve constraint reduction
+|| 
+__Chordal Decomposition Settings__||
+chordal\\_decomposition\\_enable            | true            | enable chordal decomposition
+chordal\\_decomposition\\_merge_method      | :clique_graph   | chordal decomposition merge method (:none, :parent_child or :clique_graph)
+chordal\\_decomposition\\_compact           | true            | assemble decomposed system in "compact" form
 
 """
 Base.@kwdef mutable struct Settings{T <: AbstractFloat}
@@ -119,6 +123,11 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     
     #preprocessing 
     presolve_enable::Bool               = true
+
+    #chordal decomposition
+    chordal_decomposition_enable::Bool  = true
+    chordal_decomposition_merge_method::Symbol = :clique_graph
+    chordal_decomposition_compact::Bool = true
 
 end
 

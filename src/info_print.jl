@@ -21,7 +21,7 @@ function info_print_configuration(
 
     if(settings.verbose == false) return end
 
-    if(is_reduced(data.presolver))
+    if(!isnothing(data.presolver))
         @printf(io, "\npresolve: removed %i constraints\n", count_reduced(data.presolver))
     end 
 
@@ -43,6 +43,7 @@ function info_print_configuration(
 
     return nothing
 end
+
 info_print_configuration(info,settings,data,cones) = info_print_configuration(stdout,info,settings,data,cones)
 
 
