@@ -34,17 +34,11 @@ mutable struct ChordalInfo{T}
     
         # initial problem data
         init_dims  = (size(A,2),size(A,1))
-        init_cones = deepcopy(cones)   #PJG: copy here potentially very bad.   Only do if needed
-
-        # decomposition patterns.  length 
-        # will be the same as the number
-        # of cones eventually decomposed 
-        spatterns = SparsityPattern[]
-
+        
         chordal_info = new{T}(
             init_dims, 
-            init_cones, 
-            spatterns, 
+            SupportedCone[], 
+            SparsityPattern[], 
             nothing,   # no H to start
             nothing    # no cone_maps to start
         )
@@ -54,6 +48,12 @@ mutable struct ChordalInfo{T}
             A, b, 
             cones, 
             settings.chordal_decomposition_merge_method)
+
+        # Only copy the generating cones if we have decomposition,  
+        # since otherwise this object is going to be dropped anyway 
+        if is_decomposed(chordal_info)
+            chordal_info.init_cones = deepcopy(cones)  
+        end
 
         return chordal_info
 
@@ -69,7 +69,7 @@ function find_sparsity_patterns!(
     merge_method::Symbol
 ) where {T}
 
-    rng_cones = _make_rng_conesT(cones)
+    rng_cones = rng_cones_iterator(cones)
 
     # aggregate sparsity pattern across the rows of [A;b]
     nz_mask = find_aggregate_sparsity_mask(A, b)
@@ -121,7 +121,7 @@ function analyse_sparsity_pattern!(
     L, ordering = find_graph!(nz_mask)
     spattern = SparsityPattern(L, ordering, coneidx, merge_method)
 
-    if num_cliques(spattern.sntree) == 1
+    if spattern.sntree.n_cliques == 1
         return #not decomposed, or everything re-merged
     end 
 
@@ -147,7 +147,7 @@ function post_cone_count(chordal_info::ChordalInfo)
 
     # sum the number of cliques in each spattern
     npatterns = length(chordal_info.spatterns)
-    ncliques  = sum([num_cliques(spattern.sntree) for spattern in chordal_info.spatterns])
+    ncliques  = sum([spattern.sntree.n_cliques for spattern in chordal_info.spatterns])
 
     # subtract npatterns to avoid double counting the 
     # original decomposed cones 
@@ -216,32 +216,33 @@ function find_graph!(nz_mask::AbstractVector{Bool})
 end
 
 
-# PJG An identical function is used in compositecone_type.jl, but implemented 
-# over the internal cone types rather then these user facing ones.   
-# the only difference is that the function internally is "numel", and 
-# the one here is "nvars" for the API types.   I can't just use this 
-# one in both places, though, because there is also _make_range_blocks
-# that uses internally information about whether Hs will be diagonal 
-# or not.   Will leave this here for how, but they need to be consolidated
+# ----------------------------------------------
+# Iterator for the range of indices of the cones
 
-# PJG: this allocates, but I think it could be made some kind of iterator 
-# over the cones with its own internal rng count state.   That would avoid 
-# allocating memory.
-function _make_rng_conesT(cones::Vector{SupportedCone})
+# PJG: something similar could be done for the internal cones,
+# to generate cone and block ranges, but need to make sure it 
+# won't generate rust borrow conflicts
 
-    rngs = sizehint!(UnitRange{Int64}[],length(cones))
-
-    if !isempty(cones)
-        start = 1
-        for cone in cones
-            stop = start + nvars(cone) - 1
-            push!(rngs,start:stop)
-            start = stop + 1
-        end
-    end
-    return rngs
+struct SupportedConeRangeIterator
+    cones::Vector{SupportedCone}
 end
 
+function rng_cones_iterator(cones::Vector{SupportedCone})
+    SupportedConeRangeIterator(cones)
+end
+
+Base.length(C::SupportedConeRangeIterator) = length(C.cones)
+
+function Base.iterate(C::SupportedConeRangeIterator, state=(1, 1)) 
+    (coneidx, start) = state 
+    if coneidx > length(C.cones)
+        return nothing 
+    else 
+        stop  = start + nvars(C.cones[coneidx]) - 1
+        state = (coneidx + 1, stop + 1)
+        return (start:stop, state)
+    end 
+end 
 
 """
 	find_graph!(ci, linearidx::Array{Int, 1}, n::Int)
@@ -271,26 +272,3 @@ function connect_graph!(L::SparseMatrixCSC{T}) where{T}
 		end
 	end
 end
-
-
-# given an index into the upper triangular part of a matrix, return 
-# its row and column position
-
-function upper_triangular_index_to_coord(linearidx::Int)
-    col = (isqrt(8 * linearidx) + 1) >> 1 
-    row = linearidx - triangular_number(col - 1)
-    (row,col)
-end
-
-# given a row and column position, return the index into the upper
-# triangular part of the matrix 
-
-function coord_to_upper_triangular_index(coord::Tuple{Int, Int})
-    (i,j) = coord
-    if i <= j
-        return triangular_number(j-1) + i
-    else
-        return triangular_number(i-1) + j
-    end
-end
-

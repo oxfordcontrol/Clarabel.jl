@@ -35,7 +35,7 @@ function DefaultProblemData{T}(
 
 	if !isnothing(chordal_info)
 		(P_new, q_new, A_new, b_new, cones_new) = 
-			decomp_augment!(chordal_info, P, q, A, b, cones, settings)
+			decomp_augment!(chordal_info, P, q, A, b, settings)
 	end 
 
 	# now make sure we have a clean copy of everything if we

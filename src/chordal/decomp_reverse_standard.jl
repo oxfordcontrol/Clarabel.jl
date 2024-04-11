@@ -9,9 +9,6 @@ function decomp_reverse_standard!(
     _old_cones::Vector{SupportedCone}
 ) where {T}
 
-    #only H should exist if the standard decomposition was used
-    @assert !isnothing(chordal_info.H) && isnothing(chordal_info.cone_maps)
-
     H     = chordal_info.H 
     (n,m) = variables_dims(new_vars)  
 

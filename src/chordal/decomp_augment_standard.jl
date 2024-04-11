@@ -2,25 +2,18 @@
 # Functions related to "traditional" decomposition
 # -----------------------------------------
 
-function decomp_standard_augment!(
+function decomp_augment_standard!(
   chordal_info::ChordalInfo{T},
   P::SparseMatrixCSC{T},
   q::Vector{T},
   A::SparseMatrixCSC{T},
   b::Vector{T},
-  cones::Vector{SupportedCone}
 ) where {T}
 
-  # allocate H and new decomposed cones.  H is stored
-  # in chordal_info and required for transformation 
-  # of the augmented solution back to the original one 
-  # for the "compact" transformation, H = nothing 
+  # allocate H and new decomposed cones.  H will be stored
+  # in chordal_info and is required for the reversal step 
 
-  # PJG: why doesn't chordal_info already know about the initial cones?
-  # not needed as an argument here?
-  # PJG: would prefer to use the internal cones only and 
-  # only take P,q,A,b as arguments 
-  H, cones_new = find_standard_H_and_cones!(chordal_info, cones)
+  H, cones_new = find_standard_H_and_cones!(chordal_info)
 
   z = zeros(T,H.n)
 
@@ -38,8 +31,10 @@ end
 
 function find_standard_H_and_cones!(
   chordal_info::ChordalInfo{T}, 
-  cones::Vector{SupportedCone}
 ) where {T}
+
+  # the cones that we used to form the decomposition 
+  cones = chordal_info.init_cones
 
   # preallocate H and new decomposed cones
   lenH = find_H_col_dimension(chordal_info)
@@ -98,7 +93,7 @@ function decompose_with_sparsity_pattern!(
   
   sntree = spattern.sntree
 
-  for i in 1:num_cliques(sntree)
+  for i in 1:sntree.n_cliques
 
     clique = get_clique(sntree, i)
 
@@ -108,12 +103,6 @@ function decompose_with_sparsity_pattern!(
     c = sort!([spattern.ordering[v] for v in clique])
 
     add_subblock_map!(H_I, c, row)
-
-    # PJG: compact transform seems to maintain cone_map roughly here as well
-    # compact transform also tags the new cones with their tree and clique 
-    # number in add_entries!    I think it would be preferable to store all 
-    # of the origin data, tree and clique number into the cone_map, and keep 
-    # it a common data object between the transformations 
 
     # add a new cone for this subblock
     cdim = get_nblk(sntree, i)

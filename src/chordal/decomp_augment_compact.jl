@@ -10,10 +10,9 @@ function decomp_augment_compact!(
     q::Vector{T},
     A::SparseMatrixCSC{T},
     b::Vector{T},
-    cones::Vector{SupportedCone}
   ) where {T}
     
-    A_new, b_new, cones_new = find_compact_A_b_and_cones(chordal_info, A, b, cones)
+    A_new, b_new, cones_new = find_compact_A_b_and_cones(chordal_info, A, b)
 
     # how many variables did we add?
     nadd = A_new.n - A.n
@@ -29,8 +28,10 @@ function find_compact_A_b_and_cones(
   chordal_info::ChordalInfo{T},
   A::SparseMatrixCSC{T},
   b::Vector{T},
-  cones::Vector{SupportedCone}
 ) where{T}
+
+  # the cones that we used to form the decomposition 
+  cones = chordal_info.init_cones
 
   # determine number of final augmented matrix and number of overlapping entries
   Aa_m, Aa_n, n_overlaps = find_A_dimension(chordal_info, A)
@@ -60,7 +61,7 @@ function find_compact_A_b_and_cones(
 
   patterns_iter  = Iterators.Stateful(chordal_info.spatterns)
   patterns_count = Iterators.Stateful(eachindex(chordal_info.spatterns))
-  row_ranges    = _make_rng_conesT(cones)
+  row_ranges     = rng_cones_iterator(cones)
 
   row_ptr     = 1           # index to start of next cone in A_I
   overlap_ptr = nnz(A) + 1  # index to next row for +1, -1 overlap entries
@@ -180,7 +181,7 @@ function add_entries_with_sparsity_pattern!(
   clique_to_rows = clique_rows_map(row_ptr, sntree)
 
   # loop over cliques in descending topological order
-  for i in num_cliques(sntree):-1:1
+  for i in (sntree.n_cliques):-1:1
 
     # get supernodes and separators and undo the reordering
     # NB: these are now Vector, not VertexSet
@@ -193,7 +194,7 @@ function add_entries_with_sparsity_pattern!(
 
     # If we encounter an overlap with a parent clique we have to be able to find the 
     # location of the overlapping entry. Therefore load and reorder the parent clique
-    if i == num_cliques(sntree)
+    if i == sntree.n_cliques
       parent_rows   = 0:0
       parent_clique = Int[]
     else
@@ -375,7 +376,7 @@ end
 "Return the row ranges of each clique after the decomposition of `C` shifted by `row_start`."
 function clique_rows_map(row_start::Int, sntree::SuperNodeTree)
   
-  n_cliques = num_cliques(sntree)
+  n_cliques = sntree.n_cliques
   rows = sizehint!(UnitRange{Int}[],  n_cliques)
   inds = sizehint!(Int[], n_cliques)
 
@@ -438,6 +439,9 @@ function get_rows(b::SparseVector, row_range::UnitRange{Int})
     end
   end
 
+
+#PJG: Too many Float64s and untyped SparseMatrixCSC in the code.   Also 
+#check proper typing of all ones() and zeros() calls.  
 
 "Returns the appropriate amount of memory for `A.nzval`, including, starting from `n_start`, the (+1 -1) entries for the overlaps."
 function alternating_sequence(total_length::Int, n_start::Int)

@@ -4,20 +4,6 @@
 
 A structure to represent and analyse the sparsity pattern of the input matrix L.
 
-# PJG: I think the following note always applies now, since the merge strategy is always graph-based
-# confusing though, since add_separators is called, which definitely populates the separators.  It 
-# looks to me like only the snode_children is empty? Basically no idea WTF.
-
-
-# PJG: note following might not remain correct if I push the treatment 
-# of separators into the clique merging initialization functions. 
-
-### Note:
-Based on the `merge_strategy` in the constructor, SuperNodeTree might be initialised
-as a graph, i.e. seperators `sep` are left empty as well as `snd_child` and `snd_post`.
-
-After cliques have been merged, a valid clique tree will be recomputed from the
-consolidated clique graph.
 """
 
 mutable struct SuperNodeTree
@@ -37,62 +23,42 @@ mutable struct SuperNodeTree
   	# vertices of clique seperators
 	separators::Vector{VertexSet} 
 
+  	# sizes of submatrices defined by each clique, sorted by post-ordering, 
+	# e.g. size of clique with order 3 => nblk[3].   Only populated 
+	# after a post-merging call to `calculate_block_dimensions!`
+	nblk::Option{Vector{Int}}
 
-	# PJG: not clear that nblk is actually required.  It is not 
-	# clear if nblk and n_snode actually belong here if th is 
-	# meant to be a standalone analytical object 
-
-  	# sizes of submatrices defined by each clique, sorted by post-ordering, e.g. size of clique with order 3 => nblk[3]
-	nblk::Vector{Int}
-	# number of supernodes / cliques in tree  
-	# PJG: Needed because the node count is decreased on merge, but 
-	# the `snode` vector of sets is not resized.  Instead, one of the 
-	# sets is just drained.   Maybe should be labelled as "nonempty" cliques
-	# for the documentation line above.
-	n_snode::Int 
-
-  # PJG: not clear that log and strategy are actually required, unless maybe 
-  # I want to allow for a NoMerge method
-	#merge_log::MergeLog
-	#strategy::AbstractMergeStrategy
-
-	# PJG: do I want to be prescriptive about the type T here?
+	# number of nonempty supernodes / cliques in tree  
+	n_cliques::Int 
 
 	function SuperNodeTree(L::SparseMatrixCSC{T}) where {T}
 
 		parent   = etree(L)
 		children = children_from_parent(parent)
-		post     = post_order(parent, children, length(parent))   
+		post 	 = zeros(Int, length(parent))
+		post_order!(post, parent, children, length(parent))   
 		
     	degree   = higher_degree(L)
 		snode, snode_parent = find_supernodes(parent, post, degree)
 
 		snode_children = children_from_parent(snode_parent)
-    	snode_post     = post_order(snode_parent, snode_children, length(snode_parent))   
+		snode_post     = zeros(Int,length(snode_parent)) 
+    	post_order!(snode_post, snode_parent, snode_children, length(snode_parent))   
 
-    	#PJG: maybe parent + children + post should be its own data structure?
-
-		# PJG: here, I will find separators in all cases, unlike COSMO
-		# I will then do the "add separators" step inside the initializer
-		# for the graph merge strategy
+		# Her we find separators in all cases, unlike COSMO which defers until
+		# after merging for the clique graph merging case.  These are later 
+		# modified in the clique-graph merge case in the call to add_separators
 		separators = find_separators(L, snode)
 
+		# nblk will be allocated to the length of the *post-merging*
+		# supernode count in calculate_block_dimensions!
+		nblk = nothing
 
-		# PJG: do I need to initialize nblk?  It is currently [0]
-		# not sure where it is computed
+		# number of cliques / nonempty supernodes.  decrements as supernodes are merged
+		n_cliques = length(snode)
 
-		# PJG: removed the separate treatment of separators 
-		# based on the merge strategy.   First initialization / 
-		# reworking of separators is not tasked to the initialise
-		# function of the merge strategy.     I now don't need 
-		# the merge strategy any more, and SnTree is standalone
-
-   	 	#PJG: temporarily (?) removed MergeLog from struct and constructor
-
-    	#PJG: not clear why nblk is initialized to length 1, instead of length(snode) or something
-		# where does nblk get populated?
-
-		new(snode, snode_post, snode_parent, snode_children, post, parent, separators, [0], length(snode_post))
+		new(snode, snode_post, snode_parent, snode_children, 
+			post, parent, separators, nblk, n_cliques)
 
 	end
 
@@ -102,23 +68,10 @@ end
 # public interface function to SuperNodeTree
 # ------------------------------------------
 
-#PJG: don't make SuperNodeTree internals public, because 
-#the indexing is also passing through snode_post
-
-function num_cliques(sntree::SuperNodeTree)
-	#PJG: this function is not used much, with the field just 
-	#being accessed directly.   Which way is better?
-	return sntree.n_snode
-end
-
-function get_post_order(sntree::SuperNodeTree)
-	return sntree.snode_post
-end
-
-#PJG: problem here, two functions of the same name 
 function get_post_order(sntree::SuperNodeTree, i::Int)
 	return sntree.snode_post[i]
 end
+
 # Using the post order ensures that no empty arrays from the clique merging are returned
 function get_snode(sntree::SuperNodeTree, i::Int)
 	return sntree.snode[sntree.snode_post[i]]
@@ -134,8 +87,8 @@ end
 # the block sizes are stored in post order, e.g. if clique 4 (stored in pos 4) 
 # has order 2, then nblk[2] represents the cardinality of clique 4
 function get_nblk(sntree::SuperNodeTree, i::Int)
-	return sntree.nblk[i]::Int
-end
+	return sntree.nblk[i]
+end 
 
 function get_overlap(sntree::SuperNodeTree, i::Int)
 	return length(sntree.separators[sntree.snode_post[i]])
@@ -144,7 +97,7 @@ end
 function get_decomposed_dim_and_overlaps(sntree::SuperNodeTree)
 	dim = 0
 	overlaps = 0
-	for i = 1:num_cliques(sntree)
+	for i = 1:sntree.n_cliques
 	  dim      += triangular_number(get_nblk(sntree, i))
 	  overlaps += triangular_number(get_overlap(sntree, i))
 	end
@@ -155,6 +108,11 @@ end
 # PJG: this is taken from the "tree based" version from COSMO.   I think, but 
 # am not certain, that it is impossible to execute the "graph based" version
 # which is only called if the tree has not been recomputed 
+# don't understand why it doesn't index through the snode_post field
+# like the other very similar methods.   Maybe that field doesn't 
+# exist when this is called?  If so, this shouldn't be a SuperNodeTree 
+# public function since it will be inconsistent 
+
 function get_clique(sntree::SuperNodeTree, ind::Int)
 	c = sntree.snode_post[ind]
 	return union(sntree.snode[c], sntree.separators[c])
@@ -167,7 +125,7 @@ end
 
 
 # ---------------------------
-# PJG: private / crate level utility functions for SuperNodeTree
+# utility functions for SuperNodeTree
 
 # PJG : not clear how etree here differs from etree in QDLDL 
 # Maybe should be something like "parents_from_graph" or something
@@ -181,9 +139,6 @@ function etree(L::SparseMatrixCSC{T}) where {T}
 	return parent
 end
 
-
-#PJG : this is only used in etree above?   Inline somehow?  
-#Not clear I am really making a etree here in the first place
 function find_parent_direct(L::SparseMatrixCSC{T}, v::Int) where{T}
 	v == size(L, 1) && return 0
 	return L.rowval[L.colptr[v]]
@@ -192,7 +147,6 @@ end
 
 function children_from_parent(parent::Vector{Int})
 
-	# PJG: why is constructor not used here?
 	children = [VertexSet() for i = 1:length(parent)]
 	for (i,pi) = enumerate(parent)
 		pi != 0 && push!(children[pi], i)
@@ -201,13 +155,16 @@ function children_from_parent(parent::Vector{Int})
 end
 
 
-# PJG: MG says that could be faster for the case that merges happened, i.e. nc != length(parent)
+# This could be faster for the case that merges happened, i.e. nc != length(parent)
 
-function post_order(parent::Vector{Int}, children::Vector{VertexSet}, nc::Int)
+function post_order!(post::Vector{Int}, parent::Vector{Int}, children::Vector{VertexSet}, nc::Int)
 
 	order = (nc + 1) * ones(Int, length(parent))
 	root = findfirst(x -> x == 0, parent)
 	stack = Int[root]
+
+	resize!(post, length(parent))
+	post .= 1:length(parent)
 
 	i = nc
 
@@ -221,10 +178,6 @@ function post_order(parent::Vector{Int}, children::Vector{VertexSet}, nc::Int)
 		push!(stack, sort(collect(children[v]))...)
 	end
 
-	post = collect(1:length(parent))
-
-  	#PJG: is this the same as invperm(order)?
-  	#depends on whether order is a permutation or not
 	sort!(post, by = x-> order[x])
 
 	# if merges happened, remove the entries pointing to empty arrays / cliques
@@ -247,18 +200,16 @@ end
 
 function find_supernodes(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 	
-  	# PJG: could be removed once issue described in next function below 
-  	# for different types of initialization is resolved 
-	snode = initialise_sets(length(parent))
+	snode = [VertexSet() for i = 1:length(parent)]
 
- 	 snode_parent, snode_index = pothen_sun(parent, post, degree)
+ 	snode_parent, snode_index = pothen_sun(parent, post, degree)
 	
-	for iii = 1:length(parent)
-		f = snode_index[iii]
+	for i = 1:length(parent)
+		f = snode_index[i]
 		if f < 0
-			push!(snode[iii], iii)
+			push!(snode[i], i)
 		else
-			push!(snode[f], iii)
+			push!(snode[f], i)
 		end
 	end
 	filter!(x -> !isempty(x), snode)
@@ -267,36 +218,20 @@ function find_supernodes(parent::Vector{Int}, post::Vector{Int}, degree::Vector{
 end
 
 
-#PJG: this function is probably not needed since it just makes a bunch of empty 
-#sets.   The issue is that the COSMO code has another "initialise_sets" that 
-#accepts strategy of other "AbstractMergeStrategy" instead, which returns instead 
-#a vector of vectors, rather than a vector of sets.   This perhaps explains 
-#why argument types in COSMO were defined in terms of unions over vectors of 
-#vectors and vectors of sets.   Need to look into which situations use each of 
-#these two different abstract merge types 
-
-#I think that the "GraphBasedMerge" is the only one we care about, and that the 
-#other one was used for testing against things like parent-child merge methods
-
-# function initialise_sets(N::Int, strategy::AbstractGraphBasedMerge)
-# 	return [Set{Int}() for i = 1:N]
-# end
-
-function initialise_sets(n::Int)
-	return [VertexSet() for i = 1:n]
-end
-
-
 # Algorithm from A. Poten and C. Sun: Compact Clique Tree Data Structures in Sparse Matrix Factorizations (1989)
 function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
+	
 	N = length(parent)
-	snode_index  = -1 * ones(Int, N) # if snode_index[v] < 0 then v is a rep vertex, otherwise v ∈ supernode[snode_index[v]]
-	snode_parent = -1 * ones(Int, N)
+	snode_index  = -ones(Int, N) # if snode_index[v] < 0 then v is a rep vertex, otherwise v ∈ supernode[snode_index[v]]
+	snode_parent = -ones(Int, N)
 
-	# PJG : sets here Vector, not Set?
-	children = 	[Int[] for i = 1:length(parent)]
+	# This also works as array of Int[], which might be faster
+	# note this arrays is local to the function, not the one 
+	# contained in the SuperNodeTree
+	children = [VertexSet() for i = 1:length(parent)]
 
 	root_index = findfirst(x -> x == 0, parent)
+
 	# go through parents of vertices in post_order
 	for v in post
 
@@ -355,9 +290,9 @@ function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 	repr_parent = snode_parent[repr_vertex]
 
 	# resize and reset snode_parent to take into account that all non-representative 
-  # arrays are removed from the parent structure
-  resize!(snode_parent, length(repr_vertex))
-  snode_parent .= 0
+	# arrays are removed from the parent structure
+	resize!(snode_parent, length(repr_vertex))
+	snode_parent .= 0
 
 	for (i, rp) in enumerate(repr_parent)
 		ind = findfirst(x -> x == rp, repr_vertex)
@@ -369,61 +304,15 @@ function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 end
 
 
-
-# PJG: this function is used in COSMO during SuperNodeTree initialization,
-# but the purpose is to add separators to the supernodes as a initialization
-# step for the graph-based merge strategy.   I will not use this, and 
-# will instead take the separators as they are found in the initialization
-# (i.e. tree-based) and simply add separators to the supernodes in the
-# initialize! of the clique graph merge strategy.   The graph merge 
-# strategy will then only mess up the tree internally, and rebuilds it 
-# before exiting 
-function add_separators!(
-	L::SparseMatrixCSC, 
-	snodes::Vector{VertexSet}, 
-	separators::Vector{VertexSet}, 
-	snode_parent::Vector{Int}
-)
-	
-	error("should not be used anymore")
-		
-	# for i = 1:length(snode_parent)
-	# 	snode = snodes[i]
-	# 	sep = separators[i]
-	# 	vrep = minimum(snode)
-
-	# 	adjplus = find_higher_order_neighbors(L, vrep)
-	# 	for neighbor in adjplus
-	# 		if !in(neighbor, snode)
-	# 			push!(snode, neighbor)
-	# 			push!(sep, neighbor)
-	# 		end
-	# 	end
-	# end
-end
-
-
-# PJG: I changed the argument types to support Sets instead 
-# of a union of Vector{Vector} and Vector{Set}.   This 
-# function in COSMO is only called in the case of a tree-based
-# merge, but I will try to get Sets to work for both tree
-# and graph methods 
 function find_separators(
 	L::SparseMatrixCSC, 
 	snode::Vector{VertexSet}
 )
-
-	# PJG: this fcn reimplemented completely
-	# so bugs are possible / likely 
-
 	separators = sizehint!(VertexSet[], length(snode))
 
 	for sn in snode 
 		vrep    = minimum(sn)
 		adjplus = find_higher_order_neighbors(L, vrep)
-
-		#PJG: this way is maybe too slow 
-		#push!(separators, setdiff(Set(adjplus), sn))
 
 		sep = VertexSet()
 		for neighbor in adjplus
@@ -449,20 +338,14 @@ function find_higher_order_neighbors(L::SparseMatrixCSC, v::Int)
 end
 
 
-
-# calculate block sizes (notice: the block sizes are stored in post order)
-# PJG: need global search and replace for "Nc"
-
-#PJG: here the block dimension vector is the size of the remaining 
-#(uncleared) supernodes.   This maybe explains why it was set to [0]
-# in the constructor.   When does it get assigned to be the right 
-#size?   Maybe initialize it as zeros(length(snode)) in the constructor
-#before merging, and then mark all clear nodes as -1 dimension or similar?
+# The the block dimension vector is the size of the remaining 
+# (unemptied) supernodes.   Before this call, t.nblk should be 
+# nothing 
 
 function calculate_block_dimensions!(t::SuperNodeTree)
-  Nc = t.n_snode
-  t.nblk = zeros(Nc)
-  for iii = 1:Nc
+  n = t.n_cliques
+  t.nblk = zeros(Int,n)
+  for iii = 1:n
     c = t.snode_post[iii]
     t.nblk[iii] = length(t.separators[c]) + length(t.snode[c])
   end
@@ -506,22 +389,21 @@ function reorder_snode_consecutively!(t::SuperNodeTree, ordering::Vector{Int})
 	p_inv = invperm(p)
 	for sp in t.separators
 
-		# use here the permutation vector p as temporary 
-		# storage before flushing the separator set 
-		# an repopulating.  Assumes that the permutation
-		# p will be at least as long as the largest 
-		# separator set
+		# use here the permutation vector p as scratch before flushing
+		# the separator set and repopulating.  Assumes that the permutation
+		# will be at least as long as the largest separator set
+
 		@assert length(p) >= length(sp)
 		tmp = view(p,1:length(sp))
 
-		tmp .= Iterators.map(x -> p_inv[x], sp)  # PJG: Base.map fails here?
+		tmp .= Iterators.map(x -> p_inv[x], sp)  
 		empty!(sp)
 		foreach(v->push!(sp,v), tmp)
 	end
 
-	#PJG: because I used 'p' as scratch space, I will 
-	#ipermute using pinv rather than permute using p
-	#Bug city maybe
+	# because I used 'p' as scratch space, I will 
+	# ipermute using pinv rather than permute using p
+
 	invpermute!(ordering, p_inv)
 	return nothing
 end

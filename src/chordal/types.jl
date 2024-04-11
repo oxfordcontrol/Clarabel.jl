@@ -19,8 +19,7 @@ abstract type AbstractMergeStrategy end
 end
 
 
-#PJG: Set appears to be equivalent to rust HashSet.
-# OrderedSet appears to be equivalent to rust indexmap crate, 
+# PJG: OrderedSet appears to be equivalent to rust indexmap crate, 
 # (type IndexSet), but be careful about the removal of elements 
 # because it is not order preserving.  Need to use something 
 # like "shift_remove" to maintain order in Rust.   Caution required.

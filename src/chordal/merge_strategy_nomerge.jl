@@ -13,8 +13,5 @@ function post_process_merge!(strategy::NoMergeStrategy, t::SuperNodeTree)
 end
 
 
-#PJG: all other functions should be unreachable
-#this is not that nice, since Rust will have to 
-#actually implement a load of unreachable functions 
-#would be better to short-circuit the merge 
-#process in a different way 
+# All other functions should be unreachable this is not that nice, 
+# and should revert the the default / error implementation if called 

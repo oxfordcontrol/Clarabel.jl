@@ -1,3 +1,6 @@
+#AbstractVariables here should be DefaultVariables only, but this 
+# is not enforced since it causes a circular inclusion issue. 
+
 # -----------------------------------
 # reverse the compact decomposition
 # -----------------------------------
@@ -9,19 +12,17 @@ function decomp_reverse_compact!(
     old_cones::Vector{SupportedCone}
 ) where {T}
 
-    #only cone_map should exist if the compact decomposition was used
-    @assert isnothing(chordal_info.H) && !isnothing(chordal_info.cone_maps)
-
     old_s = old_vars.s
     old_z = old_vars.z
     new_s = new_vars.s
     new_z = new_vars.z
 
     # the cones for the originating problem, i.e. the cones 
-    # that are compatible with the new_vars we want to populate
+    # that are compatible with the new_vars we want to populate,
+    # are held in chordal_info.init_cones
 
     cone_maps     = chordal_info.cone_maps
-    row_ranges    = _make_rng_conesT(chordal_info.init_cones)
+    row_ranges    = collect(rng_cones_iterator(chordal_info.init_cones))
 
     row_ptr = 1 
 

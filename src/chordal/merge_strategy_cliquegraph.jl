@@ -1,5 +1,3 @@
-using IterTools
-
 """
     CliqueGraphMergeStrategy(edge_weight::EdgeWeightMethod) <: AbstractMergeStrategy
 
@@ -18,15 +16,15 @@ on the cardinalities of the cliques: ``e(\\mathcal{C}_i,\\mathcal{C}_j)  = |\\ma
 
 See also: *Garstka, Cannon, Goulart - A clique graph based merging strategy for decomposable SDPs (2019)*
 """
-mutable struct CliqueGraphMergeStrategy <: AbstractMergeStrategy
+mutable struct CliqueGraphMergeStrategy{T} <: AbstractMergeStrategy
   stop::Bool                                  # a flag to indicate that merging should be stopped
-  edges::SparseMatrixCSC{Float64, Int}        # the edges and weights of the reduced clique graph
+  edges::SparseMatrixCSC{T}                   # the edges and weights of the reduced clique graph
   p::Array{Int, 1}                            # as a workspace variable to store the sorting of weights
   adjacency_table::Dict{Int, VertexSet}       # a double structure of edges, to allow fast lookup of neighbors
   edge_weight::EdgeWeightMethod               # used to dispatch onto the correct scoring function
-  clique_tree_recomputed::Bool                # a flag to indicate whether a final clique tree has been recomputed from the clique graph
-  function CliqueGraphMergeStrategy(; edge_weight = CUBIC::EdgeWeightMethod)
-    new(false, spzeros(0, 0),  Int[], Dict{Int, VertexSet}(), edge_weight, false)
+
+  function CliqueGraphMergeStrategy{T}(; edge_weight = CUBIC::EdgeWeightMethod) where {T}
+    new(false, spzeros(T, 0, 0),  Int[], Dict{Int, VertexSet}(), edge_weight)
   end
 end
 
@@ -47,12 +45,6 @@ function initialise!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
       union!(snode, separator)
     end
 
-    # PJG: wipe the parent and child sets as in COSMO SuperNodeTree constructor.
-    # Here I do it exactly as in COSMO, but probably better to resize will deallocation,
-    # or even just leave them untouched .
-
-    # PJG: instead of marking the parent as -1, I could mark it as nothing and 
-    # use a vector of Options in Rust maybe.  Possibly overkill
     for i in eachindex(t.snode_parent)
       t.snode_parent[i] = -1
       t.snode_children[i] = VertexSet()
@@ -63,9 +55,8 @@ function initialise!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
   
     weights = compute_weights!(rows, cols, t.snode, strategy.edge_weight)
   
-    strategy.edges = sparse(rows, cols, weights, t.n_snode, t.n_snode)
-    strategy.p     = zeros(Int, length(strategy.edges.nzval))
-    strategy.adjacency_table = compute_adjacency_table(strategy.edges, t.n_snode)
+    strategy.edges = sparse(rows, cols, weights, t.n_cliques, t.n_cliques)
+    strategy.adjacency_table = compute_adjacency_table(strategy.edges, t.n_cliques)
     return nothing
   end
 
@@ -76,25 +67,29 @@ function traverse(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
    p = strategy.p
    # find edge with highest weight, if permissible return cliques
    edge = max_elem(strategy.edges)
-   ispermissible(edge, strategy.adjacency_table, t.snode) && return [edge[1]; edge[2]]
-   # else: sort the weights in edges.nzval to find the permutation p
+   ispermissible(edge, strategy.adjacency_table, t.snode) && return edge
+
+   # sort the weights in edges.nzval to find the permutation p
    sortperm!(view(p, 1:length(strategy.edges.nzval)), strategy.edges.nzval, alg = QuickSort, rev = true)
 
    # try edges with decreasing weight and check if the edge is permissible
   for k = 2:length(strategy.edges.nzval)
     edge = edge_from_index(strategy.edges, p[k])
+
     if ispermissible(edge, strategy.adjacency_table, t.snode)
-      # PJG: this should be a tuple, not a 2 element vector
-      return [edge[1]; edge[2]]
+      return (edge[1], edge[2])
     end
+
   end
 
 end
 
 
-function evaluate(strategy::CliqueGraphMergeStrategy, _t::SuperNodeTree, cand::Vector{Int})
+function evaluate(strategy::CliqueGraphMergeStrategy, _t::SuperNodeTree, cand::Tuple{Int, Int})
   
-  do_merge = (strategy.edges[cand[1], cand[2]] >= 0)
+  (c1,c2) = cand
+  
+  do_merge = (strategy.edges[c1, c2] >= 0)
 
   if !do_merge
     strategy.stop = true
@@ -103,31 +98,29 @@ function evaluate(strategy::CliqueGraphMergeStrategy, _t::SuperNodeTree, cand::V
 end
 
 
-function merge_two_cliques!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree, cand::Vector{Int})
-  c_1 = cand[1]
-  c_2 = cand[2]
-  # merge clique c_2 into c_1
-  union!(t.snode[c_1], t.snode[c_2])
+function merge_two_cliques!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree, cand::Tuple{Int, Int})
+  
+  (c1,c2) = cand
+  
+  # merge clique c2 into c1
+  union!(t.snode[c1], t.snode[c2])
+  empty!(t.snode[c2])
 
-  #PJG: don't understand why it is drained here instead of dropped, 
-  #but I guess it would mess up the size of all of the other arrays
-  empty!(t.snode[c_2])
-
-  # PJG: decrement number of mergeable cliques in graph
-  t.n_snode -= 1
+  # decrement number of mergeable / nonempty cliques in graph
+  t.n_cliques -= 1
 
   return nothing
 end
 
 
 "After a merge happened, update the reduced clique graph."
-function update_strategy!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree, cand::Vector{Int}, do_merge::Bool)
+function update_strategy!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree, cand::Tuple{Int, Int}, do_merge::Bool)
 
   # After a merge operation update the information of the strategy
   if do_merge
 
-    c_1_ind = cand[1]
-    c_removed = cand[2]
+    c_1_ind, c_removed = cand
+
     edges = strategy.edges
     n = size(edges, 2)
     adjacency_table = strategy.adjacency_table
@@ -173,35 +166,26 @@ end
 
 function post_process_merge!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
 
-  # since for now we have a graph, not a tree, a post ordering or a parent structure does not make sense. Therefore just number
-  # the non-empty supernodes in t.snd
+  # since for now we have a graph, not a tree, a post ordering or a parent structure 
+  #does not make sense. Therefore just number the non-empty supernodes in t.snd
+  
   t.snode_post = findall(x -> !isempty(x), t.snode)
   t.snode_parent = -ones(Int, length(t.snode))
 
   # recompute a clique tree from the clique graph
-  t.n_snode > 1 && clique_tree_from_graph!(strategy, t)
+  t.n_cliques > 1 && clique_tree_from_graph!(strategy, t)
 
-  #turn the unordered sets for t.snd and t.sep into sorted versions
-  # PJG : danger here.   This was where COSMO was converting from 
-  # sets to arrays. 
-
-  # PJG: It is not clear to me whether this step is still 
-  # necessary.   The next operation on these sets is in 
-  # reorder_snode_consecutively!, and that set also does 
-  # some manipulation of the ordering and does so through
-  # intermediate arrays.   It might be better to handle 
-  # the sorting there instead.   I will leave this in for 
-  # now so that comparisons with COSMO are easier.
+  # PJG: This seems unnecessary, because the next operation on this
+  # object is the call the reorder_snode_consecutively, which overwrites 
+  # the snode anyway.  Treatment of separators possibly ends up different.
+  # Seems to work without, but keep for now for consistency with COSMO.
+  
   foreach(s->sort!(s), t.snode)
   foreach(s->sort!(s), t.separators)
 
   return nothing
 end
 
-
-# PJG: functions from here down are implemented as trait-like methods 
-# for the clique graph strategy only.   So not part of of the general 
-# strategy trait, but also not low level utilities.  
 
 """
     clique_tree_from_graph!(strategy::CliqueGraphMergeStrategy, clique_graph::SuperNodeTree)
@@ -217,27 +201,22 @@ function clique_tree_from_graph!(strategy::CliqueGraphMergeStrategy, t::SuperNod
   clique_intersections!(strategy.edges, t.snode)
 
   # find a maximum weight spanning tree of the clique graph using Kruskal's algorithm
-  kruskal!(strategy.edges, t.n_snode)
+  kruskal!(strategy.edges, t.n_cliques)
 
   # determine the root clique of the clique tree (it can be any clique, but we use the 
   # clique that contains the vertex with the highest order)
   determine_parent_cliques!(t.snode_parent, t.snode_children, t.snode, t.post, strategy.edges)
 
-  # recompute a postorder for the supernodes
-  t.snode_post = post_order(t.snode_parent, t.snode_children, t.n_snode)
+  # recompute a postorder for the supernodes (NB: snode_post will shrink
+  # to the possibly reduced length n_cliques after the merge)
+  post_order!(t.snode_post, t.snode_parent, t.snode_children, t.n_cliques)
 
-  # PJG: here I just hose the separators.  They are reconstructed
-  # in the split_cliques! call, so not clear why the separators 
-  # need to be flushed here.   Maybe move this flush to the 
-  # split_cliques function 
-
-  t.separators = [VertexSet() for i = 1:length(t.snode)]
+  # Clear the (graph) separators.  They will be rebuilt in the split_cliques
+  map(set -> empty!(set), t.separators)
 
   # split clique sets back into separators and supernodes
-  split_cliques!(t.snode, t.separators, t.snode_parent, t.snode_post, t.n_snode)
+  split_cliques!(t.snode, t.separators, t.snode_parent, t.snode_post, t.n_cliques)
 
-  # PJG : how does this get used?
-  strategy.clique_tree_recomputed = true
   return nothing
 
 end
@@ -263,46 +242,40 @@ computes the reduced clique graph in the following way:
    end
 """
 function compute_reduced_clique_graph!(separators::Vector{VertexSet}, snode::Vector{VertexSet})
-    # loop over separators by decreasing cardinality
-    sort!(separators, by = x -> length(x), rev = true)
 
-    # edges = Array{Tuple{Int, Int}, 1}()    # a list of edges in the reduced clique graph, higher clique index first
-    rows = Int[]
-    cols = Int[]
-    # inter = Array{Int, 1}()                  # the index of the separator which corresponds to the intersection of the two cliques
+  # loop over separators by decreasing cardinality
+  # NB: sort on an OrderedSet type here 
+  sort!(separators, by = x -> length(x), rev = true)
 
-    for (k, separator) in enumerate(separators)
-        # find cliques that contain the separator
-        clique_indices = findall(x -> separator ⊆ x, snode)
+  rows = Int[]
+  cols = Int[]
 
-        # we compute the separator graph (see Habib, Stacho - Reduced clique graphs of chordal graphs) to analyse connectivity
-        # we represent the separator graph H by a hashtable
-        H = separator_graph(clique_indices, separator, snode)
-        # find the connected components of H
-        components = find_components(H, clique_indices)
-        # for each pair of cliques that contain the separator, add an edge to the reduced clique tree if they are 
-        # in unconnected components
+  for separator in separators
+      # find cliques that contain the separator
+      clique_indices = findall(x -> separator ⊆ x, snode)
 
-        # PJG: here, the "subsets" call is generating all possible pairs 
-        # of elements from clique_indices.   I think that this is the only 
-        # place in the code where IterTools is required.  An identical call
-        # to the same function, again over pairs, in separator_graph.
-        # In rust, maybe this: https://docs.rs/itertools/latest/itertools/structs/struct.Combinations.html
-        # NB: this returns a two element vector, not a tuple. seems bad.  If 
-        # I change to tuples,  max(pair...) is still fastest in assemble
-        for pair in IterTools.subsets(clique_indices, Val{2}())
-            if is_unconnected(pair, components)
-                # push!(edges, (max(pair...), min(pair...))) #add edge
-                push!(rows, max(pair...))
-                push!(cols, min(pair...))
-                # push!(inter, k) # store intersection
-            end
-        end
+      # Compute the separator graph (see Habib, Stacho - Reduced clique graphs of chordal graphs) 
+      # to analyse connectivity.  We represent the separator graph H by a hashtable
+      H = separator_graph(clique_indices, separator, snode)
+      # find the connected components of H
+      components = find_components(H, clique_indices)
 
-    end
-    return rows, cols#, inter
-end
+      # for each pair of cliques that contain the separator, add an edge to the reduced 
+      # clique tree if they are in unconnected components
 
+      ncliques = length(clique_indices)
+      for i in 1:ncliques, j in (i+1):ncliques
+          pair = (clique_indices[i], clique_indices[j])
+          if is_unconnected(pair, components)
+              push!(rows, max(pair...))
+              push!(cols, min(pair...))
+          end
+      end  
+  end
+
+  return rows, cols
+
+end 
 
 "Find the separator graph H given a separator and the relevant index-subset of cliques."
 function separator_graph(clique_ind::Vector{Int}, separator::VertexSet, snd::Vector{VertexSet})
@@ -311,10 +284,11 @@ function separator_graph(clique_ind::Vector{Int}, separator::VertexSet, snd::Vec
     # key: clique_ind --> edges to other clique indices
     H = Dict{Int, Array{Int, 1}}()
 
-    for pair in IterTools.subsets(clique_ind, Val{2}())
-        ca = pair[1]
-        cb = pair[2]
-         # if intersect_dim(snd[ca], snd[cb]) > length(separator)
+    nindex = length(clique_ind)
+    for i in 1:nindex, j in (i+1):nindex
+        ca = clique_ind[i]
+        cb = clique_ind[j]
+          # if intersect_dim(snd[ca], snd[cb]) > length(separator)
         if !inter_equal(snd[ca], snd[cb], separator)
             if haskey(H, ca)
                 push!(H[ca], cb)
@@ -408,10 +382,8 @@ end
 
 
 "Given a list of edges, return an adjacency hash-table `table` with nodes from 1 to `num_vertices`."
-# PJG: not clear to me why {T} was Float64 before.   Is that from a sparsity matrix, or 
-# from the original data matrix?  Why isn't it SparseMatrixCSC{bool,Int}, for example?
-# Maybe it should be a matrix of Int64 / isize, since we assign -1 entries in functions below
 function compute_adjacency_table(edges::SparseMatrixCSC{T}, num_vertices::Int) where {T}
+
     table = Dict(i => VertexSet() for i = 1:num_vertices)
     r = edges.rowval
     c = edges.colptr
@@ -507,29 +479,8 @@ function intersect_dim(s1::AbstractSet, s2::AbstractSet)
     return dim
 end
 
-
-#PJG: redefined this function to try to make it faster by always 
-#taking the sets in a favorable order.   Be careful of bugs here 
 " Find the size of the set `A ∪ B` under the assumption that `A` and `B` only have unique elements."
 function union_dim(s1::T, s2::T)  where {T <: AbstractSet}
-
-  # dim1 = length(s1)
-  # dim2 = length(s2) 
-
-  # if dim1 < dim2
-  #   sa = s1
-  #   sb = s2
-  #   udim = dim2
-  # else
-  #   sa = s2
-  #   sb = s1
-  #   udim = dim1
-  # end
-
-  # for e in sa
-  #   !in(e, sb) && (udim += 1)
-  # end
-  # return udim
 
   length(s1) + length(s2) - intersect_dim(s1, s2)
 
@@ -549,9 +500,8 @@ Kruskal's algorithm to find a maximum weight spanning tree from the clique inter
 function kruskal!(E::SparseMatrixCSC{T}, num_cliques::Int) where{T}
   num_initial_cliques = size(E, 2)
 
-  # PJG: this is currently the only place that requires DataStructures 
-  # as a package.   What does this do and do I need it.
-  # oh fuck it's really complicated 
+  # PJG Ref implementation: https://github.com/JuliaCollections/DataStructures.jl/blob/master/src/disjoint_set.jl
+
   connected_c = DataStructures.IntDisjointSets(num_initial_cliques)
 
   I, J, V = findnz(E)
@@ -566,51 +516,63 @@ function kruskal!(E::SparseMatrixCSC{T}, num_cliques::Int) where{T}
     row = I[k]
     col = J[k]
     if !in_same_set(connected_c, row, col)
-      union!(connected_c, row, col)
-      # we indicate an edge in the MST with a positive value in E (all other values are >= 0)
-      E[row, col] = -1.0
-      num_edges_found += 1
-      # break when all cliques are connected in one tree
-      num_edges_found >= num_cliques - 1 && break
+        union!(connected_c, row, col)
+        # we indicate an edge in the MST with a positive value in E (all other values are >= 0)
+        E[row, col] = -1.0
+        num_edges_found += 1
+        # break when all cliques are connected in one tree
+        num_edges_found >= num_cliques - 1 && break
     end
   end
   return nothing
 end
 
 " Given the maximum weight spanning tree represented by `E`, determine a parent structure `snd_par` for the clique tree."
-function determine_parent_cliques!(snd_par::Vector{Int}, snd_child::Vector{VertexSet}, cliques::Vector{VertexSet}, post::Vector{Int}, E::SparseMatrixCSC{T}) where {T}
-  # vertex with highest order
-  v = post[end]
-  c = 0
-  # Find clique that contains that vertex
-  for (k, clique) in enumerate(cliques)
-    if v ∈ clique
-      # set that clique to the root
-      snd_par[k] = 0
-      c = k
-      break
-    end
-  end
+function determine_parent_cliques!(
+    snode_parent::Vector{Int}, 
+    snode_children::Vector{VertexSet}, 
+    cliques::Vector{VertexSet}, 
+    post::Vector{Int}, 
+    E::SparseMatrixCSC{T}
+  ) where {T}
 
-  # recursively assign children to cliques along the MST defined by E
-  assign_children!(snd_par, snd_child, c, E)
-  return nothing
+    # vertex with highest order
+    v = post[end]
+    c = 0
+    # Find clique that contains that vertex
+    for (k, clique) in enumerate(cliques)
+      if v ∈ clique
+        # set that clique to the root
+        snode_parent[k] = 0
+        c = k
+        break
+      end
+    end
+
+    # recursively assign children to cliques along the MST defined by E
+    assign_children!(snode_parent, snode_children, c, E)
+    return nothing
 end
 
 
-function assign_children!(snode_parent::Vector{Int}, snode_children::Vector{VertexSet}, c::Int, edges::SparseMatrixCSC{T}) where {T}
-    # determine neighbors
-    neighbors = find_neighbors(edges, c)
-    for n in neighbors
-      # conditions that there is a edge in the MST and that n is not the parent of c
-      if edges[max(c, n), min(c, n)] == -1.0 && snode_parent[c] != n
-        snode_parent[n] = c
-        push!(snode_children[c], n)
-        assign_children!(snode_parent, snode_children, n, edges)
-      end
+function assign_children!(
+  snode_parent::Vector{Int},
+  snode_children::Vector{VertexSet},
+  c::Int,
+  edges::SparseMatrixCSC{T}
+) where {T}
+  # determine neighbors
+  neighbors = find_neighbors(edges, c)
+  for n in neighbors
+    # conditions that there is a edge in the MST and that n is not the parent of c
+    if edges[max(c, n), min(c, n)] == -1.0 && snode_parent[c] != n
+      snode_parent[n] = c
+      push!(snode_children[c], n)
+      assign_children!(snode_parent, snode_children, n, edges)
     end
-    return nothing
   end
+  return nothing
+end
 
 
 """
@@ -618,8 +580,7 @@ find_neighbors(edges::SparseMatrixCSC, c::Int)
 
 Find all the cliques connected to `c` which are given by the nonzeros in `(c, 1:c-1)` and `(c+1:n, c)`.
 """
-#PJG: this function is only called from assign_children, which itself 
-#is never called?
+
 function find_neighbors(edges::SparseMatrixCSC, c::Int)
   neighbors = zeros(Int, 0)
   m, n = size(edges)
@@ -639,17 +600,23 @@ end
 
 
 " Traverse the clique tree in descending topological order and split the clique sets into supernodes and separators."
-function split_cliques!(snd::Vector{VertexSet}, sep::Vector{VertexSet}, snd_par::Vector{Int}, snd_post::Vector{Int}, num_cliques::Int)
+function split_cliques!(
+  snode::Vector{VertexSet}, 
+  separators::Vector{VertexSet}, 
+  snode_parent::Vector{Int}, 
+  snode_post::Vector{Int}, 
+  num_cliques::Int
+)
 
-  # travese in topological decending order through the clique tree and split the clique in snd and sep
+  # travese in topological decending order through the clique tree and split the clique 
+  # into supernodes and separators
   for j = 1:1:(num_cliques - 1)
-    c_ind = snd_post[j]
-    par_ind = snd_par[c_ind]
+      c_ind = snode_post[j]
+      p_ind = snode_parent[c_ind]
 
-    # find intersection of clique with parent
-    # FIXME: Can be made a lot faster by using non-standard functions
-    sep[c_ind] = intersect(snd[c_ind], snd[par_ind])
-    snd[c_ind] = filter!(x -> x ∉ sep[c_ind], snd[c_ind])
+      # find intersection of clique with parent
+      separators[c_ind] = intersect(snode[c_ind], snode[p_ind])
+      snode[c_ind]      = filter!(x -> x ∉ separators[c_ind], snode[c_ind])
   end
   return nothing
 end
@@ -659,14 +626,21 @@ end
 # functions relating to edge weights 
 
 "Compute the edge weight between all cliques specified by the edges (rows, cols)."
-function compute_weights!(rows::Vector{Int}, cols::Vector{Int}, snd::Vector{VertexSet}, edge_weight::EdgeWeightMethod)
+function compute_weights!(
+  rows::Vector{Int}, 
+  cols::Vector{Int}, 
+  snode::Vector{VertexSet}, 
+  edge_weight::EdgeWeightMethod
+)
+
   weights = zeros(Float64, length(rows))
   for k = 1:length(rows)
-    c_1 = snd[rows[k]]
-    c_2 = snd[cols[k]]
+    c_1 = snode[rows[k]]
+    c_2 = snode[cols[k]]
     weights[k] = edge_metric(c_1, c_2, edge_weight)
   end
   return weights
+
 end
 
 
@@ -675,7 +649,7 @@ end
 
 Given two cliques `c_a` and `c_b` return a value for their edge weight.
 """
-function edge_metric(c_a::T, c_b::T, edge_weight::EdgeWeightMethod) where {T <: Union{AbstractVector, AbstractSet}}
+function edge_metric(c_a::VertexSet, c_b::VertexSet, edge_weight::EdgeWeightMethod) 
   n_1 = length(c_a)
   n_2 = length(c_b)
 
@@ -693,7 +667,7 @@ end
 
 #PJG: this function appears to give better performance, but deactived 
 #since I want to agree with COSMO results for testing 
-function _edge_metric(c_a::T, c_b::T, edge_weight::EdgeWeightMethod) where {T <: Union{AbstractVector, AbstractSet}}
+function _edge_metric(c_a::VertexSet, c_b::VertexSet, edge_weight::EdgeWeightMethod) 
   
   n_1 = triangular_number(length(c_a))
   n_2 = triangular_number(length(c_b))
