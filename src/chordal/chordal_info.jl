@@ -114,15 +114,11 @@ function analyse_sparsity_pattern!(
 ) 
 
     @assert length(nz_mask) == nvars(cone)
-
-    # linear indices of the nonzeros within this cone
-    agg_sparsity = findall(nz_mask)
-
-    if length(agg_sparsity) == nvars(cone)
-        return #not decomposable
-    end 
+    if all(nz_mask) 
+        return #dense / decomposable
+    end
     
-    L, ordering = find_graph!(agg_sparsity, cone.dim)
+    L, ordering = find_graph!(nz_mask)
     spattern = SparsityPattern(L, ordering, coneidx, merge_method)
 
     if num_cliques(spattern.sntree) == 1
@@ -133,15 +129,18 @@ function analyse_sparsity_pattern!(
   
 end
 
+
 # did any PSD cones get decomposed?
 function is_decomposed(chordal_info::ChordalInfo)
     return !isempty(chordal_info.spatterns)
 end 
 
+
 # total number of cones we started with 
 function init_cone_count(chordal_info::ChordalInfo)
     length(chordal_info.init_cones)
 end
+
 
 "Determine the total number of sets `num_total` after decomposition and the number of new psd cones `num_new_psd_cones`."
 function post_cone_count(chordal_info::ChordalInfo)
@@ -179,17 +178,30 @@ function get_decomposed_dim_and_overlaps(chordal_info::ChordalInfo{T}) where{T}
 # FUNCTION DEFINITIONS
 # -------------------------------------
 
-#PJG: if this is implemented using a boolean vector, then the n can be dropped 
-#since it should be inferable from the length of the vector.
-function find_graph!(linearidx::Vector{Int}, n::Int) 
+# compute a logical Cholesky decomposition and associated 
+# ordering a for matrix with nonzero entries in the upper 
+# triangular part, provided as a vector
+
+function find_graph!(nz_mask::AbstractVector{Bool}) 
 	
-    rows,cols = upper_triangular_index_to_coords(linearidx)
+    nz = count(nz_mask)
+    rows = sizehint!(Int[], nz)
+    cols = sizehint!(Int[], nz)
+
+    # check final row/col to get matrix dimension
+    (m,n) = upper_triangular_index_to_coord(length(nz_mask))
+    @assert m == n
     
-    #PJG: probably the "ones" aren't needed at all here, but 
-    #need to check if QDLDL will support that.   Otherwise 
-    #need to go into lower level functions 
-    #PJG: at the very least, the ones should be a vector of
-    #integers or bools
+    for (linearidx, isnonzero) in enumerate(nz_mask)
+        if isnonzero
+            (row,col) = upper_triangular_index_to_coord(linearidx)
+            push!(rows, row)
+            push!(cols, col)
+        end
+    end
+    
+    # PJG: QDLDL doesn't currently allow for logical-only decomposition 
+    # on a matrix of Bools, so pattern must be a Float64 matrix here
     pattern = sparse(rows, cols, ones(length(rows)), n, n)
 
 	F = QDLDL.qdldl(pattern, logical = true)
@@ -239,9 +251,6 @@ Given the indices of non-zero matrix elements in `linearidx`:
 - If unconnected, connect the graph represented by the cholesky factor `L`
 """
 
-
-# this assumes a sparse lower triangular matrix L
-# PJG: not clear what the type T will be here.  Maybe Int / isize
 function connect_graph!(L::SparseMatrixCSC{T}) where{T}
  	# unconnected blocks don't have any entries below the diagonal in their right-most columns
 	m = size(L, 1)
@@ -264,34 +273,17 @@ function connect_graph!(L::SparseMatrixCSC{T}) where{T}
 end
 
 
-
-
-#PJG: where do these functions want to live?
-
-#PJG: first function below seems unnecssary, like it could just be a broadcast
-#doing that gives me a vector of tuples though, which is not
-#convenient for sparse matrix
-
-#PJG fcn name sucks and is confusing given similar plural to next function
-
-# given an array "linearidx" that represent the nonzero entries of the vectorized 
-# upper triangular part of an nxn matrix,
-# return the rows and columns of the nonzero entries of the original matrix
-
-function upper_triangular_index_to_coords(linearidx::Vector{Int})
-	rows = similar(linearidx)
-	cols = similar(linearidx)
-	for (i, idx) in enumerate(linearidx)
-		(rows[i],cols[i]) = upper_triangular_index_to_coord(idx)
-	end
-	(rows,cols)
-end
+# given an index into the upper triangular part of a matrix, return 
+# its row and column position
 
 function upper_triangular_index_to_coord(linearidx::Int)
     col = (isqrt(8 * linearidx) + 1) >> 1 
     row = linearidx - triangular_number(col - 1)
     (row,col)
 end
+
+# given a row and column position, return the index into the upper
+# triangular part of the matrix 
 
 function coord_to_upper_triangular_index(coord::Tuple{Int, Int})
     (i,j) = coord

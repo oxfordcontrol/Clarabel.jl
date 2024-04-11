@@ -675,7 +675,7 @@ end
 
 Given two cliques `c_a` and `c_b` return a value for their edge weight.
 """
-function _edge_metric(c_a::T, c_b::T, edge_weight::EdgeWeightMethod) where {T <: Union{AbstractVector, AbstractSet}}
+function edge_metric(c_a::T, c_b::T, edge_weight::EdgeWeightMethod) where {T <: Union{AbstractVector, AbstractSet}}
   n_1 = length(c_a)
   n_2 = length(c_b)
 
@@ -690,7 +690,10 @@ function _edge_metric(c_a::T, c_b::T, edge_weight::EdgeWeightMethod) where {T <:
 end
 
 
-function edge_metric(c_a::T, c_b::T, edge_weight::EdgeWeightMethod) where {T <: Union{AbstractVector, AbstractSet}}
+
+#PJG: this function appears to give better performance, but deactived 
+#since I want to agree with COSMO results for testing 
+function _edge_metric(c_a::T, c_b::T, edge_weight::EdgeWeightMethod) where {T <: Union{AbstractVector, AbstractSet}}
   
   n_1 = triangular_number(length(c_a))
   n_2 = triangular_number(length(c_b))
