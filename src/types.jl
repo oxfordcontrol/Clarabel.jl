@@ -1,22 +1,47 @@
 using TimerOutputs
 
+# -------------------------------------
+# default solver component  types 
+# -------------------------------------
 
-# -------------------------------------
-# abstract type defs
-# -------------------------------------
-abstract type AbstractVariables{T <: AbstractFloat}   end
-abstract type AbstractEquilibration{T <: AbstractFloat}   end
-abstract type AbstractResiduals{T <: AbstractFloat}   end
-abstract type AbstractProblemData{T <: AbstractFloat} end
-abstract type AbstractKKTSystem{T <: AbstractFloat} end
-abstract type AbstractKKTSolver{T <: AbstractFloat} end
-abstract type AbstractInfo{T <: AbstractFloat} end
-abstract type AbstractSolution{T <: AbstractFloat} end
-abstract type AbstractSolver{T <: AbstractFloat}   end
+# ---------------------
+# presolver and internals 
+# ---------------------
 
-# -------------------------------------
-# default solver subcomponent implementations
-# -------------------------------------
+struct PresolverRowReductionIndex 
+
+    # vector of length = original RHS.   Entries are false
+    # for those rows that should be eliminated before solve
+    keep_logical::Vector{Bool}
+
+    # vector of length = reduced RHS, taking values
+    # that map reduced b back to their original index
+    # This is just findall(keep_logical) and is held for
+    # efficient solution repopulation
+    keep_index::Vector{Int64}
+
+end
+struct Presolver{T}
+
+   # original cones of the problem
+    init_cones::Vector{SupportedCone}
+
+    # record of reduced constraints for NN cones with inf bounds
+    reduce_map::Option{PresolverRowReductionIndex}
+
+    # size of original and reduced RHS, respectively 
+    mfull::Int64 
+    mreduced::Int64
+
+    # inf bound that was taken from the module level 
+    # and should be applied throughout.   Held here so 
+    # that any subsequent change to the module's state 
+    # won't mess up our solver mid-solve 
+    infbound::Float64 
+
+end
+
+Presolver(args...) = Presolver{DefaultFloat}(args...)
 
 # ---------------
 # variables
@@ -328,3 +353,4 @@ function Solver{T}(d::Dict) where {T}
 end
 
 Solver(args...; kwargs...) = Solver{DefaultFloat}(args...; kwargs...)
+

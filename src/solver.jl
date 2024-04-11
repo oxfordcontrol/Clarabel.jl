@@ -94,6 +94,9 @@ function setup!(
 
     @timeit s.timers "setup!" begin
 
+        # user facing results go here  
+        s.solution = DefaultSolution{T}(A.n,A.m)
+
         # presolve / chordal decomposition if needed,
         # then take an internal copy of the problem data
         @timeit s.timers "presolve" begin
@@ -124,14 +127,6 @@ function setup!(
         # a saved copy of the previous iterate
         s.prev_vars = DefaultVariables{T}(s.data.n,s.data.m)
 
-        # user facing results go here  
-        # PJG: for now, I will use the data dimensions, but 
-        # this is wrong because it will fail if the 
-        # presolver is used.   I am doing this because I 
-        # can't get turn a chordal solution back into its 
-        # original form 
-        (m,n) = size(s.data.A)
-        s.solution    = DefaultSolution{T}(n,m)
     end
 
     return s

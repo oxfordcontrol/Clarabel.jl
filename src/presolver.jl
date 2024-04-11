@@ -1,59 +1,24 @@
 
-struct PresolverRowReductionIndex 
+function Presolver{T}(
+    A::AbstractMatrix{T},
+    b::Vector{T},
+    cones::Vector{SupportedCone},
+    settings::Settings{T}
+) where {T}
 
-    # vector of length = original RHS.   Entries are false
-    # for those rows that should be eliminated before solve
-    keep_logical::Vector{Bool}
+    infbound = Clarabel.get_infinity()
 
-    # vector of length = reduced RHS, taking values
-    # that map reduced b back to their original index
-    # This is just findall(keep_logical) and is held for
-    # efficient solution repopulation
-    keep_index::Vector{Int64}
+    # make copy of cones to protect from user interference
+    init_cones = Vector{SupportedCone}(cones)
 
-end
+    mfull = length(b)
 
-struct Presolver{T}
+    (reduce_map, mreduced) = make_reduction_map(cones,b,T(infbound))
 
-   # original cones of the problem
-    init_cones::Vector{SupportedCone}
-
-    # record of reduced constraints for NN cones with inf bounds
-    reduce_map::Option{PresolverRowReductionIndex}
-
-    # size of original and reduced RHS, respectively 
-    mfull::Int64 
-    mreduced::Int64
-
-    # inf bound that was taken from the module level 
-    # and should be applied throughout.   Held here so 
-    # that any subsequent change to the module's state 
-    # won't mess up our solver mid-solve 
-    infbound::Float64 
-
-    function Presolver{T}(
-        A::AbstractMatrix{T},
-        b::Vector{T},
-        cones::Vector{SupportedCone},
-        settings::Settings{T}
-    ) where {T}
-
-        infbound = Clarabel.get_infinity()
-
-        # make copy of cones to protect from user interference
-        init_cones = Vector{SupportedCone}(cones)
-
-        mfull = length(b)
-
-        (reduce_map, mreduced) = make_reduction_map(cones,b,T(infbound))
-
-        return new(init_cones, reduce_map, mfull, mreduced, infbound)
-
-    end
+    return Presolver{T}(init_cones, reduce_map, mfull, mreduced, infbound)
 
 end
 
-Presolver(args...) = Presolver{DefaultFloat}(args...)
 
 is_reduced(ps::Presolver{T})    where {T} = !isnothing(ps.reduce_map)
 count_reduced(ps::Presolver{T}) where {T} = ps.mfull  - ps.mreduced
@@ -165,22 +130,23 @@ function reduce_cones(
 
 end 
 
-function presolve(
-    A::AbstractMatrix{T}, 
-    b::Vector{T}, 
-    cones::Vector{SupportedCone}, 
-    settings::Settings{T}
+function reverse_presolve!(
+    presolver::Presolver{T}, 
+    solution::DefaultSolution{T},
+    variables::DefaultVariables{T}
 ) where {T}
 
-    if(!settings.presolve_enable)
-        return nothing
-    end
+    # PJG: now that there is no scaling operation in this 
+    # step, I think maybe I could drop the keep_index and 
+    # just use the keep_logical for both operations.
 
-    presolver = Presolver{T}(A,b,cones,settings)
+    map = presolver.reduce_map
+    @. solution.z[map.keep_index] = variables.z 
+    @. solution.s[map.keep_index] = variables.s 
 
-    if !is_reduced(presolver)
-        return nothing 
-    end 
+    #eliminated constraints get huge slacks 
+    #and are assumed to be nonbinding 
+    @. solution.s[!map.keep_logical] = T(presolver.infbound)
+    @. solution.z[!map.keep_logical] = zero(T)
 
-    return presolver 
 end

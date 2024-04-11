@@ -32,11 +32,12 @@ module Clarabel
     include("./cones/compositecone_type.jl")
 
     #core solver components
+    include("./abstract_types.jl")
     include("./settings.jl")
     include("./statuscodes.jl")
-    include("./presolver.jl")
     include("./chordal/include.jl")
-    include("./types.jl")
+    include("./types.jl")  
+    include("./presolver.jl")
     include("./variables.jl")
     include("./residuals.jl")
     include("./problemdata.jl")

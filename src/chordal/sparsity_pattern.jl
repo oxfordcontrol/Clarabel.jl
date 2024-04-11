@@ -20,7 +20,7 @@ mutable struct SparsityPattern
   ordering::Array{Int}
   #reverse_ordering::Array{Int}
   #rowrange::UnitRange{Int} # rows originally occupied by the cone being decomposed
-  coneidx::Int # original index of the cone being decomposed
+  orig_index::Int # original index of the cone being decomposed
 
   #PJG: do I want to keep the L that generated this, just for debugging?
   
@@ -33,7 +33,7 @@ mutable struct SparsityPattern
   function SparsityPattern(
     L::SparseMatrixCSC, 
     ordering::Array{Int, 1}, 
-    coneidx::Int,
+    orig_index::Int,
     merge_method::Symbol,
     #PJG: these probably don't really belong as part of the pattern
     #rowrange::UnitRange{Int}, 
@@ -68,11 +68,12 @@ mutable struct SparsityPattern
     # reorder vertices in supernodes to have consecutive order
     # necessary for equal column structure for psd completion
     # PJG: change name to ..._snode_... when finished
-    reorder_snd_consecutively!(sntree, ordering)
+    reorder_snode_consecutively!(sntree, ordering)
 
-    # for each clique determine the number of entries of the block represented by that clique
+    # for each clique determine the number of entries of the block 
+    #represented by that clique
     calculate_block_dimensions!(sntree)
 
-    return new(sntree, ordering, coneidx)
+    return new(sntree, ordering, orig_index)
   end
 end 

@@ -1,50 +1,52 @@
 # -------------------------------------
 # Chordal Decomposition Information
 # -------------------------------------
+struct ConeMapEntry
+    orig_index::Int 
+    tree_and_clique::Option{Tuple{Int,Int}}
+end 
+
 mutable struct ChordalInfo{T}
 
     # sketch of the original problem
     init_dims::Tuple{Int64, Int64}       # (n,m) dimensions of the original problem
     init_cones::Vector{SupportedCone}    # original cones of the problem
     
-    # PJG: do I care about this?
-    init_num_psd_cones::Int              # number of psd cones in the original problem
-
     # decomposed problem data 
     spatterns::Vector{SparsityPattern}   # sparsity patterns for decomposed cones
     
-    # map every cone in the decomposed problem to the equivalent
-    # or undecomposed cone in the original problem. As post->init
-    # PJG: not currently used?  Maybe for compact transform?
-    post_to_init_map::Dict{Int, Int}      
-
     # "H" matrix for the standard chordal problem transformation 
     # remains as nothing if the "compact" transform is used 
-    # PJG: I really don't like that this forces the whole 
-    # type to be parametric
     H::Option{SparseMatrixCSC{T}}
 
-    function ChordalInfo(A::SparseMatrixCSC{T}, b::Vector{T}, cones::Vector{SupportedCone}, settings::Clarabel.Settings) where {T <: AbstractFloat}
+    # mapping from each generated cone to its original cone 
+    # index, plus its tree and clique information if it has 
+    # been generated as part of a chordal decomposition
+    # remains as nothing if the "standard" transform is used
+    cone_maps::Option{Vector{ConeMapEntry}}
+
+    function ChordalInfo(
+        A::SparseMatrixCSC{T}, 
+        b::Vector{T}, 
+        cones::Vector{SupportedCone}, 
+        settings::Clarabel.Settings{T}
+    ) where {T}
     
         # initial problem data
-        init_dims  = size(A)
+        init_dims  = (size(A,2),size(A,1))
         init_cones = deepcopy(cones)   #PJG: copy here potentially very bad.   Only do if needed
 
-        # decomposed problem data. Not initialized yet
-        #PJG: no idea if this should be here or how / when 
-        #to initialize it 
-        init_num_psd_cones = 0   # PJG: not used?
-        spatterns = Vector{SparsityPattern}[]
+        # decomposition patterns.  length 
+        # will be the same as the number
+        # of cones eventually decomposed 
+        spatterns = SparsityPattern[]
 
-        post_to_init_map = Dict{Int, Int}()   # PJG: not used?
-  
         chordal_info = new{T}(
             init_dims, 
             init_cones, 
-            init_num_psd_cones, 
             spatterns, 
-            post_to_init_map,
-            nothing
+            nothing,   # no H to start
+            nothing    # no cone_maps to start
         )
 
         find_sparsity_patterns!(
@@ -56,7 +58,7 @@ mutable struct ChordalInfo{T}
         return chordal_info
 
     end
-  end
+end
 
   
 function find_sparsity_patterns!(
@@ -70,8 +72,7 @@ function find_sparsity_patterns!(
     rng_cones = _make_rng_conesT(cones)
 
     # find the sparsity patterns of the PSD cones
-    for (coneidx, cone) in enumerate(cones)
-        rowrange = rng_cones[coneidx]   # PJG: should be a zip
+    for (coneidx, (cone,rowrange)) in enumerate(zip(cones,rng_cones))
 
         if !isa(cone, PSDTriangleConeT)
             continue
@@ -161,7 +162,6 @@ function find_aggregate_sparsity(
 end 
 
 
-
 function get_decomposed_dim_and_overlaps(chordal_info::ChordalInfo{T}) where{T}
 
     cones = chordal_info.init_cones
@@ -169,7 +169,7 @@ function get_decomposed_dim_and_overlaps(chordal_info::ChordalInfo{T}) where{T}
     sum_overlaps = 0
   
     for pattern in chordal_info.spatterns
-      cone = cones[pattern.coneidx]
+      cone = cones[pattern.orig_index]
       @assert isa(cone, PSDTriangleConeT)
       cols, overlap = get_decomposed_dim_and_overlaps(pattern.sntree)
       sum_cols     += cols 
@@ -179,7 +179,24 @@ function get_decomposed_dim_and_overlaps(chordal_info::ChordalInfo{T}) where{T}
     sum_cols, sum_overlaps
   end 
   
-  
+
+function augment!(
+    chordal_info::ChordalInfo{T}, 
+    P::SparseMatrixCSC{T},
+    q::Vector{T},
+    A::SparseMatrixCSC{T},
+    b::Vector{T},
+    cones::Vector{SupportedCone},
+    settings::Clarabel.Settings{T}
+) where{T}
+
+    if settings.chordal_decomposition_compact 
+        augment_compact!(chordal_info, P, q, A, b, cones)
+    else
+        augment_standard!(chordal_info, P, q, A, b, cones)
+    end
+
+end 
 
 
 
@@ -280,7 +297,7 @@ end
 #doing that gives me a vector of tuples though, which is not
 #convenient for sparse matrix
 
-#PJG fcn number sucks and is confusing given similar plural to next function
+#PJG fcn name sucks and is confusing given similar plural to next function
 
 # given an array "linearidx" that represent the nonzero entries of the vectorized 
 # upper triangular part of an nxn matrix,

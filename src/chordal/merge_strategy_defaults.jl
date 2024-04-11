@@ -2,9 +2,6 @@
 
 function merge_cliques!(strategy::AbstractMergeStrategy, t::SuperNodeTree)
     
-  #PJG: so far have grabbed the high level functions in here 
-  #and some of their callees, but no editing yet
-
   initialise!(strategy, t)
 
   while !is_done(strategy)

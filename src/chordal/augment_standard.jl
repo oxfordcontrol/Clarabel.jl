@@ -29,10 +29,6 @@ function augment_standard!(
   A_new = [A H; spzeros(H.n, A.n) -sparse(1.0I, H.n, H.n)]
   b_new = [b; z]
 
-  # save the decomposition matrix for use when 
-  # reconstructing the solution 
-  chordal_info.H = H
-
   return P_new, q_new, A_new, b_new, cones_new
 
 end 
@@ -47,15 +43,15 @@ function find_standard_H_and_cones!(
 ) where {T}
 
   # preallocate H and new decomposed cones
-  n = find_H_col_dimension(chordal_info)
-
-  H_I       = sizehint!(Int[], n)
+  lenH = find_H_col_dimension(chordal_info)
+  H_I  = sizehint!(Int[], lenH)
 
   # ncones from decomposition, plus one for an additional equality constraint
   cones_new = sizehint!(SupportedCone[], post_cone_count(chordal_info) + 1)
 
   # +1 cone count above is for this equality constraint 
-  push!(cones_new, ZeroConeT(chordal_info.init_dims[1]))
+  (n,m) = chordal_info.init_dims
+  push!(cones_new, ZeroConeT(m))
 
   # an iterator for the patterns.  We will expand cones assuming that 
   # they are non-decomposed until we reach an index that agrees with 
@@ -65,20 +61,21 @@ function find_standard_H_and_cones!(
 
   for (coneidx,cone) in enumerate(cones)
 
-    if !isempty(patterns_iter) && peek(patterns_iter).coneidx == coneidx
-
+    if !isempty(patterns_iter) && peek(patterns_iter).orig_index == coneidx
       @assert(isa(cone, PSDTriangleConeT))
       decompose_with_sparsity_pattern!(H_I, cones_new, first(patterns_iter), row)
-
     else
       decompose_with_cone!(H_I, cones_new, cone, row)
-
     end
 
     row += nvars(cone)
   end 
 
-  H = sparse(H_I, collect(1:n), ones(n))
+  H = sparse(H_I, collect(1:lenH), ones(lenH))
+
+  # save the H matrix for use when reconstructing 
+  # solution to the original problem
+  chordal_info.H = H
 
   return H, cones_new
 end

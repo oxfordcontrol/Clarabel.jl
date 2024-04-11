@@ -7,52 +7,44 @@ function solution_finalize!(
 	settings::Settings{T}
 ) where {T}
 
+	is_infeasible = status_is_infeasible(info.status)
+
+    if is_infeasible
+		solution.obj_val = NaN
+		solution.obj_val_dual = NaN
+    end
+
 	solution.status  = info.status
 	solution.obj_val = info.cost_primal
 	solution.obj_val_dual = info.cost_dual
 
-    #if we have an infeasible problem, normalize
-    #using κ to get an infeasibility certificate.
-    #Otherwise use τ to get a solution.
-    if status_is_infeasible(info.status)
-        scaleinv = one(T) / variables.κ
-		solution.obj_val = NaN
-		solution.obj_val_dual = NaN
-    else
-        scaleinv = one(T) / variables.τ
-    end
-
-	#also undo the equilibration
-	d = data.equilibration.d
-	e = data.equilibration.e; einv = data.equilibration.einv
-	cscale = data.equilibration.c[]
-
-	@. solution.x = variables.x * d * scaleinv
-
-	if !isnothing(data.presolver) 
-		map = data.presolver.reduce_map
-		@. solution.z[map.keep_index] = variables.z * e * (scaleinv / cscale)
-		@. solution.s[map.keep_index] = variables.s * einv * scaleinv
-
-		#eliminated constraints get huge slacks 
-		#and are assumed to be nonbinding 
-		@. solution.s[!map.keep_logical] = T(data.presolver.infbound)
-		@. solution.z[!map.keep_logical] = zero(T)
-
-	else
-		@. solution.z = variables.z * e * (scaleinv / cscale)
-		@. solution.s = variables.s * einv * scaleinv
-	end
- 
 	solution.iterations  = info.iterations
 	solution.solve_time  = info.solve_time
 	solution.r_prim 	 = info.res_primal
 	solution.r_dual 	 = info.res_dual
 
+	# unscale the variables to get a solution 
+	# to the internal problem as we solved it 
+	variables_unscale!(variables,data,is_infeasible)
+
+	# unwind the chordal decomp and presolve, in the 
+	# reverse of the order in which they were applied
+	if !isnothing(data.chordal_info)
+		variables = reverse_decomposition(
+			data.chordal_info, variables, data.cones, settings)
+	end
+
+	if !isnothing(data.presolver) 
+		reverse_presolve!(data.presolver,variables, solution)
+	else
+		@. solution.x = variables.x
+		@. solution.z = variables.z 
+		@. solution.s = variables.s 
+	end
+
 	return nothing
 
 end
-
 
 
 function Base.show(io::IO, solution::DefaultSolution)

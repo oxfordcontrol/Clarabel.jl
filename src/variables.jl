@@ -237,3 +237,42 @@ function variables_rescale!(variables)
     variables.κ  *= invscale
     
 end
+
+
+# PJG: this should maybe not be a general Variables method, but 
+# rather just one for the default solver 
+function variables_unscale!(
+    variables::DefaultVariables{T},
+    data::DefaultProblemData{T},
+    is_infeasible::Bool
+) where {T}
+
+    #if we have an infeasible problem, normalize
+    #using κ to get an infeasibility certificate.
+    #Otherwise use τ to get an unscaled solution.
+    if is_infeasible
+        scaleinv = one(T) / variables.κ
+    else
+        scaleinv = one(T) / variables.τ
+    end
+
+	#also undo the equilibration
+	d = data.equilibration.d
+	e = data.equilibration.e
+    einv = data.equilibration.einv
+	cscale = data.equilibration.c[]
+
+	@. variables.x *= d * scaleinv
+    @. variables.z *= e * (scaleinv / cscale)
+    @. variables.s *= einv * scaleinv
+
+    variables.τ *= scaleinv
+    variables.κ *= scaleinv
+    
+end
+
+
+# return (n_variables, n_duals)
+function variables_dims(variables::DefaultVariables{T}) where {T}
+    return (length(variables.x), length(variables.s))
+end

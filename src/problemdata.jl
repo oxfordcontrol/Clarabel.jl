@@ -11,7 +11,8 @@ function DefaultProblemData{T}(
 
 	# some caution is required to ensure we take a minimal,
 	# but nonzero, number of data copies during presolve steps 
-	P_new, q_new, A_new, b_new, cones_new = (nothing,nothing,nothing,nothing,nothing)
+	P_new, q_new, A_new, b_new, cones_new = 
+		(nothing,nothing,nothing,nothing,nothing)
 
 	# make a copy if badly formatted.  istriu is very fast
 	if !istriu(P)
@@ -21,7 +22,7 @@ function DefaultProblemData{T}(
 
 	# presolve : return nothing if disabled or no reduction
 	# --------------------------------------
-	presolver = presolve(A,b,cones,settings)
+	presolver = try_presolver(A,b,cones,settings)  # same name twice
 
 	if !isnothing(presolver)
 		(A_new, b_new, cones_new) = presolve(presolver, A, b, cones)
@@ -30,27 +31,22 @@ function DefaultProblemData{T}(
 
 	# chordal decomposition : return nothing if disabled or no decomp
 	# --------------------------------------
-	chordal_info = chordal_decomposition(A,b,cones,settings)
+	chordal_info = try_chordal_info(A,b,cones,settings)
 
 	if !isnothing(chordal_info)
-		(P_new, q_new, A_new, b_new, cones_new) = let 
-			if settings.chordal_decomposition_compact 
-				augment_compact!(chordal_info, P, q, A, b, cones)
-			else
-				augment_standard!(chordal_info, P, q, A, b, cones)
-			end
-		end 
-		(P, q, A, b, cones) = (P_new, q_new, A_new, b_new, cones_new)
+		(P_new, q_new, A_new, b_new, cones_new) = 
+			augment!(chordal_info, P, q, A, b, cones, settings)
 	end 
 
 	# now make sure we have a clean copy of everything if we
 	#haven't made one already.   Necessary since we will scale
 	# scale the internal copy and don't want to step on the user
-	isnothing(P_new) && (P_new = deepcopy(P))
-	isnothing(q_new) && (q_new = deepcopy(q))
-	isnothing(A_new) && (A_new = deepcopy(A))
-	isnothing(b_new) && (b_new = deepcopy(b))
-	isnothing(cones_new) && (cones_new = deepcopy(cones))
+	copy_if_nothing(x,y) = isnothing(x) ? deepcopy(y) : x
+	P_new = copy_if_nothing(P_new,P)
+	q_new = copy_if_nothing(q_new,q)
+	A_new = copy_if_nothing(A_new,A)
+	b_new = copy_if_nothing(b_new,b)
+	cones_new = copy_if_nothing(cones_new,cones)
 
 	#cap entries in b at INFINITY.  This is important 
 	#for inf values that were not in a reduced cone
@@ -72,8 +68,6 @@ function DefaultProblemData{T}(
 		presolver,chordal_info)
 
 end
-
-
 
 function data_get_normq!(data::DefaultProblemData{T}) where {T}
 
@@ -97,30 +91,6 @@ end
 
 function data_clear_normq!(data::DefaultProblemData{T}) where {T}
 		data.normq = nothing
-end 
-
-function data_get_solution_dims(data::DefaultProblemData{T}) where {T}
-
-	#return the dimension of the solution for the problem in 
-	#its original form, i.e. without presolve or chordal decomp 
-	#PJG: ignoring chordal decomp here since for the moment 
-	#I will just allow transformation to the decomposed problem 
-	(m,n) = size(data.A)
-
-	#if presolve enabled, m is the *original* number of constraints 
-	if !isnothing(data.presolver)
-		m = data.presolver.mfull
-	end 
-
-	# PJG: if things get very complicated with chordal decomp, 
-	# could just hold the initial problem dimensions as seen 
-	# at the start of the ProblemData constructor.   That's 
-	# probably easier 
-
-	#PJG Maybe this is actually dead code.  I will use input 
-	#dimensions in Solver constructor for now
-
-	(n,m)
 end 
 
 function data_clear_normb!(data::DefaultProblemData{T}) where {T}
@@ -240,3 +210,50 @@ function scale_data!(
     return nothing
 end
 
+
+function try_chordal_info(
+    A::SparseMatrixCSC{T}, 
+    b::Vector{T}, 
+    cones::Vector{SupportedCone}, 
+    settings::Settings{T}
+) where {T}
+    
+    if !settings.chordal_decomposition_enable 
+        return nothing
+    end
+
+    # nothing to do if there are no PSD cones
+    if !any(c -> isa(c,PSDTriangleConeT), cones)
+        return nothing 
+    end 
+
+    chordal_info = ChordalInfo(A, b, cones, settings)
+
+    # no decomposition possible 
+    if !is_decomposed(chordal_info)
+        return nothing
+    end
+
+    return chordal_info
+end 
+
+
+function try_presolver(
+    A::AbstractMatrix{T}, 
+    b::Vector{T}, 
+    cones::Vector{SupportedCone}, 
+    settings::Settings{T}
+) where {T}
+
+    if(!settings.presolve_enable)
+        return nothing
+    end
+
+    presolver = Presolver{T}(A,b,cones,settings)
+
+    if !is_reduced(presolver)
+        return nothing 
+    end 
+
+    return presolver 
+end

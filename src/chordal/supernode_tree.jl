@@ -90,6 +90,8 @@ mutable struct SuperNodeTree
    	 	#PJG: temporarily (?) removed MergeLog from struct and constructor
 
     	#PJG: not clear why nblk is initialized to length 1, instead of length(snode) or something
+		# where does nblk get populated?
+
 		new(snode, snode_post, snode_parent, snode_children, post, parent, separators, [0], length(snode_post))
 
 	end
@@ -120,7 +122,7 @@ function get_snode(sntree::SuperNodeTree, i::Int)
 	return sntree.snode[sntree.snode_post[i]]
 end
 
-function get_separator(sntree::SuperNodeTree, i::Int)
+function get_separators(sntree::SuperNodeTree, i::Int)
 	return sntree.separators[sntree.snode_post[i]]
 end
 

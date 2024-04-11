@@ -31,8 +31,7 @@ function find_compact_A_b_and_cones(
   b::Vector{T},
   cones::Vector{SupportedCone}
 ) where{T}
-spatterns = chordal_info.spatterns
-  
+
   # determine number of final augmented matrix and number of overlapping entries
   Aa_m, Aa_n, n_overlaps = find_A_dimension(chordal_info, A)
 
@@ -49,13 +48,18 @@ spatterns = chordal_info.spatterns
   ba_I = zeros(Int, length(bs.nzval))
   ba_V = bs.nzval
 
-  # preallocate the decomposed cones 
-  cones_new = sizehint!(SupportedCone[], post_cone_count(chordal_info))
+  # preallocate the decomposed cones and the mapping 
+  # from decomposed cones back to the originals
+  n_decomposed = post_cone_count(chordal_info)
+  cones_new = sizehint!(SupportedCone[], n_decomposed)
+  cone_maps = sizehint!(ConeMapEntry[], n_decomposed)
 
-  # an iterator for the patterns.  We will expand cones assuming that 
-  # they are non-decomposed until we reach an index that agrees with 
-  # the internally stored coneidx of the next pattern.   
-  patterns_iter = Iterators.Stateful(chordal_info.spatterns)
+  # an enumerate-like mutable iterator for the patterns.  We will expand cones 
+  # assuming that they are non-decomposed until we reach an index that agrees with 
+  # the internally stored orig_index of the next pattern.   
+
+  patterns_iter  = Iterators.Stateful(chordal_info.spatterns)
+  patterns_count = Iterators.Stateful(eachindex(chordal_info.spatterns))
   row_ranges    = _make_rng_conesT(cones)
 
   row_ptr     = 1           # index to start of next cone in A_I
@@ -63,18 +67,24 @@ spatterns = chordal_info.spatterns
 
   for (coneidx, (cone, row_range)) in enumerate(zip(cones,row_ranges))
 
-    if !isempty(patterns_iter) && peek(patterns_iter).coneidx == coneidx
+    if !isempty(patterns_iter) && peek(patterns_iter).orig_index == coneidx
 
       @assert(isa(cone, PSDTriangleConeT))
       row_ptr, overlap_ptr = add_entries_with_sparsity_pattern!(
-        Aa_I, ba_I, cones_new, A, bs, row_range, first(patterns_iter), row_ptr, overlap_ptr)
+        Aa_I, ba_I, cones_new, cone_maps, A, bs, row_range, 
+        first(patterns_iter), first(patterns_count), 
+        row_ptr, overlap_ptr)
 
     else 
       row_ptr, overlap_ptr = add_entries_with_cone!(
-        Aa_I, ba_I, cones_new, A, bs, row_range, cone, row_ptr, overlap_ptr)
+        Aa_I, ba_I, cones_new, cone_maps, A, bs, row_range, cone, row_ptr, overlap_ptr)
     end 
 
   end
+
+  # save the cone_maps for use when reconstructing 
+  # solution to the original problem
+  chordal_info.cone_maps = cone_maps
 
   A_new = allocate_sparse_matrix(Aa_I, Aa_J, Aa_V, Aa_m, Aa_n)
   b_new = Vector(SparseArrays._sparsevector!(ba_I, ba_V, Aa_m))
@@ -101,6 +111,7 @@ function add_entries_with_cone!(
   Aa_I::Vector{Int}, 
   ba_I::Vector{Int}, 
   cones_new::Vector{SupportedCone}, 
+  cone_maps::Vector{ConeMapEntry},
   A::SparseMatrixCSC{T}, 
   b::SparseVector{T}, 
   row_range::UnitRange{Int}, 
@@ -120,16 +131,6 @@ function add_entries_with_cone!(
     end
   end
 
-  #PJG: the cone map was previously populate here as well, but that 
-  #is because the values where baked into the individual cones, which 
-  #are the same ones that are used internally for projection.   Better 
-  #to build up this mapping of decomposed cones to the original cones
-  #in the ChordalInfo.   Note that that means that the cone_map object 
-  #will have a number of records equal to the number of decomposed cones,
-  #but we won't actually store the decomposed cones themselves in the 
-  #chordal info.   It might also be possible to just work out this 
-  #indexing on the fly where needed.
-
   # populate A 
   for col = 1:n
     # indices that store the rows in column col in A
@@ -141,7 +142,14 @@ function add_entries_with_cone!(
     end
   end
 
+  # here we make a copy of the cone
   push!(cones_new, deepcopy(cone))
+
+  # since this cone is standalone and not decomposed, the index 
+  # of its origin cone must be either one more than the previous one,
+  # or 1 (zero in rust) if it's the first 
+  orig_index = isempty(cone_maps) ? 1 : cone_maps[end].orig_index + 1
+  push!(cone_maps, ConeMapEntry(orig_index, nothing))
 
   return row_ptr + nvars(cone), overlap_ptr
 end
@@ -154,10 +162,12 @@ function add_entries_with_sparsity_pattern!(
   A_I::Vector{Int}, 
   b_I::Vector{Int}, 
   cones_new::Vector{SupportedCone}, 
+  cone_maps::Vector{ConeMapEntry},
   A::SparseMatrixCSC{T}, 
   b::SparseVector{T}, 
   row_range::UnitRange{Int}, 
   spattern::SparsityPattern,
+  spattern_index::Int,
   row_ptr::Int, overlap_ptr::Int
 ) where {T}
 
@@ -174,7 +184,7 @@ function add_entries_with_sparsity_pattern!(
 
     # get supernodes and separators and undo the reordering
     # NB: these are now Vector, not VertexSet
-    separator = sort!([spattern.ordering[v] for v in get_separator(sntree, i)])
+    separator = sort!([spattern.ordering[v] for v in get_separators(sntree, i)])
     snode     = sort!([spattern.ordering[v] for v in get_snode(sntree, i)])
 
     # compute sorted block indices (i, j, flag) for this clique with an 
@@ -209,9 +219,11 @@ function add_entries_with_sparsity_pattern!(
     cone_dim = get_nblk(sntree, i)
     num_rows = triangular_number(cone_dim)
 
-    #PJG: new PSD cones are created here. 
-    #In COSMO, they are tagged with their tree and clique numbers
+    # create new PSD cones for the subblocks, and tag them 
+    # with their tree and clique number
     push!(cones_new, PSDTriangleConeT(cone_dim))
+    push!(cone_maps, ConeMapEntry(spattern.orig_index, (spattern_index, i)))
+
     row_ptr += num_rows
     
   end
