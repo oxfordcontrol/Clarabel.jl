@@ -71,6 +71,9 @@ function find_sparsity_patterns!(
 
     rng_cones = _make_rng_conesT(cones)
 
+    # aggregate sparsity pattern across the rows of [A;b]
+    nz_mask = find_aggregate_sparsity_mask(A, b)
+
     # find the sparsity patterns of the PSD cones
     for (coneidx, (cone,rowrange)) in enumerate(zip(cones,rng_cones))
 
@@ -78,11 +81,9 @@ function find_sparsity_patterns!(
             continue
         end
 
-        agg_sparsity = find_aggregate_sparsity(A, b, rowrange)
-
         analyse_sparsity_pattern!(
             chordal_info, 
-            agg_sparsity, 
+            view(nz_mask,rowrange), 
             cone, 
             coneidx,
             merge_method)
@@ -90,24 +91,38 @@ function find_sparsity_patterns!(
 end
 
 
-# PJG: not clear why I am passing the cone here, since I only want the 
-# dimension and it is guaranteed to be a PSD triangle
+function find_aggregate_sparsity_mask(
+    A::SparseMatrixCSC{T}, 
+    b::Vector{T},
+) where {T <: AbstractFloat}
+
+    # returns true in every row in which [A;b] has a nonzero
+
+    active = falses(length(b))
+    active[A.rowval] .= true
+    @. active |= (b != 0)
+    active
+end 
+
 
 function analyse_sparsity_pattern!(
     chordal_info::ChordalInfo, 
-    agg_sparsity::Vector{Int}, 
+    nz_mask::AbstractVector{Bool}, 
     cone::SupportedCone, 
     coneidx::Int,
     merge_method::Symbol
 ) 
 
-    @assert length(agg_sparsity) <= nvars(cone)
+    @assert length(nz_mask) == nvars(cone)
+
+    # linear indices of the nonzeros within this cone
+    agg_sparsity = findall(nz_mask)
 
     if length(agg_sparsity) == nvars(cone)
         return #not decomposable
     end 
     
-    L, ordering = find_graph!(chordal_info, agg_sparsity, cone.dim)
+    L, ordering = find_graph!(agg_sparsity, cone.dim)
     spattern = SparsityPattern(L, ordering, coneidx, merge_method)
 
     if num_cliques(spattern.sntree) == 1
@@ -141,27 +156,6 @@ function post_cone_count(chordal_info::ChordalInfo)
 end
 
 
-
-#PJG: it might be faster to just find all rows of the full A that have nonzeros.   That would avoid
-#traversing A.rowval multiple times, once for each cone. 
-function find_aggregate_sparsity(
-    A::SparseMatrixCSC{T}, 
-    b::Vector{T}, 
-    rowrange::UnitRange{Int}
-) where {T <: AbstractFloat}
-
-    active = falses(length(rowrange))
-    # mark all rows of A with nonzero entries in this range 
-    for r in A.rowval
-        if in(r, rowrange)
-            active[r - rowrange.start + 1] = true
-        end
-    end
-    active .= active .|| view(b,rowrange) .!= 0
-    return findall(active)
-end 
-
-
 function get_decomposed_dim_and_overlaps(chordal_info::ChordalInfo{T}) where{T}
 
     cones = chordal_info.init_cones
@@ -180,31 +174,34 @@ function get_decomposed_dim_and_overlaps(chordal_info::ChordalInfo{T}) where{T}
   end 
   
 
-function augment!(
-    chordal_info::ChordalInfo{T}, 
-    P::SparseMatrixCSC{T},
-    q::Vector{T},
-    A::SparseMatrixCSC{T},
-    b::Vector{T},
-    cones::Vector{SupportedCone},
-    settings::Clarabel.Settings{T}
-) where{T}
-
-    if settings.chordal_decomposition_compact 
-        augment_compact!(chordal_info, P, q, A, b, cones)
-    else
-        augment_standard!(chordal_info, P, q, A, b, cones)
-    end
-
-end 
-
-
 
 # -------------------------------------
 # FUNCTION DEFINITIONS
 # -------------------------------------
 
-# PJG: partitioning into trait and non-trait like functions is a mess here 
+#PJG: if this is implemented using a boolean vector, then the n can be dropped 
+#since it should be inferable from the length of the vector.
+function find_graph!(linearidx::Vector{Int}, n::Int) 
+	
+    rows,cols = upper_triangular_index_to_coords(linearidx)
+    
+    #PJG: probably the "ones" aren't needed at all here, but 
+    #need to check if QDLDL will support that.   Otherwise 
+    #need to go into lower level functions 
+    #PJG: at the very least, the ones should be a vector of
+    #integers or bools
+    pattern = sparse(rows, cols, ones(length(rows)), n, n)
+
+	F = QDLDL.qdldl(pattern, logical = true)
+
+    L = F.L
+    ordering = F.perm
+
+	# this takes care of the case that QDLDL returns an unconnected adjacency matrix L
+	connect_graph!(L)
+
+    return L, ordering 
+end
 
 
 # PJG An identical function is used in compositecone_type.jl, but implemented 
@@ -242,34 +239,11 @@ Given the indices of non-zero matrix elements in `linearidx`:
 - If unconnected, connect the graph represented by the cholesky factor `L`
 """
 
-#PJG: if this is implemented using a boolean vector, then the n can be dropped 
-#since it should be inferable from the length of the vector.
-function find_graph!(chordal_info::ChordalInfo, linearidx::Vector{Int}, n::Int) 
-	
-    rows,cols = upper_triangular_index_to_coords(linearidx)
-    
-    #PJG: probably the "ones" aren't needed at all here, but 
-    #need to check if QDLDL will support that.   Otherwise 
-    #need to go into lower level functions 
-    #PJG: at the very least, the ones should be a vector of
-    #integers or bools
-    pattern = sparse(rows, cols, ones(length(rows)), n, n)
-
-	F = QDLDL.qdldl(pattern, logical = true)
-
-    L = F.L
-    ordering = F.perm
-
-	# this takes care of the case that QDLDL returns an unconnected adjacency matrix L
-	connect_graph!(L)
-
-    return L, ordering 
-end
 
 # this assumes a sparse lower triangular matrix L
 # PJG: not clear what the type T will be here.  Maybe Int / isize
 function connect_graph!(L::SparseMatrixCSC{T}) where{T}
- 	# unconnected blocks don't have any entries below the diagonal in their right-most column
+ 	# unconnected blocks don't have any entries below the diagonal in their right-most columns
 	m = size(L, 1)
 	row_val = L.rowval
 	col_ptr = L.colptr
@@ -281,7 +255,8 @@ function connect_graph!(L::SparseMatrixCSC{T}) where{T}
 				break
 			end
 		end
-        #PJG: problem here since L[j+1,j] assignment is non-obvious in Rust
+        #PJG: this insertion can happen in a midrange column, as long as 
+        #that column is the last one for a given block 
 		if !connected
 			L[j+1, j] = 1
 		end

@@ -35,16 +35,19 @@ mutable struct SparsityPattern
     ordering::Array{Int, 1}, 
     orig_index::Int,
     merge_method::Symbol,
+
+    #PJG did I ever use the merge_method field?
     #PJG: these probably don't really belong as part of the pattern
     #rowrange::UnitRange{Int}, 
+
+    #PJG: need to implemented the row_ranges as an iterators, but check 
+    #first whether the whole vector is ever used at once 
   )
 
     sntree = SuperNodeTree(L)
 
     # clique merging only if more than one clique present
-    # PJG: "merge_strategy" now the first argument after rewrite
-    # PJG: using n_snode here since it decreases as snodes drain 
-    # (but are not deleted)
+
     if sntree.n_snode > 1
 
       if merge_method == :none 

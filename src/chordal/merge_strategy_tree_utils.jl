@@ -1,6 +1,6 @@
 
 #PJG: this is only used in the tree merge, but it seems like a general
-#SuperNodeTree fcn.   One probably though is that it's not clear what 
+#SuperNodeTree fcn.   One probably problem is that it's not clear what 
 #happens if there is no parent-child relationship at all.
 #maybe needs a different name if this is a niche function for the tree merge
 " Given two cliques `c1` and `c2` in the tree `t`, return the parent clique first."

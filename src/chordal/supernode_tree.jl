@@ -106,6 +106,8 @@ end
 #the indexing is also passing through snode_post
 
 function num_cliques(sntree::SuperNodeTree)
+	#PJG: this function is not used much, with the field just 
+	#being accessed directly.   Which way is better?
 	return sntree.n_snode
 end
 

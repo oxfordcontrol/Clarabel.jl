@@ -120,18 +120,6 @@ function merge_two_cliques!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree
 end
 
 
-
-
-  # PJG: not sure yet if I care about logging 
-#   "Store information about the merge of the two merge candidates `cand`."
-# function log_merge!(t::SuperNodeTree, do_merge::Bool, cand::Array{Int, 1})
-#   t.merge_log.clique_pairs = vcat(t.merge_log.clique_pairs, cand')
-#   push!(t.merge_log.decisions, do_merge)
-#   do_merge && (t.merge_log.num += 1)
-#   return nothing
-# end
-
-
 "After a merge happened, update the reduced clique graph."
 function update_strategy!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree, cand::Vector{Int}, do_merge::Bool)
 
@@ -300,6 +288,8 @@ function compute_reduced_clique_graph!(separators::Vector{VertexSet}, snode::Vec
         # place in the code where IterTools is required.  An identical call
         # to the same function, again over pairs, in separator_graph.
         # In rust, maybe this: https://docs.rs/itertools/latest/itertools/structs/struct.Combinations.html
+        # NB: this returns a two element vector, not a tuple. seems bad.  If 
+        # I change to tuples,  max(pair...) is still fastest in assemble
         for pair in IterTools.subsets(clique_indices, Val{2}())
             if is_unconnected(pair, components)
                 # push!(edges, (max(pair...), min(pair...))) #add edge

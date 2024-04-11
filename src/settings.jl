@@ -62,6 +62,7 @@ __Chordal Decomposition Settings__||
 chordal\\_decomposition\\_enable            | true            | enable chordal decomposition
 chordal\\_decomposition\\_merge_method      | :clique_graph   | chordal decomposition merge method (:none, :parent_child or :clique_graph)
 chordal\\_decomposition\\_compact           | true            | assemble decomposed system in "compact" form
+chordal\\_decomposition\\_complete_dual     | false           | complete PSD dual variables after decomposition
 
 """
 Base.@kwdef mutable struct Settings{T <: AbstractFloat}
@@ -128,6 +129,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     chordal_decomposition_enable::Bool  = true
     chordal_decomposition_merge_method::Symbol = :clique_graph
     chordal_decomposition_compact::Bool = true
+    chordal_decomposition_complete_dual::Bool = false
 
 end
 

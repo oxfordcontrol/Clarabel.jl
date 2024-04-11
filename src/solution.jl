@@ -30,7 +30,7 @@ function solution_finalize!(
 	# unwind the chordal decomp and presolve, in the 
 	# reverse of the order in which they were applied
 	if !isnothing(data.chordal_info)
-		variables = reverse_decomposition(
+		variables = decomp_reverse!(
 			data.chordal_info, variables, data.cones, settings)
 	end
 
