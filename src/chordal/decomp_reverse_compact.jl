@@ -67,9 +67,9 @@ function add_blocks_with_sparsity_pattern!(
     for j in clique, i in clique
         if i <= j
             offset = coord_to_upper_triangular_index((i, j)) - 1
-            @views new_s[row_range.start + offset] += old_s[row_ptr + counter]
+            new_s[row_range.start + offset] += old_s[row_ptr + counter]
             # notice: z overwrites (instead of adding) the overlapping entries
-            @views new_z[row_range.start + offset]  = old_z[row_ptr + counter]
+            new_z[row_range.start + offset]  = old_z[row_ptr + counter]
             counter += 1
         end
     end
