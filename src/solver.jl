@@ -340,8 +340,10 @@ function solve!(
         @notimeit info_print_status(s.info,s.settings)
     end 
 
+    @timeit s.timers "finalize" begin
+        solution_finalize!(s.solution,s.data,s.variables,s.info,s.settings)
+    end 
     info_finalize!(s.info,s.residuals,s.settings,s.timers)  #halts timers
-    solution_finalize!(s.solution,s.data,s.variables,s.info,s.settings)
 
     @notimeit info_print_footer(s.info,s.settings)
 

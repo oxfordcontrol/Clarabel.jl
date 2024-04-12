@@ -23,7 +23,7 @@ function decomp_augment_standard!(
 
   A_new = [A H; spzeros(T, H.n, A.n) -sparse(1.0I, H.n, H.n)]
 
-  b_new = zeros(T, length(q) + H.n)
+  b_new = zeros(T, length(b) + H.n)
   b_new[1:length(b)] .= b
 
   return P_new, q_new, A_new, b_new, cones_new
