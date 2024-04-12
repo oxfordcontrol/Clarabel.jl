@@ -58,8 +58,7 @@ function make_reduction_map(
     outoption = 
     let
         if mreduced < length(b)  
-            keep_index = findall(keep_logical)
-            PresolverRowReductionIndex(keep_logical, keep_index)
+            PresolverRowReductionIndex(keep_logical)
         else 
             nothing
         end
@@ -138,18 +137,20 @@ function reverse_presolve!(
     variables::DefaultVariables{T}
 ) where {T}
 
-    # PJG: could drop the keep_index and just
-    # use the keep_logical for both operations.
-
     @. solution.x = variables.x
 
     map = presolver.reduce_map
-    @. solution.z[map.keep_index] = variables.z 
-    @. solution.s[map.keep_index] = variables.s 
+    ctr = 1  
 
-    #eliminated constraints get huge slacks 
-    #and are assumed to be nonbinding 
-    @. solution.s[!map.keep_logical] = T(presolver.infbound)
-    @. solution.z[!map.keep_logical] = zero(T)
+    for (idx,keep) in enumerate(map.keep_logical)
+        if keep
+            solution.s[idx] = variables.s[ctr] 
+            solution.z[idx] = variables.z[ctr] 
+            ctr += 1
+        else 
+            solution.s[idx] = T(presolver.infbound)
+            solution.z[idx] = zero(T)
+        end
+    end
 
 end

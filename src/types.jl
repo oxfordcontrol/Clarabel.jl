@@ -14,12 +14,6 @@ struct PresolverRowReductionIndex
     # for those rows that should be eliminated before solve
     keep_logical::Vector{Bool}
 
-    # vector of length = reduced RHS, taking values
-    # that map reduced b back to their original index
-    # This is just findall(keep_logical) and is held for
-    # efficient solution repopulation
-    keep_index::Vector{Int64}
-
 end
 struct Presolver{T}
 
