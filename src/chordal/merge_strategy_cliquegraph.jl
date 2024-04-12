@@ -1,24 +1,26 @@
-"""
-    CliqueGraphMergeStrategy(edge_weight::EdgeWeightMethod) <: AbstractMergeStrategy
+# The (default) merge strategy based on the *reduced* clique graph ``\\mathcal{G}(\\mathcal{B}, \\xi)``, 
+# for a set of cliques ``\\mathcal{B} = \\{ \\mathcal{C}_1, \\dots, \\mathcal{C}_p\\}``, where the edge 
+# set ``\\xi`` is obtained by taking the edges of the union of clique trees.
 
-The (default) merge strategy based on the *reduced* clique graph ``\\mathcal{G}(\\mathcal{B}, \\xi)``, for a set of cliques ``\\mathcal{B} = \\{ \\mathcal{C}_1, \\dots, \\mathcal{C}_p\\}`` where the edge set ``\\xi`` is obtained by taking the edges of the union of clique trees.
+# Moreover, given an edge weighting function ``e(\\mathcal{C}_i,\\mathcal{C}_j) = w_{ij}``, we compute a 
+# weight for each edge that quantifies the computational savings of merging the two cliques.
+#
+# After the initial weights are computed, we merge cliques in a loop:
+#
+# **while** clique graph contains positive weights:
+# - select two permissible cliques with the highest weight ``w_{ij}``
+# - merge cliques ``\\rightarrow`` update clique graph
+# - recompute weights for updated clique graph
+#
+# See also: *Garstka, Cannon, Goulart - A clique graph based merging strategy for decomposable SDPs (2019)*
+#
+# NB: edges is currently an integer valued matrix since the weights are taken as 
+# powers of the cardinality of the intersection of the cliques. This needs to change 
+# to floats of empirical edge weight functions are to be supported.
 
-Moreover, given an edge weighting function ``e(\\mathcal{C}_i,\\mathcal{C}_j) = w_{ij}``, we compute a weight for each edge that quantifies the computational savings of merging the two cliques.
-After the initial weights are computed, we merge cliques in a loop:
-
-**while** clique graph contains positive weights:
-- select two permissible cliques with the highest weight ``w_{ij}``
-- merge cliques ``\\rightarrow`` update clique graph
-- recompute weights for updated clique graph
-
-Custom edge weighting functions can be used by defining your own `CustomEdgeWeight <: AbstractEdgeWeight` and a corresponding `edge_metric` method. By default, the `ComplexityWeight <: AbstractEdgeWeight` is used which computes the weight based
-on the cardinalities of the cliques: ``e(\\mathcal{C}_i,\\mathcal{C}_j)  = |\\mathcal{C}_i|^3 + |\\mathcal{C}_j|^3 - |\\mathcal{C}_i \\cup \\mathcal{C}_j|^3``.
-
-See also: *Garstka, Cannon, Goulart - A clique graph based merging strategy for decomposable SDPs (2019)*
-"""
 mutable struct CliqueGraphMergeStrategy{T} <: AbstractMergeStrategy
   stop::Bool                                  # a flag to indicate that merging should be stopped
-  edges::SparseMatrixCSC{T}                   # the edges and weights of the reduced clique graph
+  edges::SparseMatrixCSC{Int}                 # the edges and weights of the reduced clique graph
   p::Array{Int, 1}                            # as a workspace variable to store the sorting of weights
   adjacency_table::Dict{Int, VertexSet}       # a double structure of edges, to allow fast lookup of neighbors
   edge_weight::EdgeWeightMethod               # used to dispatch onto the correct scoring function
@@ -36,7 +38,7 @@ end
 
 function initialise!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
 
-		# this merge strategy is clique graph-based, we give up the tree structure and add 
+		# this merge strategy is clique-graph based, we give up the tree structure and add 
 		# the seperators to the supernodes.  The supernodes then represent the full clique.
 		# after clique merging a new clique tree will be computed in post_process_merge!
     # for this type 
@@ -62,7 +64,7 @@ function initialise!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
   end
 
 
-"Find the next two cliques in the clique graph `t` to merge."
+# Find the next two cliques in the clique graph `t` to merge.
 function traverse(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
 
    p = strategy.p
@@ -80,9 +82,7 @@ function traverse(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
     if ispermissible(edge, strategy.adjacency_table, t.snode)
       return (edge[1], edge[2])
     end
-
   end
-
 end
 
 
@@ -114,8 +114,14 @@ function merge_two_cliques!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree
 end
 
 
-"After a merge happened, update the reduced clique graph."
-function update_strategy!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree, cand::Tuple{Int, Int}, do_merge::Bool)
+# After a merge happened, update the reduced clique graph. 
+
+function update_strategy!(
+  strategy::CliqueGraphMergeStrategy, 
+  t::SuperNodeTree, 
+  cand::Tuple{Int, Int}, 
+  do_merge::Bool
+)
 
   # After a merge operation update the information of the strategy
   if do_merge
@@ -139,13 +145,13 @@ function update_strategy!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree, 
         end
     end
 
-    # point edges exclusive to removed clique to "surviving" clique 1
+    # point edges exclusive to removed clique to surviving clique 1
     for n_ind in new_neighbors
         neighbor = t.snode[n_ind]
         edges[max(c_1_ind, n_ind), min(c_1_ind, n_ind)]  = edge_metric(c_1, neighbor, strategy.edge_weight)
     end
 
-    # overwrite the weight to any "deleted" edges that still contain a link to c_removed
+    # overwrite the weight to any removed edges that still contain a link to c_removed
     strategy.edges[c_removed+1:n, c_removed] .= 0
     strategy.edges[c_removed, 1:c_removed] .= 0
     dropzeros!(edges)
@@ -176,7 +182,7 @@ function post_process_merge!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTre
   # recompute a clique tree from the clique graph
   t.n_cliques > 1 && clique_tree_from_graph!(strategy, t)
 
-  # PJG: This seems unnecessary, because the next operation on this
+  # PJG: This seems unnecessary because the next operation on this
   # object is the call to reorder_snode_consecutively, which overwrites 
   # the snode anyway.  Treatment of separators possibly ends up different.
   # Seems to work without, but keep for now for consistency with COSMO.
@@ -188,17 +194,14 @@ function post_process_merge!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTre
 end
 
 
-"""
-    clique_tree_from_graph!(strategy::CliqueGraphMergeStrategy, clique_graph::SuperNodeTree)
+# Given the cliques and edges of a clique graph, this function computes a valid clique tree.
+# This is necessary to perform the psd completion step of the dual variable after solving the problem.
 
-Given the cliques and edges of a clique graph, this function computes a valid clique tree.
-
-This is necessary to perform the psd completion step of the dual variable after solving the problem.
-"""
 function clique_tree_from_graph!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
-  # a clique tree is a maximum weight spanning tree of the clique graph where the edge weight is the 
+
+  # a clique tree is a maximum weight spanning tree of the clique graph, where the edge weight is the 
   # cardinality of the intersection between two cliques compute intersection value for each edge 
-  # in clique graph
+  # in the clique graph
   clique_intersections!(strategy.edges, t.snode)
 
   # find a maximum weight spanning tree of the clique graph using Kruskal's algorithm
@@ -227,21 +230,21 @@ end
 
 #------------------- internal utilities -------------------#
 
-"""
-    compute_reduced_clique_graph!(sep::Array{Set{Int}, 1}, snd::Array{Set{Int}, 1})
+# Compute the reduced clique graph (union of all clique trees) given an initial clique tree defined by its 
+# supernodes and separator sets.
 
-Compute the reduced clique graph (union of all clique trees) given an initial clique tree defined by its supernodes `snd` and separator `sep` sets.
+# We are using the algorithm described in **Michel Habib and Juraj Stacho - Polynomial-time algorithm for the 
+# leafage of chordal graphs (2009)**, which
+# computes the reduced clique graph in the following way:
+# 1. Sort all minimal separators by size
+# 2. Initialise graph CG(R) with cliques as nodes and no edges
+# 3. for largest unprocessed separator S and
+#     |  add an edge between any two cliques C1 and C2 if they both contain S and are in different connected   
+#        components of CG(R) and store in `edges`.
+#     |  Compute an edge weight used for merge decision and store in `val`.
+#     |  Store the index of the separator which is the intersection C1 ∩ C2 in `iter`
+#    end
 
-We are using the algorithm described in **Michel Habib and Juraj Stacho - Polynomial-time algorithm for the leafage ofchordal graphs (2009)**, which
-computes the reduced clique graph in the following way:
-1. Sort all minimal separators by size
-2. Initialise graph CG(R) with cliques as nodes and no edges
-3. for largest unprocessed separator S and
-    |  add an edge between any two cliques C1 and C2 if they both contain S and are in different connected   components   of CG(R) and store in `edges`.
-    |  Compute an edge weight used for merge decision and store in `val`.
-    |  Store the index of the separator which is the intersection C1 ∩ C2 in `iter`
-   end
-"""
 function compute_reduced_clique_graph!(separators::Vector{VertexSet}, snode::Vector{VertexSet})
 
   # loop over separators by decreasing cardinality
@@ -278,7 +281,8 @@ function compute_reduced_clique_graph!(separators::Vector{VertexSet}, snode::Vec
 
 end 
 
-"Find the separator graph H given a separator and the relevant index-subset of cliques."
+# Find the separator graph H given a separator and the relevant index-subset of cliques.
+
 function separator_graph(clique_ind::Vector{Int}, separator::VertexSet, snd::Vector{VertexSet})
 
     # make the separator graph using a hash table
@@ -311,7 +315,7 @@ function separator_graph(clique_ind::Vector{Int}, separator::VertexSet, snd::Vec
 end
 
 
-"Find connected components in undirected separator graph represented by `H`."
+# Find connected components in undirected separator graph represented by `H`.
 function find_components(H::Dict{Int, Vector{Int}}, clique_ind::Vector{Int})
     visited = Dict{Int, Bool}(v => false for v in clique_ind)
     components = Vector{VertexSet}()
@@ -325,15 +329,21 @@ function find_components(H::Dict{Int, Vector{Int}}, clique_ind::Vector{Int})
 end
 
 
-"Check whether the `pair` of cliques are in different `components`."
+# Check whether the `pair` of cliques are in different `components`.
 function is_unconnected(pair::Tuple{Int, Int}, components::Vector{VertexSet})
     component_ind = findfirst(x -> pair[1] ∈ x, components)
     return pair[2] ∉ components[component_ind]
 end
 
 
-"Depth first search on a hashtable `H`."
-function DFS_hashtable!(component::VertexSet, v::Int, visited::Dict{Int, Bool}, H::Dict{Int, Vector{Int}})
+# Depth first search on a hashtable `H`.
+function DFS_hashtable!(
+  component::VertexSet, 
+  v::Int, 
+  visited::Dict{Int, Bool}, 
+  H::Dict{Int, Vector{Int}}
+)
+
     visited[v] = true
     push!(component, v)
     for n in H[v]
@@ -345,7 +355,7 @@ function DFS_hashtable!(component::VertexSet, v::Int, visited::Dict{Int, Bool}, 
 end
 
 
-"Check if s ∩ s2 == s3."
+# Check if s ∩ s2 == s3.
 function inter_equal(s1::T, s2::T, s3::T) where {T <: AbstractSet}
     dim = 0
   
@@ -358,7 +368,6 @@ function inter_equal(s1::T, s2::T, s3::T) where {T <: AbstractSet}
 
     # abort if there's no way the intersection can be the same
     if max_intersect < len_s3
-      println("bail")
       return false
     end
   
@@ -382,7 +391,8 @@ function inter_equal(s1::T, s2::T, s3::T) where {T <: AbstractSet}
 end
 
 
-"Given a list of edges, return an adjacency hash-table `table` with nodes from 1 to `num_vertices`."
+# Given a list of edges, return an adjacency hash-table `table` with nodes from 1 to `num_vertices`.
+
 function compute_adjacency_table(edges::SparseMatrixCSC{T}, num_vertices::Int) where {T}
 
     table = Dict(i => VertexSet() for i = 1:num_vertices)
@@ -398,24 +408,29 @@ function compute_adjacency_table(edges::SparseMatrixCSC{T}, num_vertices::Int) w
      return table
 end
 
-"Check whether `edge` is permissible for a merge. An edge is permissible if for every common neighbor N, C_1 ∩ N == C_2 ∩ N or if no common neighbors exist."
-function ispermissible(edge::Tuple{Integer, Integer}, adjacency_table::Dict{Int, VertexSet}, snd::Vector{VertexSet})
+# Check whether `edge` is permissible for a merge. An edge is permissible if for every common neighbor N, 
+# C_1 ∩ N == C_2 ∩ N or if no common neighbors exist.
+
+function ispermissible(
+  edge::Tuple{Integer, Integer}, 
+  adjacency_table::Dict{Int, VertexSet}, 
+  snode::Vector{VertexSet}
+)
+
     c_1 = edge[1]
     c_2 = edge[2]
     common_neighbors = intersect(adjacency_table[c_1], adjacency_table[c_2])
-    # N.B. This can be made faster by first checking whether the sizes of the intersection are the same before allocating anything
+
+    # N.B. This is allocating and could be made more efficient
     for neighbor in common_neighbors
-        intersect(snd[c_1], snd[neighbor]) != intersect(snd[c_2], snd[neighbor]) && return false
+        intersect(snode[c_1], snode[neighbor]) != intersect(snode[c_2], snode[neighbor]) && return false
     end
     return true
 end
 
 
-"""
-    max_elem(A::SparseMatrixCSC)
+# Find the matrix indices (i, j) of the first maximum element among the elements stored in A.nzval
 
-Find the matrix indices (i, j) of the first maximum element among the elements stored in A.nzval
-"""
 function max_elem(A::SparseMatrixCSC{T}) where {T}
   length(A.nzval) == 0 && throw(DomainError("Sparse matrix A doesn't contain any entries"))
   n = size(A, 2)
@@ -452,8 +467,8 @@ function edge_from_index(A::SparseMatrixCSC{T, Int}, ind::Int) where {T}
 
 
 function clique_intersections!(E::SparseMatrixCSC{T}, snd::Vector{VertexSet}) where {T}
-    # iterate over the nonzeros of the connectivity matrix E which represents the clique graph and replace the value by
-    # |C_i ∩ C_j|
+    # iterate over the nonzeros of the connectivity matrix E which represents the 
+    # clique graph and replace the value by |C_i ∩ C_j|
     rows = rowvals(E)
     for col in 1:size(E, 2)
       for j in nzrange(E, col)
@@ -464,7 +479,7 @@ function clique_intersections!(E::SparseMatrixCSC{T}, snd::Vector{VertexSet}) wh
     return nothing
   end
 
-"Return the number of elements in s ∩ s2."
+# Return the number of elements in s ∩ s2.
 function intersect_dim(s1::AbstractSet, s2::AbstractSet)
   if length(s1) < length(s2)
         sa = s1
@@ -480,7 +495,7 @@ function intersect_dim(s1::AbstractSet, s2::AbstractSet)
     return dim
 end
 
-" Find the size of the set `A ∪ B` under the assumption that `A` and `B` only have unique elements."
+# Find the size of the set `A ∪ B` under the assumption that `A` and `B` only have unique elements.
 function union_dim(s1::T, s2::T)  where {T <: AbstractSet}
 
   length(s1) + length(s2) - intersect_dim(s1, s2)
@@ -488,16 +503,14 @@ function union_dim(s1::T, s2::T)  where {T <: AbstractSet}
 end
 
 
-"""
-    kruskal!(E::SparseMatrixCSC, num_cliques::Int)
+# Kruskal's algorithm to find a maximum weight spanning tree from the clique intersection graph.
+#
+#  `E[i,j]` holds the cardinalities of the intersection between two cliques (i, j). Changes the entries in the 
+#   connectivity matrix `E` to a negative balue if an edge between two cliques is included in the max spanning tree.
+#
+#  This is a modified version of https://github.com/JuliaGraphs/LightGraphs.jl/blob/master/src/spanningtrees/kruskal.jl
 
-Kruskal's algorithm to find a maximum weight spanning tree from the clique intersection graph.
 
- `E[i,j]` holds the cardinalities of the intersection between two cliques (i, j). Changes the entries in the connectivity matrix `E` to a negative
- value if an edge between two cliques is included in the max spanning tree.
-
- This is a modified version of https://github.com/JuliaGraphs/LightGraphs.jl/blob/master/src/spanningtrees/kruskal.jl
- """
 function kruskal!(E::SparseMatrixCSC{T}, num_cliques::Int) where{T}
   num_initial_cliques = size(E, 2)
 
@@ -518,7 +531,7 @@ function kruskal!(E::SparseMatrixCSC{T}, num_cliques::Int) where{T}
     col = J[k]
     if !in_same_set(connected_c, row, col)
         union!(connected_c, row, col)
-        # we indicate an edge in the MST with a positive value in E (all other values are >= 0)
+        # indicate an edge in the MST with a negative value in E (all other values are >= 0)
         E[row, col] = -1.0
         num_edges_found += 1
         # break when all cliques are connected in one tree
@@ -528,7 +541,9 @@ function kruskal!(E::SparseMatrixCSC{T}, num_cliques::Int) where{T}
   return nothing
 end
 
-" Given the maximum weight spanning tree represented by `E`, determine a parent structure `snd_par` for the clique tree."
+# Given the maximum weight spanning tree represented by `E`, determine a parent 
+# structure `snd_par` for the clique tree.
+
 function determine_parent_cliques!(
     snode_parent::Vector{Int}, 
     snode_children::Vector{VertexSet}, 
@@ -562,6 +577,7 @@ function assign_children!(
   c::Int,
   edges::SparseMatrixCSC{T}
 ) where {T}
+
   # determine neighbors
   neighbors = find_neighbors(edges, c)
   for n in neighbors
@@ -576,11 +592,7 @@ function assign_children!(
 end
 
 
-"""
-find_neighbors(edges::SparseMatrixCSC, c::Int)
-
-Find all the cliques connected to `c` which are given by the nonzeros in `(c, 1:c-1)` and `(c+1:n, c)`.
-"""
+# Find all the cliques connected to `c` which are given by the nonzeros in `(c, 1:c-1)` and `(c+1:n, c)`.
 
 function find_neighbors(edges::SparseMatrixCSC, c::Int)
   neighbors = zeros(Int, 0)
@@ -600,7 +612,8 @@ function find_neighbors(edges::SparseMatrixCSC, c::Int)
 end
 
 
-" Traverse the clique tree in descending topological order and split the clique sets into supernodes and separators."
+# Traverse the clique tree in descending topological order and split the clique sets into supernodes and separators.
+
 function split_cliques!(
   snode::Vector{VertexSet}, 
   separators::Vector{VertexSet}, 
@@ -625,8 +638,13 @@ end
 
 # -------------------
 # functions relating to edge weights 
+# -------------------
 
-"Compute the edge weight between all cliques specified by the edges (rows, cols)."
+
+# Compute the edge weight between all cliques specified by the edges (rows, cols).
+# weights on the edges currently defined as integer values, but could be changed 
+# to floats to allow emperical edge weight functions.
+
 function compute_weights!(
   rows::Vector{Int}, 
   cols::Vector{Int}, 
@@ -634,7 +652,8 @@ function compute_weights!(
   edge_weight::EdgeWeightMethod
 )
 
-  weights = zeros(Float64, length(rows))
+  weights = zeros(Int, length(rows))
+
   for k = 1:length(rows)
     c_1 = snode[rows[k]]
     c_2 = snode[cols[k]]
@@ -645,11 +664,9 @@ function compute_weights!(
 end
 
 
-"""
-    edge_metric(c_a::AbstractVector, c_b::AbstractVector, edge_weight::EdgeWeightMethod)
 
-Given two cliques `c_a` and `c_b` return a value for their edge weight.
-"""
+#Given two cliques `c_a` and `c_b` return a value for their edge weight.
+
 function edge_metric(c_a::VertexSet, c_b::VertexSet, edge_weight::EdgeWeightMethod) 
   n_1 = length(c_a)
   n_2 = length(c_b)
@@ -658,16 +675,16 @@ function edge_metric(c_a::VertexSet, c_b::VertexSet, edge_weight::EdgeWeightMeth
   n_m = union_dim(c_a, c_b)
 
   if edge_weight == CUBIC::EdgeWeightMethod
-    return n_1^3 + n_2^3 - n_m^3
+    return (n_1^3 + n_2^3 - n_m^3)::Int
   else
     throw(ArgumentError("Unknown weight metric not implemented"))
   end
 end
 
 
-
 #PJG: this function appears to give better performance, but deactived 
 #since I want to agree with COSMO results for testing 
+
 function _edge_metric(c_a::VertexSet, c_b::VertexSet, edge_weight::EdgeWeightMethod) 
   
   n_1 = triangular_number(length(c_a))
@@ -677,7 +694,7 @@ function _edge_metric(c_a::VertexSet, c_b::VertexSet, edge_weight::EdgeWeightMet
   n_m = triangular_number(union_dim(c_a, c_b))
 
   if edge_weight == CUBIC::EdgeWeightMethod
-    return n_1^3 + n_2^3 - n_m^3
+    return (n_1^3 + n_2^3 - n_m^3)::Int
   else
     throw(ArgumentError("Unknown weight metric not implemented"))
   end

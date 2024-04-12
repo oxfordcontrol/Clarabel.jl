@@ -21,7 +21,8 @@ end
 
 
 
-" Traverse tree `t` in descending topological order and return parent and clique (root has highest order)."
+# Traverse tree `t` in descending topological order and return parent and clique (root has highest order).
+
 function traverse(strategy::ParentChildMergeStrategy, t::SuperNodeTree)
 
   c = t.snode_post[strategy.clique_ind]
@@ -31,7 +32,8 @@ end
 
 
 
-"Decide whether to merge the two clique candidates."
+# Decide whether to merge the two clique candidates.
+
 function evaluate(strategy::ParentChildMergeStrategy, t::SuperNodeTree, cand::Tuple{Int, Int})
   
   strategy.stop && return false
@@ -46,8 +48,13 @@ function evaluate(strategy::ParentChildMergeStrategy, t::SuperNodeTree, cand::Tu
   return fill <= strategy.t_fill || max_snode <= strategy.t_size
 end
 
-"Given the clique tree `t` merge the two cliques with indices in `cand` as parent-child."
-function merge_two_cliques!(strategy::ParentChildMergeStrategy, t::SuperNodeTree, cand::Tuple{Int, Int}) 
+# Given the clique tree `t` merge the two cliques with indices in `cand` as parent-child.
+
+function merge_two_cliques!(
+  strategy::ParentChildMergeStrategy, 
+  t::SuperNodeTree, 
+  cand::Tuple{Int, Int}
+) 
   
   # determine which clique is the parent
   (p, ch) = determine_parent(t, cand...)
@@ -75,8 +82,13 @@ function merge_two_cliques!(strategy::ParentChildMergeStrategy, t::SuperNodeTree
 end
 
 
-" After a merge attempt, update the strategy information."
-function update_strategy!(strategy::ParentChildMergeStrategy, t::SuperNodeTree, cand::Tuple{Int, Int}, do_merge::Bool)
+# After a merge attempt, update the strategy information.
+function update_strategy!(
+  strategy::ParentChildMergeStrategy, 
+  t::SuperNodeTree, 
+  cand::Tuple{Int, Int}, 
+  do_merge::Bool
+)
   # try to merge last node of order 1, then stop
   if strategy.clique_ind == 1
      strategy.stop = true
@@ -101,10 +113,13 @@ end
 
 #-------------------- utilities --------------------
 
+
+# Given two cliques `c1` and `c2` in the tree `t`, return the parent clique first.
+
 # Not implemented as part of the general SuperNodeTree interface 
 # since this should only be called when we can guarantee that we
 # are acting on a parent-child pair.
-" Given two cliques `c1` and `c2` in the tree `t`, return the parent clique first."
+
 function determine_parent(t::SuperNodeTree, c1::Int, c2::Int)
   if in(c2, t.snode_children[c1])
     return c1, c2
@@ -114,7 +129,9 @@ function determine_parent(t::SuperNodeTree, c1::Int, c2::Int)
 end
 
 
-"Compute the amount of fill-in created by merging two cliques with the respective supernode and separator dimensions."
+#Compute the amount of fill-in created by merging two cliques with the 
+# respective supernode and separator dimensions.
+
 function fill_in(
   dim_clique_snode::Int, 
   dim_clique_sep::Int, 

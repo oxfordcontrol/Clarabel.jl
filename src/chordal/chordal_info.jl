@@ -15,14 +15,14 @@ mutable struct ChordalInfo{T}
     # decomposed problem data 
     spatterns::Vector{SparsityPattern}   # sparsity patterns for decomposed cones
     
-    # "H" matrix for the standard chordal problem transformation 
-    # remains as nothing if the "compact" transform is used 
+    # `H' matrix for the standard chordal problem transformation 
+    # remains as nothing if the `compact' transform is used 
     H::Option{SparseMatrixCSC{T}}
 
     # mapping from each generated cone to its original cone 
     # index, plus its tree and clique information if it has 
     # been generated as part of a chordal decomposition
-    # remains as nothing if the "standard" transform is used
+    # remains as nothing if the `standard' transform is used
     cone_maps::Option{Vector{ConeMapEntry}}
 
     function ChordalInfo(
@@ -142,10 +142,11 @@ function init_cone_count(chordal_info::ChordalInfo)
 end
 
 
-"Determine the total number of sets `num_total` after decomposition and the number of new psd cones `num_new_psd_cones`."
+ # Determine the total number of sets `num_total` after decomposition 
+# and the number of new psd cones `num_new_psd_cones`.
 function post_cone_count(chordal_info::ChordalInfo)
 
-    # sum the number of cliques in each spattern
+# sum the number of cliques in each spattern
     npatterns = length(chordal_info.spatterns)
     ncliques  = sum([spattern.sntree.n_cliques for spattern in chordal_info.spatterns])
 
@@ -175,7 +176,8 @@ function get_decomposed_dim_and_overlaps(chordal_info::ChordalInfo{T}) where{T}
       end 
   
     sum_cols, sum_overlaps
-  end 
+
+end 
   
 
 
@@ -205,9 +207,9 @@ function find_graph!(nz_mask::AbstractVector{Bool})
         end
     end
     
-    # PJG: QDLDL doesn't currently allow for logical-only decomposition 
+    # QDLDL doesn't currently allow for logical-only decomposition 
     # on a matrix of Bools, so pattern must be a Float64 matrix here
-    pattern = sparse(rows, cols, ones(length(rows)), n, n)
+    pattern = sparse(rows, cols, ones(Float64, length(rows)), n, n)
 
 	F = QDLDL.qdldl(pattern, logical = true)
 
@@ -249,15 +251,16 @@ function Base.iterate(C::SupportedConeRangeIterator, state=(1, 1))
     end 
 end 
 
-"""
-	find_graph!(ci, linearidx::Array{Int, 1}, n::Int)
 
-Given the indices of non-zero matrix elements in `linearidx`:
-- Compute the sparsity pattern and find a chordal extension using `QDLDL` with AMD ordering `F.perm`.
-- If unconnected, connect the graph represented by the cholesky factor `L`
-"""
+# Given the indices of non-zero matrix elements in `linearidx`:
+#
+# - Compute the sparsity pattern and find a chordal extension using `QDLDL` with AMD ordering `F.perm`.
+# - If unconnected, connect the graph represented by the cholesky factor `L`
+#
+# implemented as a concrete Float64 matrix since we are only interested in the sparsity pattern
+# and QDLDL forces us toa analyze a matrix of some AbstractFloat, so we choose arbitrarily
 
-function connect_graph!(L::SparseMatrixCSC{T}) where{T}
+function connect_graph!(L::SparseMatrixCSC{Float64})
  	# unconnected blocks don't have any entries below the diagonal in their right-most columns
 	m = size(L, 1)
 	row_val = L.rowval

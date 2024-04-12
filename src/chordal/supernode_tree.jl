@@ -1,11 +1,5 @@
 
-"""
-	SuperNodeTree
-
-A structure to represent and analyse the sparsity pattern of the input matrix L.
-
-"""
-
+# A structure to represent and analyse the sparsity pattern of the input matrix L.
 mutable struct SuperNodeTree
 
   	# vertices of supernodes stored in one array (also called residuals)
@@ -33,7 +27,7 @@ mutable struct SuperNodeTree
 
 	function SuperNodeTree(L::SparseMatrixCSC{T}) where {T}
 
-		parent   = etree(L)
+		parent   = parent_from_L(L)
 		children = children_from_parent(parent)
 		post 	 = zeros(Int, length(parent))
 		post_order!(post, parent, children, length(parent))   
@@ -72,7 +66,6 @@ function get_post_order(sntree::SuperNodeTree, i::Int)
 	return sntree.snode_post[i]
 end
 
-# Using the post order ensures that no empty arrays from the clique merging are returned
 function get_snode(sntree::SuperNodeTree, i::Int)
 	return sntree.snode[sntree.snode_post[i]]
 end
@@ -84,6 +77,7 @@ end
 function get_clique_parent(sntree::SuperNodeTree, clique_index::Int)
 	return sntree.snode_parent[sntree.snode_post[clique_index]]
 end
+
 # the block sizes are stored in post order, e.g. if clique 4 (stored in pos 4) 
 # has order 2, then nblk[2] represents the cardinality of clique 4
 function get_nblk(sntree::SuperNodeTree, i::Int)
@@ -92,6 +86,11 @@ end
 
 function get_overlap(sntree::SuperNodeTree, i::Int)
 	return length(sntree.separators[sntree.snode_post[i]])
+end
+
+function get_clique(sntree::SuperNodeTree, ind::Int)
+	c = sntree.snode_post[ind]
+	return union(sntree.snode[c], sntree.separators[c])
 end
 
 function get_decomposed_dim_and_overlaps(sntree::SuperNodeTree)
@@ -104,33 +103,13 @@ function get_decomposed_dim_and_overlaps(sntree::SuperNodeTree)
 	(dim, overlaps)
 end 
 
-" Return clique with post order `ind` (prevents returning empty arrays due to clique merging)"
-# PJG: this is taken from the "tree based" version from COSMO.   I think, but 
-# am not certain, that it is impossible to execute the "graph based" version
-# which is only called if the tree has not been recomputed 
-# don't understand why it doesn't index through the snode_post field
-# like the other very similar methods.   Maybe that field doesn't 
-# exist when this is called?  If so, this shouldn't be a SuperNodeTree 
-# public function since it will be inconsistent 
-
-function get_clique(sntree::SuperNodeTree, ind::Int)
-	c = sntree.snode_post[ind]
-	return union(sntree.snode[c], sntree.separators[c])
-end
-
-function get_clique_by_index(sntree::SuperNodeTree, i::Int)
-	return union(sntree.snode[i], sntree.separators[i])
-end
-
-
 
 # ---------------------------
 # utility functions for SuperNodeTree
 
-# PJG : not clear how etree here differs from etree in QDLDL 
-# Maybe should be something like "parents_from_graph" or something
 
-function etree(L::SparseMatrixCSC{T}) where {T}
+function parent_from_L(L::SparseMatrixCSC{T}) where {T}
+
 	parent = zeros(Int, L.n)
 	# loop over Vertices of graph
 	for i = 1:L.n
@@ -219,10 +198,13 @@ end
 
 
 # Algorithm from A. Poten and C. Sun: Compact Clique Tree Data Structures in Sparse Matrix Factorizations (1989)
+
 function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 	
 	N = length(parent)
-	snode_index  = -ones(Int, N) # if snode_index[v] < 0 then v is a rep vertex, otherwise v ∈ supernode[snode_index[v]]
+
+	# if snode_index[v] < 0 then v is a rep vertex, otherwise v ∈ supernode[snode_index[v]]
+	snode_index  = -ones(Int, N) 
 	snode_parent = -ones(Int, N)
 
 	# This also works as array of Int[], which might be faster
@@ -352,15 +334,12 @@ end
 
 
 
-"""
-		reorder_snpde_consecutively!(sntree, ordering)
+# Takes a SuperNodeTree and reorders the vertices in each supernode (and separator) to have consecutive order.
 
-Takes a SuperNodeTree and reorders the vertices in each supernode (and separator) to have consecutive order.
+# The reordering is needed to achieve equal column structure for the psd completion of the dual variable `Y`. 
+# This also modifies `ordering` which maps the vertices in the `sntree` back to the actual location in the 
+# not reordered data, i.e. the primal constraint variable `S` and dual variables `Y`.
 
-The reordering is needed to achieve equal column structure for the psd completion of the dual variable `Y`. 
-This also modifies `ordering` which maps the vertices in the `sntree` back to the actual location in the 
-not reordered data, i.e. the primal constraint variable `S` and dual variables `Y`.
-"""
 
 function reorder_snode_consecutively!(t::SuperNodeTree, ordering::Vector{Int})
 

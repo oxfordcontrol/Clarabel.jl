@@ -17,8 +17,10 @@ function decomp_augment_compact!(
     # how many variables did we add?
     nadd = A_new.n - A.n
 
-    P_new = blockdiag(P, spzeros(nadd, nadd))
-    q_new = vec([q; zeros(nadd)])
+    P_new = blockdiag(P, spzeros(T, nadd, nadd))
+
+    q_new = zeros(T, length(q) + nadd)
+    q_new[1:length(q)] .= q
 
     return P_new, q_new, A_new, b_new, cones_new
 
@@ -40,11 +42,11 @@ function find_compact_A_b_and_cones(
   Aa_nnz = nnz(A) + 2 * n_overlaps
   Aa_I   = zeros(Int, Aa_nnz)
   Aa_J   = extra_columns(Aa_nnz, nnz(A) + 1, A.n + 1)
-  Aa_V   = alternating_sequence(Aa_nnz, nnz(A) + 1)
+  Aa_V   = alternating_sequence(T, Aa_nnz, nnz(A) + 1)
   findnz!(Aa_I, Aa_J, Aa_V, A)
 
   # allocate sparse components for the augmented b
-  # PJG: don't understand point of this sparse vector bs
+  # PJG: don't understand point of this sparse vector
   bs   = sparse(b)
   ba_I = zeros(Int, length(bs.nzval))
   ba_V = bs.nzval
@@ -94,16 +96,23 @@ function find_compact_A_b_and_cones(
 end 
 
 
-"Given the row, column, and nzval vectors and dimensions, assemble the sparse matrix `Aa` of the decomposed problem in a slightly more memory efficient way."
-function allocate_sparse_matrix(Aa_I::Array{Int, 1}, Aa_J::Array{Int, 1}, Aa_V::Array{Float64, 1}, mA::Int, nA::Int)
+# Given the row, column, and nzval vectors and dimensions, assembles the sparse matrix `Aa` 
+# of the decomposed problem in a slightly more memory efficient way.
+
+function allocate_sparse_matrix(
+  Aa_I::Vector{Int}, 
+  Aa_J::Vector{Int}, 
+  Aa_V::Vector{T}, 
+  mA::Int, nA::Int
+) where {T}
   csrrowptr = zeros(Int, mA + 1)
   csrcolval = zeros(Int, length(Aa_I))
-  csrnzval = zeros(Float64, length(Aa_I))
+  csrnzval = zeros(T, length(Aa_I))
   klasttouch = zeros(Int, nA + 1)
   csccolptr = zeros(Int, nA + 1)
-  # sort_col_wise!(Aa_I, Aa_V, A.colptr, size(A, 2))
-  #Aa = SparseMatrixCSC{Float64, Int}(mA, nA, Aa_J, Aa_I, Aa_V)
-  Aa = SparseArrays.sparse!(Aa_I, Aa_J, Aa_V, mA, nA, +, klasttouch, csrrowptr, csrcolval, csrnzval, csccolptr, Aa_I, Aa_V )
+
+  SparseArrays.sparse!(Aa_I, Aa_J, Aa_V, mA, nA, +, klasttouch, csrrowptr, csrcolval, csrnzval, csccolptr, Aa_I, Aa_V )
+
 end
 
 
@@ -149,16 +158,18 @@ function add_entries_with_cone!(
   # since this cone is standalone and not decomposed, the index 
   # of its origin cone must be either one more than the previous one,
   # or 1 (zero in rust) if it's the first 
+
   orig_index = isempty(cone_maps) ? 1 : cone_maps[end].orig_index + 1
   push!(cone_maps, ConeMapEntry(orig_index, nothing))
 
   return row_ptr + nvars(cone), overlap_ptr
+
 end
 
 
 
-# Handle decomposable cones with a SparsityPattern. The row vectors A_I and b_I have to be edited in such a way 
-# that entries of one clique appear contiguously.
+# Handle decomposable cones with a SparsityPattern. The row vectors A_I and b_I 
+# have to be edited in such a way that entries of one clique appear contiguously.
 function add_entries_with_sparsity_pattern!(
   A_I::Vector{Int}, 
   b_I::Vector{Int}, 
@@ -200,7 +211,7 @@ function add_entries_with_sparsity_pattern!(
     else
       parent_index  = get_clique_parent(sntree, i)
       parent_rows   = clique_to_rows[parent_index]
-      parent_clique = ([spattern.ordering[v] for v in get_clique_by_index(sntree, parent_index)])
+      parent_clique = [spattern.ordering[v] for v in get_clique_by_index(sntree, parent_index)]
       sort!(parent_clique)
     end
 
@@ -234,8 +245,9 @@ end
 
 
 
-" Loop over all entries (i, j) in the clique and either set the correct row in `A_I` and `b_I` if (i, j) is not an overlap,
- or add an overlap column with (-1 and +1) in the correct positions."
+# Loop over all entries (i, j) in the clique and either set the correct row in `A_I` and `b_I` 
+# if (i, j) is not an overlap,or add an overlap column with (-1 and +1) in the correct positions.
+
 function add_clique_entries!(
   A_I::Vector{Int}, 
   b_I::Vector{Int}, 
@@ -278,8 +290,9 @@ function add_clique_entries!(
 end
 
 
-" Given the nominal entry position `k = linearindex(i, j)` find and modify with `new_row_val` 
-  the actual location of that entry in the global row vector `rowval`."
+# Given the nominal entry position `k = linearindex(i, j)` find and modify with `new_row_val` 
+# the actual location of that entry in the global row vector `rowval`.
+
 function modify_clique_rows!(
   v::Vector{Int}, 
   k::Int, 
@@ -299,7 +312,8 @@ function modify_clique_rows!(
 end
 
 
-"Given the svec index `k` and an offset `row_range_col.start`, return the location of the (i, j)th entry in the row vector `rowval`."
+# Given the svec index `k` and an offset `row_range_col.start`, return the location of the 
+# (i, j)th entry in the row vector `rowval`.
 function get_row_index(
   k::Int, 
   rowval::Vector{Int}, 
@@ -327,7 +341,8 @@ function get_row_index(
 end
 
 
-" Find the index of k=svec(i, j) in the parent clique `par_clique`."
+# Find the index of k=svec(i, j) in the parent clique `par_clique`.#
+
 function parent_block_indices(parent_clique::Vector{Int}, i::Int, j::Int)
   ir = searchsortedfirst(parent_clique, i)
   jr = searchsortedfirst(parent_clique, j)
@@ -335,14 +350,13 @@ function parent_block_indices(parent_clique::Vector{Int}, i::Int, j::Int)
 end
 
 
-"""
-    (snd::Array{Int}, sep::Array{Int})
 
-For a clique consisting of supernodes `snd` and seperators `sep`, compute all the indices (i, j) of the corresponding matrix block
-in the format (i, j, flag) where flag is equal to false if entry (i, j) corresponds to an overlap of the clique and true otherwise.
+# Given a cliques supernodes and separators, compute all the indices (i, j) of the corresponding matrix block
+# in the format (i, j, flag), where flag is equal to false if entry (i, j) corresponds to an overlap of the 
+# clique and true otherwise.
 
-`Nv` is the number of vertices in the graph that we are trying to decompose.
-"""
+# `nv` is the number of vertices in the graph that we are trying to decompose.
+
 function get_block_indices(snode::Array{Int}, separator::Array{Int}, nv::Int)
   
   N = length(separator) + length(snode)
@@ -374,7 +388,8 @@ end
 
 
 
-"Return the row ranges of each clique after the decomposition of `C` shifted by `row_start`."
+# Return the row ranges of each clique after the decomposition, shifted by `row_start`.
+
 function clique_rows_map(row_start::Int, sntree::SuperNodeTree)
   
   n_cliques = sntree.n_cliques
@@ -442,12 +457,11 @@ function get_rows_vec(b::SparseVector, row_range::UnitRange{Int})
   end
 
 
-#PJG: Too many Float64s and untyped SparseMatrixCSC in the code.   Also 
-#check proper typing of all ones() and zeros() calls.  
+# Returns the appropriate amount of memory for `A.nzval`, including, starting from `n_start`, 
+# the (+1 -1) entries for the overlaps.
 
-"Returns the appropriate amount of memory for `A.nzval`, including, starting from `n_start`, the (+1 -1) entries for the overlaps."
-function alternating_sequence(total_length::Int, n_start::Int)
-  v = ones(Float64, total_length)
+function alternating_sequence(T, total_length::Int, n_start::Int)
+  v = ones(T, total_length)
   for i= n_start + 1:2:length(v)
     v[i] = -1
   end
@@ -455,7 +469,9 @@ function alternating_sequence(total_length::Int, n_start::Int)
 end
 
 
-"Returns the appropriate amount of memory for the columns of the augmented problem matrix `A`, including, starting from `n_start`, the columns for the (+1 -1) entries for the overlaps."
+# Returns the appropriate amount of memory for the columns of the augmented problem matrix `A`, 
+# including, starting from `n_start`, the columns for the (+1 -1) entries for the overlaps.
+
 function extra_columns(total_length::Int, n_start::Int, start_val::Int)
   v = zeros(Int, total_length)
   for i = n_start:2:length(v)-1
@@ -467,7 +483,8 @@ function extra_columns(total_length::Int, n_start::Int, start_val::Int)
 end
 
 
-"Given a sparse matrix `S`, write the columns and non-zero values into the first `numnz` entries of `J` and `V`."
+# Given sparse matrix components, write the columns and non-zero values into the first `numnz` entries of `J` and `V`.
+
 function findnz!(I::Vector{Ti}, J::Vector{Ti}, V::Vector{Tv}, S::SparseMatrixCSC{Tv,Ti}) where {Tv,Ti}
     numnz = nnz(S)
     count = 1
@@ -479,9 +496,9 @@ function findnz!(I::Vector{Ti}, J::Vector{Ti}, V::Vector{Tv}, S::SparseMatrixCSC
     end
 end
 
+# find the dimension of the `compact' form `A' matrix and its number of overlaps 
 
 function find_A_dimension(chordal_info::ChordalInfo{T}, A::SparseMatrixCSC{T}) where {T}
-
 
   dim, num_overlaps  = get_decomposed_dim_and_overlaps(chordal_info)
 
@@ -491,3 +508,13 @@ function find_A_dimension(chordal_info::ChordalInfo{T}, A::SparseMatrixCSC{T}) w
   return rows, cols, num_overlaps
 
 end 
+
+
+# Intentionally defined here separately from the other SuperNodeTree functions.
+# This returns a clique directly from index i, rather than accessing the 
+# snode and separators via the postordering.   Only used in the compact  
+# problem decomposition functions 
+
+function get_clique_by_index(sntree::SuperNodeTree, i::Int)
+	return union(sntree.snode[i], sntree.separators[i])
+end

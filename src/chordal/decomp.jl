@@ -31,8 +31,8 @@ function decomp_reverse!(
     @assert settings.chordal_decomposition_compact == isnothing(chordal_info.H)
     @assert settings.chordal_decomposition_compact != isnothing(chordal_info.cone_maps)
 
-    # here "old_cones" are the ones that were used internally 
-    # in the solver, producing internal solution in "old_vars"
+    # here `old_cones' are the ones that were used internally 
+    # in the solver, producing internal solution in `old_vars'
     # the cones for the problem as provided by the user or the 
     # upstream presolver are held internally in chordal_info.cones
 

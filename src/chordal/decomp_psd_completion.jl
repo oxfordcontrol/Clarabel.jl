@@ -5,6 +5,7 @@
 # # The psd entries of z that correspond to the zeros in s are not constrained by the problem.
 # # however, in order to make the dual psd cone positive semidefinite we have to do a
 # # positive semidefinite completion routine to choose the values
+
 function psd_completion!(
     chordal_info::ChordalInfo{T}, 
     variables::AbstractVariables{T}

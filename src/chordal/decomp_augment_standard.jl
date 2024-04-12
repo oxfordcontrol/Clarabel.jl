@@ -1,5 +1,5 @@
 # -----------------------------------------
-# Functions related to "traditional" decomposition
+# Functions related to `traditional' decomposition
 # -----------------------------------------
 
 function decomp_augment_standard!(
@@ -15,19 +15,23 @@ function decomp_augment_standard!(
 
   H, cones_new = find_standard_H_and_cones!(chordal_info)
 
-  z = zeros(T,H.n)
 
-  P_new = blockdiag(P, spzeros(H.n, H.n))
-  q_new = [q; z]
-  A_new = [A H; spzeros(H.n, A.n) -sparse(1.0I, H.n, H.n)]
-  b_new = [b; z]
+  P_new = blockdiag(P, spzeros(T, H.n, H.n))
+
+  q_new = zeros(T, length(q) + H.n)
+  q_new[1:length(q)] .= q
+
+  A_new = [A H; spzeros(T, H.n, A.n) -sparse(1.0I, H.n, H.n)]
+
+  b_new = zeros(T, length(q) + H.n)
+  b_new[1:length(b)] .= b
 
   return P_new, q_new, A_new, b_new, cones_new
 
 end 
 
 
-" Find the transformation matrix `H` and its associated cones for the standard decomposition."
+# Find the transformation matrix `H` and its associated cones for the standard decomposition.
 
 function find_standard_H_and_cones!(
   chordal_info::ChordalInfo{T}, 
@@ -65,7 +69,7 @@ function find_standard_H_and_cones!(
     row += nvars(cone)
   end 
 
-  H = sparse(H_I, collect(1:lenH), ones(lenH))
+  H = sparse(H_I, collect(1:lenH), ones(T,lenH))
 
   # save the H matrix for use when reconstructing 
   # solution to the original problem
@@ -74,13 +78,17 @@ function find_standard_H_and_cones!(
   return H, cones_new
 end
 
-function decompose_with_cone!(H_I::Vector{Int}, cones_new::Vector{SupportedCone}, cone::SupportedCone, row::Int)
-  
-  for i = 1:nvars(cone)
-    push!(H_I,row + i - 1)
-  end
+function decompose_with_cone!(
+  H_I::Vector{Int}, 
+  cones_new::Vector{SupportedCone}, 
+  cone::SupportedCone, 
+  row::Int
+)
+    for i = 1:nvars(cone)
+      push!(H_I,row + i - 1)
+    end
 
-  push!(cones_new, deepcopy(cone))
+    push!(cones_new, deepcopy(cone))
 end
 
 
