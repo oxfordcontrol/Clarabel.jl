@@ -23,8 +23,13 @@ function decomp_reverse_compact!(
 
     cone_maps     = chordal_info.cone_maps
     row_ranges    = collect(rng_cones_iterator(chordal_info.init_cones))
-
     row_ptr = 1 
+
+    # add the blocks for each cone requires a buffer in which 
+    # to hold sorted cliques.   Allocate it here to avoid 
+    # repeated allocations.  The size of each clique is 
+    # never bigger than the associated nblk
+    clique_buffer = zeros(Int,largest_nblk(chordal_info))
 
     for (cone, cone_map) in zip(old_cones,cone_maps)
 
@@ -34,7 +39,7 @@ function decomp_reverse_compact!(
             row_ptr = add_blocks_with_cone!(
                 new_s, old_s, new_z, old_z, row_range, cone, row_ptr)
         
-            else
+        else
             @assert isa(cone, PSDTriangleConeT)
             @assert !isnothing(cone_map.tree_and_clique)
 
@@ -42,7 +47,8 @@ function decomp_reverse_compact!(
             pattern   = chordal_info.spatterns[tree_index]
 
             row_ptr = add_blocks_with_sparsity_pattern!(
-                new_s, old_s, new_z, old_z, row_range, pattern, clique_index, row_ptr)
+                new_s, old_s, new_z, old_z, row_range, pattern, 
+                clique_index, clique_buffer, row_ptr)
         end
     end 
 
@@ -56,15 +62,23 @@ function add_blocks_with_sparsity_pattern!(
     row_range::UnitRange{Int}, 
     spattern::SparsityPattern, 
     clique_index::Int,
+    clique_buffer::Vector{Int},
     row_ptr::Int
 ) where {T}
 
     sntree   = spattern.sntree
     ordering = spattern.ordering
 
-    clique  = sort!([ordering[v] for v in get_clique(sntree, clique_index)])
+    # load the clique into the buffer provided
+    clique = get_clique(sntree, clique_index)
+    resize!(clique_buffer, length(clique))
+    for (i, v) = enumerate(clique)
+        clique_buffer[i] = ordering[v]
+    end 
+    sort!(clique_buffer)
+
     counter = 0
-    for j in clique, i in clique
+    for j in clique_buffer, i in clique_buffer
         if i <= j
             offset = coord_to_upper_triangular_index((i, j)) - 1
             new_s[row_range.start + offset] += old_s[row_ptr + counter]
@@ -93,3 +107,14 @@ function add_blocks_with_cone!(
     row_ptr += nvars(cone)
 
 end 
+
+
+# the largest nblk across all spatterns
+
+function largest_nblk(chordal_info::ChordalInfo{T}) where {T}
+    max_block = 0
+    for sp in chordal_info.spatterns
+        max_block = max(max_block, maximum(sp.sntree.nblk))
+    end
+    return max_block
+end
