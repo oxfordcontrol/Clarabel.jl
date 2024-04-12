@@ -323,8 +323,8 @@ end
 
 function kktsolver_getlhs!(
     kktsolver::DirectLDLKKTSolver{T},
-    lhsx::Union{Nothing,AbstractVector{T}},
-    lhsz::Union{Nothing,AbstractVector{T}}
+    lhsx::Option{AbstractVector{T}},
+    lhsz::Option{AbstractVector{T}}
 ) where {T}
 
     x = kktsolver.x
@@ -339,8 +339,8 @@ end
 
 function kktsolver_solve!(
     kktsolver::DirectLDLKKTSolver{T},
-    lhsx::Union{Nothing,AbstractVector{T}},
-    lhsz::Union{Nothing,AbstractVector{T}}
+    lhsx::Option{AbstractVector{T}},
+    lhsz::Option{AbstractVector{T}}
 ) where {T}
 
     (x,b) = (kktsolver.x,kktsolver.b)

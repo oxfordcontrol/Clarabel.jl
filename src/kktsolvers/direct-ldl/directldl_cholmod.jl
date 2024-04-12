@@ -1,7 +1,7 @@
 using SuiteSparse
 mutable struct CholmodDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
 
-    F::Union{SuiteSparse.CHOLMOD.Factor,Nothing}
+    F::Option{SuiteSparse.CHOLMOD.Factor}
 
     function CholmodDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
 

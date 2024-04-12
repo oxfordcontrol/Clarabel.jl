@@ -124,9 +124,9 @@ SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
 
 mutable struct PSDConeData{T}
 
-    chol1::Union{Nothing,Cholesky{T,Matrix{T}}}
-    chol2::Union{Nothing,Cholesky{T,Matrix{T}}}
-    SVD::Union{Nothing,SVD{T,T,Matrix{T}}}
+    chol1::Option{Cholesky{T,Matrix{T}}}
+    chol2::Option{Cholesky{T,Matrix{T}}}
+    SVD::Option{SVD{T,T,Matrix{T}}}
     λ::Vector{T}
     Λisqrt::Diagonal{T,Vector{T}}
     R::Matrix{T}
