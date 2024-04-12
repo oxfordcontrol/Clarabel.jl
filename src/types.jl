@@ -312,16 +312,16 @@ Initializes an empty Clarabel solver that can be filled with problem data using:
 """
 mutable struct Solver{T <: AbstractFloat} <: AbstractSolver{T}
 
-    data::Union{AbstractProblemData{T},Nothing}
-    variables::Union{AbstractVariables{T},Nothing}
-    cones::Union{CompositeCone{T},Nothing}
-    residuals::Union{AbstractResiduals{T},Nothing}
-    kktsystem::Union{AbstractKKTSystem{T},Nothing}
-    info::Union{AbstractInfo{T},Nothing}
-    step_lhs::Union{AbstractVariables{T},Nothing}
-    step_rhs::Union{AbstractVariables{T},Nothing}
-    prev_vars::Union{AbstractVariables{T},Nothing}
-    solution::Union{AbstractSolution{T},Nothing}
+    data::Option{AbstractProblemData{T}}
+    variables::Option{AbstractVariables{T}}
+    cones::Option{CompositeCone{T}}
+    residuals::Option{AbstractResiduals{T}}
+    kktsystem::Option{AbstractKKTSystem{T}}
+    info::Option{AbstractInfo{T}}
+    step_lhs::Option{AbstractVariables{T}}
+    step_rhs::Option{AbstractVariables{T}}
+    prev_vars::Option{AbstractVariables{T}}
+    solution::Option{AbstractSolution{T}}
     settings::Settings{T}
     timers::TimerOutput
 
