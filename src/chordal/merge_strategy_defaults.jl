@@ -25,7 +25,7 @@ function merge_cliques!(strategy::AbstractMergeStrategy, t::SuperNodeTree)
   return nothing
 end
 
-#All implemented strategies must then implement the following interface: 
+#All strategies must then implement the following interface: 
 
 # 0. is_done() - merging complete, so can stop the merging process
 # 1. initialise!() - tree and strategy

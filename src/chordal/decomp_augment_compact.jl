@@ -463,7 +463,7 @@ function get_rows_vec(b::SparseVector, row_range::UnitRange{Int})
 function alternating_sequence(T, total_length::Int, n_start::Int)
   v = ones(T, total_length)
   for i= n_start + 1:2:length(v)
-    v[i] = -1
+    v[i] = -one(T)
   end
   return v
 end
