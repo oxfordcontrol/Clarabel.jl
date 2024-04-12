@@ -44,7 +44,7 @@ function make_reduction_map(
         if isa(cone, NonnegativeConeT)
             for _ in 1:numel_cone
                 if b[idx] > infbound
-                    keep_logical[i] = false
+                    keep_logical[idx] = false
                     mreduced -= 1
                 end
                 idx += 1
@@ -93,6 +93,8 @@ function reduce_A_b(
     map = presolver.reduce_map
     A = A[map.keep_logical,:]
     b = b[map.keep_logical]
+    
+    A, b
 
 end 
 
@@ -136,9 +138,10 @@ function reverse_presolve!(
     variables::DefaultVariables{T}
 ) where {T}
 
-    # PJG: now that there is no scaling operation in this 
-    # step, I think maybe I could drop the keep_index and 
-    # just use the keep_logical for both operations.
+    # PJG: could drop the keep_index and just
+    # use the keep_logical for both operations.
+
+    @. solution.x = variables.x
 
     map = presolver.reduce_map
     @. solution.z[map.keep_index] = variables.z 

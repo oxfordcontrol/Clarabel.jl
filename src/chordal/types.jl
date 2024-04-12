@@ -22,6 +22,6 @@ end
 # PJG: OrderedSet appears to be equivalent to rust indexmap crate, 
 # (type IndexSet), but be careful about the removal of elements 
 # because it is not order preserving.  Need to use something 
-# like "shift_remove" to maintain order in Rust.   Caution required.
+# like "shift_remove" to maintain order in Rust.   
 
 VertexSet = OrderedSet{Int}

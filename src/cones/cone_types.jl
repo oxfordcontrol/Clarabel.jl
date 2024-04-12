@@ -94,7 +94,7 @@ mutable struct SecondOrderCone{T} <: AbstractCone{T}
     η::T
 
     #sparse representation of W^2
-    sparse_data::Union{Nothing,SecondOrderConeSparseData{T}}
+    sparse_data::Option{SecondOrderConeSparseData{T}}
 
     function SecondOrderCone{T}(dim::Integer) where {T}
 

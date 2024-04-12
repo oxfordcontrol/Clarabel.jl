@@ -7,16 +7,16 @@ function solution_finalize!(
 	settings::Settings{T}
 ) where {T}
 
-	is_infeasible = status_is_infeasible(info.status)
+	solution.status = info.status
+	is_infeasible   = status_is_infeasible(info.status)
 
     if is_infeasible
-		solution.obj_val = NaN
+		solution.obj_val      = NaN
 		solution.obj_val_dual = NaN
-    end
-
-	solution.status  = info.status
-	solution.obj_val = info.cost_primal
-	solution.obj_val_dual = info.cost_dual
+	else 
+		solution.obj_val      = info.cost_primal
+		solution.obj_val_dual = info.cost_dual
+	end 
 
 	solution.iterations  = info.iterations
 	solution.solve_time  = info.solve_time
@@ -35,7 +35,7 @@ function solution_finalize!(
 	end
 
 	if !isnothing(data.presolver) 
-		reverse_presolve!(data.presolver,variables, solution)
+		reverse_presolve!(data.presolver, solution, variables)
 	else
 		@. solution.x = variables.x
 		@. solution.z = variables.z 

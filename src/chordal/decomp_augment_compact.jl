@@ -45,7 +45,7 @@ function find_compact_A_b_and_cones(
 
   # allocate sparse components for the augmented b
   # PJG: don't understand point of this sparse vector bs
-  bs  = sparse(b)
+  bs   = sparse(b)
   ba_I = zeros(Int, length(bs.nzval))
   ba_V = bs.nzval
 
@@ -53,7 +53,7 @@ function find_compact_A_b_and_cones(
   # from decomposed cones back to the originals
   n_decomposed = post_cone_count(chordal_info)
   cones_new = sizehint!(SupportedCone[], n_decomposed)
-  cone_maps = sizehint!(ConeMapEntry[], n_decomposed)
+  cone_maps = sizehint!(ConeMapEntry[],  n_decomposed)
 
   # an enumerate-like mutable iterator for the patterns.  We will expand cones 
   # assuming that they are non-decomposed until we reach an index that agrees  
@@ -125,17 +125,17 @@ function add_entries_with_cone!(
   # populate b 
   offset = row_ptr - row_range.start
 
-  row_range_col = get_rows(b, row_range)
+  row_range_col = get_rows_vec(b, row_range)
   if row_range_col != 0:0
     for k in row_range_col
-      ba_I[k] = b0.nzind[k] + offset
+      ba_I[k] = b.nzind[k] + offset
     end
   end
 
   # populate A 
   for col = 1:n
     # indices that store the rows in column col in A
-    row_range_col = get_rows(A, col, row_range)
+    row_range_col = get_rows_mat(A, col, row_range)
     if row_range_col != 0:0
       for k in row_range_col
         Aa_I[k] = A.rowval[k] + offset
@@ -173,7 +173,7 @@ function add_entries_with_sparsity_pattern!(
 ) where {T}
 
   sntree   = spattern.sntree 
-  ordering = spattern.ordering # LDL reordering 
+  ordering = spattern.ordering  
 
   (_, n) = size(A) 
 
@@ -206,10 +206,11 @@ function add_entries_with_sparsity_pattern!(
 
     # Loop over all the columns and shift the rows in A_I and b_I according to the clique structure
     for col = 1:n
-      row_range_col = get_rows(A, col, row_range)
-      row_range_b = col == 1 ? get_rows(b, row_range) : 0:0
 
-      overlap_ptr = add_clique_entries!(
+        row_range_col = get_rows_mat(A, col, row_range)
+        row_range_b = col == 1 ? get_rows_vec(b, row_range) : 0:0
+
+        overlap_ptr = add_clique_entries!(
         A_I, b_I, A.rowval, b.nzind, block_indices, 
         parent_clique, parent_rows, col, 
         row_ptr, overlap_ptr, row_range, row_range_col, row_range_b)
@@ -391,7 +392,7 @@ function clique_rows_map(row_start::Int, sntree::SuperNodeTree)
 end
 
 
-function get_rows(b::SparseVector, row_range::UnitRange{Int})
+function get_rows_vec(b::SparseVector, row_range::UnitRange{Int})
     rows = b.nzind
     if length(rows) > 0
   
@@ -412,7 +413,8 @@ function get_rows(b::SparseVector, row_range::UnitRange{Int})
   
   end
   
-  function get_rows(A::SparseMatrixCSC, col::Int, row_range::UnitRange{Int})
+  function get_rows_mat(A::SparseMatrixCSC, col::Int, row_range::UnitRange{Int})
+
     colrange = A.colptr[col]:(A.colptr[col + 1]-1)
   
     # if the column has entries

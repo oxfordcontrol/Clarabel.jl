@@ -158,16 +158,21 @@ end
 function get_decomposed_dim_and_overlaps(chordal_info::ChordalInfo{T}) where{T}
 
     cones = chordal_info.init_cones
-    sum_cols     = 0
-    sum_overlaps = 0
-  
-    for pattern in chordal_info.spatterns
-      cone = cones[pattern.orig_index]
-      @assert isa(cone, PSDTriangleConeT)
-      cols, overlap = get_decomposed_dim_and_overlaps(pattern.sntree)
-      sum_cols     += cols 
-      sum_overlaps += overlap
-    end 
+    sum_cols      = 0
+    sum_overlaps  = 0
+    patterns_iter = Iterators.Stateful(chordal_info.spatterns)
+
+    for (coneidx,cone) in enumerate(cones)
+        cols, overlap = let 
+            if !isempty(patterns_iter) && peek(patterns_iter).orig_index == coneidx
+                get_decomposed_dim_and_overlaps(first(patterns_iter).sntree)
+            else
+                nvars(cone), 0
+            end
+        end 
+        sum_cols     += cols 
+        sum_overlaps += overlap
+      end 
   
     sum_cols, sum_overlaps
   end 

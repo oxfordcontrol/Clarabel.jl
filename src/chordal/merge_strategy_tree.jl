@@ -124,9 +124,7 @@ function fill_in(
   dim_parent = dim_parent_snode + dim_parent_sep
   dim_clique = dim_clique_snode + dim_clique_sep
 
-  # PJG: is this a bug?  Adding dim_clique_sep and then 
-  # immediately subracting it?
-  return ((dim_parent - dim_clique_sep) * (dim_clique - dim_clique_sep))::Int
+  return ((dim_parent - dim_clique_sep) * (dim_clique - dim_clique_sep))
 end
 
 

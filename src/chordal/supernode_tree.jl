@@ -333,8 +333,7 @@ function find_higher_order_neighbors(L::SparseMatrixCSC, v::Int)
 	v == size(L, 1) && return 0
 	col_ptr = L.colptr
 	row_val = L.rowval
-  # PJG: needless copy here.  Should be a view?
-	return row_val[col_ptr[v]:col_ptr[v + 1] - 1]
+	return view(row_val, col_ptr[v]:col_ptr[v + 1] - 1)
 end
 
 

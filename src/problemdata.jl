@@ -194,7 +194,7 @@ function scale_data!(
     A::AbstractMatrix{T},
     q::AbstractVector{T},
     b::AbstractVector{T},
-    d::Union{Nothing,AbstractVector{T}},
+    d::Option{AbstractVector{T}},
     e::AbstractVector{T}
 ) where {T <: AbstractFloat}
 

@@ -56,6 +56,7 @@ function initialise!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
     weights = compute_weights!(rows, cols, t.snode, strategy.edge_weight)
   
     strategy.edges = sparse(rows, cols, weights, t.n_cliques, t.n_cliques)
+    strategy.p     = zeros(Int, length(strategy.edges.nzval))
     strategy.adjacency_table = compute_adjacency_table(strategy.edges, t.n_cliques)
     return nothing
   end
@@ -176,7 +177,7 @@ function post_process_merge!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTre
   t.n_cliques > 1 && clique_tree_from_graph!(strategy, t)
 
   # PJG: This seems unnecessary, because the next operation on this
-  # object is the call the reorder_snode_consecutively, which overwrites 
+  # object is the call to reorder_snode_consecutively, which overwrites 
   # the snode anyway.  Treatment of separators possibly ends up different.
   # Seems to work without, but keep for now for consistency with COSMO.
   
