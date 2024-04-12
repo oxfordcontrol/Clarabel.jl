@@ -57,10 +57,10 @@ struct CompositeCone{T} <: AbstractCone{T}
         #and the range for the corresponding entries
         #in the Hs sparse block
 
-        rng_cones = _make_rng_cones(cones);
-        rng_blocks = _make_rng_blocks(cones);
+        rng_cones  = collect(rng_cones_iterator(cones));
+        rng_blocks = collect(rng_blocks_iterator(cones));
 
-        return new(cones,type_counts,numel,degree,rng_cones,rng_blocks,_is_symmetric)
+        obj = new(cones,type_counts,numel,degree,rng_cones,rng_blocks,_is_symmetric)
     end
 end
 
@@ -88,37 +88,56 @@ function get_type_count(cones::CompositeCone{T}, type::Type) where {T}
     end
 end
 
-function _make_rng_cones(cones)
 
-    rngs = sizehint!(UnitRange{Int64}[],length(cones))
 
-    if !isempty(cones)
-        start = 1
-        for cone in cones
-            stop = start + numel(cone) - 1
-            push!(rngs,start:stop)
-            start = stop + 1
-        end
-    end
-    return rngs
+# -------------------------------------
+# iterators to generate indices into vectors 
+# in a cone or cone-related blocks in the Hessian
+struct RangeConesIterator{T}
+    cones::Vector{AbstractCone{T}}
+end
+struct RangeBlocksIterator{T} 
+    cones::Vector{AbstractCone{T}}
 end
 
-function _make_rng_blocks(cones)
+function rng_cones_iterator(cones::Vector{AbstractCone{T}}) where{T}
+    RangeConesIterator(cones)
+end
 
-    rngs = sizehint!(UnitRange{Int64}[],length(cones))
+function rng_blocks_iterator(cones::Vector{AbstractCone{T}}) where{T}
+    RangeBlocksIterator(cones)
+end
 
-    if !isempty(cones)
-        start = 1
-        for cone in cones
-            nvars = numel(cone)
-            if Hs_is_diagonal(cone)
-                stop = start + nvars - 1
-            else
-                stop = start + triangular_number(nvars) - 1
-            end
-            push!(rngs,start:stop)
-            start = stop + 1
-        end
-    end
-    return rngs
+Base.length(iter::RangeConesIterator) =  length(iter.cones)
+Base.length(iter::RangeBlocksIterator) = length(iter.cones)
+
+function Base.iterate(iter::RangeConesIterator, state=(1, 1)) 
+    (coneidx, start) = state 
+    if coneidx > length(iter.cones)
+        return nothing 
+    else 
+        nvars = numel(iter.cones[coneidx])
+        stop  = start + nvars - 1
+        state = (coneidx + 1, stop + 1)
+        return (start:stop, state)
+    end 
 end 
+
+function Base.iterate(iter::RangeBlocksIterator, state=(1, 1)) 
+    (coneidx, start) = state 
+    if coneidx > length(iter.cones)
+        return nothing 
+    else 
+        cone = iter.cones[coneidx]
+        nvars = numel(cone)
+        if Hs_is_diagonal(cone)
+            stop = start + nvars - 1
+        else
+            stop = start + triangular_number(nvars) - 1
+        end
+        state = (coneidx + 1, stop + 1)
+        return (start:stop, state)
+    end 
+end 
+
+

@@ -230,17 +230,17 @@ end
 # to generate cone and block ranges, but need to make sure it 
 # won't generate rust borrow conflicts
 
-struct SupportedConeRangeIterator
+struct RangeSupportedConesIterator
     cones::Vector{SupportedCone}
 end
 
 function rng_cones_iterator(cones::Vector{SupportedCone})
-    SupportedConeRangeIterator(cones)
+    RangeSupportedConesIterator(cones)
 end
 
-Base.length(C::SupportedConeRangeIterator) = length(C.cones)
+Base.length(C::RangeSupportedConesIterator) = length(C.cones)
 
-function Base.iterate(C::SupportedConeRangeIterator, state=(1, 1)) 
+function Base.iterate(C::RangeSupportedConesIterator, state=(1, 1)) 
     (coneidx, start) = state 
     if coneidx > length(C.cones)
         return nothing 
