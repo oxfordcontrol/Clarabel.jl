@@ -6,7 +6,6 @@ module Clarabel
     const DefaultInt   = LinearAlgebra.BlasInt
 
     # Rust-like Option type
-    # PJG: todo.   change code throughout to use this type
     const Option{T} = Union{Nothing,T} 
 
     #internal constraint RHS limits.  This let block 

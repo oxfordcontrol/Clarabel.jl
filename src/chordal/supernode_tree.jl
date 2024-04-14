@@ -139,8 +139,10 @@ end
 function post_order!(post::Vector{Int}, parent::Vector{Int}, children::Vector{VertexSet}, nc::Int)
 
 	order = (nc + 1) * ones(Int, length(parent))
-	root = findfirst(x -> x == 0, parent)
-	stack = Int[root]
+	root  = findfirst(x -> x == 0, parent)
+
+	stack = sizehint!(Int[], length(parent))
+	push!(stack, root)
 
 	resize!(post, length(parent))
 	post .= 1:length(parent)
@@ -151,10 +153,12 @@ function post_order!(post::Vector{Int}, parent::Vector{Int}, children::Vector{Ve
 		v = pop!(stack)
 		order[v] = i
 		i -= 1
-		#PJG: sort/collect here does not belong, but 
-		#introduced to ensure consistent testing 
-		#when comparing to COSMO
-		push!(stack, sort(collect(children[v]))...)
+
+		# maybe faster to append to the stack vector and then
+		# sort a view of what was added, but this way gets
+		# the children sorted and keeps everything consistent
+		# with the COSMO implementation for reference
+		append!(stack, sort!(children[v]))
 	end
 
 	sort!(post, by = x-> order[x])

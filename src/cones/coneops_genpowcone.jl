@@ -99,8 +99,6 @@ function get_Hs!(
     #The vectors for s and z (and its views) don't
     #know anything about the 3 extra sparsifying entries
     
-    #PJG: stray comment here about ConicVector.  Don't know if 
-    #there is anything to fix
     dim1 = Clarabel.dim1(K)
     data = K.data
     

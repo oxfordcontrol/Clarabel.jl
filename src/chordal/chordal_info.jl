@@ -77,16 +77,14 @@ function find_sparsity_patterns!(
     # find the sparsity patterns of the PSD cones
     for (coneidx, (cone,rowrange)) in enumerate(zip(cones,rng_cones))
 
-        if !isa(cone, PSDTriangleConeT)
-            continue
+        if isa(cone, PSDTriangleConeT)
+            analyse_sparsity_pattern!(
+                chordal_info,
+                view(nz_mask,rowrange),
+                cone,
+                coneidx,
+                merge_method)
         end
-
-        analyse_sparsity_pattern!(
-            chordal_info, 
-            view(nz_mask,rowrange), 
-            cone, 
-            coneidx,
-            merge_method)
     end
 end
 
@@ -108,10 +106,15 @@ end
 function analyse_sparsity_pattern!(
     chordal_info::ChordalInfo, 
     nz_mask::AbstractVector{Bool}, 
-    cone::SupportedCone, 
+    cone::PSDTriangleConeT,
     coneidx::Int,
     merge_method::Symbol
-) 
+)
+    # Force the diagonal entries to be marked, otherwise
+    # the symbolic LDL step will fail.
+    for i = 1:cone.dim
+        nz_mask[triangular_index(i)] = true
+    end
 
     @assert length(nz_mask) == nvars(cone)
     if all(nz_mask) 
@@ -226,10 +229,6 @@ end
 # ----------------------------------------------
 # Iterator for the range of indices of the cones
 
-# PJG: something similar could be done for the internal cones,
-# to generate cone and block ranges, but need to make sure it 
-# won't generate rust borrow conflicts
-
 struct RangeSupportedConesIterator
     cones::Vector{SupportedCone}
 end
@@ -261,6 +260,7 @@ end
 # and QDLDL forces us toa analyze a matrix of some AbstractFloat, so we choose arbitrarily
 
 function connect_graph!(L::SparseMatrixCSC{Float64})
+
  	# unconnected blocks don't have any entries below the diagonal in their right-most columns
 	m = size(L, 1)
 	row_val = L.rowval
@@ -279,4 +279,5 @@ function connect_graph!(L::SparseMatrixCSC{Float64})
 			L[j+1, j] = 1
 		end
 	end
+
 end
