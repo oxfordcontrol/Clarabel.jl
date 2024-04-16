@@ -43,7 +43,7 @@ function initialise!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
   end
 
   for i in eachindex(t.snode_parent)
-    t.snode_parent[i] = -1
+    t.snode_parent[i] = INACTIVE_NODE
     t.snode_children[i] = VertexSet()
   end
 
@@ -106,6 +106,8 @@ function merge_two_cliques!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree
   # merge clique c2 into c1
   union!(t.snode[c1], t.snode[c2])
   empty!(t.snode[c2])
+
+
 
   # decrement number of mergeable / nonempty cliques in graph
   t.n_cliques -= 1
@@ -177,7 +179,7 @@ function post_process_merge!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTre
   #does not make sense. Therefore just number the non-empty supernodes in t.snd
   
   t.snode_post = findall(x -> !isempty(x), t.snode)
-  t.snode_parent = -ones(Int, length(t.snode))
+  t.snode_parent = fill(INACTIVE_NODE, length(t.snode))
 
   # recompute a clique tree from the clique graph
   t.n_cliques > 1 && clique_tree_from_graph!(strategy, t)
@@ -559,7 +561,7 @@ function determine_parent_cliques!(
     for (k, clique) in enumerate(cliques)
       if v ∈ clique
         # set that clique to the root
-        snode_parent[k] = 0
+        snode_parent[k] = NO_PARENT
         c = k
         break
       end

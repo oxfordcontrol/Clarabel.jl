@@ -66,7 +66,7 @@ function merge_two_cliques!(
   for grandch in t.snode_children[ch]
     t.snode_parent[grandch] = p
   end
-  t.snode_parent[ch] = -1 #-1 instead of NaN, effectively remove that entry from the parent list
+  t.snode_parent[ch] = INACTIVE_NODE 
 
   # update children structure
   delete!(t.snode_children[p], ch)

@@ -1,10 +1,10 @@
 
 
 # this value used to mark root notes, i.e. ones with no parent
-const NO_PARENT = typemax(Int);
+const NO_PARENT     = typemax(Int);
 
 # when cliques are merged, their vertices are marked thusly
-const INVALID_NODE =  typemax(Int) - 1;
+const INACTIVE_NODE = typemax(Int) - 1;
 
 # A structure to represent and analyse the sparsity pattern of an LDL factor matrix L.
 mutable struct SuperNodeTree
@@ -46,7 +46,7 @@ mutable struct SuperNodeTree
 		snode_post     = zeros(Int,length(snode_parent)) 
     	post_order!(snode_post, snode_parent, snode_children, length(snode_parent))   
 
-		# Her we find separators in all cases, unlike COSMO which defers until
+		# Here we find separators in all cases, unlike COSMO which defers until
 		# after merging for the clique graph merging case.  These are later 
 		# modified in the clique-graph merge case in the call to add_separators
 		separators = find_separators(L, snode)
@@ -189,7 +189,7 @@ end
 
 function parent_from_L(L::SparseMatrixCSC{T}) where {T}
 
-	parent = zeros(Int, L.n)
+	parent = fill(NO_PARENT, L.n)
 	# loop over vertices of graph
 	for i = 1:L.n
 		parent[i] = find_parent_direct(L, i)
@@ -198,7 +198,7 @@ function parent_from_L(L::SparseMatrixCSC{T}) where {T}
 end
 
 function find_parent_direct(L::SparseMatrixCSC{T}, v::Int) where{T}
-	v == size(L, 1) && return 0
+	v == size(L, 1) && return NO_PARENT
 	return L.rowval[L.colptr[v]]
 end 
 
@@ -243,11 +243,9 @@ end
 
 function children_from_parent(parent::Vector{Int})
 
-	# PJG: pi == 0 is the root.   Make this a const value 
-	# = 0 as in rust 	
 	children = new_vertex_sets(length(parent))
 	for (i,pi) = enumerate(parent)
-		pi != 0 && push!(children[pi], i)
+		pi != NO_PARENT && push!(children[pi], i)
 	end
 	return children
 end
@@ -259,8 +257,7 @@ function post_order!(post::Vector{Int}, parent::Vector{Int}, children::Vector{Ve
 
 	order = (nc + 1) * ones(Int, length(parent))
 
-	# PJG: look for const value 
-	root  = findfirst(x -> x == 0, parent)
+	root  = findfirst(x -> x == NO_PARENT, parent)
 
 	stack = sizehint!(Int[], length(parent))
 	push!(stack, root)
@@ -316,35 +313,34 @@ end
 
 function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 	
-	N = length(parent)
+	n = length(parent)
 
 	# if snode_index[v] < 0 then v is a rep vertex, otherwise v ∈ supernode[snode_index[v]]
 	# PJG: snode_index is never actually used as an index into anything, so maybe 
 	# ok to keep it as Rust isize.   It is `parent` that has the problem with indexing
 
-	snode_index  = -ones(Int, N) 
-	snode_parent = -ones(Int, N)
+	snode_index  = fill(-one(Int), Nn)
+	snode_parent = fill(NO_PARENT, n)
 
 	# This also works as array of Int[], which might be faster
 	# note this arrays is local to the function, not the one 
 	# contained in the SuperNodeTree
 	children = new_vertex_sets(length(parent))
 
-	# PJG: searching for root here.  Make const 
-	root_index = findfirst(x -> x == 0, parent)
+	# find the root 
+	root_index = findfirst(x -> x == NO_PARENT, parent)
 
 	# go through parents of vertices in post_order
 	for v in post
 
-		# PJG: searching for root here.  Make const 
-		if parent[v] == 0
+		if parent[v] == NO_PARENT
 			push!(children[root_index], v)
 		else
 			push!(children[parent[v]], v)
 		end
 
-		# parent is not the root.   PJG: make const 
-		if parent[v] != 0
+		# parent is not the root.   
+		if parent[v] != NO_PARENT
 			if degree[v] - 1 == degree[parent[v]] && snode_index[parent[v]] == -1
 				# Case A: v is a representative vertex
 				if snode_index[v] < 0
@@ -352,12 +348,10 @@ function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 					snode_index[v] -= 1
 				# Case B: v is not representative vertex, add to sn_ind[v] instead
 				else
-					# PJG: danger here.  Might go below 1 or zero?
 					snode_index[parent[v]] = snode_index[v]
 					snode_index[snode_index[v]] -= 1
 				end
 			else
-				# PJG: maybe const required here as well
 				if snode_index[v] < 0
 					snode_parent[v] = v
 				else
@@ -367,7 +361,6 @@ function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 		end
 
 		# k: rep vertex of the snd that v belongs to
-		#PJG: what does this case mean?  It appears in many places
 		if snode_index[v] < 0
 			k = v
 		else
@@ -399,11 +392,11 @@ function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 	# resize and reset snode_parent to take into account that all non-representative 
 	# arrays are removed from the parent structure
 	resize!(snode_parent, length(repr_vertex))
-	snode_parent .= 0
+	snode_parent .= NO_PARENT
 
 	for (i, rp) in enumerate(repr_parent)
 		ind = findfirst(x -> x == rp, repr_vertex)
-		isnothing(ind) && (ind = 0)
+		isnothing(ind) && (ind = NO_PARENT)
 		snode_parent[i] = ind
 	end
 
