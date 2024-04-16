@@ -1,11 +1,11 @@
 struct NoMergeStrategy <: AbstractMergeStrategy end
 
-function is_done(strategy::NoMergeStrategy)
-    true 
-end
-
 function initialise!(strategy::NoMergeStrategy, t::SuperNodeTree)
     return nothing
+end
+
+function is_done(strategy::NoMergeStrategy)
+    true 
 end
 
 function post_process_merge!(strategy::NoMergeStrategy, t::SuperNodeTree)

@@ -1,31 +1,29 @@
 mutable struct ParentChildMergeStrategy <: AbstractMergeStrategy
   stop::Bool
-  clique_ind::Int
+  clique_index::Int
   t_fill::Int
   t_size::Int
 
+  # PJG: fill and size need to be settable 
   function ParentChildMergeStrategy(; t_fill = 8, t_size = 8)
-    new(false, 2, t_fill, t_size)
+    new(false, 0, t_fill, t_size)
   end
 end
 
+function initialise!(strategy::ParentChildMergeStrategy, t::SuperNodeTree)
+  # start with node that has second highest order
+  strategy.clique_index = length(t.snode) - 1
+end
 
 function is_done(strategy::ParentChildMergeStrategy)
   strategy.stop
 end
 
-function initialise!(strategy::ParentChildMergeStrategy, t::SuperNodeTree)
-  # start with node that has second highest order
-  strategy.clique_ind = length(t.snode) - 1
-end
-
-
-
 # Traverse tree `t` in descending topological order and return parent and clique (root has highest order).
 
 function traverse(strategy::ParentChildMergeStrategy, t::SuperNodeTree)
 
-  c = t.snode_post[strategy.clique_ind]
+  c = t.snode_post[strategy.clique_index]
 
   return (t.snode_parent[c], c)
 end
@@ -90,11 +88,11 @@ function update_strategy!(
   do_merge::Bool
 )
   # try to merge last node of order 1, then stop
-  if strategy.clique_ind == 1
+  if strategy.clique_index == 1
      strategy.stop = true
     # otherwise decrement node index
   else
-    strategy.clique_ind -= 1
+    strategy.clique_index -= 1
   end
 end
 
@@ -129,7 +127,7 @@ function determine_parent(t::SuperNodeTree, c1::Int, c2::Int)
 end
 
 
-#Compute the amount of fill-in created by merging two cliques with the 
+# Compute the amount of fill-in created by merging two cliques with the 
 # respective supernode and separator dimensions.
 
 function fill_in(
@@ -145,6 +143,8 @@ function fill_in(
 end
 
 
+# not implemented as part of the main SuperNodeTree interface since the 
+# index is not passed through the post ordering 
 function clique_dim(t::SuperNodeTree, i::Int)
   return length(t.snode[i]), length(t.separators[i])
 end

@@ -5,8 +5,8 @@ function merge_cliques!(strategy::AbstractMergeStrategy, t::SuperNodeTree)
   initialise!(strategy, t)
 
   while !is_done(strategy)
+    
     # find merge candidates
-
     cand = traverse(strategy, t)
 
     # evaluate wether to merge the candidates
@@ -27,13 +27,13 @@ end
 
 #All strategies must then implement the following interface: 
 
-# 0. is_done() - merging complete, so can stop the merging process
-# 1. initialise!() - tree and strategy
-# 2. traverse() - find the next merge candidates
-# 3. evalute() - evaluate wether to merge them or not
-# 4. merge_two_cliques!() - execute a merge 
-# 5. update_strategy!() - update the tree/graph and strategy
-# 6. post_process_merge!() - do any post-processing of the tree/graph
+# initialise! - tree and strategy
+# is_done - merging complete, so can stop the merging process
+# traverse - find the next merge candidates
+# evalute - evaluate wether to merge them or not
+# merge_two_cliques! - execute a merge 
+# update_strategy! - update the tree/graph and strategy
+# post_process_merge! - do any post-processing of the tree/graph
 
 function is_done(strategy::AbstractMergeStrategy)
   error("Incomplete merge strategy specification: ",typeof(strategy))

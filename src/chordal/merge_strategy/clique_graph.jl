@@ -31,38 +31,38 @@ mutable struct CliqueGraphMergeStrategy{T} <: AbstractMergeStrategy
 end
 
 
+function initialise!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
+
+  # this merge strategy is clique-graph based, we give up the tree structure and add 
+  # the seperators to the supernodes.  The supernodes then represent the full clique.
+  # after clique merging a new clique tree will be computed in post_process_merge!
+  # for this type 
+
+  for (snode,separator) in zip(t.snode, t.separators)
+    union!(snode, separator)
+  end
+
+  for i in eachindex(t.snode_parent)
+    t.snode_parent[i] = -1
+    t.snode_children[i] = VertexSet()
+  end
+
+  # compute the edges and intersections of cliques in the reduced clique graph
+  rows, cols = compute_reduced_clique_graph!(t.separators, t.snode)
+
+  weights = compute_weights!(rows, cols, t.snode, strategy.edge_weight)
+
+  strategy.edges = sparse(rows, cols, weights, t.n_cliques, t.n_cliques)
+  strategy.p     = zeros(Int, length(strategy.edges.nzval))
+  strategy.adjacency_table = compute_adjacency_table(strategy.edges, t.n_cliques)
+  return nothing
+
+end
+
 function is_done(strategy::CliqueGraphMergeStrategy)
   strategy.stop
 end
-
-
-function initialise!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
-
-		# this merge strategy is clique-graph based, we give up the tree structure and add 
-		# the seperators to the supernodes.  The supernodes then represent the full clique.
-		# after clique merging a new clique tree will be computed in post_process_merge!
-    # for this type 
-
-		for (snode,separator) in zip(t.snode, t.separators)
-      union!(snode, separator)
-    end
-
-    for i in eachindex(t.snode_parent)
-      t.snode_parent[i] = -1
-      t.snode_children[i] = VertexSet()
-    end
-
-    # compute the edges and intersections of cliques in the reduced clique graph
-    rows, cols = compute_reduced_clique_graph!(t.separators, t.snode)
   
-    weights = compute_weights!(rows, cols, t.snode, strategy.edge_weight)
-  
-    strategy.edges = sparse(rows, cols, weights, t.n_cliques, t.n_cliques)
-    strategy.p     = zeros(Int, length(strategy.edges.nzval))
-    strategy.adjacency_table = compute_adjacency_table(strategy.edges, t.n_cliques)
-    return nothing
-  end
-
 
 # Find the next two cliques in the clique graph `t` to merge.
 function traverse(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)

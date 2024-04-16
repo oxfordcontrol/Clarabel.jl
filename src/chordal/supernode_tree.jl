@@ -1,5 +1,12 @@
 
-# A structure to represent and analyse the sparsity pattern of the input matrix L.
+
+# this value used to mark root notes, i.e. ones with no parent
+const NO_PARENT = typemax(Int);
+
+# when cliques are merged, their vertices are marked thusly
+const INVALID_NODE =  typemax(Int) - 1;
+
+# A structure to represent and analyse the sparsity pattern of an LDL factor matrix L.
 mutable struct SuperNodeTree
 
   	# vertices of supernodes stored in one array (also called residuals)
@@ -59,8 +66,15 @@ mutable struct SuperNodeTree
 end
 
 # ------------------------------------------
-# public interface function to SuperNodeTree
+# functions implemented for the SuperNodeTree
 # ------------------------------------------
+
+# PJG: it is confusing about which things are in post order in which 
+# things are not.   Maybe post_order should be initialised to 1:n, 
+# so that all of the functions below work regardless of whether it 
+# has been initialized.   Then nblk initialisation could be modified 
+# to match this behaviour, as well as the orphaned clique_dim function 
+# that is in the tree merge implementation 
 
 function get_post_order(sntree::SuperNodeTree, i::Int)
 	return sntree.snode_post[i]
@@ -88,8 +102,8 @@ function get_overlap(sntree::SuperNodeTree, i::Int)
 	return length(sntree.separators[sntree.snode_post[i]])
 end
 
-function get_clique(sntree::SuperNodeTree, ind::Int)
-	c = sntree.snode_post[ind]
+function get_clique(sntree::SuperNodeTree, i::Int)
+	c = sntree.snode_post[i]
 	return union(sntree.snode[c], sntree.separators[c])
 end
 
@@ -102,6 +116,71 @@ function get_decomposed_dim_and_overlaps(sntree::SuperNodeTree)
 	end
 	(dim, overlaps)
 end 
+  
+# Takes a SuperNodeTree and reorders the vertices in each supernode (and separator) to have consecutive order.
+
+# The reordering is needed to achieve equal column structure for the psd completion of the dual variable `Y`. 
+# This also modifies `ordering` which maps the vertices in the `sntree` back to the actual location in the 
+# not reordered data, i.e. the primal constraint variable `S` and dual variables `Y`.
+
+
+function reorder_snode_consecutively!(t::SuperNodeTree, ordering::Vector{Int})
+
+	# determine permutation vector p and permute the vertices in each snd
+	p = zeros(Int,length(t.post))
+
+	k = 1
+	for i in t.snode_post
+
+	snode = t.snode[i]
+	n = length(snode)
+	viewp  = view(p, k:k+n-1)
+	viewp .= t.snode[i]
+	sort!(viewp)
+
+	#assign k:(k+n)-1 to the OrderedSet snode,
+	#dropping the previous values
+	empty!(snode)
+	foreach(v->push!(snode,v), k:(k+n)-1)
+
+	k += n
+	end
+
+	# permute the separators as well
+	p_inv = invperm(p)
+	for sp in t.separators
+
+		# use here the permutation vector p as scratch before flushing
+		# the separator set and repopulating.  Assumes that the permutation
+		# will be at least as long as the largest separator set
+
+		@assert length(p) >= length(sp)
+		tmp = view(p,1:length(sp))
+
+		tmp .= Iterators.map(x -> p_inv[x], sp)  
+		empty!(sp)
+		foreach(v->push!(sp,v), tmp)
+	end
+
+	# because I used 'p' as scratch space, I will 
+	# ipermute using pinv rather than permute using p
+
+	invpermute!(ordering, p_inv)
+	return nothing
+end
+
+# The the block dimension vector is the size of the remaining 
+# (unemptied) supernodes.   Before this call, t.nblk should be 
+# nothing 
+
+function calculate_block_dimensions!(t::SuperNodeTree)
+n = t.n_cliques
+t.nblk = zeros(Int,n)
+	for i = 1:n
+		c = t.snode_post[i]
+		t.nblk[i] = length(t.separators[c]) + length(t.snode[c])
+	end
+end
 
 
 # ---------------------------
@@ -111,7 +190,7 @@ end
 function parent_from_L(L::SparseMatrixCSC{T}) where {T}
 
 	parent = zeros(Int, L.n)
-	# loop over Vertices of graph
+	# loop over vertices of graph
 	for i = 1:L.n
 		parent[i] = find_parent_direct(L, i)
 	end
@@ -124,9 +203,49 @@ function find_parent_direct(L::SparseMatrixCSC{T}, v::Int) where{T}
 end 
 
 
+function find_separators(
+	L::SparseMatrixCSC, 
+	snode::Vector{VertexSet}
+)
+	separators = new_vertex_sets(length(snode))
+
+	for (sn, sep) in zip(snode, separators)
+		vrep    = minimum(sn)
+		adjplus = find_higher_order_neighbors(L, vrep)
+
+		for neighbor in adjplus
+			if neighbor ∉ sn
+				push!(sep, neighbor)
+			end
+		end
+	end
+
+	return separators
+
+end
+
+function find_higher_order_neighbors(L::SparseMatrixCSC, v::Int)
+	col_ptr = L.colptr
+	row_val = L.rowval
+	return view(row_val, col_ptr[v]:col_ptr[v + 1] - 1)
+end
+
+# findall the cardinality of adj+(v) for all v in V
+function higher_degree(L::SparseMatrixCSC{T}) where{T}
+	
+	degree = zeros(Int, L.n)
+	for v = 1:(L.n-1)
+		degree[v] = L.colptr[v + 1] - L.colptr[v]
+	end
+	return degree
+end
+
+
 function children_from_parent(parent::Vector{Int})
 
-	children = [VertexSet() for i = 1:length(parent)]
+	# PJG: pi == 0 is the root.   Make this a const value 
+	# = 0 as in rust 	
+	children = new_vertex_sets(length(parent))
 	for (i,pi) = enumerate(parent)
 		pi != 0 && push!(children[pi], i)
 	end
@@ -139,6 +258,8 @@ end
 function post_order!(post::Vector{Int}, parent::Vector{Int}, children::Vector{VertexSet}, nc::Int)
 
 	order = (nc + 1) * ones(Int, length(parent))
+
+	# PJG: look for const value 
 	root  = findfirst(x -> x == 0, parent)
 
 	stack = sizehint!(Int[], length(parent))
@@ -169,26 +290,16 @@ function post_order!(post::Vector{Int}, parent::Vector{Int}, children::Vector{Ve
 end
 
 
-# findall the cardinality of adj+(v) for all v in V
-function higher_degree(L::SparseMatrixCSC{T}) where{T}
-	
-	degree = zeros(Int, L.n)
-	for v = 1:(L.n-1)
-		degree[v] = L.colptr[v + 1] - L.colptr[v]
-	end
-	return degree
-end
 
 
 
 function find_supernodes(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 	
-	snode = [VertexSet() for i = 1:length(parent)]
+	snode = new_vertex_sets(length(parent))
 
  	snode_parent, snode_index = pothen_sun(parent, post, degree)
 	
-	for i = 1:length(parent)
-		f = snode_index[i]
+	for (i, f) in enumerate(snode_index)
 		if f < 0
 			push!(snode[i], i)
 		else
@@ -208,26 +319,31 @@ function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 	N = length(parent)
 
 	# if snode_index[v] < 0 then v is a rep vertex, otherwise v ∈ supernode[snode_index[v]]
+	# PJG: snode_index is never actually used as an index into anything, so maybe 
+	# ok to keep it as Rust isize.   It is `parent` that has the problem with indexing
+
 	snode_index  = -ones(Int, N) 
 	snode_parent = -ones(Int, N)
 
 	# This also works as array of Int[], which might be faster
 	# note this arrays is local to the function, not the one 
 	# contained in the SuperNodeTree
-	children = [VertexSet() for i = 1:length(parent)]
+	children = new_vertex_sets(length(parent))
 
+	# PJG: searching for root here.  Make const 
 	root_index = findfirst(x -> x == 0, parent)
 
 	# go through parents of vertices in post_order
 	for v in post
 
+		# PJG: searching for root here.  Make const 
 		if parent[v] == 0
 			push!(children[root_index], v)
 		else
 			push!(children[parent[v]], v)
 		end
 
-		# parent is not the root
+		# parent is not the root.   PJG: make const 
 		if parent[v] != 0
 			if degree[v] - 1 == degree[parent[v]] && snode_index[parent[v]] == -1
 				# Case A: v is a representative vertex
@@ -236,10 +352,12 @@ function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 					snode_index[v] -= 1
 				# Case B: v is not representative vertex, add to sn_ind[v] instead
 				else
+					# PJG: danger here.  Might go below 1 or zero?
 					snode_index[parent[v]] = snode_index[v]
 					snode_index[snode_index[v]] -= 1
 				end
 			else
+				# PJG: maybe const required here as well
 				if snode_index[v] < 0
 					snode_parent[v] = v
 				else
@@ -249,6 +367,7 @@ function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 		end
 
 		# k: rep vertex of the snd that v belongs to
+		#PJG: what does this case mean?  It appears in many places
 		if snode_index[v] < 0
 			k = v
 		else
@@ -270,6 +389,8 @@ function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 		end
 	end # loop over vertices
 
+	# PJG: this could be more compact since it is just indexing into
+	# a subset.  Maybe it wants to be a filter of some kind
 	# representative vertices
 	repr_vertex = findall(x-> x < 0, snode_index)
 	# vertices that are the parent of representative vertices
@@ -290,103 +411,6 @@ function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 end
 
 
-function find_separators(
-	L::SparseMatrixCSC, 
-	snode::Vector{VertexSet}
-)
-	separators = sizehint!(VertexSet[], length(snode))
-
-	for sn in snode 
-		vrep    = minimum(sn)
-		adjplus = find_higher_order_neighbors(L, vrep)
-
-		sep = VertexSet()
-		for neighbor in adjplus
-			if neighbor ∉ sn
-				push!(sep, neighbor)
-			end
-		end
-		push!(separators, sep)
-	end
-
-	return separators
-
-end
-
-
-
-function find_higher_order_neighbors(L::SparseMatrixCSC, v::Int)
-	v == size(L, 1) && return 0
-	col_ptr = L.colptr
-	row_val = L.rowval
-	return view(row_val, col_ptr[v]:col_ptr[v + 1] - 1)
-end
-
-
-# The the block dimension vector is the size of the remaining 
-# (unemptied) supernodes.   Before this call, t.nblk should be 
-# nothing 
-
-function calculate_block_dimensions!(t::SuperNodeTree)
-  n = t.n_cliques
-  t.nblk = zeros(Int,n)
-  for iii = 1:n
-    c = t.snode_post[iii]
-    t.nblk[iii] = length(t.separators[c]) + length(t.snode[c])
-  end
-end
-
-
-
-# Takes a SuperNodeTree and reorders the vertices in each supernode (and separator) to have consecutive order.
-
-# The reordering is needed to achieve equal column structure for the psd completion of the dual variable `Y`. 
-# This also modifies `ordering` which maps the vertices in the `sntree` back to the actual location in the 
-# not reordered data, i.e. the primal constraint variable `S` and dual variables `Y`.
-
-
-function reorder_snode_consecutively!(t::SuperNodeTree, ordering::Vector{Int})
-
-	# determine permutation vector p and permute the vertices in each snd
-	p = zeros(Int,length(t.post))
-
-	k = 1
-	for i in t.snode_post
-
-	  snode = t.snode[i]
-	  n = length(snode)
-	  viewp  = view(p, k:k+n-1)
-	  viewp .= t.snode[i]
-	  sort!(viewp)
-
-	  #assign k:(k+n)-1 to the OrderedSet snode,
-	  #dropping the previous values
-	  empty!(snode)
-	  foreach(v->push!(snode,v), k:(k+n)-1)
-
-	  k += n
-	end
-
-	# permute the separators as well
-	p_inv = invperm(p)
-	for sp in t.separators
-
-		# use here the permutation vector p as scratch before flushing
-		# the separator set and repopulating.  Assumes that the permutation
-		# will be at least as long as the largest separator set
-
-		@assert length(p) >= length(sp)
-		tmp = view(p,1:length(sp))
-
-		tmp .= Iterators.map(x -> p_inv[x], sp)  
-		empty!(sp)
-		foreach(v->push!(sp,v), tmp)
-	end
-
-	# because I used 'p' as scratch space, I will 
-	# ipermute using pinv rather than permute using p
-
-	invpermute!(ordering, p_inv)
-	return nothing
-end
-
+function new_vertex_sets(n::Int)
+	[VertexSet() for _ = 1:n]
+end 

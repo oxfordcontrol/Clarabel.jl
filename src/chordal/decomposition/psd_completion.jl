@@ -66,7 +66,6 @@ function psd_complete!(A::AbstractMatrix{T}, pattern::SparsityPattern) where {T 
         # set of snd(i) sorted using the numerical ordering i,i+1,...i+ni
         ν = get_snode(sntree, j)
 
-        #clique = get_clique(sntree, snd_id)
         # index set containing the elements of col(i) \ snd(i) 
         #sorted using numerical ordering σ(i)
         α = get_separators(sntree, j)
