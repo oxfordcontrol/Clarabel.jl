@@ -319,7 +319,7 @@ function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 	# PJG: snode_index is never actually used as an index into anything, so maybe 
 	# ok to keep it as Rust isize.   It is `parent` that has the problem with indexing
 
-	snode_index  = fill(-one(Int), Nn)
+	snode_index  = fill(-one(Int), n)
 	snode_parent = fill(NO_PARENT, n)
 
 	# This also works as array of Int[], which might be faster
