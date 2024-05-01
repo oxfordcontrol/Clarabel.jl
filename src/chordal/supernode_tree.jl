@@ -19,8 +19,6 @@ mutable struct SuperNodeTree
 	snode_children::Vector{VertexSet}
   	# post ordering of the vertices in elim tree σ(j) = v
 	post::Array{Int} 
-  	# parent of each vertex in the elimination tree
-	parent::Array{Int}
   	# vertices of clique seperators
 	separators::Vector{VertexSet} 
 
@@ -59,7 +57,7 @@ mutable struct SuperNodeTree
 		n_cliques = length(snode)
 
 		new(snode, snode_post, snode_parent, snode_children, 
-			post, parent, separators, nblk, n_cliques)
+			post, separators, nblk, n_cliques)
 
 	end
 
@@ -68,13 +66,6 @@ end
 # ------------------------------------------
 # functions implemented for the SuperNodeTree
 # ------------------------------------------
-
-# PJG: it is confusing about which things are in post order in which 
-# things are not.   Maybe post_order should be initialised to 1:n, 
-# so that all of the functions below work regardless of whether it 
-# has been initialized.   Then nblk initialisation could be modified 
-# to match this behaviour, as well as the orphaned clique_dim function 
-# that is in the tree merge implementation 
 
 function get_post_order(sntree::SuperNodeTree, i::Int)
 	return sntree.snode_post[i]
@@ -104,7 +95,7 @@ end
 
 function get_clique(sntree::SuperNodeTree, i::Int)
 	c = sntree.snode_post[i]
-	return union(sntree.snode[c], sntree.separators[c])
+	union(sntree.snode[c], sntree.separators[c])
 end
 
 function get_decomposed_dim_and_overlaps(sntree::SuperNodeTree)
@@ -132,18 +123,18 @@ function reorder_snode_consecutively!(t::SuperNodeTree, ordering::Vector{Int})
 	k = 1
 	for i in t.snode_post
 
-	snode = t.snode[i]
-	n = length(snode)
-	viewp  = view(p, k:k+n-1)
-	viewp .= t.snode[i]
-	sort!(viewp)
+		snode = t.snode[i]
+		n = length(snode)
+		viewp  = view(p, k:k+n-1)
+		viewp .= t.snode[i]
+		sort!(viewp)
 
-	#assign k:(k+n)-1 to the OrderedSet snode,
-	#dropping the previous values
-	empty!(snode)
-	foreach(v->push!(snode,v), k:(k+n)-1)
+		#assign k:(k+n)-1 to the OrderedSet snode,
+		#dropping the previous values
+		empty!(snode)
+		foreach(v->push!(snode,v), k:(k+n)-1)
 
-	k += n
+		k += n
 	end
 
 	# permute the separators as well
@@ -176,6 +167,7 @@ end
 function calculate_block_dimensions!(t::SuperNodeTree)
 n = t.n_cliques
 t.nblk = zeros(Int,n)
+
 	for i = 1:n
 		c = t.snode_post[i]
 		t.nblk[i] = length(t.separators[c]) + length(t.snode[c])
@@ -283,7 +275,7 @@ function post_order!(post::Vector{Int}, parent::Vector{Int}, children::Vector{Ve
 
 	# if merges happened, remove the entries pointing to empty arrays / cliques
 	nc != length(parent) && resize!(post, nc)
-	return post
+
 end
 
 
@@ -316,9 +308,6 @@ function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 	n = length(parent)
 
 	# if snode_index[v] < 0 then v is a rep vertex, otherwise v ∈ supernode[snode_index[v]]
-	# PJG: snode_index is never actually used as an index into anything, so maybe 
-	# ok to keep it as Rust isize.   It is `parent` that has the problem with indexing
-
 	snode_index  = fill(-one(Int), n)
 	snode_parent = fill(NO_PARENT, n)
 
@@ -382,22 +371,19 @@ function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 		end
 	end # loop over vertices
 
-	# PJG: this could be more compact since it is just indexing into
-	# a subset.  Maybe it wants to be a filter of some kind
-	# representative vertices
 	repr_vertex = findall(x-> x < 0, snode_index)
 	# vertices that are the parent of representative vertices
 	repr_parent = snode_parent[repr_vertex]
 
-	# resize and reset snode_parent to take into account that all non-representative 
-	# arrays are removed from the parent structure
+	# resize and reset snode_parent to take into account that all 
+	# non-representative arrays are removed from the parent structure
 	resize!(snode_parent, length(repr_vertex))
 	snode_parent .= NO_PARENT
 
 	for (i, rp) in enumerate(repr_parent)
-		ind = findfirst(x -> x == rp, repr_vertex)
-		isnothing(ind) && (ind = NO_PARENT)
-		snode_parent[i] = ind
+		rpidx = findfirst(x -> x == rp, repr_vertex)
+		isnothing(rpidx) && (rpidx = NO_PARENT)
+		snode_parent[i] = rpidx
 	end
 
 	return snode_parent, snode_index

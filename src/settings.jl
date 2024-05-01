@@ -194,9 +194,9 @@ function Base.show(io::IO, settings::Clarabel.Settings{T}) where {T}
     end 
     println(io)
     # and the settings 
-    for row in 1:size(table,1)
+    for row in axes(table,1)
         @printf(io, " ")
-        for col in 1:size(table,2)
+        for col in axes(table,2)
             @printf(io, " %s ", table[row,col])
         end
         println(io)

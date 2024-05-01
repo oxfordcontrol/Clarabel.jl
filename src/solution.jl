@@ -1,5 +1,5 @@
 
-function solution_finalize!(
+function solution_post_process!(
 	solution::DefaultSolution{T},
 	data::DefaultProblemData{T},
 	variables::DefaultVariables{T},
@@ -19,7 +19,6 @@ function solution_finalize!(
 	end 
 
 	solution.iterations  = info.iterations
-	solution.solve_time  = info.solve_time
 	solution.r_prim 	 = info.res_primal
 	solution.r_dual 	 = info.res_dual
 
@@ -43,6 +42,15 @@ function solution_finalize!(
 	end
 
 	return nothing
+
+end
+
+function solution_finalize!(
+	solution::DefaultSolution{T},
+	info::DefaultInfo{T},
+) where {T}
+
+	solution.solve_time  = info.solve_time
 
 end
 

@@ -2,9 +2,9 @@
 # psd completion
 # -----------------------------------
 
-# # The psd entries of z that correspond to the zeros in s are not constrained by the problem.
-# # however, in order to make the dual psd cone positive semidefinite we have to do a
-# # positive semidefinite completion routine to choose the values
+# The psd entries of z that correspond to the zeros in s are not constrained by the problem.
+# however, in order to make the dual psd cone positive semidefinite we have to do a
+# positive semidefinite completion routine to choose the values
 
 function psd_completion!(
     chordal_info::ChordalInfo{T}, 
@@ -32,9 +32,9 @@ function complete!(z::AbstractVector{T},pattern::SparsityPattern) where{T}
 
     n = length(pattern.ordering)
     Z = zeros(n,n)
-    _svec_to_mat!(Z,z)
+    svec_to_mat!(Z,z)
     psd_complete!(Z,pattern)
-    _mat_to_svec!(z,Z)
+    mat_to_svec!(z,Z)
 
 end 
 
@@ -47,7 +47,7 @@ function psd_complete!(A::AbstractMatrix{T}, pattern::SparsityPattern) where {T 
     ip = invperm(p)
     N  = size(A,2)
 
-    # PJG: not clear to me if this copy of A is required, or 
+    # PJG: not clear if this copy of A is required, or 
     # whether I can operate directly on A by permuting the 
     # the indices in the loops below.  Only worth doing that 
     # if copying in or out of A is expensive.
@@ -101,4 +101,6 @@ function psd_complete!(A::AbstractMatrix{T}, pattern::SparsityPattern) where {T 
 
     # invert the permutation
     A[:, :] =  W[ip, ip]
+
 end
+

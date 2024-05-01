@@ -16,17 +16,17 @@
 #
 # NB: edges is currently an integer valued matrix since the weights are taken as 
 # powers of the cardinality of the intersection of the cliques. This needs to change 
-# to floats of empirical edge weight functions are to be supported.
+# to floats if empirical edge weight functions are to be supported.
 
-mutable struct CliqueGraphMergeStrategy{T} <: AbstractMergeStrategy
+mutable struct CliqueGraphMergeStrategy <: AbstractMergeStrategy
   stop::Bool                                  # a flag to indicate that merging should be stopped
   edges::SparseMatrixCSC{Int}                 # the edges and weights of the reduced clique graph
-  p::Array{Int, 1}                            # as a workspace variable to store the sorting of weights
+  p::Vector{Int}                            # as a workspace variable to store the sorting of weights
   adjacency_table::Dict{Int, VertexSet}       # a double structure of edges, to allow fast lookup of neighbors
   edge_weight::EdgeWeightMethod               # used to dispatch onto the correct scoring function
 
-  function CliqueGraphMergeStrategy{T}(; edge_weight = CUBIC::EdgeWeightMethod) where {T}
-    new(false, spzeros(T, 0, 0),  Int[], Dict{Int, VertexSet}(), edge_weight)
+  function CliqueGraphMergeStrategy(; edge_weight = CUBIC::EdgeWeightMethod)
+    new(false, spzeros(Int, 0, 0),  Int[], Dict{Int, VertexSet}(), edge_weight)
   end
 end
 
@@ -70,7 +70,10 @@ function traverse(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
    p = strategy.p
    # find edge with highest weight, if permissible return cliques
    edge = max_elem(strategy.edges)
-   ispermissible(edge, strategy.adjacency_table, t.snode) && return edge
+
+   if ispermissible(edge, strategy.adjacency_table, t.snode)
+      return edge
+   end 
 
    # sort the weights in edges.nzval to find the permutation p
    sortperm!(view(p, 1:length(strategy.edges.nzval)), strategy.edges.nzval, alg = QuickSort, rev = true)
@@ -83,6 +86,12 @@ function traverse(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
       return (edge[1], edge[2])
     end
   end
+
+  # PJG: it seems possible to exit here and return "nothing".   Handled 
+  # as an option in Rust.  Is it actually possible to reach this point?
+  # Maybe try debugging by using a crazy scoring function that is always 
+  # terrible value
+
 end
 
 
@@ -107,8 +116,6 @@ function merge_two_cliques!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree
   union!(t.snode[c1], t.snode[c2])
   empty!(t.snode[c2])
 
-
-
   # decrement number of mergeable / nonempty cliques in graph
   t.n_cliques -= 1
 
@@ -124,49 +131,54 @@ function update_strategy!(
   cand::Tuple{Int, Int}, 
   do_merge::Bool
 )
+  do_merge || return;
 
   # After a merge operation update the information of the strategy
-  if do_merge
+  c_1_ind, c_removed = cand
 
-    c_1_ind, c_removed = cand
+  edges = strategy.edges
+  n = size(edges, 2)
+  adjacency_table = strategy.adjacency_table
 
-    edges = strategy.edges
-    n = size(edges, 2)
-    adjacency_table = strategy.adjacency_table
+  c_1 = t.snode[c_1_ind]
+  neighbors = adjacency_table[c_1_ind]
+  # neighbors exclusive to the removed clique (and not c1)
+  new_neighbors = setdiff(adjacency_table[c_removed], neighbors, c_1_ind)
 
-    c_1 = t.snode[c_1_ind]
-    neighbors = adjacency_table[c_1_ind]
-    # neighbors exclusive to the removed clique (and not c1)
-    new_neighbors = setdiff(adjacency_table[c_removed], neighbors, c_1_ind)
-
-    # recalculate edge values of all of c_1's neighbors
-    for n_ind in neighbors
-        if n_ind != c_removed
-          neighbor = t.snode[n_ind]
-          edges[max(c_1_ind, n_ind), min(c_1_ind, n_ind)] = edge_metric(c_1, neighbor, strategy.edge_weight)
-        end
-    end
-
-    # point edges exclusive to removed clique to surviving clique 1
-    for n_ind in new_neighbors
+  # recalculate edge values of all of c_1's neighbors
+  for n_ind in neighbors
+      if n_ind != c_removed
         neighbor = t.snode[n_ind]
-        edges[max(c_1_ind, n_ind), min(c_1_ind, n_ind)]  = edge_metric(c_1, neighbor, strategy.edge_weight)
-    end
+        row = max(c_1_ind, n_ind)
+        col = min(c_1_ind, n_ind)
+        val = edge_metric(c_1, neighbor, strategy.edge_weight)
+        edges[row, col] = val 
+      end 
+  end
 
-    # overwrite the weight to any removed edges that still contain a link to c_removed
-    strategy.edges[c_removed+1:n, c_removed] .= 0
-    strategy.edges[c_removed, 1:c_removed] .= 0
-    dropzeros!(edges)
+  # point edges exclusive to removed clique to surviving clique 1
+  for n_ind in new_neighbors
+      neighbor = t.snode[n_ind]
+      row = max(c_1_ind, n_ind)
+      col = min(c_1_ind, n_ind)
+      val = edge_metric(c_1, neighbor, strategy.edge_weight)
+      edges[row, col] = val
+  end
 
-    # update adjacency table in a similar manner
-    union!(adjacency_table[c_1_ind], new_neighbors)
-    for new_neighbor in new_neighbors
-      push!(adjacency_table[new_neighbor], c_1_ind)
-    end
-    delete!(adjacency_table, c_removed)
-    for (key, set) in adjacency_table
-      delete!(set, c_removed)
-    end
+  # overwrite the weight to any removed edges that still contain a link to c_removed
+  edges[c_removed+1:n, c_removed] .= 0
+  edges[c_removed, 1:c_removed] .= 0
+
+  dropzeros!(edges)
+
+  # update adjacency table in a similar manner
+  union!(adjacency_table[c_1_ind], new_neighbors)
+  for new_neighbor in new_neighbors
+    push!(adjacency_table[new_neighbor], c_1_ind)
+  end
+  delete!(adjacency_table, c_removed)
+  for (_, set) in adjacency_table
+    delete!(set, c_removed)
   end
 
   return nothing
@@ -250,7 +262,6 @@ end
 function compute_reduced_clique_graph!(separators::Vector{VertexSet}, snode::Vector{VertexSet})
 
   # loop over separators by decreasing cardinality
-  # NB: sort on an OrderedSet type here 
   sort!(separators, by = x -> length(x), rev = true)
 
   rows = Int[]
@@ -324,7 +335,8 @@ function find_components(H::Dict{Int, Vector{Int}}, clique_ind::Vector{Int})
     for v in clique_ind
         if visited[v] == false
             component = VertexSet()
-            push!(components, DFS_hashtable!(component, v, visited, H))
+            DFS_hashtable!(component, v, visited, H)
+            push!(components, component)
         end
     end
     return components
@@ -353,7 +365,6 @@ function DFS_hashtable!(
             DFS_hashtable!(component, n, visited, H)
         end
     end
-    return component
 end
 
 
@@ -424,6 +435,8 @@ function ispermissible(
     common_neighbors = intersect(adjacency_table[c_1], adjacency_table[c_2])
 
     # N.B. This is allocating and could be made more efficient
+    # Here OrderedSets return equality if they have the same 
+    # elements, regardless of insertion order.
     for neighbor in common_neighbors
         intersect(snode[c_1], snode[neighbor]) != intersect(snode[c_2], snode[neighbor]) && return false
     end
@@ -452,18 +465,7 @@ function max_elem(A::SparseMatrixCSC{T}) where {T}
 end
 
 function edge_from_index(A::SparseMatrixCSC{T, Int}, ind::Int) where {T}
-    # find the edge for that value
-    row = A.rowval[ind]
-    n = size(A, 2)
-    col = 0
-    for c = 1:n
-      col_indices = A.colptr[c]:A.colptr[c+1]-1
-      if in(ind, col_indices)
-        col = c
-        break;
-      end
-    end
-    return (row, col)
+    index_to_coord(M,ind)
   end
   
 
@@ -475,7 +477,7 @@ function clique_intersections!(E::SparseMatrixCSC{T}, snd::Vector{VertexSet}) wh
     for col in 1:size(E, 2)
       for j in nzrange(E, col)
         row = rows[j]
-        E[row, col] = intersect_dim(snd[row], snd[col])
+        E.nzval[j] = intersect_dim(snd[row], snd[col])
       end
     end
     return nothing
@@ -514,26 +516,28 @@ end
 
 
 function kruskal!(E::SparseMatrixCSC{T}, num_cliques::Int) where{T}
-  num_initial_cliques = size(E, 2)
 
-  # PJG Ref implementation: https://github.com/JuliaCollections/DataStructures.jl/blob/master/src/disjoint_set.jl
+  num_initial_cliques = size(E, 2)
 
   connected_c = DataStructures.IntDisjointSets(num_initial_cliques)
 
   I, J, V = findnz(E)
+
   # sort the weights and edges from maximum to minimum value
   p = sortperm(V, rev = true)
-  I = I[p]
+  I = I[p]                                            
   J = J[p]
-  V = V[p]
   num_edges_found = 0
+
   # iterate through edges (I -- J) with decreasing weight
-  for k = 1:length(V)
+  for k in eachindex(I)
     row = I[k]
     col = J[k]
+
     if !in_same_set(connected_c, row, col)
         union!(connected_c, row, col)
         # indicate an edge in the MST with a negative value in E (all other values are >= 0)
+        # PJG: I think here E[row,col] == E.nzval[p[k]] and could be assigned that way
         E[row, col] = -1.0
         num_edges_found += 1
         # break when all cliques are connected in one tree
@@ -569,12 +573,13 @@ function determine_parent_cliques!(
 
     # recursively assign children to cliques along the MST defined by E
     assign_children!(snode_parent, snode_children, c, E)
+
     return nothing
 end
 
 
 function assign_children!(
-  snode_parent::Vector{Int},
+  snode_parent::Vector{Int}, 
   snode_children::Vector{VertexSet},
   c::Int,
   edges::SparseMatrixCSC{T}
@@ -582,6 +587,7 @@ function assign_children!(
 
   # determine neighbors
   neighbors = find_neighbors(edges, c)
+
   for n in neighbors
     # conditions that there is a edge in the MST and that n is not the parent of c
     if edges[max(c, n), min(c, n)] == -1.0 && snode_parent[c] != n
@@ -598,14 +604,14 @@ end
 
 function find_neighbors(edges::SparseMatrixCSC, c::Int)
   neighbors = zeros(Int, 0)
-  m, n = size(edges)
+  _, n = size(edges)
   # find all nonzero columns in row c up to column c
   if c > 1
     neighbors = vcat(neighbors, findall(x -> x != 0, edges[c, 1:c-1]))
   end
   # find all nonzero entries in column c below c
   if c < n
-    rows = edges.rowval[edges.colptr[c]:edges.colptr[c+1]-1]
+    rows = @view edges.rowval[edges.colptr[c]:edges.colptr[c+1]-1]
     if edges.colptr[c] <= edges.colptr[c+1] - 1
       neighbors = vcat(neighbors, rows)
     end
@@ -669,7 +675,7 @@ end
 
 #Given two cliques `c_a` and `c_b` return a value for their edge weight.
 
-function edge_metric(c_a::VertexSet, c_b::VertexSet, edge_weight::EdgeWeightMethod) 
+function _edge_metric(c_a::VertexSet, c_b::VertexSet, edge_weight::EdgeWeightMethod) 
   n_1 = length(c_a)
   n_2 = length(c_b)
 
@@ -687,7 +693,7 @@ end
 #PJG: this function appears to give better performance, but deactived 
 #since I want to agree with COSMO results for testing 
 
-function _edge_metric(c_a::VertexSet, c_b::VertexSet, edge_weight::EdgeWeightMethod) 
+function edge_metric(c_a::VertexSet, c_b::VertexSet, edge_weight::EdgeWeightMethod) 
   
   n_1 = triangular_number(length(c_a))
   n_2 = triangular_number(length(c_b))

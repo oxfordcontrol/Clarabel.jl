@@ -4,7 +4,7 @@ function decomp_augment!(
     q::Vector{T},
     A::SparseMatrixCSC{T},
     b::Vector{T},
-    settings::Clarabel.Settings{T}
+    settings::Settings{T}
 ) where{T}
 
     if settings.chordal_decomposition_compact 

@@ -78,10 +78,10 @@ function find_sparsity_patterns!(
     for (coneidx, (cone,rowrange)) in enumerate(zip(cones,rng_cones))
 
         if isa(cone, PSDTriangleConeT)
-            analyse_sparsity_pattern!(
+            analyse_psdtriangle_sparsity_pattern!(
                 chordal_info,
                 view(nz_mask,rowrange),
-                cone,
+                cone.dim,
                 coneidx,
                 merge_method)
         end
@@ -89,34 +89,19 @@ function find_sparsity_patterns!(
 end
 
 
-function find_aggregate_sparsity_mask(
-    A::SparseMatrixCSC{T}, 
-    b::Vector{T},
-) where {T <: AbstractFloat}
-
-    # returns true in every row in which [A;b] has a nonzero
-
-    active = falses(length(b))
-    active[A.rowval] .= true
-    @. active |= (b != 0)
-    active
-end 
-
-
-function analyse_sparsity_pattern!(
+function analyse_psdtriangle_sparsity_pattern!(
     chordal_info::ChordalInfo, 
     nz_mask::AbstractVector{Bool}, 
-    cone::PSDTriangleConeT,
+    conedim::Int,
     coneidx::Int,
     merge_method::Symbol
 )
     # Force the diagonal entries to be marked, otherwise
     # the symbolic LDL step will fail.
-    for i = 1:cone.dim
+    for i = 1:conedim
         nz_mask[triangular_index(i)] = true
     end
 
-    @assert length(nz_mask) == nvars(cone)
     if all(nz_mask) 
         return #dense / decomposable
     end
@@ -188,9 +173,19 @@ end
 # FUNCTION DEFINITIONS
 # -------------------------------------
 
-# compute a logical Cholesky decomposition and associated 
-# ordering a for matrix with nonzero entries in the upper 
-# triangular part, provided as a vector
+function find_aggregate_sparsity_mask(
+    A::SparseMatrixCSC{T}, 
+    b::Vector{T},
+) where {T <: AbstractFloat}
+
+    # returns true in every row in which [A;b] has a nonzero
+
+    active = falses(length(b))
+    active[A.rowval] .= true
+    @. active |= (b != zero(T))
+    active
+end 
+
 
 function find_graph!(nz_mask::AbstractVector{Bool}) 
 	
@@ -226,6 +221,33 @@ function find_graph!(nz_mask::AbstractVector{Bool})
 end
 
 
+function connect_graph!(L::SparseMatrixCSC{Float64})
+
+ 	# unconnected blocks don't have any entries below the diagonal in their right-most columns
+	n = size(L, 2)
+	for j = 1:n-1
+
+        row_val = L.rowval
+        col_ptr = L.colptr
+
+		connected = false
+		for k in col_ptr[j]:col_ptr[j+1]-1
+			if row_val[k] > j
+				connected  = true
+				break
+			end
+		end
+        
+        #this insertion can happen in a midrange column, as long as 
+        #that column is the last one for a given block 
+		if !connected
+			L[j+1, j] = 1
+		end
+	end
+
+end
+
+
 # ----------------------------------------------
 # Iterator for the range of indices of the cones
 
@@ -249,35 +271,3 @@ function Base.iterate(C::RangeSupportedConesIterator, state=(1, 1))
         return (start:stop, state)
     end 
 end 
-
-
-# Given the indices of non-zero matrix elements in `linearidx`:
-#
-# - Compute the sparsity pattern and find a chordal extension using `QDLDL` with AMD ordering `F.perm`.
-# - If unconnected, connect the graph represented by the cholesky factor `L`
-#
-# implemented as a concrete Float64 matrix since we are only interested in the sparsity pattern
-# and QDLDL forces us toa analyze a matrix of some AbstractFloat, so we choose arbitrarily
-
-function connect_graph!(L::SparseMatrixCSC{Float64})
-
- 	# unconnected blocks don't have any entries below the diagonal in their right-most columns
-	m = size(L, 1)
-	row_val = L.rowval
-	col_ptr = L.colptr
-	for j = 1:m-1
-		connected = false
-		for k in col_ptr[j]:col_ptr[j+1]-1
-			if row_val[k] > j
-				connected  = true
-				break
-			end
-		end
-        #PJG: this insertion can happen in a midrange column, as long as 
-        #that column is the last one for a given block 
-		if !connected
-			L[j+1, j] = 1
-		end
-	end
-
-end

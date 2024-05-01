@@ -18,7 +18,7 @@ function margins(
         α = floatmax(T)
     else
         Z = K.data.workmat1
-        _svec_to_mat!(Z,z)
+        svec_to_mat!(Z,z)
         e = eigvals!(Hermitian(Z))  #NB: GenericLinearAlgebra doesn't support eigvals!(::Symmetric(...))
         α = minimum(e)  #minimum eigenvalue. 
     end
@@ -92,7 +92,7 @@ function update_scaling!(
     f = K.data
 
     (S,Z) = (f.workmat1,f.workmat2)
-    map((M,v)->_svec_to_mat!(M,v),(S,Z),(s,z))
+    map((M,v)->svec_to_mat!(M,v),(S,Z),(s,z))
 
     #compute Cholesky factors (PG: this is allocating)
     f.chol1 = cholesky!(S, check = false)
@@ -140,14 +140,14 @@ function update_scaling!(
     # for some useful identities, particularly section 3 on symmetric 
     # Kronecker product 
 
-    @inbounds kron!(f.kronRR,f.R,f.R)
+    kron!(f.kronRR,f.R,f.R)
 
     #B .= Q'*kRR, where Q' is the svec operator
     #this could be substantially faster
     for i = 1:size(f.B,2)
         @views M = reshape(f.kronRR[:,i],size(f.R,1),size(f.R,1))
         b = view(f.B,:,i)
-        _mat_to_svec!(b,M)
+        mat_to_svec!(b,M)
     end
 
     #compute Hs = triu(B*B')
@@ -198,10 +198,10 @@ function mul_Hs!(
     # way and then *never* hold Hs in the cone work data. 
     # Perhaps the calculation of scale factors that includes 
     # the kron(R,R) onwards could be done in a more compact 
-    # way since that internal Hs work variable is only really 
+    # way since the internal Hs work variable is only really 
     # needed to populate the KKT Hs block.   For a direct 
     # method that block is never needed, so better to only 
-    # form it in memory if get_Hs is actually called and 
+    # form it in memory if get_Hs is actually called  
     mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
     mul_W!(K,:T,y,work,one(T),zero(T))    #y = Wᵀwork = W^TWx
 
@@ -296,7 +296,7 @@ function _logdet_barrier(K::PSDTriangleCone{T},x::AbstractVector{T},dx::Abstract
     q = f.workvec 
 
     @. q  = x + alpha*dx
-    _svec_to_mat!(Q,q)
+    svec_to_mat!(Q,q)
 
     # PG: this is allocating
     f.chol1 = cholesky!(Q, check = false)
@@ -366,7 +366,7 @@ function λ_inv_circ_op!(
 ) where {T}
 
     (X,Z) = (K.data.workmat1,K.data.workmat2)
-    map((M,v)->_svec_to_mat!(M,v),(X,Z),(x,z))
+    map((M,v)->svec_to_mat!(M,v),(X,Z),(x,z))
 
     λ = K.data.λ
     for i = 1:K.n
@@ -374,7 +374,7 @@ function λ_inv_circ_op!(
             X[i,j] = 2*Z[i,j]/(λ[i] + λ[j])
         end
     end
-    _mat_to_svec!(x,X)
+    mat_to_svec!(x,X)
 
     return nothing
 end
@@ -392,7 +392,7 @@ function circ_op!(
 ) where {T}
 
     (Y,Z) = (K.data.workmat1,K.data.workmat2)
-    map((M,v)->_svec_to_mat!(M,v),(Y,Z),(y,z))
+    map((M,v)->svec_to_mat!(M,v),(Y,Z),(y,z))
 
     X = K.data.workmat3;
 
@@ -403,7 +403,7 @@ function circ_op!(
     else 
         X .= (Y*Z + Z*Y)/2
     end
-    _mat_to_svec!(x,Symmetric(X))
+    mat_to_svec!(x,Symmetric(X))
 
     return nothing
 end
@@ -445,7 +445,7 @@ function _mul_Wx_inner(
 ) where {T}
 
     (X,Y,tmp) = (workmat1,workmat2,workmat3)
-    map((M,v)->_svec_to_mat!(M,v),(X,Y),(x,y))
+    map((M,v)->svec_to_mat!(M,v),(X,Y),(x,y))
 
     if is_transpose === :T
         #Y .= α*(R*X*R')                #W^T*x    or....
@@ -459,7 +459,7 @@ function _mul_Wx_inner(
         mul!(Y,tmp,Rx,α,β)
     end
 
-    _mat_to_svec!(y,Y)
+    mat_to_svec!(y,Y)
 
     return nothing
 end
@@ -475,7 +475,7 @@ function _step_length_psd_component(
         γ = floatmax(T)
     else 
         # NB: this could be made faster since we only need to populate the upper triangle 
-        _svec_to_mat!(workΔ,d)
+        svec_to_mat!(workΔ,d)
         lrscale!(Λisqrt.diag,workΔ,Λisqrt.diag)
         # GenericLinearAlgebra doesn't support eigvals!(::Symmetric(::Matrix)), 
         # and doesn't support choosing a subset of values 
@@ -495,12 +495,12 @@ function _step_length_psd_component(
 end
 
 #make a matrix view from a vectorized input
-function _svec_to_mat!( M::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
+function svec_to_mat!( M::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
 
     ISQRT2 = inv(sqrt(T(2)))
 
     idx = 1
-    for col = 1:size(M,2), row = 1:col
+    for col in axes(M,2), row in 1:col
         if row == col
             M[row,col] = x[idx]
         else
@@ -512,12 +512,12 @@ function _svec_to_mat!( M::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
 end
 
 
-function _mat_to_svec!(x::AbstractVector{T},M::AbstractMatrix{T}) where {T}
+function mat_to_svec!(x::AbstractVector{T},M::AbstractMatrix{T}) where {T}
 
     ISQRT2 = 1/sqrt(T(2))
 
     idx = 1
-    for col = 1:size(M,2), row = 1:col
+    for col in axes(M,2), row in 1:col
         @inbounds x[idx] = row == col ? M[row,col] : (M[row,col]+M[col,row])*ISQRT2
         idx += 1
     end

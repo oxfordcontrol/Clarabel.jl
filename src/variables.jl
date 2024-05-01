@@ -239,8 +239,11 @@ function variables_rescale!(variables)
 end
 
 
-# PJG: this should maybe not be a general Variables method, but 
-# rather just one for the default solver 
+# ----------------------
+# remaining functions are specific to DefaultVariables types 
+# only and not part of the general AbstractVariables interface 
+
+
 function variables_unscale!(
     variables::DefaultVariables{T},
     data::DefaultProblemData{T},

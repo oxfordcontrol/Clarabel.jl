@@ -35,6 +35,7 @@ end
 function evaluate(strategy::ParentChildMergeStrategy, t::SuperNodeTree, cand::Tuple{Int, Int})
   
   strategy.stop && return false
+
   (parent, child) = cand
   
   dim_parent_snode, dim_parent_sep = clique_dim(t, parent)
@@ -55,7 +56,7 @@ function merge_two_cliques!(
 ) 
   
   # determine which clique is the parent
-  (p, ch) = determine_parent(t, cand...)
+  (p, ch) = determine_parent(t, cand...);
 
   # merge child's vertex sets into parent's vertex set
   union!(t.snode[p], t.snode[ch])
@@ -126,6 +127,12 @@ function determine_parent(t::SuperNodeTree, c1::Int, c2::Int)
   end
 end
 
+# not implemented as part of the main SuperNodeTree interface since the 
+# index is not passed through the post ordering 
+function clique_dim(t::SuperNodeTree, i::Int)
+  return length(t.snode[i]), length(t.separators[i])
+end
+
 
 # Compute the amount of fill-in created by merging two cliques with the 
 # respective supernode and separator dimensions.
@@ -139,13 +146,5 @@ function fill_in(
   dim_parent = dim_parent_snode + dim_parent_sep
   dim_clique = dim_clique_snode + dim_clique_sep
 
-  return ((dim_parent - dim_clique_sep) * (dim_clique - dim_clique_sep))
+  return (dim_parent - dim_clique_sep) * (dim_clique - dim_clique_sep)
 end
-
-
-# not implemented as part of the main SuperNodeTree interface since the 
-# index is not passed through the post ordering 
-function clique_dim(t::SuperNodeTree, i::Int)
-  return length(t.snode[i]), length(t.separators[i])
-end
-

@@ -28,8 +28,7 @@ mutable struct SparsityPattern
         merge_cliques!(ParentChildMergeStrategy(), sntree)
 
       elseif merge_method == :clique_graph
-        # typed by T since the edge weights could be floats
-        merge_cliques!(CliqueGraphMergeStrategy{T}(), sntree)
+        merge_cliques!(CliqueGraphMergeStrategy(), sntree)
 
       else
         error("Unknown merge strategy: ", merge_method)

@@ -43,10 +43,10 @@ function find_compact_A_b_and_cones(
   Aa_I   = zeros(Int, Aa_nnz)
   Aa_J   = extra_columns(Aa_nnz, nnz(A) + 1, A.n + 1)
   Aa_V   = alternating_sequence(T, Aa_nnz, nnz(A) + 1)
-  findnz!(Aa_I, Aa_J, Aa_V, A)
+
+  findnz!(Aa_J, Aa_V, A)
 
   # allocate sparse components for the augmented b
-  # PJG: don't understand point of this sparse vector
   bs   = sparse(b)
   ba_I = zeros(Int, length(bs.nzval))
   ba_V = bs.nzval
@@ -77,7 +77,6 @@ function find_compact_A_b_and_cones(
         Aa_I, ba_I, cones_new, cone_maps, A, bs, row_range, 
         first(patterns_iter), first(patterns_count), 
         row_ptr, overlap_ptr)
-
     else 
       row_ptr, overlap_ptr = add_entries_with_cone!(
         Aa_I, ba_I, cones_new, cone_maps, A, bs, row_range, cone, row_ptr, overlap_ptr)
@@ -95,10 +94,21 @@ function find_compact_A_b_and_cones(
   A_new, b_new, cones_new
 end 
 
+# find the dimension of the `compact' form `A' matrix and its number of overlaps 
+function find_A_dimension(chordal_info::ChordalInfo{T}, A::SparseMatrixCSC{T}) where {T}
+
+  dim, num_overlaps  = get_decomposed_dim_and_overlaps(chordal_info)
+
+  rows = dim 
+  cols = A.n + num_overlaps
+
+  return rows, cols, num_overlaps
+
+end 
+
 
 # Given the row, column, and nzval vectors and dimensions, assembles the sparse matrix `Aa` 
 # of the decomposed problem in a slightly more memory efficient way.
-
 function allocate_sparse_matrix(
   Aa_I::Vector{Int}, 
   Aa_J::Vector{Int}, 
@@ -130,12 +140,12 @@ function add_entries_with_cone!(
 ) where {T}
 
   n = A.n
-
-  # populate b 
   offset = row_ptr - row_range.start
 
+
+  # populate b 
   row_range_col = get_rows_vec(b, row_range)
-  if row_range_col != 0:0
+  if !isnothing(row_range_col)
     for k in row_range_col
       ba_I[k] = b.nzind[k] + offset
     end
@@ -145,7 +155,7 @@ function add_entries_with_cone!(
   for col = 1:n
     # indices that store the rows in column col in A
     row_range_col = get_rows_mat(A, col, row_range)
-    if row_range_col != 0:0
+    if !isnothing(row_range_col)
       for k in row_range_col
         Aa_I[k] = A.rowval[k] + offset
       end
@@ -221,6 +231,11 @@ function add_entries_with_sparsity_pattern!(
         row_range_col = get_rows_mat(A, col, row_range)
         row_range_b = col == 1 ? get_rows_vec(b, row_range) : 0:0
 
+        #PJG this method for producing empty ranges is gross
+        #should just be Nothing
+        row_range_col = isnothing(row_range_col) ? (1:0) : row_range_col
+        row_range_b = isnothing(row_range_b) ? (1:0) : row_range_b
+
         overlap_ptr = add_clique_entries!(
         A_I, b_I, A.rowval, b.nzind, block_indices, 
         parent_clique, parent_rows, col, 
@@ -239,7 +254,7 @@ function add_entries_with_sparsity_pattern!(
     
   end
 
-  return return row_ptr, overlap_ptr
+  return row_ptr, overlap_ptr
 
 end
 
@@ -283,7 +298,7 @@ function add_clique_entries!(
       col == 1 && modify_clique_rows!(b_I, k, b_nzind, new_row_val, row_range, row_range_b)
 
     end
-  counter += 1
+    counter += 1
 
   end
   return overlap_ptr
@@ -319,9 +334,13 @@ function get_row_index(
   rowval::Vector{Int}, 
   row_range::UnitRange{Int}, 
   row_range_col::UnitRange{Int}
-
   )
-  row_range_col == 0:0 && return 0
+
+  #PJG: possible logic error here, since we don't pass down a Union type 
+  #this far.  Fix this and use Option everywhere, or short circuit 
+  #higher up the call stack.   Should also return Nothing instead of 0
+  isnothing(row_range_col) && return 0
+
   k_shift = row_range.start + k - 1
 
   # determine upper set boundary of where the row could be
@@ -338,7 +357,10 @@ function get_row_index(
   else
     return r
   end
+   
+
 end
+
 
 
 # Find the index of k=svec(i, j) in the parent clique `par_clique`.#
@@ -362,7 +384,6 @@ function get_block_indices(snode::Array{Int}, separator::Array{Int}, nv::Int)
   N = length(separator) + length(snode)
 
   block_indices = sizehint!(Tuple{Int, Int, Bool}[],triangular_number(N))
-  ind = 1
 
   for j in separator, i in separator
     if i <= j
@@ -393,6 +414,9 @@ end
 function clique_rows_map(row_start::Int, sntree::SuperNodeTree)
   
   n_cliques = sntree.n_cliques
+
+  # PJG: rows / inds not necessary here.   Should just size hint 
+  # on the output Dict and push the entries directly to it
   rows = sizehint!(UnitRange{Int}[],  n_cliques)
   inds = sizehint!(Int[], n_cliques)
 
@@ -406,54 +430,44 @@ function clique_rows_map(row_start::Int, sntree::SuperNodeTree)
   return Dict(inds .=> rows)
 end
 
+function get_rows_subset(rows, row_range)
+
+  if length(rows) == 0
+    return nothing
+  end
+
+  s = searchsortedfirst(rows, row_range.start)
+  if s == length(rows) + 1
+    return nothing
+  end
+
+  if rows[s] > row_range.stop || s == 0
+      return nothing
+  else
+    e = searchsortedlast(rows, row_range.stop)
+    return s:e
+  end
+
+end
 
 function get_rows_vec(b::SparseVector, row_range::UnitRange{Int})
-    rows = b.nzind
-    if length(rows) > 0
   
-      s = searchsortedfirst(rows, row_range.start)
-      if s == length(rows) + 1
-        return 0:0
-      end
-  
-      if rows[s] > row_range.stop || s == 0
-          return 0:0
-      else
-        e = searchsortedlast(rows, row_range.stop)
-        return s:e
-      end
-    else
-      return 0:0
-    end
+    get_rows_subset(b.nzind, row_range)
   
   end
   
   function get_rows_mat(A::SparseMatrixCSC, col::Int, row_range::UnitRange{Int})
 
     colrange = A.colptr[col]:(A.colptr[col + 1]-1)
-  
-    # if the column has entries
-    if colrange.start <= colrange.stop
-      # create a view into the row values of column col
-      rows = view(A.rowval, colrange)
-      # find the rows within row_start:row_start+C.dim-1
-      # s: index of first entry in rows >= row_start
-      s = searchsortedfirst(rows, row_range.start)
-  
-      # if no entry in that row_range
-      if s == length(rows) + 1
-        return 0:0
-      end
-      if rows[s] > row_range.stop || s == 0
-        return 0:0
-      else
-        # e: index of last value in rows <= row_start + C.dim - 1
-        e = searchsortedlast(rows, row_range.stop)
-        return colrange[s]:colrange[e]
-      end
-    else
-      return 0:0
+    rows = view(A.rowval, colrange)
+    se = get_rows_subset(rows, row_range)
+
+    if isnothing(se)
+      return nothing
     end
+
+    colrange[se.start]:colrange[se.stop]
+
   end
 
 
@@ -462,7 +476,7 @@ function get_rows_vec(b::SparseVector, row_range::UnitRange{Int})
 
 function alternating_sequence(T, total_length::Int, n_start::Int)
   v = ones(T, total_length)
-  for i= n_start + 1:2:length(v)
+  for i= (n_start + 1):2:length(v)
     v[i] = -one(T)
   end
   return v
@@ -485,29 +499,14 @@ end
 
 # Given sparse matrix components, write the columns and non-zero values into the first `numnz` entries of `J` and `V`.
 
-function findnz!(I::Vector{Ti}, J::Vector{Ti}, V::Vector{Tv}, S::SparseMatrixCSC{Tv,Ti}) where {Tv,Ti}
-    numnz = nnz(S)
+function findnz!(J::Vector{Ti}, V::Vector{Tv}, S::SparseMatrixCSC{Tv,Ti}) where {Tv,Ti}
     count = 1
     @inbounds for col = 1 : S.n, k = S.colptr[col] : (S.colptr[col+1]-1)
-       # I[count] = S.rowval[k]
         J[count] = col
         V[count] = S.nzval[k]
         count += 1
     end
 end
-
-# find the dimension of the `compact' form `A' matrix and its number of overlaps 
-
-function find_A_dimension(chordal_info::ChordalInfo{T}, A::SparseMatrixCSC{T}) where {T}
-
-  dim, num_overlaps  = get_decomposed_dim_and_overlaps(chordal_info)
-
-  rows = dim 
-  cols = A.n + num_overlaps
-
-  return rows, cols, num_overlaps
-
-end 
 
 
 # Intentionally defined here separately from the other SuperNodeTree functions.

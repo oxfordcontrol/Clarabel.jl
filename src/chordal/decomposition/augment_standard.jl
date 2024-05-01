@@ -12,9 +12,7 @@ function decomp_augment_standard!(
 
   # allocate H and new decomposed cones.  H will be stored
   # in chordal_info and is required for the reversal step 
-
   H, cones_new = find_standard_H_and_cones!(chordal_info)
-
 
   P_new = blockdiag(P, spzeros(T, H.n, H.n))
 
@@ -25,6 +23,10 @@ function decomp_augment_standard!(
 
   b_new = zeros(T, length(b) + H.n)
   b_new[1:length(b)] .= b
+
+  # save the H matrix for use when reconstructing 
+  # solution to the original problem
+  chordal_info.H = H
 
   return P_new, q_new, A_new, b_new, cones_new
 
@@ -48,7 +50,7 @@ function find_standard_H_and_cones!(
   cones_new = sizehint!(SupportedCone[], post_cone_count(chordal_info) + 1)
 
   # +1 cone count above is for this equality constraint 
-  (n,m) = chordal_info.init_dims
+  (_,m) = chordal_info.init_dims
   push!(cones_new, ZeroConeT(m))
 
   # an iterator for the patterns.  We will expand cones assuming that 
@@ -71,12 +73,15 @@ function find_standard_H_and_cones!(
 
   H = sparse(H_I, collect(1:lenH), ones(T,lenH))
 
-  # save the H matrix for use when reconstructing 
-  # solution to the original problem
-  chordal_info.H = H
-
   return H, cones_new
 end
+
+function find_H_col_dimension(chordal_info::ChordalInfo{T}) where {T}
+
+  cols, _ = get_decomposed_dim_and_overlaps(chordal_info)
+  return cols
+end 
+
 
 function decompose_with_cone!(
   H_I::Vector{Int}, 
@@ -120,7 +125,7 @@ function decompose_with_sparsity_pattern!(
 end
 
 
-function add_subblock_map!(H_I::Vector{Int}, clique_vertices::Array{Int}, row_start::Int)
+function add_subblock_map!(H_I::Vector{Int}, clique_vertices::Vector{Int}, row_start::Int)
 
   v = clique_vertices
 
@@ -129,13 +134,5 @@ function add_subblock_map!(H_I::Vector{Int}, clique_vertices::Array{Int}, row_st
       push!(H_I, row_start + row - 1)
   end
 end
-
-
-function find_H_col_dimension(chordal_info::ChordalInfo{T}) where {T}
-
-  cols, _ = get_decomposed_dim_and_overlaps(chordal_info)
-  return cols
-
-end 
 
 

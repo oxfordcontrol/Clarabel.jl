@@ -23,54 +23,10 @@ end
 is_reduced(ps::Presolver{T})    where {T} = !isnothing(ps.reduce_map)
 count_reduced(ps::Presolver{T}) where {T} = ps.mfull  - ps.mreduced
 
-function make_reduction_map(
-    cones::Vector{SupportedCone}, 
-    b::Vector{T},
-    infbound::T
-) where {T}
-
-    keep_logical = trues(length(b))
-    mreduced     = length(b)
-
-    # only try to reduce nn cones. Make a slight contraction
-    # so that we are firmly "less than" here
-    infbound *= (1-10*eps(T))
-
-    idx = 1
-
-    for cone in cones
-        numel_cone = nvars(cone)
-
-        if isa(cone, NonnegativeConeT)
-            for _ in 1:numel_cone
-                if b[idx] > infbound
-                    keep_logical[idx] = false
-                    mreduced -= 1
-                end
-                idx += 1
-            end
-        else 
-            # skip this cone 
-            idx += numel_cone
-        end   
-    end
-
-    outoption = 
-    let
-        if mreduced < length(b)  
-            PresolverRowReductionIndex(keep_logical)
-        else 
-            nothing
-        end
-    end
-
-    (outoption, mreduced)
-end 
-
 
 function presolve(
     presolver::Presolver{T}, 
-    A::AbstractMatrix{T}, 
+    A::SparseMatrixCSC{T}, 
     b::Vector{T}, 
     cones::Vector{SupportedCone}
 ) where {T}
@@ -84,7 +40,7 @@ end
 
 function reduce_A_b(
     presolver::Presolver{T}, 
-    A::AbstractMatrix{T}, 
+    A::SparseMatrixCSC{T}, 
     b::Vector{T}
 ) where{T}
 
@@ -104,10 +60,6 @@ function reduce_cones(
 
     @assert !isnothing(presolver.reduce_map)
     map = presolver.reduce_map
-
-    # assume that we will end up with the same 
-    # number of cones, despite small possibility 
-    # that some will be completely eliminated
 
     cones_new = sizehint!(SupportedCone[],length(cones))
     keep_iter = Iterators.Stateful(map.keep_logical)
@@ -154,3 +106,48 @@ function reverse_presolve!(
     end
 
 end
+
+
+function make_reduction_map(
+    cones::Vector{SupportedCone}, 
+    b::Vector{T},
+    infbound::T
+) where {T}
+
+    keep_logical = trues(length(b))
+    mreduced     = length(b)
+
+    # only try to reduce nn cones. Make a slight contraction
+    # so that we are firmly "less than" here
+    infbound *= (1-10*eps(T))
+
+    idx = 1 # index into the b vector
+
+    for cone in cones
+        numel_cone = nvars(cone)
+
+        if isa(cone, NonnegativeConeT)
+            for _ in 1:numel_cone
+                if b[idx] > infbound
+                    keep_logical[idx] = false
+                    mreduced -= 1
+                end
+                idx += 1
+            end
+        else 
+            # skip this cone 
+            idx += numel_cone
+        end   
+    end
+
+    outoption = 
+    let
+        if mreduced < length(b)  
+            PresolverRowReductionIndex(keep_logical)
+        else 
+            nothing
+        end
+    end
+
+    (outoption, mreduced)
+end 

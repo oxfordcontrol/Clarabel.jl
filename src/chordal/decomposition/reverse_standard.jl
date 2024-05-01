@@ -10,7 +10,7 @@ function decomp_reverse_standard!(
 ) where {T}
 
     H     = chordal_info.H 
-    (n,m) = variables_dims(new_vars)  
+    (_,m) = variables_dims(new_vars)  
 
     mul!(new_vars.s, H, @view old_vars.s[(1+m):end])
     mul!(new_vars.z, H, @view old_vars.z[(1+m):end])

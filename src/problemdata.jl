@@ -22,7 +22,7 @@ function DefaultProblemData{T}(
 
 	# presolve : return nothing if disabled or no reduction
 	# --------------------------------------
-	presolver = try_presolver(A,b,cones,settings)  # same name twice
+	presolver = try_presolver(A,b,cones,settings)  
 
 	if !isnothing(presolver)
 		(A_new, b_new, cones_new) = presolve(presolver, A, b, cones)
