@@ -65,16 +65,15 @@ function reduce_cones(
     keep_iter = Iterators.Stateful(map.keep_logical)
 
     for cone in cones 
-
         numel_cone = nvars(cone)
-        markers    = Iterators.take(keep_iter,numel_cone)
         
         if isa(cone, NonnegativeConeT)
-            nkeep = count(markers)
+            nkeep = count(Iterators.take(keep_iter,numel_cone))
             if nkeep > 0
                 push!(cones_new, NonnegativeConeT(nkeep))
             end 
         else 
+            keep_iter = Iterators.drop(keep_iter,numel_cone)
             push!(cones_new, deepcopy(cone))
         end         
     end

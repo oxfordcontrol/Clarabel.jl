@@ -129,19 +129,49 @@ function init_cone_count(chordal_info::ChordalInfo)
     length(chordal_info.init_cones)
 end
 
-
- # Determine the total number of sets `num_total` after decomposition 
-# and the number of new psd cones `num_new_psd_cones`.
-function post_cone_count(chordal_info::ChordalInfo)
-
-# sum the number of cliques in each spattern
-    npatterns = length(chordal_info.spatterns)
-    ncliques  = sum([spattern.sntree.n_cliques for spattern in chordal_info.spatterns])
-
-    # subtract npatterns to avoid double counting the 
-    # original decomposed cones 
-    return init_cone_count(chordal_info) - npatterns + ncliques
+# total number of PSD cones we started with 
+function init_psd_cone_count(chordal_info::ChordalInfo)
+    count(c -> isa(c,PSDTriangleConeT), chordal_info.init_cones)
 end
+
+# total number of cones of all types after decomp and merge
+function final_cone_count(chordal_info::ChordalInfo)
+    return init_cone_count(chordal_info) + final_psd_cones_added(chordal_info)
+end
+
+# total number of PSD cones after decomp and merge
+function final_psd_cone_count(chordal_info::ChordalInfo)
+    return init_psd_cone_count(chordal_info) + final_psd_cones_added(chordal_info)
+end
+
+# total number of PSD cones after decomp and merge
+function premerge_psd_cone_count(chordal_info::ChordalInfo)
+    return init_psd_cone_count(chordal_info) + premerge_psd_cones_added(chordal_info)
+end
+
+# total number of PSD cones that were decomposable
+function decomposable_cone_count(chordal_info::ChordalInfo)
+    length(chordal_info.spatterns)
+end
+
+# Net PSD cones added after decomposition and merging
+function final_psd_cones_added(chordal_info::ChordalInfo)
+        # sum the number of cliques in each spattern
+        ncliques  = sum([spattern.sntree.n_cliques for spattern in chordal_info.spatterns])
+        ndecomposable = decomposable_cone_count(chordal_info)
+        #subtract to avoid double counting
+        ncliques - ndecomposable
+end
+
+# PSD cones added by decomposition, and before merging
+function premerge_psd_cones_added(chordal_info::ChordalInfo)
+    # sum the number of cliques in each spattern
+    ncones  = sum([length(spattern.sntree.snode) for spattern in chordal_info.spatterns])
+    ndecomposable = decomposable_cone_count(chordal_info)
+    #subtract to avoid double counting
+    ncones - ndecomposable
+end
+
 
 
 function get_decomposed_dim_and_overlaps(chordal_info::ChordalInfo{T}) where{T}

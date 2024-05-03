@@ -53,7 +53,7 @@ function find_compact_A_b_and_cones(
 
   # preallocate the decomposed cones and the mapping 
   # from decomposed cones back to the originals
-  n_decomposed = post_cone_count(chordal_info)
+  n_decomposed = final_cone_count(chordal_info)
   cones_new = sizehint!(SupportedCone[], n_decomposed)
   cone_maps = sizehint!(ConeMapEntry[],  n_decomposed)
 

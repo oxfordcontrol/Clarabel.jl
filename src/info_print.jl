@@ -25,6 +25,10 @@ function info_print_configuration(
         @printf(io, "\npresolve: removed %i constraints\n", count_reduced(data.presolver))
     end 
 
+    if(!isnothing(data.chordal_info))
+        print_chordal_decomposition(io, data.chordal_info, settings)
+    end
+
     @printf(io, "\nproblem:\n")
     @printf(io, "  variables     = %i\n", data.n)
     @printf(io, "  constraints   = %i\n", data.m)
@@ -176,6 +180,26 @@ function print_settings(io::IO, settings::Settings{T}) where {T}
 
     return nothing
 end
+
+function print_chordal_decomposition(io::IO, chordal_info::ChordalInfo{T}, settings::Settings{T}) where {T}
+
+    @printf(io, "\nchordal decomposition:\n")
+    @printf(io, "  compact format = %s, dual completion = %s\n", 
+            bool_on_off(settings.chordal_decomposition_compact), 
+            bool_on_off(settings.chordal_decomposition_complete_dual))
+
+    @printf(io, "  merge method = %s\n", settings.chordal_decomposition_merge_method) 
+
+    @printf(io, "  PSD cones initial             = %d\n",
+            init_psd_cone_count(chordal_info))
+    @printf(io, "  PSD cones decomposable        = %d\n",
+            decomposable_cone_count(chordal_info))
+    @printf(io, "  PSD cones after decomposition = %d\n",
+            premerge_psd_cone_count(chordal_info))
+    @printf(io, "  PSD cones after merges        = %d\n",
+            final_psd_cone_count(chordal_info))
+
+end 
 
 
 get_precision_string(T::Type{<:Real}) = string(T)

@@ -47,7 +47,7 @@ function find_standard_H_and_cones!(
   H_I  = sizehint!(Int[], lenH)
 
   # ncones from decomposition, plus one for an additional equality constraint
-  cones_new = sizehint!(SupportedCone[], post_cone_count(chordal_info) + 1)
+  cones_new = sizehint!(SupportedCone[], final_cone_count(chordal_info) + 1)
 
   # +1 cone count above is for this equality constraint 
   (_,m) = chordal_info.init_dims
