@@ -340,18 +340,16 @@ function solve!(
         @notimeit info_print_status(s.info,s.settings)
     end 
 
-    # problem here.   Info finalize fixes the final 
-    # time, which must be stored in the solution.  But 
-    # that misses out the time for PSD completion
-    @timeit s.timers "finalize" begin
+    @timeit s.timers "post-process" begin
         #check for "almost" convergence checks and then extract solution
         info_post_process!(s.info,s.residuals,s.settings) 
         solution_post_process!(s.solution,s.data,s.variables,s.info,s.settings)
-        #halts timers
-        info_finalize!(s.info,s.timers) 
-        solution_finalize!(s.solution,s.info)
-
     end 
+    
+    #halt timers
+    info_finalize!(s.info,s.timers) 
+    solution_finalize!(s.solution,s.info)
+    
 
     @notimeit info_print_footer(s.info,s.settings)
 
