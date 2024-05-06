@@ -465,7 +465,7 @@ function max_elem(A::SparseMatrixCSC{T}) where {T}
 end
 
 function edge_from_index(A::SparseMatrixCSC{T, Int}, ind::Int) where {T}
-    index_to_coord(M,ind)
+    index_to_coord(A,ind)
   end
   
 
@@ -571,13 +571,35 @@ function determine_parent_cliques!(
       end
     end
 
-    # recursively assign children to cliques along the MST defined by E
+    # assign children to cliques along the MST defined by E
     assign_children!(snode_parent, snode_children, c, E)
 
     return nothing
 end
 
 
+# function assign_children!(
+#   snode_parent::Vector{Int}, 
+#   snode_children::Vector{VertexSet},
+#   c::Int,
+#   edges::SparseMatrixCSC{T}
+# ) where {T}
+
+#   # determine neighbors
+#   neighbors = find_neighbors(edges, c)
+
+#   for n in neighbors
+#     # conditions that there is a edge in the MST and that n is not the parent of c
+#     if edges[max(c, n), min(c, n)] == -1.0 && snode_parent[c] != n
+#       snode_parent[n] = c
+#       push!(snode_children[c], n)
+#       assign_children!(snode_parent, snode_children, n, edges)
+#     end
+#   end
+#   return nothing
+# end
+
+#NB: non-recursive version of the COSMO.jl implementation 
 function assign_children!(
   snode_parent::Vector{Int}, 
   snode_children::Vector{VertexSet},
@@ -585,18 +607,20 @@ function assign_children!(
   edges::SparseMatrixCSC{T}
 ) where {T}
 
-  # determine neighbors
-  neighbors = find_neighbors(edges, c)
+  stack = [c]  
+  while !isempty(stack)
+      c = pop!(stack)
+      neighbors = find_neighbors(edges, c)
 
-  for n in neighbors
-    # conditions that there is a edge in the MST and that n is not the parent of c
-    if edges[max(c, n), min(c, n)] == -1.0 && snode_parent[c] != n
-      snode_parent[n] = c
-      push!(snode_children[c], n)
-      assign_children!(snode_parent, snode_children, n, edges)
-    end
+      for n in neighbors
+          # conditions that there is an edge in the MST and that n is not the parent of c
+          if edges[max(c, n), min(c, n)] == -1.0 && snode_parent[c] != n
+              snode_parent[n] = c
+              push!(snode_children[c], n)
+              push!(stack, n)  # Add child to stack for processing
+          end
+      end
   end
-  return nothing
 end
 
 
@@ -690,8 +714,8 @@ function _edge_metric(c_a::VertexSet, c_b::VertexSet, edge_weight::EdgeWeightMet
 end
 
 
-#PJG: this function appears to give better performance, but deactived 
-#since I want to agree with COSMO results for testing 
+#PJG: this function appears to give better performance, but can be deactived 
+#if favor of the above to agree with COSMO results for testing 
 
 function edge_metric(c_a::VertexSet, c_b::VertexSet, edge_weight::EdgeWeightMethod) 
   
