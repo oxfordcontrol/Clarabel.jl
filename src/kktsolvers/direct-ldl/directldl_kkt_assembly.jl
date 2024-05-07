@@ -80,8 +80,8 @@ function _kkt_assemble_colcounts(
         row = first(cones.rng_cones[i]) + n
 
         #add the the Hs blocks in the lower right
-        blockdim = numel(cone)
-        if Hs_is_diagonal(cone)
+        @conedispatch blockdim = numel(cone)
+        if @conedispatch Hs_is_diagonal(cone)
             _csc_colcount_diag(K,row,blockdim)
         else
             _csc_colcount_dense_triangle(K,row,blockdim,shape)
@@ -133,10 +133,10 @@ function _kkt_assemble_fill(
         row = first(cones.rng_cones[i]) + n
 
         #add the the Hs blocks in the lower right
-        blockdim = numel(cone)
+        @conedispatch blockdim = numel(cone)
         block    = view(map.Hsblocks,cones.rng_blocks[i])
 
-        if Hs_is_diagonal(cone)
+        if @conedispatch Hs_is_diagonal(cone)
             _csc_fill_diag(K,block,row,blockdim)
         else
             _csc_fill_dense_triangle(K,block,row,blockdim,shape)

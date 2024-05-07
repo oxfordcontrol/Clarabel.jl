@@ -179,7 +179,7 @@ end
 # utility functions for SuperNodeTree
 
 
-function parent_from_L(L::SparseMatrixCSC{T}) where {T}
+function parent_from_L(L::SparseMatrixCSC{T,Int}) where {T}
 
 	parent = fill(NO_PARENT, L.n)
 	# loop over vertices of graph
@@ -196,9 +196,9 @@ end
 
 
 function find_separators(
-	L::SparseMatrixCSC, 
+	L::SparseMatrixCSC{T,Int}, 
 	snode::Vector{VertexSet}
-)
+) where {T}
 	separators = new_vertex_sets(length(snode))
 
 	for (sn, sep) in zip(snode, separators)

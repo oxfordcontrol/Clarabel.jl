@@ -43,7 +43,13 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     diagonal_regularizer::T
 
 
-    function DirectLDLKKTSolver{T}(P,A,cones,m,n,settings) where {T}
+    function DirectLDLKKTSolver{T}(
+        P::SparseMatrixCSC{T},
+        A::SparseMatrixCSC{T},
+        cones::CompositeCone{T},
+        m::Int,n::Int,
+        settings::Settings{T}
+    ) where {T}
 
         # get a constructor for the LDL solver we should use,
         # and also the matrix shape it requires

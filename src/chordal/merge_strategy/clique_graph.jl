@@ -20,8 +20,8 @@
 
 mutable struct CliqueGraphMergeStrategy <: AbstractMergeStrategy
   stop::Bool                                  # a flag to indicate that merging should be stopped
-  edges::SparseMatrixCSC{Int}                 # the edges and weights of the reduced clique graph
-  p::Vector{Int}                            # as a workspace variable to store the sorting of weights
+  edges::SparseMatrixCSC{Int,Int}             # the edges and weights of the reduced clique graph
+  p::Vector{Int}                              # as a workspace variable to store the sorting of weights
   adjacency_table::Dict{Int, VertexSet}       # a double structure of edges, to allow fast lookup of neighbors
   edge_weight::EdgeWeightMethod               # used to dispatch onto the correct scoring function
 
