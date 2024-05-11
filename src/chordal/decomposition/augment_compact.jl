@@ -4,6 +4,8 @@
 # positive semidefinite matrix completion (2011), p.53
 # -----------------------------------------
 
+const BlockOverlapTriplet = Tuple{Int, Int, Bool}
+
 function decomp_augment_compact!(
     chordal_info::ChordalInfo,
     P::SparseMatrixCSC{T},
@@ -268,7 +270,7 @@ function add_clique_entries!(
   b_I::Vector{Int}, 
   A_rowval::Vector{Int}, 
   b_nzind::Vector{Int}, 
-  block_indices::Vector{Tuple{Int, Int, Bool}},  
+  block_indices::Vector{BlockOverlapTriplet},  
   parent_clique::Vector{Int}, 
   parent_rows::UnitRange{Int}, 
   col::Int,  
@@ -383,7 +385,7 @@ function get_block_indices(snode::Array{Int}, separator::Array{Int}, nv::Int)
   
   N = length(separator) + length(snode)
 
-  block_indices = sizehint!(Tuple{Int, Int, Bool}[],triangular_number(N))
+  block_indices = sizehint!(BlockOverlapTriplet[],triangular_number(N))
 
   for j in separator, i in separator
     if i <= j
