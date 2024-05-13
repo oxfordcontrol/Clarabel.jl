@@ -122,46 +122,61 @@ function update_scaling!(
     mul!(f.Rinv,f.SVD.U',L2')
     mul!(f.Rinv,f.Λisqrt,f.Rinv) #mul! can take Rinv twice because Λ is diagonal
 
-
-    # PJG: The following steps force us to form Hs in memory 
-    # in the scaling update, even if we aren't using a
-    # direct method and therefore never actually require 
-    # the matrix Hs to be formed.   The steps below should 
-    # be simplified if possible and then only implemented 
-    # within get_Hs, placing the matrix directly into the 
-    # diagonal Hs block provided by the direct factorizer.
-
-    # we should compute here the upper triangular part
-    # of the matrix Q* ((RR^T) ⨂ (RR^T)) * P.  The operator
-    # P is a matrix that transforms a packed triangle to
-    # a vectorized full matrix.  Q sends it back.  
-    #
-    # See notes by Kathrin Schäcke, 2013: "On the Kronecker Product"
-    # for some useful identities, particularly section 3 on symmetric 
-    # Kronecker product 
-
-    kron!(f.kronRR,f.R,f.R)
-
-    #B .= Q'*kRR, where Q' is the svec operator
-    #this could be substantially faster
-    for i = 1:size(f.B,2)
-        @views M = reshape(f.kronRR[:,i],size(f.R,1),size(f.R,1))
-        b = view(f.B,:,i)
-        mat_to_svec!(b,M)
-    end
-
-    #compute Hs = triu(B*B')
-    # PJG: I pack this into triu form by calling 
-    # pack_triu with get_Hs.   Would be ideal 
-    # if this could be done directly, but it's 
-    # not clear how to do so via blas. 
+    #compute R*R' 
+    RRt = f.workmat1;
+    RRt .= zero(T)
     if T <: LinearAlgebra.BlasFloat
-        LinearAlgebra.BLAS.syrk!('U', 'N', one(T), f.B, zero(T), f.Hs)
+        LinearAlgebra.BLAS.syrk!('U', 'N', one(T), f.R, zero(T), RRt)
     else 
-        f.Hs .= f.B*f.B'
+        RRt .= f.R*f.R'
     end
+
+    skron!(f.Hs,Symmetric(RRt))
 
     return is_scaling_success = true
+end
+
+function skron!(
+    skr::AbstractMatrix{T},
+    mat::AbstractMatrix{T},
+) where {T <: Real}
+
+    rt2  = sqrt(2)
+    side = size(mat, 1)
+
+    col_idx = 1
+    @inbounds for l in 1:side
+        for k in 1:(l - 1)
+            row_idx = 1
+            for j in 1:side
+                matjl = mat[j, l]
+                matjk = mat[j, k]
+                for i in 1:(j - 1)
+                    skr[row_idx, col_idx] = mat[i, k] * matjl + mat[i, l] * matjk
+                    row_idx += 1
+                end
+                skr[row_idx, col_idx] = rt2 * matjl * matjk
+                row_idx += 1
+                (row_idx > col_idx) && break
+            end
+            col_idx += 1
+        end
+
+        row_idx = 1
+        for j in 1:side
+            matjl = mat[j, l]
+            for i in 1:(j - 1)
+                skr[row_idx, col_idx] = rt2 * mat[i, l] * matjl
+                row_idx += 1
+            end
+            skr[row_idx, col_idx] = abs2(matjl)
+            row_idx += 1
+            (row_idx > col_idx) && break
+        end
+        col_idx += 1
+    end
+
+    return skr
 end
 
 function Hs_is_diagonal(
