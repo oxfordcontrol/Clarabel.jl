@@ -235,7 +235,10 @@ function solve!(
             
             #update the scalings
             #--------------
+            @timeit s.timers "scale cones" begin
             is_scaling_success = variables_scale_cones!(s.variables,s.cones,μ,scaling)
+            end
+
             # check whether variables are interior points
             (action,scaling) = _strategy_checkpoint_is_scaling_success(s,is_scaling_success,scaling)
             if action === Fail;  break;

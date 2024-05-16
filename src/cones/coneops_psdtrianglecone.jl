@@ -116,13 +116,13 @@ function update_scaling!(
 
     #f.R = L1*(f.SVD.V)*f.Λisqrt
     mul!(f.R,L1,f.SVD.V);
-    mul!(f.R,f.R,f.Λisqrt) #mul! can take Rinv twice because Λ is diagonal
+    mul!(f.R,f.R,f.Λisqrt) #mul! can take R twice because Λ is diagonal
 
     #f.Rinv .= f.Λisqrt*(f.SVD.U)'*L2'
     mul!(f.Rinv,f.SVD.U',L2')
     mul!(f.Rinv,f.Λisqrt,f.Rinv) #mul! can take Rinv twice because Λ is diagonal
 
-    #compute R*R' 
+    #compute R*R' (upper triangular part only)
     RRt = f.workmat1;
     RRt .= zero(T)
     if T <: LinearAlgebra.BlasFloat
@@ -131,53 +131,16 @@ function update_scaling!(
         RRt .= f.R*f.R'
     end
 
+    # PJG: it is possibly faster to compute the whole of RRt, and not 
+    # just the upper triangle using syrk!, because then skron! can be 
+    # be called with a Matrix type instead of Symmetric.   The internal 
+    # indexing within skron! is then more straightforward and probably 
+    # faster.
     skron!(f.Hs,Symmetric(RRt))
 
     return is_scaling_success = true
 end
 
-function skron!(
-    skr::AbstractMatrix{T},
-    mat::AbstractMatrix{T},
-) where {T <: Real}
-
-    rt2  = sqrt(2)
-    side = size(mat, 1)
-
-    col_idx = 1
-    @inbounds for l in 1:side
-        for k in 1:(l - 1)
-            row_idx = 1
-            for j in 1:side
-                matjl = mat[j, l]
-                matjk = mat[j, k]
-                for i in 1:(j - 1)
-                    skr[row_idx, col_idx] = mat[i, k] * matjl + mat[i, l] * matjk
-                    row_idx += 1
-                end
-                skr[row_idx, col_idx] = rt2 * matjl * matjk
-                row_idx += 1
-                (row_idx > col_idx) && break
-            end
-            col_idx += 1
-        end
-
-        row_idx = 1
-        for j in 1:side
-            matjl = mat[j, l]
-            for i in 1:(j - 1)
-                skr[row_idx, col_idx] = rt2 * mat[i, l] * matjl
-                row_idx += 1
-            end
-            skr[row_idx, col_idx] = abs2(matjl)
-            row_idx += 1
-            (row_idx > col_idx) && break
-        end
-        col_idx += 1
-    end
-
-    return skr
-end
 
 function Hs_is_diagonal(
     K::PSDTriangleCone{T}
@@ -279,11 +242,11 @@ function step_length(
 
     #d = Δz̃ = WΔz
     mul_W!(K, :N, d, dz, one(T), zero(T))
-    αz = _step_length_psd_component(workΔ,d,Λisqrt,αmax)
+    αz = step_length_psd_component(workΔ,d,Λisqrt,αmax)
 
     #d = Δs̃ = W^{-T}Δs
     mul_Winv!(K, :T, d, ds, one(T), zero(T))
-    αs = _step_length_psd_component(workΔ,d,Λisqrt,αmax)
+    αs = step_length_psd_component(workΔ,d,Λisqrt,αmax)
 
     return (αz,αs)
 end
@@ -340,7 +303,7 @@ function mul_W!(
     β::T
 ) where {T}
 
-    _mul_Wx_inner(
+    mul_Wx_inner(
         is_transpose,
         y,x,
         α,
@@ -361,7 +324,7 @@ function mul_Winv!(
     β::T
 ) where {T}
 
-    _mul_Wx_inner(
+    mul_Wx_inner(
         is_transpose,
         y,x,
         α,
@@ -447,7 +410,7 @@ end
 # internal operations for SDP cones 
 # ----------------------------------------
 
-function _mul_Wx_inner(
+function mul_Wx_inner(
     is_transpose::Symbol,
     y::AbstractVector{T},
     x::AbstractVector{T},
@@ -479,7 +442,7 @@ function _mul_Wx_inner(
     return nothing
 end
 
-function _step_length_psd_component(
+function step_length_psd_component(
     workΔ::Matrix{T},
     d::Vector{T},
     Λisqrt::Diagonal{T},
@@ -540,3 +503,82 @@ function mat_to_svec!(x::AbstractVector{T},M::AbstractMatrix{T}) where {T}
     return nothing
 end
 
+
+# produce the upper triangular part of the Symmetric Kronecker product of
+# a symmtric matrix A with itself, i.e. triu(A ⊗_s A)
+function skron!(
+    out::Matrix{T},
+    A::Symmetric{T, Matrix{T}},
+) where {T}
+
+    sqrt2  = sqrt(2)
+    n      = size(A, 1)
+
+    col = 1
+    for l in 1:n
+        for k in 1:l
+            row = 1
+            kl_eq = k == l
+            @inbounds for j in 1:n
+                Ajl = A[j, l]
+                Ajk = A[j, k]
+                @inbounds for i in 1:j
+                    (row > col) && break
+                    ij_eq = i == j
+                    if !(ij_eq || kl_eq)
+                        out[row, col] = A[i, k] * Ajl + A[i, l] * Ajk
+                    elseif (ij_eq && kl_eq) 
+                        out[row, col] = Ajl * Ajl
+                    elseif ij_eq 
+                        out[row, col] = sqrt2 * Ajl * Ajk
+                    else #kl_eq 
+                        out[row, col] = sqrt2 * A[i, l] * Ajk
+                    end 
+                    row += 1
+                end
+            end
+            col += 1
+        end
+    end
+end
+
+# compute the real symmetric Kronecker product of a matrix in-place
+function symm_kron!(
+    skr::AbstractMatrix{T},
+    mat::AbstractMatrix{T},
+) where {T <: Real}
+    side = size(mat, 1)
+
+    rt2 = sqrt(2)
+
+    col_idx = 1
+    @inbounds for l in 1:side
+        for k in 1:(l - 1)
+            row_idx = 1
+            for j in 1:side
+                for i in 1:(j - 1)
+                    skr[row_idx, col_idx] = mat[i, k] * mat[j, l] + mat[i, l] * mat[j, k]
+                    row_idx += 1
+                end
+                skr[row_idx, col_idx] = rt2 * mat[j, k] * mat[j, l]
+                row_idx += 1
+                (row_idx > col_idx) && break
+            end
+            col_idx += 1
+        end
+
+        row_idx = 1
+        for j in 1:side
+            for i in 1:(j - 1)
+                skr[row_idx, col_idx] = rt2 * mat[i, l] * mat[j, l]
+                row_idx += 1
+            end
+            skr[row_idx, col_idx] = abs2(mat[j, l])
+            row_idx += 1
+            (row_idx > col_idx) && break
+        end
+        col_idx += 1
+    end
+
+    return skr
+end
