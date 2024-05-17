@@ -1,34 +1,34 @@
-using AMD, Pardiso
+import Pardiso
 
 abstract type AbstractPardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}  end
 
 # MKL Pardiso variant
 struct MKLPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
-    ps::MKLPardisoSolver
+    ps::Pardiso.MKLPardisoSolver
 
     function MKLPardisoDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
         Pardiso.mkl_is_available() || error("MKL Pardiso is not available")
-        ps = MKLPardisoSolver()
-        pardiso_init(ps,KKT)
+        ps = Pardiso.MKLPardisoSolver()
+        pardiso_init(ps,KKT,Dsigns,settings)
         return new(ps)
     end
 end
 
 # Panua Pardiso variant
 struct PanuaPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
-    ps::PardisoSolver
+    ps::Pardiso.PardisoSolver
 
     function PanuaPardisoDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
 
         Pardiso.panua_is_available() || error("Panua Pardiso is not available")
-        ps = PardisoSolver()
-        pardiso_init(ps,KKT)
+        ps = Pardiso.PardisoSolver()
+        pardiso_init(ps,KKT,Dsigns,settings)
         ps.iparm[8]=-99 # No IR
         return new(ps)
     end
 end
 
-function pardiso_init(ps,KKT)
+function pardiso_init(ps,KKT,Dsigns,settings)
 
         #NB: ignore Dsigns here because pardiso doesn't
         #use information about the expected signs
@@ -37,12 +37,12 @@ function pardiso_init(ps,KKT)
         perm = amd(KKT)
 
         #perform logical factor
-        set_matrixtype!(ps, Pardiso.REAL_SYM_INDEF)
-        pardisoinit(ps)
-        fix_iparm!(ps, :N)
-        set_phase!(ps, Pardiso.ANALYSIS)
-        set_perm!(ps, perm)
-        pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSIS
+        Pardiso.set_matrixtype!(ps, Pardiso.REAL_SYM_INDEF)
+        Pardiso.pardisoinit(ps)
+        Pardiso.fix_iparm!(ps, :N)
+        Pardiso.set_phase!(ps, Pardiso.ANALYSIS)
+        Pardiso. set_perm!(ps, perm)
+        Pardiso.pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSIS
 end 
 
 
