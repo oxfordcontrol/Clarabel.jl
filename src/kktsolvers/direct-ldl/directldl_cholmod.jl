@@ -68,6 +68,7 @@ end
 #solve the linear system
 function solve!(
     ldlsolver::CholmodDirectLDLSolver{T},
+    KKT::SparseMatrixCSC{T},
     x::Vector{T},
     b::Vector{T}
 ) where{T}

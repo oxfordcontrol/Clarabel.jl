@@ -77,7 +77,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
         diagonal_regularizer = zero(T)
 
-        #KKT will be triu data only, but we will want
+        #KKT will be triangular data only, but we will want
         #the following to allow products like KKT*x
         uplo = kktshape == :tril ? :L : :U
         KKTsym = Symmetric(KKT,uplo)
@@ -350,7 +350,8 @@ function kktsolver_solve!(
 ) where {T}
 
     (x,b) = (kktsolver.x,kktsolver.b)
-    solve!(kktsolver.ldlsolver,x,b)
+    KKT = kktsolver.KKT
+    solve!(kktsolver.ldlsolver,KKT,x,b)
 
     is_success = begin
         if(kktsolver.settings.iterative_refinement_enable)
@@ -401,6 +402,7 @@ function  _iterative_refinement(
     IR_stopratio = settings.iterative_refinement_stop_ratio
 
     KKTsym = kktsolver.KKTsym
+    KKT    = kktsolver.KKT
     normb  = norm(b,Inf)
 
     #compute the initial error
@@ -417,7 +419,7 @@ function  _iterative_refinement(
         lastnorme = norme
 
         #make a refinement and continue
-        solve!(ldlsolver,dx,e)
+        solve!(ldlsolver,KKT,dx,e)
 
         #prospective solution is x + dx.   Use dx space to
         #hold it for a check before applying to x
