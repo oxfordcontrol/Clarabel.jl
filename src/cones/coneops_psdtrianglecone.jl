@@ -519,7 +519,7 @@ function skron!(
         for k in 1:l
             row = 1
             kl_eq = k == l
-            
+
             @inbounds for j in 1:n
                 Ajl = A[j, l]
                 Ajk = A[j, k]
@@ -539,9 +539,9 @@ function skron!(
                     end 
 
                     row += 1
-                end
-            end
+                end # i
+            end # j
             col += 1
-        end
-    end
+        end # k
+    end # l
 end
