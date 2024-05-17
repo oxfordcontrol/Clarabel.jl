@@ -76,6 +76,7 @@ end
 #solve the linear system
 function solve!(
     ldlsolver::QDLDLDirectLDLSolver{T},
+    K::SparseMatrixCSC{T},
     x::Vector{T},
     b::Vector{T}
 ) where{T}

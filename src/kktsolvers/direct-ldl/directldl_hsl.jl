@@ -9,8 +9,8 @@ mutable struct HSLMA57DirectLDLSolver{T} <: HSLDirectLDLSolver{T}
 
     function HSLMA57DirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
         
+        HSL.LIBHSL_isfunctional() || error("HSL is not available")
         F = nothing
-
         # work vector for solves
         work = zeros(T,KKT.n)
 
@@ -19,7 +19,7 @@ mutable struct HSLMA57DirectLDLSolver{T} <: HSLDirectLDLSolver{T}
 end
 
 
-DirectLDLSolversDict[:hsl_ma57] = HSLMA57DirectLDLSolver
+DirectLDLSolversDict[:ma57] = HSLMA57DirectLDLSolver
 required_matrix_shape(::Type{HSLMA57DirectLDLSolver}) = :tril
 
 
@@ -75,6 +75,7 @@ end
 #solve the linear system
 function solve!(
     ldlsolver::HSLMA57DirectLDLSolver{T},
+    K::SparseMatrixCSC{T},
     x::Vector{T},
     b::Vector{T}
 ) where{T}
