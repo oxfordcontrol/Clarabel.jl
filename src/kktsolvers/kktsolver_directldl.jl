@@ -24,7 +24,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
     # a vector for storing the Hs blocks
     # on the in the KKT matrix block diagonal
-    Hsblocks::Vector{Vector{T}}
+    Hsblocks::Vector{T}
 
     #unpermuted KKT matrix
     KKT::SparseMatrixCSC{T,Int}
@@ -43,7 +43,13 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     diagonal_regularizer::T
 
 
-    function DirectLDLKKTSolver{T}(P,A,cones,m,n,settings) where {T}
+    function DirectLDLKKTSolver{T}(
+        P::SparseMatrixCSC{T},
+        A::SparseMatrixCSC{T},
+        cones::CompositeCone{T},
+        m::Int,n::Int,
+        settings::Settings{T}
+    ) where {T}
 
         # get a constructor for the LDL solver we should use,
         # and also the matrix shape it requires
@@ -56,13 +62,13 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         p = pdim(map.sparse_maps)
 
         #LHS/RHS/work for iterative refinement
-        x    = Vector{T}(undef,n+m+p)
-        b    = Vector{T}(undef,n+m+p)
-        work_e  = Vector{T}(undef,n+m+p)
-        work_dx = Vector{T}(undef,n+m+p)
+        x    = zeros(T,n+m+p)
+        b    = zeros(T,n+m+p)
+        work_e  = zeros(T,n+m+p)
+        work_dx = zeros(T,n+m+p)
 
         #the expected signs of D in LDL
-        Dsigns = Vector{Int}(undef,n+m+p)     
+        Dsigns = zeros(Int,n+m+p)     
         _fill_Dsigns!(Dsigns,m,n,map)
 
         #updates to the diagonal of KKT will be
@@ -216,11 +222,10 @@ function _kktsolver_update_inner!(
     #Set the elements the W^tW blocks in the KKT matrix.
     get_Hs!(cones,kktsolver.Hsblocks)
 
-    for (index, values) in zip(map.Hsblocks,kktsolver.Hsblocks)
-        #change signs to get -W^TW
-        @. values *= -one(T)
-        _update_values!(ldlsolver,KKT,index,values)
-    end
+    (values, index) = (kktsolver.Hsblocks, map.Hsblocks)
+    #change signs to get -W^TW
+    @. values *= -one(T)
+    _update_values!(ldlsolver,KKT,index,values)
 
     sparse_map_iter = Iterators.Stateful(map.sparse_maps)
 
@@ -324,8 +329,8 @@ end
 
 function kktsolver_getlhs!(
     kktsolver::DirectLDLKKTSolver{T},
-    lhsx::Union{Nothing,AbstractVector{T}},
-    lhsz::Union{Nothing,AbstractVector{T}}
+    lhsx::Option{AbstractVector{T}},
+    lhsz::Option{AbstractVector{T}}
 ) where {T}
 
     x = kktsolver.x
@@ -340,8 +345,8 @@ end
 
 function kktsolver_solve!(
     kktsolver::DirectLDLKKTSolver{T},
-    lhsx::Union{Nothing,AbstractVector{T}},
-    lhsz::Union{Nothing,AbstractVector{T}}
+    lhsx::Option{AbstractVector{T}},
+    lhsz::Option{AbstractVector{T}}
 ) where {T}
 
     (x,b) = (kktsolver.x,kktsolver.b)

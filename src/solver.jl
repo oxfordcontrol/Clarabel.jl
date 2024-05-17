@@ -82,6 +82,10 @@ function setup!(
     cones::Vector{<:SupportedCone},
 ) where{T}
 
+    # project against cones with overly specific type, e.g. 
+    # when all of the cones are NonnegativeConeT
+    cones = convert(Vector{SupportedCone},cones)
+
     #sanity check problem dimensions
     _check_dimensions(P,q,A,b,cones)
 
@@ -90,16 +94,19 @@ function setup!(
 
     @timeit s.timers "setup!" begin
 
-        #reduce the cone sizes.  (A,b) will be reduced 
-        #within the problem data constructor.  Also makes
-        #an internal copy of the user cone specification
-        presolver = Presolver{T}(A,b,cones,s.settings)
+        # user facing results go here  
+        s.solution = DefaultSolution{T}(A.n,A.m)
 
-        s.cones  = CompositeCone{T}(presolver.cone_specs)
-        s.data   = DefaultProblemData{T}(P,q,A,b,s.cones,presolver)
+        # presolve / chordal decomposition if needed,
+        # then take an internal copy of the problem data
+        @timeit s.timers "presolve" begin
+            s.data = DefaultProblemData{T}(P,q,A,b,cones,s.settings)
+        end 
+
+        s.cones  = CompositeCone{T}(s.data.cones)
         s.data.m == s.cones.numel || throw(DimensionMismatch())
 
-        s.variables = DefaultVariables{T}(s.data.n,s.cones)
+        s.variables = DefaultVariables{T}(s.data.n,s.data.m)
         s.residuals = DefaultResiduals{T}(s.data.n,s.data.m)
 
         #equilibrate problem data immediately on setup.
@@ -114,14 +121,11 @@ function setup!(
         end
 
         # work variables for assembling step direction LHS/RHS
-        s.step_rhs  = DefaultVariables{T}(s.data.n,s.cones)
-        s.step_lhs  = DefaultVariables{T}(s.data.n,s.cones)
+        s.step_rhs  = DefaultVariables{T}(s.data.n,s.data.m)
+        s.step_lhs  = DefaultVariables{T}(s.data.n,s.data.m)
 
         # a saved copy of the previous iterate
-        s.prev_vars = DefaultVariables{T}(s.data.n,s.cones)
-
-        # user facing results go here
-        s.solution    = DefaultSolution{T}(s.data.presolver.mfull,s.data.n)
+        s.prev_vars = DefaultVariables{T}(s.data.n,s.data.m)
 
     end
 
@@ -231,7 +235,10 @@ function solve!(
             
             #update the scalings
             #--------------
+            @timeit s.timers "scale cones" begin
             is_scaling_success = variables_scale_cones!(s.variables,s.cones,μ,scaling)
+            end
+
             # check whether variables are interior points
             (action,scaling) = _strategy_checkpoint_is_scaling_success(s,is_scaling_success,scaling)
             if action === Fail;  break;
@@ -336,8 +343,16 @@ function solve!(
         @notimeit info_print_status(s.info,s.settings)
     end 
 
-    info_finalize!(s.info,s.residuals,s.settings,s.timers)  #halts timers
-    solution_finalize!(s.solution,s.data,s.variables,s.info,s.settings)
+    @timeit s.timers "post-process" begin
+        #check for "almost" convergence checks and then extract solution
+        info_post_process!(s.info,s.residuals,s.settings) 
+        solution_post_process!(s.solution,s.data,s.variables,s.info,s.settings)
+    end 
+    
+    #halt timers
+    info_finalize!(s.info,s.timers) 
+    solution_finalize!(s.solution,s.info)
+    
 
     @notimeit info_print_footer(s.info,s.settings)
 

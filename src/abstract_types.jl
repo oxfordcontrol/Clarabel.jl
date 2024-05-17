@@ -1,0 +1,9 @@
+abstract type AbstractVariables{T <: AbstractFloat}     end
+abstract type AbstractEquilibration{T <: AbstractFloat} end
+abstract type AbstractResiduals{T <: AbstractFloat}     end
+abstract type AbstractProblemData{T <: AbstractFloat}   end
+abstract type AbstractKKTSystem{T <: AbstractFloat}     end
+abstract type AbstractKKTSolver{T <: AbstractFloat}     end
+abstract type AbstractInfo{T <: AbstractFloat}          end
+abstract type AbstractSolution{T <: AbstractFloat}      end
+abstract type AbstractSolver{T <: AbstractFloat}        end

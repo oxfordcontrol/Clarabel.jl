@@ -231,9 +231,51 @@ function variables_rescale!(variables)
     invscale = 1/scale;
     
     variables.x .*= invscale
-    variables.z.vec .*= invscale
-    variables.s.vec .*= invscale
-    variables.τ *= invscale
-    variables.κ *= invscale
+    variables.z .*= invscale
+    variables.s .*= invscale
+    variables.τ  *= invscale
+    variables.κ  *= invscale
     
+end
+
+
+# ----------------------
+# remaining functions are specific to DefaultVariables types 
+# only and not part of the general AbstractVariables interface 
+
+
+function variables_unscale!(
+    variables::DefaultVariables{T},
+    data::DefaultProblemData{T},
+    is_infeasible::Bool
+) where {T}
+
+    #if we have an infeasible problem, normalize
+    #using κ to get an infeasibility certificate.
+    #Otherwise use τ to get an unscaled solution.
+    if is_infeasible
+        scaleinv = one(T) / variables.κ
+    else
+        scaleinv = one(T) / variables.τ
+    end
+
+	#also undo the equilibration
+	d = data.equilibration.d
+	e = data.equilibration.e
+    einv = data.equilibration.einv
+	cscale = data.equilibration.c[]
+
+	@. variables.x *= d * scaleinv
+    @. variables.z *= e * (scaleinv / cscale)
+    @. variables.s *= einv * scaleinv
+
+    variables.τ *= scaleinv
+    variables.κ *= scaleinv
+    
+end
+
+
+# return (n_variables, n_duals)
+function variables_dims(variables::DefaultVariables{T}) where {T}
+    return (length(variables.x), length(variables.s))
 end
