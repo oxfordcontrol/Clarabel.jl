@@ -519,21 +519,25 @@ function skron!(
         for k in 1:l
             row = 1
             kl_eq = k == l
+            
             @inbounds for j in 1:n
                 Ajl = A[j, l]
                 Ajk = A[j, k]
+
                 @inbounds for i in 1:j
                     (row > col) && break
                     ij_eq = i == j
-                    if !(ij_eq || kl_eq)
+
+                    if (ij_eq, kl_eq) == (false, false)
                         out[row, col] = A[i, k] * Ajl + A[i, l] * Ajk
-                    elseif (ij_eq && kl_eq) 
-                        out[row, col] = Ajl * Ajl
-                    elseif ij_eq 
+                    elseif (ij_eq, kl_eq) == (true, false) 
                         out[row, col] = sqrt2 * Ajl * Ajk
-                    else #kl_eq 
+                    elseif (ij_eq, kl_eq) == (false, true)  
                         out[row, col] = sqrt2 * A[i, l] * Ajk
+                    else (ij_eq,kl_eq) == (true, true)
+                        out[row, col] = Ajl * Ajl
                     end 
+
                     row += 1
                 end
             end
