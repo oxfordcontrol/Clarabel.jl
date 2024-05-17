@@ -699,31 +699,12 @@ end
 
 #Given two cliques `c_a` and `c_b` return a value for their edge weight.
 
-function _edge_metric(c_a::VertexSet, c_b::VertexSet, edge_weight::EdgeWeightMethod) 
+function edge_metric(c_a::VertexSet, c_b::VertexSet, edge_weight::EdgeWeightMethod) 
   n_1 = length(c_a)
   n_2 = length(c_b)
 
   # merged block size
   n_m = union_dim(c_a, c_b)
-
-  if edge_weight == CUBIC::EdgeWeightMethod
-    return (n_1^3 + n_2^3 - n_m^3)::Int
-  else
-    throw(ArgumentError("Unknown weight metric not implemented"))
-  end
-end
-
-
-#PJG: this function appears to give better performance, but can be deactived 
-#if favor of the above to agree with COSMO results for testing 
-
-function edge_metric(c_a::VertexSet, c_b::VertexSet, edge_weight::EdgeWeightMethod) 
-  
-  n_1 = triangular_number(length(c_a))
-  n_2 = triangular_number(length(c_b))
-
-  # merged block size
-  n_m = triangular_number(union_dim(c_a, c_b))
 
   if edge_weight == CUBIC::EdgeWeightMethod
     return (n_1^3 + n_2^3 - n_m^3)::Int
