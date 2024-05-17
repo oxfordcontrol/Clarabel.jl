@@ -2,7 +2,7 @@ using AMD
 
 struct PardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
 
-    ps::Pardiso.MKLPardisoSolver
+    ps::Pardiso.PardisoSolver
     Kfake::SparseMatrixCSC{T}
 
     function PardisoDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
@@ -19,13 +19,16 @@ struct PardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
         Kfake = sparse([],[],T[],m,n)
 
         #make a pardiso object and perform logical factor
-        ps = Pardiso.MKLPardisoSolver()
+        ps = Pardiso.PardisoSolver()
         Pardiso.set_matrixtype!(ps, Pardiso.REAL_SYM_INDEF)
         Pardiso.pardisoinit(ps)
         Pardiso.fix_iparm!(ps, :N)
         Pardiso.set_phase!(ps, Pardiso.ANALYSIS)
         Pardiso.set_perm!(ps, perm)
         Pardiso.pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSIS
+
+        # No IR?
+        ps.iparm[8]=-99
 
         return new(ps,Kfake)
     end
