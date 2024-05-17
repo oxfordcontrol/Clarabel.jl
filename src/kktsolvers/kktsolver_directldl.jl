@@ -77,7 +77,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
         diagonal_regularizer = zero(T)
 
-        #KKT will be triu data only, but we will want
+        #KKT will be triangular data only, but we will want
         #the following to allow products like KKT*x
         uplo = kktshape == :tril ? :L : :U
         KKTsym = Symmetric(KKT,uplo)
