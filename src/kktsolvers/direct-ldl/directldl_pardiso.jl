@@ -33,15 +33,11 @@ function pardiso_init(ps,KKT,Dsigns,settings)
         #NB: ignore Dsigns here because pardiso doesn't
         #use information about the expected signs
 
-        #make our AMD ordering outside of the solver
-        perm = amd(KKT)
-
         #perform logical factor
         Pardiso.set_matrixtype!(ps, Pardiso.REAL_SYM_INDEF)
         Pardiso.pardisoinit(ps)
         Pardiso.fix_iparm!(ps, :N)
         Pardiso.set_phase!(ps, Pardiso.ANALYSIS)
-        Pardiso. set_perm!(ps, perm)
         Pardiso.pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSIS
 end 
 
