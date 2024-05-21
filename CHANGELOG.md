@@ -9,13 +9,11 @@ Version numbering in this project adheres to [Semantic Versioning](https://semve
 ## [0.8.0] - 2024-21-05
 ### Changed 
 
-- implements chordal decomposition for PSD cones [#100](https://github.com/oxfordcontrol/Clarabel.rs/pull/100)
-- updates scaling bounds. Fixes [#96](https://github.com/oxfordcontrol/Clarabel.rs/issues/96)
+- implements chordal decomposition for PSD cones [#164](https://github.com/oxfordcontrol/Clarabel.jl/pull/164)
+- updates scaling bounds [#165](https://github.com/oxfordcontrol/Clarabel.jl/pull/165)
 
-### Rust specific changes
-
-- Derive debug trait to the solution struct [#97](https://github.com/oxfordcontrol/Clarabel.rs/pull/97). Thanks @nunzioono.
-- Resolve clippy warnings for rustc >=v1.75 [#94](https://github.com/oxfordcontrol/Clarabel.rs/pull/94)
+### Julia specific changes
+* Adds support for several 3rd party linear solvers -- HSL MA57, Panua Pardiso and MKL Pardiso [#166](https://github.com/oxfordcontrol/Clarabel.jl/pull/166)
 
 ## [0.7.1] - 2024-29-02
 ### Changed 
@@ -112,6 +110,8 @@ Internal modifications to SDP cone implementation to reduce allocations.
 
 - Initial release
 
+
+[0.8.0]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.5.1...v0.6.0
