@@ -1,13 +1,16 @@
 name = "Clarabel"
 uuid = "61c947e1-3e6d-4ee4-985a-eec8c727bd6e"
 authors = ["Paul Goulart <paul.goulart@eng.ox.ac.uk>"]
-version = "0.7.1"
+version = "0.8.0"
 
 [deps]
 AMD = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
+DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 GenericLinearAlgebra = "14197337-ba66-59df-a3e3-ca00e7dcff7a"
+HSL = "34c5aeac-e683-54a6-a0e9-6e0fdc586c50"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
+Pardiso = "46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 QDLDL = "bfc457fd-c171-5ab7-bd9e-d5dbfc242d63"
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"
@@ -22,7 +25,6 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 AMD = "0.4, 0.5"
 GenericLinearAlgebra = "0.3"
 MathOptInterface = "1.20"
-QDLDL = "0.4"
 Requires = "1"
 SnoopPrecompile = "1"
 StaticArrays = "1"
@@ -30,6 +32,7 @@ TimerOutputs = "0.5"
 julia = "1.2"
 
 [extras]
+HSL = "34c5aeac-e683-54a6-a0e9-6e0fdc586c50"
 Pardiso = "46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2"
 
 [targets]

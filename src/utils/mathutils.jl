@@ -329,6 +329,27 @@ function triangular_index(k::Int)
     triangular_number(k)
 end 
 
+# given an index into the upper triangular part of a matrix, return 
+# its row and column position
+
+function upper_triangular_index_to_coord(linearidx::Int)
+    col = (isqrt(8 * linearidx) + 1) >> 1 
+    row = linearidx - triangular_number(col - 1)
+    (row,col)
+end
+
+# given a row and column position, return the index into the upper
+# triangular part of the matrix 
+
+function coord_to_upper_triangular_index(coord::Tuple{Int, Int})
+    (i,j) = coord
+    if i <= j
+        return triangular_number(j-1) + i
+    else
+        return triangular_number(i-1) + j
+    end
+end
+
 # Put elements from a vector of length n*(n+1)/2 into the upper triangle 
 # of an nxn matrix.   It does NOT perform any scaling of the vector entries.
 

@@ -94,7 +94,7 @@ mutable struct SecondOrderCone{T} <: AbstractCone{T}
     η::T
 
     #sparse representation of W^2
-    sparse_data::Union{Nothing,SecondOrderConeSparseData{T}}
+    sparse_data::Option{SecondOrderConeSparseData{T}}
 
     function SecondOrderCone{T}(dim::Integer) where {T}
 
@@ -124,15 +124,13 @@ SecondOrderCone(args...) = SecondOrderCone{DefaultFloat}(args...)
 
 mutable struct PSDConeData{T}
 
-    chol1::Union{Nothing,Cholesky{T,Matrix{T}}}
-    chol2::Union{Nothing,Cholesky{T,Matrix{T}}}
-    SVD::Union{Nothing,SVD{T,T,Matrix{T}}}
+    chol1::Option{Cholesky{T,Matrix{T}}}
+    chol2::Option{Cholesky{T,Matrix{T}}}
+    SVD::Option{SVD{T,T,Matrix{T}}}
     λ::Vector{T}
     Λisqrt::Diagonal{T,Vector{T}}
     R::Matrix{T}
     Rinv::Matrix{T}
-    kronRR::Matrix{T}
-    B::Matrix{T}
     Hs::Matrix{T}
 
     #workspace for various internal uses
@@ -151,9 +149,7 @@ mutable struct PSDConeData{T}
         Λisqrt = Diagonal(zeros(T,n))
         R      = zeros(T,n,n)
         Rinv   = zeros(T,n,n)
-        kronRR = zeros(T,n^2,n^2)
-        B      = zeros(T,triangular_number(n),n^2)
-        Hs    = zeros(T,size(B,1),size(B,1))
+        Hs    = zeros(T,triangular_number(n),triangular_number(n))
 
         workmat1 = zeros(T,n,n)
         workmat2 = zeros(T,n,n)
@@ -161,7 +157,7 @@ mutable struct PSDConeData{T}
         workvec  = zeros(T,triangular_number(n))
 
         return new(chol1,chol2,SVD,λ,Λisqrt,R,Rinv,
-                   kronRR,B,Hs,workmat1,workmat2,workmat3,workvec)
+                   Hs,workmat1,workmat2,workmat3,workvec)
     end
 end
 

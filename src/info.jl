@@ -193,11 +193,10 @@ function info_get_solve_time!(
 end
 
 
-function info_finalize!(
+function info_post_process!(
     info::DefaultInfo{T},
     residuals::DefaultResiduals{T},
     settings::Settings{T},
-    timers::TimerOutput
 ) where {T}
 
     # if there was an error or we ran out of time
@@ -209,6 +208,13 @@ function info_finalize!(
     )
         _check_convergence_almost(info,residuals,settings)
     end
+
+end
+
+function info_finalize!(
+    info::DefaultInfo{T},
+    timers::TimerOutput
+) where {T}
 
     # final check of timers
     info_get_solve_time!(info,timers)

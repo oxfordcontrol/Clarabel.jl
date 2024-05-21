@@ -15,18 +15,19 @@ struct CompositeCone{T} <: AbstractCone{T}
     numel::DefaultInt
     degree::DefaultInt
 
-    #a vector showing the overall index of the
-    #first element in each cone.  For convenience
-    headidx::Vector{Int}
+    #ranges for the indices of the constituent cones
+    rng_cones::Vector{UnitRange{Int64}}
+
+    #ranges for the indices of the constituent Hs blocks
+    #associated with each cone
+    rng_blocks::Vector{UnitRange{Int64}}
 
     # the flag for symmetric cone check
     _is_symmetric::Bool
 
     function CompositeCone{T}(cone_specs::Vector{SupportedCone}) where {T}
 
-        ncones = length(cone_specs)
-        cones  = AbstractCone{T}[]
-        sizehint!(cones,ncones)
+        cones  = sizehint!(AbstractCone{T}[],length(cone_specs))
 
         type_counts = Dict{Type,Int}()
 
@@ -52,12 +53,14 @@ struct CompositeCone{T} <: AbstractCone{T}
         numel  = sum(cone -> Clarabel.numel(cone), cones; init = 0)
         degree = sum(cone -> Clarabel.degree(cone), cones; init = 0)
 
-        #headidx gives the index of the first element
-        #of each constituent cone
-        headidx = Vector{Int}(undef,length(cones))
-        _make_headidx!(headidx,cones)
+        #ranges for the subvectors associated with each cone,
+        #and the range for the corresponding entries
+        #in the Hs sparse block
 
-        return new(cones,type_counts,numel,degree,headidx,_is_symmetric)
+        rng_cones  = collect(rng_cones_iterator(cones));
+        rng_blocks = collect(rng_blocks_iterator(cones));
+
+        obj = new(cones,type_counts,numel,degree,rng_cones,rng_blocks,_is_symmetric)
     end
 end
 
@@ -85,14 +88,56 @@ function get_type_count(cones::CompositeCone{T}, type::Type) where {T}
     end
 end
 
-function _make_headidx!(headidx,cones)
 
-    if(length(cones) > 0)
-        #index of first element in each cone
-        headidx[1] = 1
-        for i = 2:length(cones)
-            headidx[i] = headidx[i-1] + numel(cones[i-1])
-        end
-    end
-    return nothing
+
+# -------------------------------------
+# iterators to generate indices into vectors 
+# in a cone or cone-related blocks in the Hessian
+struct RangeConesIterator{T}
+    cones::Vector{AbstractCone{T}}
 end
+struct RangeBlocksIterator{T} 
+    cones::Vector{AbstractCone{T}}
+end
+
+function rng_cones_iterator(cones::Vector{AbstractCone{T}}) where{T}
+    RangeConesIterator(cones)
+end
+
+function rng_blocks_iterator(cones::Vector{AbstractCone{T}}) where{T}
+    RangeBlocksIterator(cones)
+end
+
+Base.length(iter::RangeConesIterator) =  length(iter.cones)
+Base.length(iter::RangeBlocksIterator) = length(iter.cones)
+
+function Base.iterate(iter::RangeConesIterator, state=(1, 1)) 
+    (coneidx, start) = state 
+    if coneidx > length(iter.cones)
+        return nothing 
+    else 
+        nvars = numel(iter.cones[coneidx])
+        stop  = start + nvars - 1
+        state = (coneidx + 1, stop + 1)
+        return (start:stop, state)
+    end 
+end 
+
+function Base.iterate(iter::RangeBlocksIterator, state=(1, 1)) 
+    (coneidx, start) = state 
+    if coneidx > length(iter.cones)
+        return nothing 
+    else 
+        cone = iter.cones[coneidx]
+        nvars = numel(cone)
+        if Hs_is_diagonal(cone)
+            stop = start + nvars - 1
+        else
+            stop = start + triangular_number(nvars) - 1
+        end
+        state = (coneidx + 1, stop + 1)
+        return (start:stop, state)
+    end 
+end 
+
+

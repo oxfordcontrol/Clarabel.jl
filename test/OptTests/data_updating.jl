@@ -17,6 +17,7 @@ function updating_test_data(Type::Type{T}) where {T <: AbstractFloat}
 
     settings = Clarabel.Settings{T}()
     settings.presolve_enable = false
+    settings.chordal_decomposition_enable = false
 
     return (P,q,A,b,cones,settings)
 end
