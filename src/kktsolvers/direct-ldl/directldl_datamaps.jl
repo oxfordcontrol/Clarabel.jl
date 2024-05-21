@@ -10,8 +10,8 @@ struct SOCExpansionMap <: SparseExpansionMap
     v::Vector{Int}        #off diag dense columns v
     D::MVector{2, Int}    #diag D
     function SOCExpansionMap(cone::SecondOrderCone)
-        u = Vector{Int}(undef,numel(cone))
-        v = Vector{Int}(undef,numel(cone))
+        u = zeros(Int,numel(cone))
+        v = zeros(Int,numel(cone))
         D = MVector(0,0)
         new(u,v,D)
     end
@@ -86,9 +86,9 @@ struct GenPowExpansionMap <: SparseExpansionMap
     D::MVector{3, Int}    #diag D
 
     function GenPowExpansionMap(cone::GenPowerCone)
-        p = Vector{Int}(undef,numel(cone))
-        q = Vector{Int}(undef,dim1(cone))
-        r = Vector{Int}(undef,dim2(cone))
+        p = zeros(Int,numel(cone))
+        q = zeros(Int,dim1(cone))
+        r = zeros(Int,dim2(cone))
         D = MVector(0,0,0)
         new(p,q,r,D)
     end
@@ -171,7 +171,7 @@ struct LDLDataMap
 
     P::Vector{Int}
     A::Vector{Int}
-    Hsblocks::Vector{Vector{Int}}                #indices of the lower RHS blocks (by cone)
+    Hsblocks::Vector{Int}                        #indices of the lower RHS blocks (by cone)
     sparse_maps::Vector{SparseExpansionMap}      #sparse cone expansion terms
 
     #all of above terms should be disjoint and their union
@@ -198,8 +198,7 @@ struct LDLDataMap
 
         #now do the sparse cone expansion pieces
         nsparse = count(cone->(@conedispatch is_sparse_expandable(cone)),cones)
-        sparse_maps = Vector{SparseExpansionMap}(); 
-        sizehint!(sparse_maps,nsparse)
+        sparse_maps = sizehint!(SparseExpansionMap[],nsparse)
 
         for cone in cones
             if @conedispatch is_sparse_expandable(cone) 

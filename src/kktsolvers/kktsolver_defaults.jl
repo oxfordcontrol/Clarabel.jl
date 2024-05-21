@@ -17,8 +17,8 @@ end
 #solve and assign LHS
 function kktsolver_solve!(
     kktsolver::AbstractKKTSolver{T},
-    x::Union{Nothing,AbstractVector{T}},
-    z::Union{Nothing,AbstractVector{T}}
+    x::Option{AbstractVector{T}},
+    z::Option{AbstractVector{T}}
 ) where{T}
     error("function not implemented")
 end

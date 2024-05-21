@@ -96,8 +96,9 @@ function get_Hs!(
     #NB: we are returning here the diagonal D = [d1; d2] block from the
     #sparse representation of W^TW, but not the
     #extra 3 entries at the bottom right of the block.
-    #The ConicVector for s and z (and its views) don't
+    #The vectors for s and z (and its views) don't
     #know anything about the 3 extra sparsifying entries
+    
     dim1 = Clarabel.dim1(K)
     data = K.data
     
