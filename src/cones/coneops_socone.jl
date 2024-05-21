@@ -162,8 +162,6 @@ function get_Hs!(
         #For sparse form, we are returning here the diagonal D block 
         #from the sparse representation of W^TW, but not the
         #extra two entries at the bottom right of the block.
-        #The ConicVector for s and z (and its views) don't
-        #know anything about the 2 extra sparsifying entries
         Hsblock    .= K.η^2
         Hsblock[1] *= K.sparse_data.d
     
