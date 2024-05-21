@@ -27,8 +27,8 @@ end
 
 function rectify_equilibration!(
     cones::CompositeCone{T},
-     δ::ConicVector{T},
-     e::ConicVector{T}
+     δ::Vector{T},
+     e::Vector{T}
 ) where{T}
 
     any_changed = false
@@ -37,7 +37,9 @@ function rectify_equilibration!(
     #from this function.  default is to do nothing at all
     δ .= 1
 
-    for (cone,δi,ei) in zip(cones,δ.views,e.views)
+    for (cone,rng) in zip(cones,cones.rng_cones)
+        δi = view(δ,rng)
+        ei = view(e,rng)
         @conedispatch any_changed |= rectify_equilibration!(cone,δi,ei)
     end
 
@@ -46,13 +48,13 @@ end
 
 function margins(
     cones::CompositeCone{T},
-    z::ConicVector{T},
+    z::Vector{T},
     pd::PrimalOrDualCone,
 ) where {T}
     α = typemax(T)
     β = zero(T)
-    for (cone,zi) in zip(cones,z.views)
-        @conedispatch (αi,βi) = margins(cone,zi,pd)
+    for (cone,rng) in zip(cones,cones.rng_cones)
+        @conedispatch (αi,βi) = margins(cone,view(z,rng),pd)
         α = min(α,αi)
         β += βi
     end
@@ -62,13 +64,13 @@ end
 
 function scaled_unit_shift!(
     cones::CompositeCone{T},
-    z::ConicVector{T},
+    z::Vector{T},
     α::T,
     pd::PrimalOrDualCone
 ) where {T}
 
-    for (cone,zi) in zip(cones,z.views)
-        @conedispatch scaled_unit_shift!(cone,zi,α,pd)
+    for (cone,rng) in zip(cones,cones.rng_cones)
+        @conedispatch scaled_unit_shift!(cone,view(z,rng),α,pd)
     end
 
     return nothing
@@ -77,12 +79,12 @@ end
 # unit initialization for asymmetric solves
 function unit_initialization!(
     cones::CompositeCone{T},
-    z::ConicVector{T},
-    s::ConicVector{T}
+    z::Vector{T},
+    s::Vector{T}
 ) where {T}
 
-    for (cone,zi,si) in zip(cones,z.views,s.views)
-        @conedispatch unit_initialization!(cone,zi,si)
+    for (cone,rng) in zip(cones,cones.rng_cones)
+        @conedispatch unit_initialization!(cone,view(z,rng),view(s,rng))
     end
     return nothing
 end
@@ -100,18 +102,16 @@ end
 
 function update_scaling!(
     cones::CompositeCone{T},
-    s::ConicVector{T},
-    z::ConicVector{T},
+    s::Vector{T},
+    z::Vector{T},
 	μ::T,
     scaling_strategy::ScalingStrategy
 ) where {T}
 
-    # update cone scalings by passing subview to each of
-    # the appropriate cone types.
-    for (cone,si,zi) in zip(cones,s.views,z.views)
+    for (cone,rng) in zip(cones,cones.rng_cones)
+        si = view(s,rng)
+        zi = view(z,rng)
         @conedispatch is_scaling_success = update_scaling!(cone,si,zi,μ,scaling_strategy)
-        # YC: currently, only check whether SOC variables are in the interior;
-        # we could extend the interior checkfor other cones
         if !is_scaling_success
             return is_scaling_success = false
         end
@@ -122,11 +122,11 @@ end
 # The Hs block for each cone.
 function get_Hs!(
     cones::CompositeCone{T},
-    Hsblocks::Vector{Vector{T}}
+    Hsblock::Vector{T}
 ) where {T}
 
-    for (cone, block) in zip(cones,Hsblocks)
-        @conedispatch get_Hs!(cone,block)
+    for (cone, rng) in zip(cones,cones.rng_blocks)
+        @conedispatch get_Hs!(cone,view(Hsblock,rng))
     end
     return nothing
 end
@@ -137,13 +137,13 @@ end
 
 function mul_Hs!(
     cones::CompositeCone{T},
-    y::ConicVector{T},
-    x::ConicVector{T},
-    work::ConicVector{T}
+    y::Vector{T},
+    x::Vector{T},
+    work::Vector{T}
 ) where {T}
 
-    for (cone,yi,xi,worki) in zip(cones,y.views,x.views,work.views)
-        @conedispatch mul_Hs!(cone,yi,xi,worki)
+    for (cone,rng) in zip(cones,cones.rng_cones)
+        @conedispatch mul_Hs!(cone,view(y,rng),view(x,rng),view(work,rng))
     end
 
     return nothing
@@ -152,11 +152,13 @@ end
 # x = λ ∘ λ for symmetric cone and x = s for asymmetric cones
 function affine_ds!(
     cones::CompositeCone{T},
-    ds::ConicVector{T},
-    s::ConicVector{T}
+    ds::Vector{T},
+    s::Vector{T}
 ) where {T}
 
-    for (cone,dsi,si) in zip(cones,ds.views,s.views)
+    for (cone,rng) in zip(cones,cones.rng_cones)
+        dsi = view(ds,rng)
+        si  = view(s,rng)
         @conedispatch affine_ds!(cone,dsi,si)
     end
     return nothing
@@ -164,15 +166,16 @@ end
 
 function combined_ds_shift!(
     cones::CompositeCone{T},
-    shift::ConicVector{T},
-    step_z::ConicVector{T},
-    step_s::ConicVector{T},
+    shift::Vector{T},
+    step_z::Vector{T},
+    step_s::Vector{T},
     σμ::T
 ) where {T}
 
-    for (cone,shifti,step_zi,step_si) in zip(cones,shift.views,step_z.views,step_s.views)
-
-        # compute the centering and the higher order correction parts in ds and save it in dz
+    for (cone,rng) in zip(cones,cones.rng_cones)
+        shifti = view(shift,rng)
+        step_zi = view(step_z,rng)
+        step_si = view(step_s,rng)
         @conedispatch combined_ds_shift!(cone,shifti,step_zi,step_si,σμ)
     end
 
@@ -181,13 +184,17 @@ end
 
 function Δs_from_Δz_offset!(
     cones::CompositeCone{T},
-    out::ConicVector{T},
-    ds::ConicVector{T},
-    work::ConicVector{T},
-    z::ConicVector{T}
+    out::Vector{T},
+    ds::Vector{T},
+    work::Vector{T},
+    z::Vector{T}
 ) where {T}
 
-    for (cone,outi,dsi,worki,zi) in zip(cones,out.views,ds.views,work.views,z.views)
+    for (cone,rng) in zip(cones,cones.rng_cones)
+        outi  = view(out,rng)
+        dsi   = view(ds,rng)
+        worki = view(work,rng)
+        zi    = view(z,rng)
         @conedispatch Δs_from_Δz_offset!(cone,outi,dsi,worki,zi) 
     end
 
@@ -197,27 +204,31 @@ end
 # maximum allowed step length over all cones
 function step_length(
      cones::CompositeCone{T},
-        dz::ConicVector{T},
-        ds::ConicVector{T},
-         z::ConicVector{T},
-         s::ConicVector{T},
+        dz::Vector{T},
+        ds::Vector{T},
+         z::Vector{T},
+         s::Vector{T},
   settings::Settings{T},
       αmax::T,
 ) where {T}
 
-    α     = αmax
-    dz    = dz.views
-    ds    = ds.views
-    z     = z.views
-    s     = s.views
+    α = αmax
+
+    function innerfcn(α,symcond)
+        for (cone,rng) in zip(cones,cones.rng_cones)
+            if @conedispatch is_symmetric(cone) == symcond
+                continue 
+            end
+            (dzi,dsi) = (view(dz,rng),view(ds,rng))
+            (zi,si)  = (view(z,rng),view(s,rng))
+            @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
+            α = min(α,nextαz,nextαs)
+        end
+        return α
+    end
 
     # Force symmetric cones first.   
-    for (cone,dzi,dsi,zi,si) in zip(cones,dz,ds,z,s)
-
-        if !is_symmetric(cone) continue end
-        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
-        α = min(α,nextαz,nextαs)
-    end
+    α = innerfcn(α,true)
         
     #if we have any nonsymmetric cones, then back off from full steps slightly
     #so that centrality checks and logarithms don't fail right at the boundaries
@@ -225,13 +236,8 @@ function step_length(
         α = min(α,settings.max_step_fraction)
     end
 
-    # Force asymmetric cones last.  
-    for (cone,dzi,dsi,zi,si) in zip(cones,dz,ds,z,s)
-
-        if @conedispatch(is_symmetric(cone)) continue end
-        @conedispatch (nextαz,nextαs) = step_length(cone,dzi,dsi,zi,si,settings,α)
-        α = min(α,nextαz,nextαs)
-    end
+    # now the nonsymmetric cones
+    α = innerfcn(α,false)
 
     return (α,α)
 end
@@ -239,21 +245,19 @@ end
 # compute the total barrier function at the point (z + α⋅dz, s + α⋅ds)
 function compute_barrier(
     cones::CompositeCone{T},
-    z::ConicVector{T},
-    s::ConicVector{T},
-    dz::ConicVector{T},
-    ds::ConicVector{T},
+    z::Vector{T},
+    s::Vector{T},
+    dz::Vector{T},
+    ds::Vector{T},
     α::T
 ) where {T}
-
-    dz    = dz.views
-    ds    = ds.views
-    z     = z.views
-    s     = s.views
-
     barrier = zero(T)
 
-    for (cone,zi,si,dzi,dsi) in zip(cones,z,s,dz,ds)
+    for (cone,rng) in zip(cones,cones.rng_cones)
+        zi = view(z,rng)
+        si = view(s,rng)
+        dzi = view(dz,rng)
+        dsi = view(ds,rng)
         @conedispatch barrier += compute_barrier(cone,zi,si,dzi,dsi,α)
     end
 

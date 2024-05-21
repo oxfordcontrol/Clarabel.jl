@@ -1,5 +1,74 @@
 import LinearAlgebra
 
+function DefaultProblemData{T}(
+	P::AbstractMatrix{T},
+	q::AbstractVector{T},
+	A::AbstractMatrix{T},
+	b::AbstractVector{T},
+	cones::Vector{SupportedCone},
+	settings::Settings{T}
+) where {T}
+
+	# some caution is required to ensure we take a minimal,
+	# but nonzero, number of data copies during presolve steps 
+	P_new, q_new, A_new, b_new, cones_new = 
+		(nothing,nothing,nothing,nothing,nothing)
+
+	# make a copy if badly formatted.  istriu is very fast
+	if !istriu(P)
+		P_new = triu(P)  #copies 
+		P = P_new 	     #rust borrow
+	end 
+
+	# presolve : return nothing if disabled or no reduction
+	# --------------------------------------
+	presolver = try_presolver(A,b,cones,settings)  
+
+	if !isnothing(presolver)
+		(A_new, b_new, cones_new) = presolve(presolver, A, b, cones)
+		(A, b, cones) = (A_new, b_new, cones_new)
+	end
+
+	# chordal decomposition : return nothing if disabled or no decomp
+	# --------------------------------------
+	chordal_info = try_chordal_info(A,b,cones,settings)
+
+	if !isnothing(chordal_info)
+		(P_new, q_new, A_new, b_new, cones_new) = 
+			decomp_augment!(chordal_info, P, q, A, b, settings)
+	end 
+
+	# now make sure we have a clean copy of everything if we
+	#haven't made one already.   Necessary since we will scale
+	# scale the internal copy and don't want to step on the user
+	copy_if_nothing(x,y) = isnothing(x) ? deepcopy(y) : x
+	P_new = copy_if_nothing(P_new,P)
+	q_new = copy_if_nothing(q_new,q)
+	A_new = copy_if_nothing(A_new,A)
+	b_new = copy_if_nothing(b_new,b)
+	cones_new = copy_if_nothing(cones_new,cones)
+
+	#cap entries in b at INFINITY.  This is important 
+	#for inf values that were not in a reduced cone
+	#this is not considered part of the "presolve", so
+	#can always happen regardless of user settings 
+	@. b_new .= min(b_new,T(Clarabel.get_infinity()))
+	
+	#this ensures m is the *reduced* size m
+	(m,n) = size(A_new)
+
+	equilibration = DefaultEquilibration{T}(n,m)
+
+	normq = norm(q_new, Inf)
+	normb = norm(b_new, Inf)
+
+	DefaultProblemData{T}(
+		P_new,q_new,A_new,b_new,cones_new,
+		n,m,equilibration,normq,normb,
+		presolver,chordal_info)
+
+end
+
 function data_get_normq!(data::DefaultProblemData{T}) where {T}
 
 	if isnothing(data.normq)
@@ -125,7 +194,7 @@ function scale_data!(
     A::AbstractMatrix{T},
     q::AbstractVector{T},
     b::AbstractVector{T},
-    d::Union{Nothing,AbstractVector{T}},
+    d::Option{AbstractVector{T}},
     e::AbstractVector{T}
 ) where {T <: AbstractFloat}
 
@@ -141,3 +210,50 @@ function scale_data!(
     return nothing
 end
 
+
+function try_chordal_info(
+    A::SparseMatrixCSC{T}, 
+    b::Vector{T}, 
+    cones::Vector{SupportedCone}, 
+    settings::Settings{T}
+) where {T}
+    
+    if !settings.chordal_decomposition_enable 
+        return nothing
+    end
+
+    # nothing to do if there are no PSD cones
+    if !any(c -> isa(c,PSDTriangleConeT), cones)
+        return nothing 
+    end 
+
+    chordal_info = ChordalInfo(A, b, cones, settings)
+
+    # no decomposition possible 
+    if !is_decomposed(chordal_info)
+        return nothing
+    end
+
+    return chordal_info
+end 
+
+
+function try_presolver(
+    A::AbstractMatrix{T}, 
+    b::Vector{T}, 
+    cones::Vector{SupportedCone}, 
+    settings::Settings{T}
+) where {T}
+
+    if(!settings.presolve_enable)
+        return nothing
+    end
+
+    presolver = Presolver{T}(A,b,cones,settings)
+
+    if !is_reduced(presolver)
+        return nothing 
+    end 
+
+    return presolver 
+end

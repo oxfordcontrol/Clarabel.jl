@@ -495,7 +495,7 @@ function process_constraints(
 
     rowranges = dest.rowranges
     m = mapreduce(length, +, values(rowranges), init=0)
-    b = Vector{T}(undef, m)
+    b = zeros(T, m)
 
     #these will be used for a triplet representation of A
     I = Int[]

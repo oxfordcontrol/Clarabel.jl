@@ -18,14 +18,15 @@ const VectorProblemDataUpdate{T} = Union{
 	update_data!(solver,P,q,A,b)
 
 Overwrites internal problem data structures in a solver object with new data, avoiding new memory 
-allocations.   See [`update_P!`](@ref), [`update_q!`](@ref), [`update_A!`](@ref), [`update_b!`](@ref) for allowable input types.
+allocations.   See [`update_P!`](@ref), [`update_q!`](@ref), [`update_A!`](@ref), [`update_b!`](@ref) 
+for allowable input types.
 
 """
 
 function update_data!(
     s::Solver{T},
     P::VectorProblemDataUpdate{T} ,
-    q::Union{Vector{T},Nothing},
+    q::Option{Vector{T}},
     A::MatrixProblemDataUpdate{T},
     b::VectorProblemDataUpdate{T} 
 ) where{T}
@@ -58,7 +59,7 @@ function update_P!(
 ) where{T}
 
     isnothing(data) && return
-    _check_presolve_disabled(s)
+    _check_update_allowed(s)
     d = s.data.equilibration.d
     _update_matrix(data,s.data.P,d,d)
     # overwrite KKT data 
@@ -87,9 +88,9 @@ function update_A!(
 ) where{T}
 
     isnothing(data) && return
-    _check_presolve_disabled(s)
+    _check_update_allowed(s)
     d = s.data.equilibration.d
-    e = s.data.equilibration.e.vec #e is a conic vector type
+    e = s.data.equilibration.e 
     _update_matrix(data,s.data.A,e,d)
     # overwrite KKT data 
     kkt_update_A!(s.kktsystem,s.data.A)
@@ -110,7 +111,7 @@ function update_q!(
 ) where{T}
 
     isnothing(data) && return
-    _check_presolve_disabled(s)
+    _check_update_allowed(s)
     d    = s.data.equilibration.d
     dinv = s.data.equilibration.dinv
     _update_vector(data,s.data.q,d)
@@ -134,9 +135,9 @@ function update_b!(
 ) where{T}
 
     isnothing(data) && return
-    _check_presolve_disabled(s)
-    e    = s.data.equilibration.e.vec     #e is a conic vector type
-    einv = s.data.equilibration.einv.vec  #einv is a conic vector type
+    _check_update_allowed(s)
+    e    = s.data.equilibration.e     
+    einv = s.data.equilibration.einv
     _update_vector(data,s.data.b,e)
 
     # flush unscaled norm.   Will be recalculated during solve
@@ -145,12 +146,23 @@ function update_b!(
     return nothing
 end 
 
-function _check_presolve_disabled(s)
-    # Fail if presolve is enabled even if the sparsity is the same.
-    # Not strictly necessary but may avoid confusion about expectations.
-    if s.settings.presolve_enable 
-        error("Disable presolve to allow data updates.")
+function _check_update_allowed(s)
+
+    # Fail if presolve / chordal decomp is enabled.  
+    # Not strictly necessary since the presolve and chordal decomp 
+    # might not do anything, but may avoid confusion about expectations.
+
+    # checks both settings and existence of presolve objects, since otherwise 
+    # it would be possible to presolve and then disable the settings. 
+
+    if s.settings.presolve_enable || 
+       s.settings.chordal_decomposition_enable || 
+       !isnothing(s.data.presolver) ||
+       !isnothing(s.data.chordal_info)
+
+        error("Disable presolve and chordal decomposition to allow data updates.")
     end
+
 end 
 
 function _update_matrix(

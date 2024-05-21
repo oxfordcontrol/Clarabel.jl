@@ -17,8 +17,8 @@ mutable struct DefaultKKTSystem{T} <: AbstractKKTSystem{T}
 
     #work vectors for assembling/disassembling vectors
     workx::Vector{T}
-    workz::ConicVector{T}
-    work_conic::ConicVector{T}
+    workz::Vector{T}
+    work_conic::Vector{T}
 
         function DefaultKKTSystem{T}(
             data::DefaultProblemData{T},
@@ -33,19 +33,19 @@ mutable struct DefaultKKTSystem{T} <: AbstractKKTSystem{T}
         kktsolver = DirectLDLKKTSolver{T}(data.P,data.A,cones,m,n,settings)
 
         #the LHS constant part of the reduced solve
-        x1   = Vector{T}(undef,n)
-        z1   = Vector{T}(undef,m)
+        x1   = zeros(T,n)
+        z1   = zeros(T,m)
 
         #the LHS for other solves
-        x2   = Vector{T}(undef,n)
-        z2   = Vector{T}(undef,m)
+        x2   = zeros(T,n)
+        z2   = zeros(T,m)
 
         #workspace compatible with (x,z)
-        workx   = Vector{T}(undef,n)
-        workz   = ConicVector{T}(cones)
+        workx   = zeros(T,n)
+        workz   = zeros(T,m)
 
         #additional conic workspace vector compatible with s and z
-        work_conic = ConicVector{T}(cones)
+        work_conic = zeros(T,m)
 
         return new(kktsolver,x1,z1,x2,z2,workx,workz,work_conic)
 
