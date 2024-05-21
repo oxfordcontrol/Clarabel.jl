@@ -129,7 +129,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     chordal_decomposition_enable::Bool  = true
     chordal_decomposition_merge_method::Symbol = :clique_graph
     chordal_decomposition_compact::Bool = true
-    chordal_decomposition_complete_dual::Bool = false
+    chordal_decomposition_complete_dual::Bool = true
 
 end
 
