@@ -31,7 +31,7 @@ end
 function complete!(z::AbstractVector{T},pattern::SparsityPattern) where{T}
 
     n = length(pattern.ordering)
-    Z = zeros(n,n)
+    Z = zeros(T,n,n)
     svec_to_mat!(Z,z)
     psd_complete!(Z,pattern)
     mat_to_svec!(z,Z)
