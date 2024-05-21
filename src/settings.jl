@@ -8,7 +8,7 @@ Argument | Default Value | Description
 ||
 __Main Algorithm Settings__||
 ||
-max\\_iter                              | 50        | maximum number of iterations
+max\\_iter                              | 200       | maximum number of iterations
 time\\_limit                            | Inf       | maximum run time (seconds)
 verbose                                 | true      | verbose printing
 max\\_step\\_fraction                   | 0.99      | maximum interior point step length
@@ -19,7 +19,7 @@ tol\\_gap\\_rel                         | 1e-8      | relative duality gap toler
 tol\\_feas                              | 1e-8      | feasibility check tolerance (primal and dual)
 tol\\_infeas\\_abs						| 1e-8		| absolute infeasibility tolerance (primal and dual)
 tol\\_infeas\\_rel						| 1e-8		| relative infeasibility tolerance (primal and dual)
-tol\\_ktratio                           | 1e-7      | κ/τ tolerance
+tol\\_ktratio                           | 1e-6      | κ/τ tolerance
 ||
 __Reduced Accuracy Settings__||
 reduced\\_tol\\_gap\\_abs               | 5e-5      | reduced absolute duality gap tolerance
@@ -38,18 +38,18 @@ equilibrate\\_max\\_scaling             | 1e+4      | maximum equilibration scal
 __Step Size Settings__||
 linesearch\\_backtrack\\_step           | 0.8       | linesearch backtracking
 min\\_switch\\_step\\_length            | 1e-1      | minimum step size allowed for asymmetric cones with PrimalDual scaling
-min\\_terminate\\_step\\_length         | 1e-4      | minimum step size allowed for symmetric cones && asymmetric cones with Dual scaling
+min\\_terminate\\_step\\_length         | 1e-4      | minimum step size allowed for symmetric cones & asymmetric cones with Dual scaling
 ||
 __Linear Solver Settings__||
 direct\\_kkt\\_solver                   | true      | use a direct linear solver method (required true)
 direct\\_solve\\_method                 | :qdldl    | direct linear solver (e.g. :qdldl, :mkl, :panua, :ma57, :cholmod, :faer)
 static\\_regularization\\_enable        | true      | enable KKT static regularization
-static\\_regularization\\_eps           | 1e-7      | KKT static regularization parameter
+static\\_regularization\\_eps           | 1e-8      | KKT static regularization parameter
 static\\_regularization\\_proportional  | eps(T)^2  | additional regularization parameter w.r.t. the maximum abs diagonal term
 dynamic\\_regularization\\_enable       | true      | enable KKT dynamic regularization
 dynamic\\_regularization\\_eps          | 1e-13     | KKT dynamic regularization threshold
 dynamic\\_regularization\\_delta        | 2e-7      | KKT dynamic regularization shift
-iterative\\_refinement\\_enable         | true      | KKT solve with iterative refinement
+iterative\\_refinement\\_enable         | true      | KKT direct solve with iterative refinement
 iterative\\_refinement\\_reltol         | 1e-12     | iterative refinement relative tolerance
 iterative\\_refinement\\_abstol         | 1e-12     | iterative refinement absolute tolerance
 iterative\\_refinement\\_max\\_iter     | 10        | iterative refinement maximum iterations
