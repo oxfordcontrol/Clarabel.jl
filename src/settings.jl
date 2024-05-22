@@ -55,12 +55,12 @@ iterative\\_refinement\\_abstol         | 1e-12     | iterative refinement absol
 iterative\\_refinement\\_max\\_iter     | 10        | iterative refinement maximum iterations
 iterative\\_refinement\\_stop\\_ratio   | 5.0       | iterative refinement stalling tolerance
 ||
-__Preprocessing Settings 
-presolve_enable                         | true      | enable presolve constraint reduction
+__Preprocessing Settings__||
+presolve\\_enable                         | true      | enable presolve constraint reduction
 || 
 __Chordal Decomposition Settings__||
 chordal\\_decomposition\\_enable            | true            | enable chordal decomposition
-chordal\\_decomposition\\_merge_method      | :clique_graph   | chordal decomposition merge method (:none, :parent_child or :clique_graph)
+chordal\\_decomposition\\_merge_method      | :clique_graph   | chordal decomposition merge method (:clique\\_graph, :parent\\_child or :none)
 chordal\\_decomposition\\_compact           | true            | assemble decomposed system in "compact" form
 chordal\\_decomposition\\_complete_dual     | false           | complete PSD dual variables after decomposition
 
