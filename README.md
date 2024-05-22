@@ -59,5 +59,18 @@ Clarabel is also available in a Rust implementation with additional language int
 ## Installation
 - __Clarabel.jl__ can be added via the Julia package manager (type `]`): `pkg> add Clarabel`
 
+## Citing
+```
+@misc{Clarabel_2024,
+      title={Clarabel: An interior-point solver for conic programs with quadratic objectives}, 
+      author={Paul J. Goulart and Yuwen Chen},
+      year={2024},
+      eprint={2405.12762},
+      archivePrefix={arXiv},
+      primaryClass={math.OC}
+}
+```
+
 ## License 🔍
 This project is licensed under the Apache License  2.0 - see the [LICENSE.md](https://github.com/oxfordcontrol/Clarabel.jl/blob/main/LICENSE.md) file for details.
+
