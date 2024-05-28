@@ -12,5 +12,8 @@ using Random, Test
     #tests on equilibration
     include("./UnitTests/test_equilibration_bounds.jl")
 
+    #tests on json IO
+    include("./UnitTests/test_json.jl")
+
 end
 nothing
