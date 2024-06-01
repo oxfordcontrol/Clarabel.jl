@@ -13,7 +13,15 @@ mutable struct JsonProblemData{T}
 end
 
 
+"""
+	write_to_file(solver, filename)
 
+Write the problem data in a `Clarabel.Solver` to `filename` in JSON format.   The
+data is written in a format that can be read back into a `Clarabel.Solver` using
+[`read_from_file`](@ref).   The problem data will be written in unscaled form, but in the 
+internal format used by the solver after applying chordal decomposition and presolve.
+It is not necessary to solve the problem before writing it to a file.
+"""
 function write_to_file(solver::Solver{T}, file::String) where {T}
 
     json_data = JsonProblemData(
@@ -47,7 +55,12 @@ function write_to_file(solver::Solver{T}, file::String) where {T}
 
 end
 
+"""
+	read_from_file(filename)
 
+Creat a `Clarabel.Solver` object from data in `filename` previously 
+written by [`write_to_file`](@ref).
+"""
 function read_from_file(file::String)
 
     buffer = open(file, "r") do file
