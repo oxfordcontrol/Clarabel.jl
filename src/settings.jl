@@ -99,8 +99,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     min_switch_step_length::T           = 1e-1   
     min_terminate_step_length::T        = 1e-4    
 
-    #the direct linear solver to use
-    #can be :qdldl or :mkl
+    #the direct linear solver package to use
     direct_kkt_solver::Bool             = true   #indirect not yet supported
     direct_solve_method::Symbol         = :qdldl
 

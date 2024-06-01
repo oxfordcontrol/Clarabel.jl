@@ -90,6 +90,9 @@ module Clarabel
         end 
     end
  
+    # JSON I/O
+    include("./json.jl")
+
     #MathOptInterface for JuMP/Convex.jl
     module MOI  #extensions providing non-standard MOI constraint types
         include("./MOI_wrapper/MOI_extensions.jl")
