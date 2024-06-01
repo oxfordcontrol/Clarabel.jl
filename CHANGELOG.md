@@ -8,7 +8,7 @@ Version numbering in this project adheres to [Semantic Versioning](https://semve
 
 ## [0.9.0] - 2024-01-06
 
-- ## What's Changed
+## Changed
 * Read/write problems to JSON files [#169](https://github.com/oxfordcontrol/Clarabel.jl/pull/169)
 
 
