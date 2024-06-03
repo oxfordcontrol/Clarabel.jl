@@ -25,12 +25,12 @@ It is not necessary to solve the problem before writing it to a file.
 function write_to_file(solver::Solver{T}, file::String) where {T}
 
     json_data = JsonProblemData(
+        deepcopy(solver.settings),
         deepcopy(solver.data.P),
         deepcopy(solver.data.q),
         deepcopy(solver.data.A),
         deepcopy(solver.data.b),
         deepcopy(solver.data.cones),
-        deepcopy(solver.settings),
     )
 
     dinv = solver.data.equilibration.dinv
@@ -113,12 +113,12 @@ end
 # it back to a sparse format with the CSC fields 
 function JSON.lower(data::JsonProblemData{T}) where T
     return OrderedDict(
+        "settings" => data.settings,
         "P" => lower(data.P),
         "q" => data.q,
         "A" => lower(data.A),
         "b" => data.b,
         "cones" => lower.(data.cones),
-        "settings" => data.settings,
     )
 end
 
