@@ -4,12 +4,12 @@ using JSON, SparseArrays, DataStructures
 # the data types provided by the user (i.e. no internal types).
 
 mutable struct JsonProblemData{T} 
+    settings::Settings{T}
     P::SparseMatrixCSC{T}
     q::Vector{T}
     A::SparseMatrixCSC{T}
     b::Vector{T}
     cones::Vector{SupportedCone}
-    settings::Settings{T}
 end
 
 
