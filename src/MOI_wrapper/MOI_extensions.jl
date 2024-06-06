@@ -1,5 +1,6 @@
 using MathOptInterface 
 using ..Clarabel
+const DefaultInt = Clarabel.DefaultInt
 
 # This structure is parallel to the our API type, but 
 # it is subtyped from MOI.AbstractVectorSet rather than 
@@ -10,8 +11,8 @@ using ..Clarabel
 
 struct GenPowerCone{T<:Real} <: MathOptInterface.AbstractVectorSet
     α::Vector{T}
-    dim2::Int
-    function GenPowerCone(α::AbstractVector{T}, dim2::Int) where{T}
+    dim2::DefaultInt
+    function GenPowerCone(α::AbstractVector{T}, dim2::DefaultInt) where{T}
         @assert all(α .> zero(T))
         @assert isapprox(sum(α),one(T), atol=eps()*length(α)/2)
         new{T}(collect(α), dim2)

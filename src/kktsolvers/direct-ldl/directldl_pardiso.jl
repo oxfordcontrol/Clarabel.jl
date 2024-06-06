@@ -52,7 +52,7 @@ required_matrix_shape(::Type{MKLPardisoDirectLDLSolver}) = :tril
 #given index into its CSC representation
 function update_values!(
     ldlsolver::AbstractPardisoDirectLDLSolver{T},
-    index::AbstractVector{Int},
+    index::AbstractVector{DefaultInt},
     values::Vector{T}
 ) where{T}
 
@@ -64,7 +64,7 @@ end
 #given index into its CSC representation
 function scale_values!(
     ldlsolver::AbstractPardisoDirectLDLSolver{T},
-    index::AbstractVector{Int},
+    index::AbstractVector{DefaultInt},
     scale::T
 ) where{T}
 

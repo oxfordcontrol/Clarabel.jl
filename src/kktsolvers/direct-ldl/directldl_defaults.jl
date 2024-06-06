@@ -18,7 +18,7 @@ end
 #given index into its CSC representation
 function update_values!(
     ldlsolver::AbstractDirectLDLSolver{T},
-    index::AbstractVector{Int},
+    index::AbstractVector{DefaultInt},
     values::AbstractVector{T}
 ) where{T}
     error("function not implemented")
@@ -28,7 +28,7 @@ end
 #given index into its CSC representation
 function scale_values!(
     ldlsolver::AbstractDirectLDLSolver{T},
-    index::AbstractVector{Int},
+    index::AbstractVector{DefaultInt},
     scale::T
 ) where{T}
     error("function not implemented")

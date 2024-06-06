@@ -19,14 +19,14 @@
 # to floats if empirical edge weight functions are to be supported.
 
 mutable struct CliqueGraphMergeStrategy <: AbstractMergeStrategy
-  stop::Bool                                  # a flag to indicate that merging should be stopped
-  edges::SparseMatrixCSC{Int,Int}             # the edges and weights of the reduced clique graph
-  p::Vector{Int}                              # as a workspace variable to store the sorting of weights
-  adjacency_table::Dict{Int, VertexSet}       # a double structure of edges, to allow fast lookup of neighbors
-  edge_weight::EdgeWeightMethod               # used to dispatch onto the correct scoring function
+  stop::Bool                                      # a flag to indicate that merging should be stopped
+  edges::SparseMatrixCSC{DefaultInt,DefaultInt}   # the edges and weights of the reduced clique graph
+  p::Vector{DefaultInt}                           # as a workspace variable to store the sorting of weights
+  adjacency_table::Dict{DefaultInt, VertexSet}           # a double structure of edges, to allow fast lookup of neighbors
+  edge_weight::EdgeWeightMethod                   # used to dispatch onto the correct scoring function
 
   function CliqueGraphMergeStrategy(; edge_weight = CUBIC::EdgeWeightMethod)
-    new(false, spzeros(Int, 0, 0),  Int[], Dict{Int, VertexSet}(), edge_weight)
+    new(false, spzeros(DefaultInt, 0, 0),  DefaultInt[], Dict{DefaultInt, VertexSet}(), edge_weight)
   end
 end
 
@@ -53,7 +53,7 @@ function initialise!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
   weights = compute_weights!(rows, cols, t.snode, strategy.edge_weight)
 
   strategy.edges = sparse(rows, cols, weights, t.n_cliques, t.n_cliques)
-  strategy.p     = zeros(Int, length(strategy.edges.nzval))
+  strategy.p     = zeros(DefaultInt, length(strategy.edges.nzval))
   strategy.adjacency_table = compute_adjacency_table(strategy.edges, t.n_cliques)
   return nothing
 
@@ -95,7 +95,7 @@ function traverse(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree)
 end
 
 
-function evaluate(strategy::CliqueGraphMergeStrategy, _t::SuperNodeTree, cand::Tuple{Int, Int})
+function evaluate(strategy::CliqueGraphMergeStrategy, _t::SuperNodeTree, cand::Tuple{DefaultInt, DefaultInt})
   
   (c1,c2) = cand
   
@@ -108,7 +108,7 @@ function evaluate(strategy::CliqueGraphMergeStrategy, _t::SuperNodeTree, cand::T
 end
 
 
-function merge_two_cliques!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree, cand::Tuple{Int, Int})
+function merge_two_cliques!(strategy::CliqueGraphMergeStrategy, t::SuperNodeTree, cand::Tuple{DefaultInt, DefaultInt})
   
   (c1,c2) = cand
   
@@ -128,7 +128,7 @@ end
 function update_strategy!(
   strategy::CliqueGraphMergeStrategy, 
   t::SuperNodeTree, 
-  cand::Tuple{Int, Int}, 
+  cand::Tuple{DefaultInt, DefaultInt}, 
   do_merge::Bool
 )
   do_merge || return;
@@ -264,8 +264,8 @@ function compute_reduced_clique_graph!(separators::Vector{VertexSet}, snode::Vec
   # loop over separators by decreasing cardinality
   sort!(separators, by = x -> length(x), rev = true)
 
-  rows = Int[]
-  cols = Int[]
+  rows = DefaultInt[]
+  cols = DefaultInt[]
 
   for separator in separators
       # find cliques that contain the separator
@@ -296,11 +296,11 @@ end
 
 # Find the separator graph H given a separator and the relevant index-subset of cliques.
 
-function separator_graph(clique_ind::Vector{Int}, separator::VertexSet, snd::Vector{VertexSet})
+function separator_graph(clique_ind::Vector{DefaultInt}, separator::VertexSet, snd::Vector{VertexSet})
 
     # make the separator graph using a hash table
     # key: clique_ind --> edges to other clique indices
-    H = Dict{Int, Array{Int, 1}}()
+    H = Dict{DefaultInt, Array{DefaultInt, 1}}()
 
     nindex = length(clique_ind)
     for i in 1:nindex, j in (i+1):nindex
@@ -322,15 +322,15 @@ function separator_graph(clique_ind::Vector{Int}, separator::VertexSet, snd::Vec
     end
     # add unconnected cliques
     for v in clique_ind
-        !haskey(H, v) && (H[v] = Int[])
+        !haskey(H, v) && (H[v] = DefaultInt[])
     end
     return H
 end
 
 
 # Find connected components in undirected separator graph represented by `H`.
-function find_components(H::Dict{Int, Vector{Int}}, clique_ind::Vector{Int})
-    visited = Dict{Int, Bool}(v => false for v in clique_ind)
+function find_components(H::Dict{DefaultInt, Vector{DefaultInt}}, clique_ind::Vector{DefaultInt})
+    visited = Dict{DefaultInt, Bool}(v => false for v in clique_ind)
     components = Vector{VertexSet}()
     for v in clique_ind
         if visited[v] == false
@@ -344,7 +344,7 @@ end
 
 
 # Check whether the `pair` of cliques are in different `components`.
-function is_unconnected(pair::Tuple{Int, Int}, components::Vector{VertexSet})
+function is_unconnected(pair::Tuple{DefaultInt, DefaultInt}, components::Vector{VertexSet})
     component_ind = findfirst(x -> pair[1] ∈ x, components)
     return pair[2] ∉ components[component_ind]
 end
@@ -353,9 +353,9 @@ end
 # Depth first search on a hashtable `H`.
 function DFS_hashtable!(
   component::VertexSet, 
-  v::Int, 
-  visited::Dict{Int, Bool}, 
-  H::Dict{Int, Vector{Int}}
+  v::DefaultInt, 
+  visited::Dict{DefaultInt, Bool}, 
+  H::Dict{DefaultInt, Vector{DefaultInt}}
 )
 
     visited[v] = true
@@ -406,7 +406,7 @@ end
 
 # Given a list of edges, return an adjacency hash-table `table` with nodes from 1 to `num_vertices`.
 
-function compute_adjacency_table(edges::SparseMatrixCSC{T}, num_vertices::Int) where {T}
+function compute_adjacency_table(edges::SparseMatrixCSC{T}, num_vertices::DefaultInt) where {T}
 
     table = Dict(i => VertexSet() for i = 1:num_vertices)
     r = edges.rowval
@@ -425,8 +425,8 @@ end
 # C_1 ∩ N == C_2 ∩ N or if no common neighbors exist.
 
 function ispermissible(
-  edge::Tuple{Integer, Integer}, 
-  adjacency_table::Dict{Int, VertexSet}, 
+  edge::Tuple{DefaultInt, DefaultInt}, 
+  adjacency_table::Dict{DefaultInt, VertexSet}, 
   snode::Vector{VertexSet}
 )
 
@@ -464,7 +464,7 @@ function max_elem(A::SparseMatrixCSC{T}) where {T}
   return (row, col)
 end
 
-function edge_from_index(A::SparseMatrixCSC{T, Int}, ind::Int) where {T}
+function edge_from_index(A::SparseMatrixCSC{T, DefaultInt}, ind::DefaultInt) where {T}
     index_to_coord(A,ind)
   end
   
@@ -515,7 +515,7 @@ end
 #  This is a modified version of https://github.com/JuliaGraphs/LightGraphs.jl/blob/master/src/spanningtrees/kruskal.jl
 
 
-function kruskal!(E::SparseMatrixCSC{T}, num_cliques::Int) where{T}
+function kruskal!(E::SparseMatrixCSC{T}, num_cliques::DefaultInt) where{T}
 
   num_initial_cliques = size(E, 2)
 
@@ -551,10 +551,10 @@ end
 # structure `snd_par` for the clique tree.
 
 function determine_parent_cliques!(
-    snode_parent::Vector{Int}, 
+    snode_parent::Vector{DefaultInt}, 
     snode_children::Vector{VertexSet}, 
     cliques::Vector{VertexSet}, 
-    post::Vector{Int}, 
+    post::Vector{DefaultInt}, 
     E::SparseMatrixCSC{T}
   ) where {T}
 
@@ -579,9 +579,9 @@ end
 
 
 # function assign_children!(
-#   snode_parent::Vector{Int}, 
+#   snode_parent::Vector{DefaultInt}, 
 #   snode_children::Vector{VertexSet},
-#   c::Int,
+#   c::DefaultInt,
 #   edges::SparseMatrixCSC{T}
 # ) where {T}
 
@@ -601,9 +601,9 @@ end
 
 #NB: non-recursive version of the COSMO.jl implementation 
 function assign_children!(
-  snode_parent::Vector{Int}, 
+  snode_parent::Vector{DefaultInt}, 
   snode_children::Vector{VertexSet},
-  c::Int,
+  c::DefaultInt,
   edges::SparseMatrixCSC{T}
 ) where {T}
 
@@ -626,7 +626,7 @@ end
 
 # Find all the cliques connected to `c` which are given by the nonzeros in `(c, 1:c-1)` and `(c+1:n, c)`.
 
-function find_neighbors(edges::SparseMatrixCSC, c::Int)
+function find_neighbors(edges::SparseMatrixCSC, c::DefaultInt)
   neighbors = zeros(Int, 0)
   _, n = size(edges)
   # find all nonzero columns in row c up to column c
@@ -649,9 +649,9 @@ end
 function split_cliques!(
   snode::Vector{VertexSet}, 
   separators::Vector{VertexSet}, 
-  snode_parent::Vector{Int}, 
-  snode_post::Vector{Int}, 
-  num_cliques::Int
+  snode_parent::Vector{DefaultInt}, 
+  snode_post::Vector{DefaultInt}, 
+  num_cliques::DefaultInt
 )
 
   # travese in topological decending order through the clique tree and split the clique 
@@ -707,7 +707,7 @@ function edge_metric(c_a::VertexSet, c_b::VertexSet, edge_weight::EdgeWeightMeth
   n_m = union_dim(c_a, c_b)
 
   if edge_weight == CUBIC::EdgeWeightMethod
-    return (n_1^3 + n_2^3 - n_m^3)::Int
+    return (n_1^3 + n_2^3 - n_m^3)::DefaultInt
   else
     throw(ArgumentError("Unknown weight metric not implemented"))
   end

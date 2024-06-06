@@ -218,7 +218,7 @@ function print_conedims_by_type(io::IO, cones::CompositeCone{T}, type::Type) whe
         return #don't report if none
     end
 
-    nvars = Int64[Clarabel.numel(K) for K in cones[isa.(cones,type)]]
+    nvars = DefaultInt[Clarabel.numel(K) for K in cones[isa.(cones,type)]]
     name  = rpad(string(nameof(type))[1:end-4],11)  #drops "Cone" part
     @printf(io, "    : %s = %i, ", name, count)
 

@@ -23,7 +23,7 @@ struct ZeroCone{T} <: AbstractCone{T}
 
     dim::DefaultInt
 
-    function ZeroCone{T}(dim::Integer) where {T}
+    function ZeroCone{T}(dim::DefaultInt) where {T}
         dim >= 1 || throw(DomainError(dim, "dimension must be positive"))
         new(dim)
     end
@@ -71,7 +71,7 @@ mutable struct SecondOrderConeSparseData{T}
     #additional scalar terms for rank-2 rep
     d::T
 
-    function SecondOrderConeSparseData{T}(dim::Int) where {T}
+    function SecondOrderConeSparseData{T}(dim::DefaultInt) where {T}
 
         u = zeros(T,dim)
         v = zeros(T,dim)
@@ -96,7 +96,7 @@ mutable struct SecondOrderCone{T} <: AbstractCone{T}
     #sparse representation of W^2
     sparse_data::Option{SecondOrderConeSparseData{T}}
 
-    function SecondOrderCone{T}(dim::Integer) where {T}
+    function SecondOrderCone{T}(dim::DefaultInt) where {T}
 
         SOC_NO_EXPANSION_MAX_SIZE = 4
 
@@ -139,7 +139,7 @@ mutable struct PSDConeData{T}
     workmat3::Matrix{T}
     workvec::Vector{T}
 
-    function PSDConeData{T}(n::Int) where {T}
+    function PSDConeData{T}(n::DefaultInt) where {T}
 
         #there is no obvious way of pre-allocating
         #or recycling memory in these factorizations
@@ -168,7 +168,7 @@ struct PSDTriangleCone{T} <: AbstractCone{T}
     numel::DefaultInt  #this is the total number of elements (lower triangle of) the matrix
      data::PSDConeData{T}
 
-    function PSDTriangleCone{T}(n) where {T}
+    function PSDTriangleCone{T}(n::DefaultInt) where {T}
 
         n >= 0 || throw(DomainError(n, "dimension must be non-negative"))
         numel = triangular_number(n)
@@ -281,7 +281,7 @@ mutable struct GenPowerConeData{T}
     #work vector exclusively for computing the primal barrier function.   
     work_pb::Vector{T}
 
-    function GenPowerConeData{T}(α::AbstractVector{T},dim2::Int) where {T}
+    function GenPowerConeData{T}(α::AbstractVector{T},dim2::DefaultInt) where {T}
 
         dim1 = length(α)
         dim = dim1 + dim2

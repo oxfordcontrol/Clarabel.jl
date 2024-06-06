@@ -190,7 +190,7 @@ function _update_matrix(
 end
 
 function _update_matrix(
-    data::Iterators.Zip{Tuple{Vector{Int}, Vector{T}}},
+    data::Iterators.Zip{Tuple{Vector{DefaultInt}, Vector{T}}},
     M::SparseMatrixCSC{T},
     lscale::AbstractVector{T},
     rscale::AbstractVector{T}
@@ -218,7 +218,7 @@ end
 
 
 function _update_vector(
-    data::Base.Iterators.Zip{Tuple{Vector{Int}, Vector{T}}},
+    data::Base.Iterators.Zip{Tuple{Vector{DefaultInt}, Vector{T}}},
     v::AbstractVector{T},
     scale::AbstractVector{T}
 ) where{T}

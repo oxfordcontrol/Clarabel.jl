@@ -315,16 +315,16 @@ end
 # functions for manipulating data in packed triu form
 # ---------------------------------
 
-function is_triangular_number(k::Int)
+function is_triangular_number(k::Integer)
     #true if the int is a triangular number
     return isqrt(8*k + 1)^2 == 8*k + 1
 end
 
-function triangular_number(k::Int)
+function triangular_number(k::Integer)
     (k * (k+1)) >> 1
 end 
 
-function triangular_index(k::Int)
+function triangular_index(k::Integer)
     # NB: same as triangular number since Julia is 1-indexed
     triangular_number(k)
 end 
@@ -332,7 +332,7 @@ end
 # given an index into the upper triangular part of a matrix, return 
 # its row and column position
 
-function upper_triangular_index_to_coord(linearidx::Int)
+function upper_triangular_index_to_coord(linearidx::Integer)
     col = (isqrt(8 * linearidx) + 1) >> 1 
     row = linearidx - triangular_number(col - 1)
     (row,col)
@@ -341,7 +341,7 @@ end
 # given a row and column position, return the index into the upper
 # triangular part of the matrix 
 
-function coord_to_upper_triangular_index(coord::Tuple{Int, Int})
+function coord_to_upper_triangular_index(coord::Tuple{Ti, Ti}) where Ti <: Integer
     (i,j) = coord
     if i <= j
         return triangular_number(j-1) + i

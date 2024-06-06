@@ -1,10 +1,10 @@
 
 
 # this value used to mark root notes, i.e. ones with no parent
-const NO_PARENT     = typemax(Int);
+const NO_PARENT     = typemax(DefaultInt);
 
 # when cliques are merged, their vertices are marked thusly
-const INACTIVE_NODE = typemax(Int) - 1;
+const INACTIVE_NODE = typemax(DefaultInt) - 1;
 
 # A structure to represent and analyse the sparsity pattern of an LDL factor matrix L.
 mutable struct SuperNodeTree
@@ -12,36 +12,36 @@ mutable struct SuperNodeTree
   	# vertices of supernodes stored in one array (also called residuals)
 	snode::Vector{VertexSet} 
   	# post order of supernodal elimination tree
-  	snode_post::Vector{Int} 
+  	snode_post::Vector{DefaultInt} 
   	# parent of each supernodes
-	snode_parent::Vector{Int}  
+	snode_parent::Vector{DefaultInt}  
   	# children of each supernode 
 	snode_children::Vector{VertexSet}
   	# post ordering of the vertices in elim tree σ(j) = v
-	post::Array{Int} 
+	post::Array{DefaultInt} 
   	# vertices of clique seperators
 	separators::Vector{VertexSet} 
 
   	# sizes of submatrices defined by each clique, sorted by post-ordering, 
 	# e.g. size of clique with order 3 => nblk[3].   Only populated 
 	# after a post-merging call to `calculate_block_dimensions!`
-	nblk::Option{Vector{Int}}
+	nblk::Option{Vector{DefaultInt}}
 
 	# number of nonempty supernodes / cliques in tree  
-	n_cliques::Int 
+	n_cliques::DefaultInt 
 
 	function SuperNodeTree(L::SparseMatrixCSC{T}) where {T}
 
 		parent   = parent_from_L(L)
 		children = children_from_parent(parent)
-		post 	 = zeros(Int, length(parent))
+		post 	 = zeros(DefaultInt, length(parent))
 		post_order!(post, parent, children, length(parent))   
 		
     	degree   = higher_degree(L)
 		snode, snode_parent = find_supernodes(parent, post, degree)
 
 		snode_children = children_from_parent(snode_parent)
-		snode_post     = zeros(Int,length(snode_parent)) 
+		snode_post     = zeros(DefaultInt,length(snode_parent)) 
     	post_order!(snode_post, snode_parent, snode_children, length(snode_parent))   
 
 		# Here we find separators in all cases, unlike COSMO which defers until
@@ -67,33 +67,33 @@ end
 # functions implemented for the SuperNodeTree
 # ------------------------------------------
 
-function get_post_order(sntree::SuperNodeTree, i::Int)
+function get_post_order(sntree::SuperNodeTree, i::DefaultInt)
 	return sntree.snode_post[i]
 end
 
-function get_snode(sntree::SuperNodeTree, i::Int)
+function get_snode(sntree::SuperNodeTree, i::DefaultInt)
 	return sntree.snode[sntree.snode_post[i]]
 end
 
-function get_separators(sntree::SuperNodeTree, i::Int)
+function get_separators(sntree::SuperNodeTree, i::DefaultInt)
 	return sntree.separators[sntree.snode_post[i]]
 end
 
-function get_clique_parent(sntree::SuperNodeTree, clique_index::Int)
+function get_clique_parent(sntree::SuperNodeTree, clique_index::DefaultInt)
 	return sntree.snode_parent[sntree.snode_post[clique_index]]
 end
 
 # the block sizes are stored in post order, e.g. if clique 4 (stored in pos 4) 
 # has order 2, then nblk[2] represents the cardinality of clique 4
-function get_nblk(sntree::SuperNodeTree, i::Int)
+function get_nblk(sntree::SuperNodeTree, i::DefaultInt)
 	return sntree.nblk[i]
 end 
 
-function get_overlap(sntree::SuperNodeTree, i::Int)
+function get_overlap(sntree::SuperNodeTree, i::DefaultInt)
 	return length(sntree.separators[sntree.snode_post[i]])
 end
 
-function get_clique(sntree::SuperNodeTree, i::Int)
+function get_clique(sntree::SuperNodeTree, i::DefaultInt)
 	c = sntree.snode_post[i]
 	union(sntree.snode[c], sntree.separators[c])
 end
@@ -115,10 +115,10 @@ end
 # not reordered data, i.e. the primal constraint variable `S` and dual variables `Y`.
 
 
-function reorder_snode_consecutively!(t::SuperNodeTree, ordering::Vector{Int})
+function reorder_snode_consecutively!(t::SuperNodeTree, ordering::Vector{DefaultInt})
 
 	# determine permutation vector p and permute the vertices in each snd
-	p = zeros(Int,length(t.post))
+	p = zeros(DefaultInt,length(t.post))
 
 	k = 1
 	for i in t.snode_post
@@ -166,7 +166,7 @@ end
 
 function calculate_block_dimensions!(t::SuperNodeTree)
 n = t.n_cliques
-t.nblk = zeros(Int,n)
+t.nblk = zeros(DefaultInt,n)
 
 	for i = 1:n
 		c = t.snode_post[i]
@@ -179,7 +179,7 @@ end
 # utility functions for SuperNodeTree
 
 
-function parent_from_L(L::SparseMatrixCSC{T,Int}) where {T}
+function parent_from_L(L::SparseMatrixCSC{T,DefaultInt}) where {T}
 
 	parent = fill(NO_PARENT, L.n)
 	# loop over vertices of graph
@@ -189,14 +189,14 @@ function parent_from_L(L::SparseMatrixCSC{T,Int}) where {T}
 	return parent
 end
 
-function find_parent_direct(L::SparseMatrixCSC{T}, v::Int) where{T}
+function find_parent_direct(L::SparseMatrixCSC{T}, v::DefaultInt) where{T}
 	v == size(L, 1) && return NO_PARENT
 	return L.rowval[L.colptr[v]]
 end 
 
 
 function find_separators(
-	L::SparseMatrixCSC{T,Int}, 
+	L::SparseMatrixCSC{T,DefaultInt}, 
 	snode::Vector{VertexSet}
 ) where {T}
 	separators = new_vertex_sets(length(snode))
@@ -216,7 +216,7 @@ function find_separators(
 
 end
 
-function find_higher_order_neighbors(L::SparseMatrixCSC, v::Int)
+function find_higher_order_neighbors(L::SparseMatrixCSC, v::DefaultInt)
 	col_ptr = L.colptr
 	row_val = L.rowval
 	return view(row_val, col_ptr[v]:col_ptr[v + 1] - 1)
@@ -225,7 +225,7 @@ end
 # findall the cardinality of adj+(v) for all v in V
 function higher_degree(L::SparseMatrixCSC{T}) where{T}
 	
-	degree = zeros(Int, L.n)
+	degree = zeros(DefaultInt, L.n)
 	for v = 1:(L.n-1)
 		degree[v] = L.colptr[v + 1] - L.colptr[v]
 	end
@@ -233,7 +233,7 @@ function higher_degree(L::SparseMatrixCSC{T}) where{T}
 end
 
 
-function children_from_parent(parent::Vector{Int})
+function children_from_parent(parent::Vector{DefaultInt})
 
 	children = new_vertex_sets(length(parent))
 	for (i,pi) = enumerate(parent)
@@ -245,13 +245,13 @@ end
 
 # This could be faster for the case that merges happened, i.e. nc != length(parent)
 
-function post_order!(post::Vector{Int}, parent::Vector{Int}, children::Vector{VertexSet}, nc::Int)
+function post_order!(post::Vector{DefaultInt}, parent::Vector{DefaultInt}, children::Vector{VertexSet}, nc::DefaultInt)
 
-	order = (nc + 1) * ones(Int, length(parent))
+	order = (nc + 1) * ones(DefaultInt, length(parent))
 
 	root  = findfirst(x -> x == NO_PARENT, parent)
 
-	stack = sizehint!(Int[], length(parent))
+	stack = sizehint!(DefaultInt[], length(parent))
 	push!(stack, root)
 
 	resize!(post, length(parent))
@@ -282,7 +282,7 @@ end
 
 
 
-function find_supernodes(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
+function find_supernodes(parent::Vector{DefaultInt}, post::Vector{DefaultInt}, degree::Vector{DefaultInt})
 	
 	snode = new_vertex_sets(length(parent))
 
@@ -303,15 +303,15 @@ end
 
 # Algorithm from A. Poten and C. Sun: Compact Clique Tree Data Structures in Sparse Matrix Factorizations (1989)
 
-function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
+function pothen_sun(parent::Vector{DefaultInt}, post::Vector{DefaultInt}, degree::Vector{DefaultInt})
 	
 	n = length(parent)
 
 	# if snode_index[v] < 0 then v is a rep vertex, otherwise v ∈ supernode[snode_index[v]]
-	snode_index  = fill(-one(Int), n)
+	snode_index  = fill(-one(DefaultInt), n)
 	snode_parent = fill(NO_PARENT, n)
 
-	# This also works as array of Int[], which might be faster
+	# This also works as array of DefaultInt[], which might be faster
 	# note this arrays is local to the function, not the one 
 	# contained in the SuperNodeTree
 	children = new_vertex_sets(length(parent))
@@ -390,6 +390,6 @@ function pothen_sun(parent::Vector{Int}, post::Vector{Int}, degree::Vector{Int})
 end
 
 
-function new_vertex_sets(n::Int)
+function new_vertex_sets(n::DefaultInt)
 	[VertexSet() for _ = 1:n]
 end 

@@ -24,14 +24,14 @@ struct Presolver{T}
     reduce_map::Option{PresolverRowReductionIndex}
 
     # size of original and reduced RHS, respectively 
-    mfull::Int64 
-    mreduced::Int64
+    mfull::DefaultInt 
+    mreduced::DefaultInt
 
     # inf bound that was taken from the module level 
     # and should be applied throughout.   Held here so 
     # that any subsequent change to the module's state 
     # won't mess up our solver mid-solve 
-    infbound::Float64 
+    infbound::DefaultFloat 
 
 end
 
@@ -50,8 +50,8 @@ mutable struct DefaultVariables{T} <: AbstractVariables{T}
     κ::T
 
     function DefaultVariables{T}(
-        n::Integer, 
-        m::Integer,
+        n::DefaultInt, 
+        m::DefaultInt,
     ) where {T}
 
         x = zeros(T,n)
@@ -101,8 +101,8 @@ mutable struct DefaultResiduals{T} <: AbstractResiduals{T}
     #the product Px by itself. Required for infeasibilty checks
     Px::Vector{T}
 
-    function DefaultResiduals{T}(n::Integer,
-                                 m::Integer) where {T}
+    function DefaultResiduals{T}(n::DefaultInt,
+                                 m::DefaultInt) where {T}
 
         rx = zeros(T,n)
         rz = zeros(T,m)
@@ -139,8 +139,8 @@ struct DefaultEquilibration{T} <: AbstractEquilibration{T}
     c::Base.RefValue{T}
 
     function DefaultEquilibration{T}(
-        n::Int64,
-        m::Int64,
+        n::DefaultInt,
+        m::DefaultInt,
     ) where {T}
 
         #Left/Right diagonal scaling for problem data

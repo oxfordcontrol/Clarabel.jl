@@ -66,7 +66,7 @@ function info_check_termination!(
     info::DefaultInfo{T},
     residuals::DefaultResiduals{T},
     settings::Settings{T},
-    iter::Int
+    iter::DefaultInt
 ) where {T}
 
     info.status = UNSOLVED  #ensure default state to start
@@ -155,7 +155,7 @@ function info_save_scalars(
     μ::T,
     α::T,
     σ::T,
-    iter::Int
+    iter::DefaultInt
 ) where {T}
 
     info.μ = μ
