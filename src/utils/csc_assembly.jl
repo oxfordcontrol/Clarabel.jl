@@ -2,8 +2,8 @@ using SparseArrays
 
 function _csc_spalloc(T::Type{<:AbstractFloat},m, n, nnz)
 
-    colptr = zeros(Int,n+1)
-    rowval = zeros(Int,nnz)
+    colptr = zeros(DefaultInt,n+1)
+    rowval = zeros(DefaultInt,nnz)
     nzval  = zeros(T,nnz)
 
     #set the final colptr entry to 1+nnz
@@ -11,7 +11,7 @@ function _csc_spalloc(T::Type{<:AbstractFloat},m, n, nnz)
     #this condition
     colptr[end] = nnz +  1
 
-    return SparseMatrixCSC{T,Int64}(m,n,colptr,rowval,nzval)
+    return SparseMatrixCSC{T,DefaultInt}(m,n,colptr,rowval,nzval)
 end
 
 #increment the K.colptr by the number of nonzeros

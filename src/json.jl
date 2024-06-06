@@ -153,10 +153,10 @@ end
 function parse(dict::AbstractDict, ::Type{SparseMatrixCSC{T}}) where{T}
     
     SparseMatrixCSC(
-        Int(dict["m"]),
-        Int(dict["n"]),
-        convert(Vector{Int},dict["colptr"]) .+ 1,
-        convert(Vector{Int},dict["rowval"]) .+ 1,
+        DefaultInt(dict["m"]),
+        DefaultInt(dict["n"]),
+        convert(Vector{DefaultInt},dict["colptr"]) .+ 1,
+        convert(Vector{DefaultInt},dict["rowval"]) .+ 1,
         convert(Vector{T},dict["nzval"]),
     )
 end

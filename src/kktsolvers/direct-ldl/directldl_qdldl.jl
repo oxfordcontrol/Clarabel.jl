@@ -2,7 +2,7 @@ import QDLDL
 
 struct QDLDLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
 
-    factors::QDLDL.QDLDLFactorisation{T, Int}
+    factors::QDLDL.QDLDLFactorisation{T, DefaultInt}
 
     function QDLDLDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
 
@@ -37,7 +37,7 @@ required_matrix_shape(::Type{QDLDLDirectLDLSolver}) = :triu
 #given index into its CSC representation
 function update_values!(
     ldlsolver::QDLDLDirectLDLSolver{T},
-    index::AbstractVector{Int},
+    index::AbstractVector{DefaultInt},
     values::Vector{T}
 ) where{T}
 
@@ -51,7 +51,7 @@ end
 #given index into its CSC representation
 function scale_values!(
     ldlsolver::QDLDLDirectLDLSolver{T},
-    index::AbstractVector{Int},
+    index::AbstractVector{DefaultInt},
     scale::T
 ) where{T}
 
