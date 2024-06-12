@@ -189,7 +189,7 @@ function parse(dict::AbstractDict, ::Type{Settings{T}}) where T
     if key == "GenPowerConeT"
         vals = dict[key]
         α = convert(Vector{Float64}, vals[1])
-        dim2 = Int(vals[2])
+        dim2 = DefaultInt(vals[2])
         return coneT(α,dim2)
 
     else 

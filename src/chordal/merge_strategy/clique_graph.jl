@@ -627,7 +627,7 @@ end
 # Find all the cliques connected to `c` which are given by the nonzeros in `(c, 1:c-1)` and `(c+1:n, c)`.
 
 function find_neighbors(edges::SparseMatrixCSC, c::DefaultInt)
-  neighbors = zeros(Int, 0)
+  neighbors = zeros(DefaultInt, 0)
   _, n = size(edges)
   # find all nonzero columns in row c up to column c
   if c > 1
@@ -678,13 +678,13 @@ end
 # to floats to allow emperical edge weight functions.
 
 function compute_weights!(
-  rows::Vector{Int}, 
-  cols::Vector{Int}, 
+  rows::Vector{DefaultInt}, 
+  cols::Vector{DefaultInt}, 
   snode::Vector{VertexSet}, 
   edge_weight::EdgeWeightMethod
 )
 
-  weights = zeros(Int, length(rows))
+  weights = zeros(DefaultInt, length(rows))
 
   for k = 1:length(rows)
     c_1 = snode[rows[k]]

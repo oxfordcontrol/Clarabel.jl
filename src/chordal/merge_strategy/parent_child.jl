@@ -1,8 +1,8 @@
 mutable struct ParentChildMergeStrategy <: AbstractMergeStrategy
   stop::Bool
-  clique_index::Int
-  t_fill::Int
-  t_size::Int
+  clique_index::DefaultInt
+  t_fill::DefaultInt
+  t_size::DefaultInt
 
   # PJG: fill and size need to be settable 
   function ParentChildMergeStrategy(; t_fill = 8, t_size = 8)
@@ -32,7 +32,7 @@ end
 
 # Decide whether to merge the two clique candidates.
 
-function evaluate(strategy::ParentChildMergeStrategy, t::SuperNodeTree, cand::Tuple{Int, Int})
+function evaluate(strategy::ParentChildMergeStrategy, t::SuperNodeTree, cand::Tuple{DefaultInt, DefaultInt})
   
   strategy.stop && return false
 
@@ -52,7 +52,7 @@ end
 function merge_two_cliques!(
   strategy::ParentChildMergeStrategy, 
   t::SuperNodeTree, 
-  cand::Tuple{Int, Int}
+  cand::Tuple{DefaultInt, DefaultInt}
 ) 
   
   # determine which clique is the parent
@@ -85,7 +85,7 @@ end
 function update_strategy!(
   strategy::ParentChildMergeStrategy, 
   t::SuperNodeTree, 
-  cand::Tuple{Int, Int}, 
+  cand::Tuple{DefaultInt, DefaultInt}, 
   do_merge::Bool
 )
   # try to merge last node of order 1, then stop

@@ -152,7 +152,7 @@ end
 
 #updates KKT matrix values
 function _update_values_KKT!(
-    KKT::SparseMatrixCSC{T,Int},
+    KKT::SparseMatrixCSC{T,DefaultInt},
     index::AbstractVector{Ti},
     values::AbstractVector{T}
 ) where{T,Ti}
