@@ -30,8 +30,8 @@ function info_update!(
     #variables norms, undoing the equilibration.  Do not unscale
     #by τ yet because the infeasibility residuals are ratios of 
     #terms that have no affine parts anyway
-    normx = norm_scaled(dinv,variables.x)
-    normz = norm_scaled(einv,variables.z)
+    normx = norm_scaled(d,variables.x)
+    normz = norm_scaled(e,variables.z)
     norms = norm_scaled(einv,variables.s)
 
     #primal and dual infeasibility residuals.   
@@ -91,13 +91,15 @@ function info_check_termination!(
         end
 
         # Going backwards. Stop immediately if residuals diverge out of feasibility tolerance.
-        if ( info.res_dual > settings.tol_feas && 
-             info.res_dual > 100*info.prev_res_dual
-           ) || 
-           ( info.res_primal > settings.tol_feas && 
-             info.res_primal > 100*info.prev_res_primal
-           )
-             info.status = INSUFFICIENT_PROGRESS
+        if info.ktratio < one(T)
+            if ( info.res_dual > settings.tol_feas && 
+                info.res_dual > 100*info.prev_res_dual
+              ) || 
+              ( info.res_primal > settings.tol_feas && 
+                info.res_primal > 100*info.prev_res_primal
+              )
+                info.status = INSUFFICIENT_PROGRESS
+           end
         end
     end
 

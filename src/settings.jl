@@ -84,7 +84,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     reduced_tol_gap_abs::T          = 5e-5
     reduced_tol_gap_rel::T          = 5e-5
     reduced_tol_feas::T             = 1e-4
-    reduced_tol_infeas_abs::T		= 5e-5
+    reduced_tol_infeas_abs::T		= 5e-12
 	reduced_tol_infeas_rel::T		= 5e-5
     reduced_tol_ktratio::T          = 1e-4
 
