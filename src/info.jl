@@ -99,7 +99,7 @@ function info_check_termination!(
                 info.res_primal > 100*info.prev_res_primal
               )
                 info.status = INSUFFICIENT_PROGRESS
-           end
+            end
         end
     end
 
