@@ -18,24 +18,24 @@ function info_update!(
     #shortcuts for the equilibration matrices
     d = data.equilibration.d; dinv = data.equilibration.dinv
     e = data.equilibration.e; einv = data.equilibration.einv
-    cscaleinv = inv(data.equilibration.c[])
+    cinv = inv(data.equilibration.c[])
 
     #primal and dual costs. dot products are invariant w.r.t
     #equilibration, but we still need to back out the overall
     #objective scaling term c
     xPx_τinvsq_over2 = residuals.dot_xPx * τinv * τinv / 2;
-    info.cost_primal =  (+residuals.dot_qx*τinv + xPx_τinvsq_over2) * cscaleinv
-    info.cost_dual   =  (-residuals.dot_bz*τinv - xPx_τinvsq_over2) * cscaleinv
+    info.cost_primal =  (+residuals.dot_qx*τinv + xPx_τinvsq_over2) * cinv
+    info.cost_dual   =  (-residuals.dot_bz*τinv - xPx_τinvsq_over2) * cinv
 
     #variables norms, undoing the equilibration.  Do not unscale
     #by τ yet because the infeasibility residuals are ratios of 
     #terms that have no affine parts anyway
     normx = norm_scaled(d,variables.x)
-    normz = norm_scaled(e,variables.z) * cscaleinv
+    normz = norm_scaled(e,variables.z) * cinv
     norms = norm_scaled(einv,variables.s) 
 
     #primal and dual infeasibility residuals.   
-    info.res_primal_inf = (norm_scaled(dinv,residuals.rx_inf) * cscaleinv) / max(one(T), normz)
+    info.res_primal_inf = (norm_scaled(dinv,residuals.rx_inf) * cinv) / max(one(T), normz)
     info.res_dual_inf   = max(
         norm_scaled(dinv,residuals.Px) / max(one(T), normx),
         norm_scaled(einv,residuals.rz_inf) / max(one(T), normx + norms)
@@ -48,13 +48,13 @@ function info_update!(
 
     #primal and dual relative residuals.  
     info.res_primal  = norm_scaled(einv,residuals.rz) * τinv / max(one(T), normb + normx + norms)
-    info.res_dual    = norm_scaled(dinv,residuals.rx) * τinv * cscaleinv / max(one(T), normq + normx + normz)
+    info.res_dual    = norm_scaled(dinv,residuals.rx) * τinv * cinv / max(one(T), normq + normx + normz)
 
     #absolute and relative gaps
     info.gap_abs = abs(info.cost_primal - info.cost_dual)
     info.gap_rel = info.gap_abs / max(one(T),min(abs(info.cost_primal),abs(info.cost_dual)))
 
-    #κ/τ
+    #κ/τ :: PJG: perhaps should really be scaled by cinv?
     info.ktratio = variables.κ / variables.τ 
 
     #solve time so far (includes setup!)

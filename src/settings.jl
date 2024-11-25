@@ -25,8 +25,8 @@ __Reduced Accuracy Settings__||
 reduced\\_tol\\_gap\\_abs               | 5e-5      | reduced absolute duality gap tolerance
 reduced\\_tol\\_gap\\_rel               | 5e-5      | reduced relative duality gap tolerance
 reduced\\_tol\\_feas                    | 1e-4      | reduced feasibility check tolerance (primal and dual)
-reduced\\_tol\\_infeas\\_abs		    | 5e-5      | reduced absolute infeasibility tolerance (primal and dual)
-reduced\\_tol\\_infeas\\_rel		    | 5e-12     | reduced relative infeasibility tolerance (primal and dual)
+reduced\\_tol\\_infeas\\_abs		    | 5e-12     | reduced absolute infeasibility tolerance (primal and dual)
+reduced\\_tol\\_infeas\\_rel		    | 5e-5      | reduced relative infeasibility tolerance (primal and dual)
 reduced\\_tol\\_ktratio                 | 1e-4      | reduced κ/τ tolerance
 ||
 __Data Equilibration Settings__||
