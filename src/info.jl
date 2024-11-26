@@ -55,7 +55,7 @@ function info_update!(
     info.gap_rel = info.gap_abs / max(one(T),min(abs(info.cost_primal),abs(info.cost_dual)))
 
     #κ/τ ratio (scaled)
-    info.ktratio = variables.κ * τinv * cinv
+    info.ktratio = variables.κ * τinv
 
     #solve time so far (includes setup!)
     info_get_solve_time!(info,timers)
