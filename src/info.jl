@@ -32,7 +32,7 @@ function info_update!(
     #terms that have no affine parts anyway
     normx = norm_scaled(d,variables.x)
     normz = norm_scaled(e,variables.z) * cinv
-    norms = norm_scaled(einv,variables.s) 
+    norms = norm_scaled(einv,variables.s)
 
     #primal and dual infeasibility residuals.   
     info.res_primal_inf = (norm_scaled(dinv,residuals.rx_inf) * cinv) / max(one(T), normz)
@@ -54,8 +54,7 @@ function info_update!(
     info.gap_abs = abs(info.cost_primal - info.cost_dual)
     info.gap_rel = info.gap_abs / max(one(T),min(abs(info.cost_primal),abs(info.cost_dual)))
 
-    #κ/τ :: PJG: perhaps should really be scaled by cinv? 
-    #    ::  YC: should be normalized by cinv
+    #κ/τ ratio (scaled)
     info.ktratio = variables.κ * τinv * cinv
 
     #solve time so far (includes setup!)
