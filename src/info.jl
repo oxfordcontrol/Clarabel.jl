@@ -54,8 +54,9 @@ function info_update!(
     info.gap_abs = abs(info.cost_primal - info.cost_dual)
     info.gap_rel = info.gap_abs / max(one(T),min(abs(info.cost_primal),abs(info.cost_dual)))
 
-    #κ/τ :: PJG: perhaps should really be scaled by cinv?
-    info.ktratio = variables.κ / variables.τ 
+    #κ/τ :: PJG: perhaps should really be scaled by cinv? 
+    #    ::  YC: should be normalized by cinv
+    info.ktratio = variables.κ * τinv * cinv
 
     #solve time so far (includes setup!)
     info_get_solve_time!(info,timers)
