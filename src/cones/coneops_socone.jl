@@ -446,6 +446,12 @@ function _step_length_soc_component(
     αmax::T
 ) where {T}
 
+    # upper bound the step length by the maximum allowable
+    # step length for the scalar part of the cone    
+    if x[1] >= 0 && y[1] < 0
+        αmax = min(αmax,-x[1]/y[1])
+    end
+
     # assume that x is in the SOC, and find the minimum positive root
     # of the quadratic equation:  ||x₁+αy₁||^2 = (x₀ + αy₀)^2
 
