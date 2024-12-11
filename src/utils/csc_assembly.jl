@@ -243,15 +243,11 @@ end
 
 
 function _count_diagonal_entries(P)
-
     count = 0
     for i = 1:P.n
-
-        #compare last entry in each column with
-        #its row number to identify diagonal entries
-        if((P.colptr[i+1] != P.colptr[i]) &&    #nonempty column
-           (P.rowval[P.colptr[i+1]-1] == i) )   #last element is on diagonal
-                count += 1
+        #Check if the ith column contain ith row
+        if (i in P.rowval[P.colptr[i]:P.colptr[i+1]-1])
+            count += 1
         end
     end
     return count
