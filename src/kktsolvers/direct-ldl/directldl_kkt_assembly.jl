@@ -24,7 +24,9 @@ function _assemble_kkt_matrix(
     p     = pdim(map.sparse_maps)
 
     #entries actually on the diagonal of P
-    nnz_diagP  = _count_diagonal_entries(P)
+    # NB: user provided P is always triu regardless
+    # of the target shape of the KKT matrix
+    nnz_diagP  = _count_diagonal_entries(P, :triu)
 
     # total entries in the Hs blocks
     nnz_Hsblocks = mapreduce(length, +, map.Hsblocks; init = 0)
