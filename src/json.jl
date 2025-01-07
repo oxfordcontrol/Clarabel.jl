@@ -4,12 +4,12 @@ using JSON, SparseArrays, DataStructures
 # the data types provided by the user (i.e. no internal types).
 
 mutable struct JsonProblemData{T} 
+    settings::Settings{T}
     P::SparseMatrixCSC{T}
     q::Vector{T}
     A::SparseMatrixCSC{T}
     b::Vector{T}
     cones::Vector{SupportedCone}
-    settings::Settings{T}
 end
 
 
@@ -25,12 +25,12 @@ It is not necessary to solve the problem before writing it to a file.
 function write_to_file(solver::Solver{T}, file::String) where {T}
 
     json_data = JsonProblemData(
+        deepcopy(solver.settings),
         deepcopy(solver.data.P),
         deepcopy(solver.data.q),
         deepcopy(solver.data.A),
         deepcopy(solver.data.b),
         deepcopy(solver.data.cones),
-        deepcopy(solver.settings),
     )
 
     dinv = solver.data.equilibration.dinv
@@ -113,12 +113,12 @@ end
 # it back to a sparse format with the CSC fields 
 function JSON.lower(data::JsonProblemData{T}) where T
     return OrderedDict(
+        "settings" => data.settings,
         "P" => lower(data.P),
         "q" => data.q,
         "A" => lower(data.A),
         "b" => data.b,
         "cones" => lower.(data.cones),
-        "settings" => data.settings,
     )
 end
 
@@ -153,10 +153,10 @@ end
 function parse(dict::AbstractDict, ::Type{SparseMatrixCSC{T}}) where{T}
     
     SparseMatrixCSC(
-        Int(dict["m"]),
-        Int(dict["n"]),
-        convert(Vector{Int},dict["colptr"]) .+ 1,
-        convert(Vector{Int},dict["rowval"]) .+ 1,
+        DefaultInt(dict["m"]),
+        DefaultInt(dict["n"]),
+        convert(Vector{DefaultInt},dict["colptr"]) .+ 1,
+        convert(Vector{DefaultInt},dict["rowval"]) .+ 1,
         convert(Vector{T},dict["nzval"]),
     )
 end
@@ -189,7 +189,7 @@ function parse(dict::AbstractDict, ::Type{Settings{T}}) where T
     if key == "GenPowerConeT"
         vals = dict[key]
         α = convert(Vector{Float64}, vals[1])
-        dim2 = Int(vals[2])
+        dim2 = DefaultInt(vals[2])
         return coneT(α,dim2)
 
     else 

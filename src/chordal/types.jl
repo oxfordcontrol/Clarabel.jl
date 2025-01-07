@@ -6,7 +6,7 @@
 using DataStructures
 
 abstract type AbstractMergeStrategy end
-VertexSet = OrderedSet{Int}
+VertexSet = OrderedSet{DefaultInt}
 
 #PJG: make a settable option
 @enum EdgeWeightMethod begin 

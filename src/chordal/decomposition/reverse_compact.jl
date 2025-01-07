@@ -29,7 +29,7 @@ function decomp_reverse_compact!(
     # to hold sorted cliques.   Allocate it here to avoid 
     # repeated allocations.  The size of each clique is 
     # never bigger than the associated nblk
-    clique_buffer = zeros(Int,largest_nblk(chordal_info))
+    clique_buffer = zeros(DefaultInt,largest_nblk(chordal_info))
 
     for (cone, cone_map) in zip(old_cones,cone_maps)
 
@@ -59,11 +59,11 @@ function add_blocks_with_sparsity_pattern!(
     old_s::Vector{T}, 
     new_z::Vector{T}, 
     old_z::Vector{T}, 
-    row_range::UnitRange{Int}, 
+    row_range::UnitRange{DefaultInt}, 
     spattern::SparsityPattern, 
-    clique_index::Int,
-    clique_buffer::Vector{Int},
-    row_ptr::Int
+    clique_index::DefaultInt,
+    clique_buffer::Vector{DefaultInt},
+    row_ptr::DefaultInt
 ) where {T}
 
     sntree   = spattern.sntree
@@ -96,9 +96,9 @@ function add_blocks_with_cone!(
     old_s::Vector{T}, 
     new_z::Vector{T}, 
     old_z::Vector{T}, 
-    row_range::UnitRange{Int}, 
+    row_range::UnitRange{DefaultInt}, 
     cone::SupportedCone, 
-    row_ptr::Int
+    row_ptr::DefaultInt
 ) where {T}
 
     src_range = row_ptr:(row_ptr + nvars(cone) - 1)

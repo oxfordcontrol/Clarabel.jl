@@ -4,7 +4,7 @@
 # positive semidefinite matrix completion (2011), p.53
 # -----------------------------------------
 
-const BlockOverlapTriplet = Tuple{Int, Int, Bool}
+const BlockOverlapTriplet = Tuple{DefaultInt, DefaultInt, Bool}
 
 function decomp_augment_compact!(
     chordal_info::ChordalInfo,
@@ -42,7 +42,7 @@ function find_compact_A_b_and_cones(
 
   # allocate sparse components for the augmented A
   Aa_nnz = nnz(A) + 2 * n_overlaps
-  Aa_I   = zeros(Int, Aa_nnz)
+  Aa_I   = zeros(DefaultInt, Aa_nnz)
   Aa_J   = extra_columns(Aa_nnz, nnz(A) + 1, A.n + 1)
   Aa_V   = alternating_sequence(T, Aa_nnz, nnz(A) + 1)
 
@@ -50,7 +50,7 @@ function find_compact_A_b_and_cones(
 
   # allocate sparse components for the augmented b
   bs   = sparse(b)
-  ba_I = zeros(Int, length(bs.nzval))
+  ba_I = zeros(DefaultInt, length(bs.nzval))
   ba_V = bs.nzval
 
   # preallocate the decomposed cones and the mapping 
@@ -112,16 +112,16 @@ end
 # Given the row, column, and nzval vectors and dimensions, assembles the sparse matrix `Aa` 
 # of the decomposed problem in a slightly more memory efficient way.
 function allocate_sparse_matrix(
-  Aa_I::Vector{Int}, 
-  Aa_J::Vector{Int}, 
+  Aa_I::Vector{DefaultInt}, 
+  Aa_J::Vector{DefaultInt}, 
   Aa_V::Vector{T}, 
-  mA::Int, nA::Int
+  mA::DefaultInt, nA::DefaultInt
 ) where {T}
-  csrrowptr = zeros(Int, mA + 1)
-  csrcolval = zeros(Int, length(Aa_I))
+  csrrowptr = zeros(DefaultInt, mA + 1)
+  csrcolval = zeros(DefaultInt, length(Aa_I))
   csrnzval = zeros(T, length(Aa_I))
-  klasttouch = zeros(Int, nA + 1)
-  csccolptr = zeros(Int, nA + 1)
+  klasttouch = zeros(DefaultInt, nA + 1)
+  csccolptr = zeros(DefaultInt, nA + 1)
 
   SparseArrays.sparse!(Aa_I, Aa_J, Aa_V, mA, nA, +, klasttouch, csrrowptr, csrcolval, csrnzval, csccolptr, Aa_I, Aa_V )
 
@@ -130,15 +130,15 @@ end
 
 # Handles all cones that are not decomposed by a sparsity pattern
 function add_entries_with_cone!(
-  Aa_I::Vector{Int}, 
-  ba_I::Vector{Int}, 
+  Aa_I::Vector{DefaultInt}, 
+  ba_I::Vector{DefaultInt}, 
   cones_new::Vector{SupportedCone}, 
   cone_maps::Vector{ConeMapEntry},
   A::SparseMatrixCSC{T}, 
   b::SparseVector{T}, 
-  row_range::UnitRange{Int}, 
+  row_range::UnitRange{DefaultInt}, 
   cone::SupportedCone,
-  row_ptr::Int, overlap_ptr::Int
+  row_ptr::DefaultInt, overlap_ptr::DefaultInt
 ) where {T}
 
   n = A.n
@@ -183,16 +183,16 @@ end
 # Handle decomposable cones with a SparsityPattern. The row vectors A_I and b_I 
 # have to be edited in such a way that entries of one clique appear contiguously.
 function add_entries_with_sparsity_pattern!(
-  A_I::Vector{Int}, 
-  b_I::Vector{Int}, 
+  A_I::Vector{DefaultInt}, 
+  b_I::Vector{DefaultInt}, 
   cones_new::Vector{SupportedCone}, 
   cone_maps::Vector{ConeMapEntry},
   A::SparseMatrixCSC{T}, 
   b::SparseVector{T}, 
-  row_range::UnitRange{Int}, 
+  row_range::UnitRange{DefaultInt}, 
   spattern::SparsityPattern,
-  spattern_index::Int,
-  row_ptr::Int, overlap_ptr::Int
+  spattern_index::DefaultInt,
+  row_ptr::DefaultInt, overlap_ptr::DefaultInt
 ) where {T}
 
   sntree   = spattern.sntree 
@@ -219,7 +219,7 @@ function add_entries_with_sparsity_pattern!(
     # location of the overlapping entry. Therefore load and reorder the parent clique
     if i == sntree.n_cliques
       parent_rows   = 0:0
-      parent_clique = Int[]
+      parent_clique = DefaultInt[]
     else
       parent_index  = get_clique_parent(sntree, i)
       parent_rows   = clique_to_rows[parent_index]
@@ -266,19 +266,19 @@ end
 # if (i, j) is not an overlap,or add an overlap column with (-1 and +1) in the correct positions.
 
 function add_clique_entries!(
-  A_I::Vector{Int}, 
-  b_I::Vector{Int}, 
-  A_rowval::Vector{Int}, 
-  b_nzind::Vector{Int}, 
+  A_I::Vector{DefaultInt}, 
+  b_I::Vector{DefaultInt}, 
+  A_rowval::Vector{DefaultInt}, 
+  b_nzind::Vector{DefaultInt}, 
   block_indices::Vector{BlockOverlapTriplet},  
-  parent_clique::Vector{Int}, 
-  parent_rows::UnitRange{Int}, 
-  col::Int,  
-  row_ptr::Int, 
-  overlap_ptr::Int, 
-  row_range::UnitRange{Int}, 
-  row_range_col::UnitRange{Int}, 
-  row_range_b::UnitRange{Int}
+  parent_clique::Vector{DefaultInt}, 
+  parent_rows::UnitRange{DefaultInt}, 
+  col::DefaultInt,  
+  row_ptr::DefaultInt, 
+  overlap_ptr::DefaultInt, 
+  row_range::UnitRange{DefaultInt}, 
+  row_range_col::UnitRange{DefaultInt}, 
+  row_range_b::UnitRange{DefaultInt}
 )
 
   counter = 0
@@ -311,12 +311,12 @@ end
 # the actual location of that entry in the global row vector `rowval`.
 
 function modify_clique_rows!(
-  v::Vector{Int}, 
-  k::Int, 
-  rowval::Vector{Int}, 
-  new_row_val::Int, 
-  row_range::UnitRange{Int}, 
-  row_range_col::UnitRange{Int}
+  v::Vector{DefaultInt}, 
+  k::DefaultInt, 
+  rowval::Vector{DefaultInt}, 
+  new_row_val::DefaultInt, 
+  row_range::UnitRange{DefaultInt}, 
+  row_range_col::UnitRange{DefaultInt}
 )
 
   row_0 = get_row_index(k, rowval, row_range, row_range_col)
@@ -332,10 +332,10 @@ end
 # Given the svec index `k` and an offset `row_range_col.start`, return the location of the 
 # (i, j)th entry in the row vector `rowval`.
 function get_row_index(
-  k::Int, 
-  rowval::Vector{Int}, 
-  row_range::UnitRange{Int}, 
-  row_range_col::UnitRange{Int}
+  k::DefaultInt, 
+  rowval::Vector{DefaultInt}, 
+  row_range::UnitRange{DefaultInt}, 
+  row_range_col::UnitRange{DefaultInt}
   )
 
   #PJG: possible logic error here, since we don't pass down a Union type 
@@ -367,7 +367,7 @@ end
 
 # Find the index of k=svec(i, j) in the parent clique `par_clique`.#
 
-function parent_block_indices(parent_clique::Vector{Int}, i::Int, j::Int)
+function parent_block_indices(parent_clique::Vector{DefaultInt}, i::DefaultInt, j::DefaultInt)
   ir = searchsortedfirst(parent_clique, i)
   jr = searchsortedfirst(parent_clique, j)
   return coord_to_upper_triangular_index((ir, jr))
@@ -381,7 +381,7 @@ end
 
 # `nv` is the number of vertices in the graph that we are trying to decompose.
 
-function get_block_indices(snode::Array{Int}, separator::Array{Int}, nv::Int)
+function get_block_indices(snode::Array{DefaultInt}, separator::Array{DefaultInt}, nv::DefaultInt)
   
   N = length(separator) + length(snode)
 
@@ -413,14 +413,14 @@ end
 
 # Return the row ranges of each clique after the decomposition, shifted by `row_start`.
 
-function clique_rows_map(row_start::Int, sntree::SuperNodeTree)
+function clique_rows_map(row_start::DefaultInt, sntree::SuperNodeTree)
   
   n_cliques = sntree.n_cliques
 
   # PJG: rows / inds not necessary here.   Should just size hint 
   # on the output Dict and push the entries directly to it
-  rows = sizehint!(UnitRange{Int}[],  n_cliques)
-  inds = sizehint!(Int[], n_cliques)
+  rows = sizehint!(UnitRange{DefaultInt}[],  n_cliques)
+  inds = sizehint!(DefaultInt[], n_cliques)
 
   for i in n_cliques:-1:1
     num_rows = triangular_number(get_nblk(sntree, i))
@@ -452,13 +452,13 @@ function get_rows_subset(rows, row_range)
 
 end
 
-function get_rows_vec(b::SparseVector, row_range::UnitRange{Int})
+function get_rows_vec(b::SparseVector, row_range::UnitRange{DefaultInt})
   
     get_rows_subset(b.nzind, row_range)
   
   end
   
-  function get_rows_mat(A::SparseMatrixCSC, col::Int, row_range::UnitRange{Int})
+  function get_rows_mat(A::SparseMatrixCSC, col::DefaultInt, row_range::UnitRange{DefaultInt})
 
     colrange = A.colptr[col]:(A.colptr[col + 1]-1)
     rows = view(A.rowval, colrange)
@@ -476,7 +476,7 @@ function get_rows_vec(b::SparseVector, row_range::UnitRange{Int})
 # Returns the appropriate amount of memory for `A.nzval`, including, starting from `n_start`, 
 # the (+1 -1) entries for the overlaps.
 
-function alternating_sequence(T, total_length::Int, n_start::Int)
+function alternating_sequence(T, total_length::DefaultInt, n_start::DefaultInt)
   v = ones(T, total_length)
   for i= (n_start + 1):2:length(v)
     v[i] = -one(T)
@@ -488,8 +488,8 @@ end
 # Returns the appropriate amount of memory for the columns of the augmented problem matrix `A`, 
 # including, starting from `n_start`, the columns for the (+1 -1) entries for the overlaps.
 
-function extra_columns(total_length::Int, n_start::Int, start_val::Int)
-  v = zeros(Int, total_length)
+function extra_columns(total_length::DefaultInt, n_start::DefaultInt, start_val::DefaultInt)
+  v = zeros(DefaultInt, total_length)
   for i = n_start:2:length(v)-1
     v[i]   = start_val
     v[i+1] = start_val
@@ -516,6 +516,6 @@ end
 # snode and separators via the postordering.   Only used in the compact  
 # problem decomposition functions 
 
-function get_clique_by_index(sntree::SuperNodeTree, i::Int)
+function get_clique_by_index(sntree::SuperNodeTree, i::DefaultInt)
 	return union(sntree.snode[i], sntree.separators[i])
 end

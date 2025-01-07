@@ -2,14 +2,14 @@
 # Chordal Decomposition Information
 # -------------------------------------
 struct ConeMapEntry
-    orig_index::Int 
-    tree_and_clique::Option{Tuple{Int,Int}}
+    orig_index::DefaultInt
+    tree_and_clique::Option{Tuple{DefaultInt,DefaultInt}}
 end 
 
 mutable struct ChordalInfo{T}
 
     # sketch of the original problem
-    init_dims::Tuple{Int64, Int64}       # (n,m) dimensions of the original problem
+    init_dims::Tuple{DefaultInt, DefaultInt}       # (n,m) dimensions of the original problem
     init_cones::Vector{SupportedCone}    # original cones of the problem
     
     # decomposed problem data 
@@ -92,8 +92,8 @@ end
 function analyse_psdtriangle_sparsity_pattern!(
     chordal_info::ChordalInfo{T}, 
     nz_mask::AbstractVector{Bool}, 
-    conedim::Int,
-    coneidx::Int,
+    conedim::DefaultInt,
+    coneidx::DefaultInt,
     merge_method::Symbol
 ) where {T} 
 
@@ -221,8 +221,8 @@ end
 function find_graph!(nz_mask::AbstractVector{Bool}) 
 	
     nz = count(nz_mask)
-    rows = sizehint!(Int[], nz)
-    cols = sizehint!(Int[], nz)
+    rows = sizehint!(DefaultInt[], nz)
+    cols = sizehint!(DefaultInt[], nz)
 
     # check final row/col to get matrix dimension
     (m,n) = upper_triangular_index_to_coord(length(nz_mask))

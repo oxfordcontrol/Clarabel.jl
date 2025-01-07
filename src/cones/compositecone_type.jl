@@ -9,18 +9,18 @@ struct CompositeCone{T} <: AbstractCone{T}
     cones::Vector{AbstractCone{T}}
 
     #count of each cone type
-    type_counts::Dict{Type,Int}
+    type_counts::Dict{Type,DefaultInt}
 
     #overall size of the composite cone
     numel::DefaultInt
     degree::DefaultInt
 
     #ranges for the indices of the constituent cones
-    rng_cones::Vector{UnitRange{Int64}}
+    rng_cones::Vector{UnitRange{DefaultInt}}
 
     #ranges for the indices of the constituent Hs blocks
     #associated with each cone
-    rng_blocks::Vector{UnitRange{Int64}}
+    rng_blocks::Vector{UnitRange{DefaultInt}}
 
     # the flag for symmetric cone check
     _is_symmetric::Bool
@@ -29,7 +29,7 @@ struct CompositeCone{T} <: AbstractCone{T}
 
         cones  = sizehint!(AbstractCone{T}[],length(cone_specs))
 
-        type_counts = Dict{Type,Int}()
+        type_counts = Dict{Type,DefaultInt}()
 
         #assumed symmetric to start
         _is_symmetric = true
@@ -68,7 +68,7 @@ CompositeCone(args...) = CompositeCone{DefaultFloat}(args...)
 
 
 # partial implementation of AbstractArray behaviours
-function Base.getindex(S::CompositeCone{T}, i::Int) where {T}
+function Base.getindex(S::CompositeCone{T}, i::DefaultInt) where {T}
     @boundscheck checkbounds(S.cones,i)
     @inbounds S.cones[i]
 end

@@ -5,7 +5,7 @@
 mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
     # problem dimensions
-    m::Int; n::Int; p::Int
+    m::DefaultInt; n::DefaultInt; p::DefaultInt
 
     # Left and right hand sides for solves
     x::Vector{T}
@@ -20,17 +20,17 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
     map::LDLDataMap
 
     #the expected signs of D in KKT = LDL^T
-    Dsigns::Vector{Int}
+    Dsigns::Vector{DefaultInt}
 
     # a vector for storing the Hs blocks
     # on the in the KKT matrix block diagonal
     Hsblocks::Vector{T}
 
     #unpermuted KKT matrix
-    KKT::SparseMatrixCSC{T,Int}
+    KKT::SparseMatrixCSC{T,DefaultInt}
 
     #symmetric view for residual calcs
-    KKTsym::Symmetric{T, SparseMatrixCSC{T,Int}}
+    KKTsym::Symmetric{T, SparseMatrixCSC{T,DefaultInt}}
 
     #settings just points back to the main solver settings.
     #Required since there is no separate LDL settings container
@@ -47,7 +47,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         P::SparseMatrixCSC{T},
         A::SparseMatrixCSC{T},
         cones::CompositeCone{T},
-        m::Int,n::Int,
+        m::DefaultInt,n::DefaultInt,
         settings::Settings{T}
     ) where {T}
 
@@ -68,7 +68,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
         work_dx = zeros(T,n+m+p)
 
         #the expected signs of D in LDL
-        Dsigns = zeros(Int,n+m+p)     
+        Dsigns = zeros(DefaultInt,n+m+p)     
         _fill_Dsigns!(Dsigns,m,n,map)
 
         #updates to the diagonal of KKT will be
@@ -152,7 +152,7 @@ end
 
 #updates KKT matrix values
 function _update_values_KKT!(
-    KKT::SparseMatrixCSC{T,Int},
+    KKT::SparseMatrixCSC{T,DefaultInt},
     index::AbstractVector{Ti},
     values::AbstractVector{T}
 ) where{T,Ti}
@@ -183,7 +183,7 @@ end
 
 #updates KKT matrix values
 function _scale_values_KKT!(
-    KKT::SparseMatrixCSC{T,Int},
+    KKT::SparseMatrixCSC{T,Ti},
     index::AbstractVector{Ti},
     scale::T
 ) where{T,Ti}

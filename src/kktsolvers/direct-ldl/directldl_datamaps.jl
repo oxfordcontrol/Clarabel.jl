@@ -6,12 +6,12 @@ pdim(maps::Vector{SparseExpansionMap}) = sum(pdim, maps; init = 0)
 nnz_vec(maps::Vector{SparseExpansionMap}) = sum(nnz_vec, maps; init = 0)
 
 struct SOCExpansionMap <: SparseExpansionMap
-    u::Vector{Int}        #off diag dense columns u
-    v::Vector{Int}        #off diag dense columns v
-    D::MVector{2, Int}    #diag D
+    u::Vector{DefaultInt}        #off diag dense columns u
+    v::Vector{DefaultInt}        #off diag dense columns v
+    D::MVector{2, DefaultInt}    #diag D
     function SOCExpansionMap(cone::SecondOrderCone)
-        u = zeros(Int,numel(cone))
-        v = zeros(Int,numel(cone))
+        u = zeros(DefaultInt,numel(cone))
+        v = zeros(DefaultInt,numel(cone))
         D = MVector(0,0)
         new(u,v,D)
     end
@@ -25,7 +25,7 @@ function _csc_colcount_sparsecone(
     cone::SecondOrderCone,
     map::SOCExpansionMap,
     K::SparseMatrixCSC,
-    row::Int,col::Int,shape::Symbol
+    row::DefaultInt,col::DefaultInt,shape::Symbol
 )
     
     nvars = numel(cone)
@@ -42,7 +42,7 @@ end
 function _csc_fill_sparsecone(
     cone::SecondOrderCone,
     map::SOCExpansionMap,
-    K::SparseMatrixCSC,row::Int,col::Int,shape::Symbol
+    K::SparseMatrixCSC,row::DefaultInt,col::DefaultInt,shape::Symbol
 )
 
     nvars = numel(cone)
@@ -80,15 +80,15 @@ end
 
 struct GenPowExpansionMap <: SparseExpansionMap
     
-    p::Vector{Int}        #off diag dense columns p
-    q::Vector{Int}        #off diag dense columns q
-    r::Vector{Int}        #off diag dense columns r
-    D::MVector{3, Int}    #diag D
+    p::Vector{DefaultInt}        #off diag dense columns p
+    q::Vector{DefaultInt}        #off diag dense columns q
+    r::Vector{DefaultInt}        #off diag dense columns r
+    D::MVector{3, DefaultInt}    #diag D
 
     function GenPowExpansionMap(cone::GenPowerCone)
-        p = zeros(Int,numel(cone))
-        q = zeros(Int,dim1(cone))
-        r = zeros(Int,dim2(cone))
+        p = zeros(DefaultInt,numel(cone))
+        q = zeros(DefaultInt,dim1(cone))
+        r = zeros(DefaultInt,dim2(cone))
         D = MVector(0,0,0)
         new(p,q,r,D)
     end
@@ -101,7 +101,7 @@ expansion_map(cone::GenPowerCone) = GenPowExpansionMap(cone)
 function _csc_colcount_sparsecone(
     cone::GenPowerCone,
     map::GenPowExpansionMap,
-    K::SparseMatrixCSC,row::Int,col::Int,shape::Symbol
+    K::SparseMatrixCSC,row::DefaultInt,col::DefaultInt,shape::Symbol
 )
 
     nvars   = numel(cone)
@@ -125,7 +125,7 @@ function _csc_fill_sparsecone(
     cone::GenPowerCone{T},
     map::GenPowExpansionMap,
     K::SparseMatrixCSC{T},
-    row::Int,col::Int,shape::Symbol
+    row::DefaultInt,col::DefaultInt,shape::Symbol
 ) where{T}
 
     dim1  = Clarabel.dim1(cone)
@@ -169,32 +169,32 @@ end
 
 struct LDLDataMap
 
-    P::Vector{Int}
-    A::Vector{Int}
-    Hsblocks::Vector{Int}                        #indices of the lower RHS blocks (by cone)
+    P::Vector{DefaultInt}
+    A::Vector{DefaultInt}
+    Hsblocks::Vector{DefaultInt}                 #indices of the lower RHS blocks (by cone)
     sparse_maps::Vector{SparseExpansionMap}      #sparse cone expansion terms
 
     #all of above terms should be disjoint and their union
     #should cover all of the user data in the KKT matrix.  Now
     #we make two last redundant indices that will tell us where
     #the whole diagonal is, including structural zeros.
-    diagP::Vector{Int}
-    diag_full::Vector{Int}
+    diagP::Vector{DefaultInt}
+    diag_full::Vector{DefaultInt}
 
     function LDLDataMap(Pmat::SparseMatrixCSC{T},Amat::SparseMatrixCSC{T},cones) where{T}
 
         (m,n) = (size(Amat,1), size(Pmat,1))
-        P = zeros(Int,nnz(Pmat))
-        A = zeros(Int,nnz(Amat))
+        P = zeros(DefaultInt,nnz(Pmat))
+        A = zeros(DefaultInt,nnz(Amat))
 
         #the diagonal of the ULHS block P.
         #NB : we fill in structural zeros here even if the matrix
         #P is empty (e.g. as in an LP), so we can have entries in
         #index Pdiag that are not present in the index P
-        diagP  = zeros(Int,n)
+        diagP  = zeros(DefaultInt,n)
 
         #make an index for each of the Hs blocks for each cone
-        Hsblocks = _allocate_kkt_Hsblocks(Int, cones)
+        Hsblocks = _allocate_kkt_Hsblocks(DefaultInt, cones)
 
         #now do the sparse cone expansion pieces
         nsparse = count(cone->(@conedispatch is_sparse_expandable(cone)),cones)
@@ -206,7 +206,7 @@ struct LDLDataMap
             end
         end
 
-        diag_full = zeros(Int,m+n+pdim(sparse_maps))
+        diag_full = zeros(DefaultInt,m+n+pdim(sparse_maps))
 
         return new(P,A,Hsblocks,sparse_maps,diagP,diag_full)
     end

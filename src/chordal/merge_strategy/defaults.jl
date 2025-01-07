@@ -50,17 +50,17 @@ function traverse(strategy::AbstractMergeStrategy, t::SuperNodeTree)
   #return nothing
 end
 
-function evaluate(strategy::AbstractMergeStrategy, t::SuperNodeTree, cand::Tuple{Int, Int})
+function evaluate(strategy::AbstractMergeStrategy, t::SuperNodeTree, cand::Tuple{DefaultInt, DefaultInt})
   error("Incomplete merge strategy specification: ",typeof(strategy))
   #return bool
 end
 
-function merge_two_cliques!(strategy::AbstractMergeStrategy, t::SuperNodeTree, cand::Tuple{Int, Int}) 
+function merge_two_cliques!(strategy::AbstractMergeStrategy, t::SuperNodeTree, cand::Tuple{DefaultInt, DefaultInt}) 
   error("Incomplete merge strategy specification: ",typeof(strategy))
   #return nothing 
 end 
 
-function update_strategy!(strategy::AbstractMergeStrategy, t::SuperNodeTree, cand::Tuple{Int, Int}, do_merge::Bool)
+function update_strategy!(strategy::AbstractMergeStrategy, t::SuperNodeTree, cand::Tuple{DefaultInt, DefaultInt}, do_merge::Bool)
   error("Incomplete merge strategy specification: ",typeof(strategy))
   #return nothing 
 end 
