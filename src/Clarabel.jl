@@ -75,20 +75,6 @@ module Clarabel
 
     #data updating
     include("./data_updating.jl")
-
-    #optional dependencies.  
-    #NB: This __init__ function and its @require statements 
-    #should be removed upon update of this package for use 
-    #with Julia v1.10+, after which weakdeps / external 
-    #dependencies will be natively supported 
-    function __init__()
-        @require Pardiso="46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2" begin
-            include("./kktsolvers/direct-ldl/directldl_pardiso.jl")  
-        end 
-        @require HSL="34c5aeac-e683-54a6-a0e9-6e0fdc586c50" begin
-            include("./kktsolvers/direct-ldl/directldl_hsl.jl")
-        end 
-    end
  
     # JSON I/O
     include("./json.jl")

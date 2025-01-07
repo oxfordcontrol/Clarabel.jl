@@ -1,4 +1,5 @@
-using HSL, AMD
+using HSL, AMD, SparseArrays
+import ..DirectLDLSolversDict
 
 abstract type HSLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T} end
 
@@ -34,10 +35,7 @@ mutable struct HSLMA57DirectLDLSolver{T} <: HSLDirectLDLSolver{T}
     end
 end
 
-
-DirectLDLSolversDict[:ma57] = HSLMA57DirectLDLSolver
 required_matrix_shape(::Type{HSLMA57DirectLDLSolver}) = :tril
-
 
 #update entries in the KKT matrix using the
 #given index into its CSC representation
