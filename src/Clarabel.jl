@@ -3,7 +3,7 @@ module Clarabel
 
     using SparseArrays, LinearAlgebra, Printf, Requires
     const DefaultFloat = Float64
-    const DefaultInt   = Int64
+    const DefaultInt   = LinearAlgebra.BlasInt
 
     # Rust-like Option type
     const Option{T} = Union{Nothing,T} 

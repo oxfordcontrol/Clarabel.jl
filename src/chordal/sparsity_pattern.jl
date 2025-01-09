@@ -3,14 +3,14 @@
 # ---------------------------
 mutable struct SparsityPattern
   sntree::SuperNodeTree
-  ordering::Array{DefaultInt}
-  orig_index::DefaultInt # original index of the cone being decomposed
+  ordering::Array{Int}
+  orig_index::Int # original index of the cone being decomposed
 
   # constructor for sparsity pattern
   function SparsityPattern(
     L::SparseMatrixCSC{T}, 
-    ordering::Array{DefaultInt, 1}, 
-    orig_index::DefaultInt,
+    ordering::Array{Int, 1}, 
+    orig_index::Int,
     merge_method::Symbol,
 
   ) where {T}

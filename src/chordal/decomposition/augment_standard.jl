@@ -44,7 +44,7 @@ function find_standard_H_and_cones!(
 
   # preallocate H and new decomposed cones
   lenH = find_H_col_dimension(chordal_info)
-  H_I  = sizehint!(DefaultInt[], lenH)
+  H_I  = sizehint!(Int[], lenH)
 
   # ncones from decomposition, plus one for an additional equality constraint
   cones_new = sizehint!(SupportedCone[], final_cone_count(chordal_info) + 1)
@@ -84,10 +84,10 @@ end
 
 
 function decompose_with_cone!(
-  H_I::Vector{DefaultInt}, 
+  H_I::Vector{Int}, 
   cones_new::Vector{SupportedCone}, 
   cone::SupportedCone, 
-  row::DefaultInt
+  row::Int
 )
     for i = 1:nvars(cone)
       push!(H_I,row + i - 1)
@@ -98,10 +98,10 @@ end
 
 
 function decompose_with_sparsity_pattern!(
-  H_I::Vector{DefaultInt}, 
+  H_I::Vector{Int}, 
   cones_new::Vector{SupportedCone}, 
   spattern::SparsityPattern, 
-  row::DefaultInt
+  row::Int
 )
   
   sntree = spattern.sntree
@@ -125,7 +125,7 @@ function decompose_with_sparsity_pattern!(
 end
 
 
-function add_subblock_map!(H_I::Vector{DefaultInt}, clique_vertices::Vector{DefaultInt}, row_start::DefaultInt)
+function add_subblock_map!(H_I::Vector{Int}, clique_vertices::Vector{Int}, row_start::Int)
 
   v = clique_vertices
 

@@ -1,8 +1,8 @@
 mutable struct ParentChildMergeStrategy <: AbstractMergeStrategy
   stop::Bool
-  clique_index::DefaultInt
-  t_fill::DefaultInt
-  t_size::DefaultInt
+  clique_index::Int
+  t_fill::Int
+  t_size::Int
 
   # PJG: fill and size need to be settable 
   function ParentChildMergeStrategy(; t_fill = 8, t_size = 8)
@@ -32,7 +32,7 @@ end
 
 # Decide whether to merge the two clique candidates.
 
-function evaluate(strategy::ParentChildMergeStrategy, t::SuperNodeTree, cand::Tuple{DefaultInt, DefaultInt})
+function evaluate(strategy::ParentChildMergeStrategy, t::SuperNodeTree, cand::Tuple{Int, Int})
   
   strategy.stop && return false
 
@@ -52,7 +52,7 @@ end
 function merge_two_cliques!(
   strategy::ParentChildMergeStrategy, 
   t::SuperNodeTree, 
-  cand::Tuple{DefaultInt, DefaultInt}
+  cand::Tuple{Int, Int}
 ) 
   
   # determine which clique is the parent
@@ -85,7 +85,7 @@ end
 function update_strategy!(
   strategy::ParentChildMergeStrategy, 
   t::SuperNodeTree, 
-  cand::Tuple{DefaultInt, DefaultInt}, 
+  cand::Tuple{Int, Int}, 
   do_merge::Bool
 )
   # try to merge last node of order 1, then stop
@@ -119,7 +119,7 @@ end
 # since this should only be called when we can guarantee that we
 # are acting on a parent-child pair.
 
-function determine_parent(t::SuperNodeTree, c1::DefaultInt, c2::DefaultInt)
+function determine_parent(t::SuperNodeTree, c1::Int, c2::Int)
   if in(c2, t.snode_children[c1])
     return c1, c2
   else
@@ -129,7 +129,7 @@ end
 
 # not implemented as part of the main SuperNodeTree interface since the 
 # index is not passed through the post ordering 
-function clique_dim(t::SuperNodeTree, i::DefaultInt)
+function clique_dim(t::SuperNodeTree, i::Int)
   return length(t.snode[i]), length(t.separators[i])
 end
 
@@ -138,10 +138,10 @@ end
 # respective supernode and separator dimensions.
 
 function fill_in(
-  dim_clique_snode::DefaultInt, 
-  dim_clique_sep::DefaultInt, 
-  dim_parent_snode::DefaultInt, 
-  dim_parent_sep::DefaultInt
+  dim_clique_snode::Int, 
+  dim_clique_sep::Int, 
+  dim_parent_snode::Int, 
+  dim_parent_sep::Int
 )
   dim_parent = dim_parent_snode + dim_parent_sep
   dim_clique = dim_clique_snode + dim_clique_sep

@@ -8,8 +8,7 @@ export Optimizer
 
 const MOI = MathOptInterface
 const MOIU = MOI.Utilities
-const SparseTriplet{T} = Tuple{Vector{Ti}, Vector{Ti}, Vector{T}} where {T,Ti <: Integer}
-const DefaultInt = Clarabel.DefaultInt
+const SparseTriplet{T} = Tuple{Vector{<:Integer}, Vector{<:Integer}, Vector{T}}
 
 # Cones supported by the solver
 const OptimizerSupportedMOICones{T} = Union{
@@ -94,11 +93,11 @@ mutable struct Optimizer{T} <: MOI.AbstractOptimizer
     solver_settings::Clarabel.Settings{T}
     solver_info::Union{Nothing,Clarabel.DefaultInfo{T}}
     solver_solution::Union{Nothing,Clarabel.DefaultSolution{T}}
-    solver_nvars::Union{Nothing,DefaultInt}
+    solver_nvars::Union{Nothing,Int}
     use_quad_obj::Bool
     sense::MOI.OptimizationSense
     objconstant::T
-    rowranges::Dict{DefaultInt, UnitRange{DefaultInt}}
+    rowranges::Dict{Int, UnitRange{Int}}
 
     function Optimizer{T}(; solver_module = Clarabel, user_settings...) where {T}
         solver_module   = solver_module
@@ -110,7 +109,7 @@ mutable struct Optimizer{T} <: MOI.AbstractOptimizer
         use_quad_obj    = true
         sense = MOI.MIN_SENSE
         objconstant = zero(T)
-        rowranges = Dict{DefaultInt, UnitRange{DefaultInt}}()
+        rowranges = Dict{Int, UnitRange{Int}}()
         optimizer = new(solver_module,solver,solver_settings,solver_info,solver_solution,solver_nvars,use_quad_obj,sense,objconstant,rowranges)
         for (key, value) in user_settings
             MOI.set(optimizer, MOI.RawOptimizerAttribute(string(key)), value)
@@ -136,7 +135,7 @@ function MOI.empty!(optimizer::Optimizer{T}) where {T}
     optimizer.solver_nvars    = nothing
     optimizer.sense = MOI.MIN_SENSE # model parameter, so needs to be reset
     optimizer.objconstant = zero(T)
-    optimizer.rowranges = Dict{DefaultInt, UnitRange{DefaultInt}}()
+    optimizer.rowranges = Dict{Int, UnitRange{Int}}()
 end
 
 MOI.is_empty(optimizer::Optimizer{T}) where {T} = isnothing(optimizer.solver)
@@ -184,11 +183,11 @@ end
 MOI.get(opt::Optimizer, ::MOI.SolverName)        = string(opt.solver_module)
 MOI.get(opt::Optimizer, ::MOI.SolverVersion)     = Clarabel.version()
 MOI.get(opt::Optimizer, ::MOI.RawSolver)         = opt.solver
-MOI.get(opt::Optimizer, ::MOI.ResultCount)       = DefaultInt(!isnothing(opt.solver_solution))
+MOI.get(opt::Optimizer, ::MOI.ResultCount)       = Int(!isnothing(opt.solver_solution))
 MOI.get(opt::Optimizer, ::MOI.NumberOfVariables) = opt.solver_nvars
 MOI.get(opt::Optimizer, ::MOI.SolveTimeSec)      = opt.solver_info.solve_time
 MOI.get(opt::Optimizer, ::MOI.RawStatusString)   = string(opt.solver_info.status)
-MOI.get(opt::Optimizer, ::MOI.BarrierIterations) = DefaultInt(opt.solver_info.iterations)
+MOI.get(opt::Optimizer, ::MOI.BarrierIterations) = Int(opt.solver_info.iterations)
 
 function MOI.get(opt::Optimizer, a::MOI.ObjectiveValue)
     MOI.check_result_index_bounds(opt, a)
@@ -314,6 +313,16 @@ function MOI.supports_constraint(
     true
 end
 
+
+function MOI.supports_constraint(
+    opt::Optimizer{T},
+    ::Type{<:MOI.VectorOfVariables},
+    t::Type{<:OptimizerSupportedMOICones{T}}
+) where {T}     
+    return true
+end
+
+
 #------------------------------
 # supported objective functions
 #------------------------------
@@ -431,7 +440,7 @@ end
 
 
 function assign_constraint_row_ranges!(
-    rowranges::Dict{DefaultInt, UnitRange{DefaultInt}},
+    rowranges::Dict{Int, UnitRange{Int}},
     idxmap::MOIU.IndexMap,
     src::MOI.ModelLike
 )
@@ -452,7 +461,7 @@ function assign_constraint_row_ranges!(
 end
 
 function constraint_rows(
-    rowranges::Dict{DefaultInt, UnitRange{DefaultInt}},
+    rowranges::Dict{Int, UnitRange{Int}},
     ci::MOI.ConstraintIndex{<:Any, <:MOI.AbstractScalarSet}
 )
     rowrange = rowranges[ci.value]
@@ -461,7 +470,7 @@ function constraint_rows(
 end
 
 constraint_rows(
-    rowranges::Dict{DefaultInt, UnitRange{DefaultInt}},
+    rowranges::Dict{Int, UnitRange{Int}},
     ci::MOI.ConstraintIndex{<:Any, <:MOI.AbstractVectorSet}
 ) = rowranges[ci.value]
 
@@ -489,8 +498,8 @@ function process_constraints(
     b = zeros(T, m)
 
     #these will be used for a triplet representation of A
-    I = DefaultInt[]
-    J = DefaultInt[]
+    I = Int[]
+    J = Int[]
     V = T[]
 
     #these will be used for the Clarabel API cone types
@@ -519,7 +528,7 @@ function push_constraint!(
     cone_spec::Vector{Clarabel.SupportedCone},
     src::MOI.ModelLike,
     idxmap,
-    rowranges::Dict{DefaultInt, UnitRange{DefaultInt}},
+    rowranges::Dict{Int, UnitRange{Int}},
     F::Type{<:MOI.AbstractFunction},
     S::Type{<:MOI.AbstractSet}
 ) where {T}
@@ -539,7 +548,7 @@ end
 
 function push_constraint_constant!(
     b::AbstractVector{T},
-    rows::UnitRange{DefaultInt},
+    rows::UnitRange{Int},
     f::MOI.VectorAffineFunction{T},
     ::OptimizerSupportedMOICones{T},
 ) where {T}
@@ -548,10 +557,20 @@ function push_constraint_constant!(
     return nothing
 end
 
+function push_constraint_constant!(
+    b::AbstractVector{T},
+    rows::UnitRange{Int},
+    f::MOI.VectorOfVariables,
+    s::OptimizerSupportedMOICones{T},
+) where {T}
+    b[rows] .= zero(T)
+    return nothing
+end
+
 function push_constraint_linear!(
     triplet::SparseTriplet,
     f::MOI.VectorAffineFunction{T},
-    rows::UnitRange{DefaultInt},
+    rows::UnitRange{Int},
     idxmap,
     s::OptimizerSupportedMOICones{T},
 ) where {T}
@@ -568,9 +587,28 @@ function push_constraint_linear!(
     return nothing
 end
 
+function push_constraint_linear!(
+    triplet::SparseTriplet{T},
+    f::MOI.VectorOfVariables,
+    rows::UnitRange{Int},
+    idxmap,
+    s::OptimizerSupportedMOICones{T},
+) where {T}
+
+    (I, J, V) = triplet
+    cols = [idxmap[var].value for var in f.variables]
+    append!(I, rows)
+    append!(J, cols)
+    vals = ones(T, length(cols))
+    append!(V, vals)
+
+    return nothing
+end
+
+
 function push_constraint_set!(
     cone_spec::Vector{Clarabel.SupportedCone},
-    rows::Union{DefaultInt,UnitRange{DefaultInt}},
+    rows::Union{Int,UnitRange{Int}},
     s::OptimizerSupportedMOICones{T},
 ) where {T}
 
@@ -626,7 +664,7 @@ _to_optimizer_conedim(set::MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle}) = M
 
 function push_constraint_set!(
     cone_spec::Vector{Clarabel.SupportedCone},
-    rows::Union{DefaultInt,UnitRange{DefaultInt}},
+    rows::Union{Int,UnitRange{Int}},
     s::MathOptInterface.AbstractSet
 )
     #landing here means that s ∉ OptimizerSupportedMOICones.
@@ -666,8 +704,8 @@ function process_objective(
 
         elseif function_type == MOI.ScalarQuadraticFunction{T}
             fquadratic = MOI.get(src, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{T}}())
-            I = [DefaultInt(idxmap[term.variable_1].value) for term in fquadratic.quadratic_terms]
-            J = [DefaultInt(idxmap[term.variable_2].value) for term in fquadratic.quadratic_terms]
+            I = [Int(idxmap[term.variable_1].value) for term in fquadratic.quadratic_terms]
+            J = [Int(idxmap[term.variable_2].value) for term in fquadratic.quadratic_terms]
             V = [term.coefficient for term in fquadratic.quadratic_terms]
             upper_triangularize!((I, J, V))
             P = sparse(I, J, V, n, n)

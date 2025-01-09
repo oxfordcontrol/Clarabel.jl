@@ -25,7 +25,7 @@ required_matrix_shape(::Type{CholmodDirectLDLSolver}) = :triu
 #given index into its CSC representation
 function update_values!(
     ldlsolver::CholmodDirectLDLSolver{T},
-    index::AbstractVector{DefaultInt},
+    index::AbstractVector{Int},
     values::Vector{T}
 ) where{T}
 
@@ -38,7 +38,7 @@ end
 #given index into its CSC representation
 function scale_values!(
     ldlsolver::CholmodDirectLDLSolver{T},
-    index::AbstractVector{DefaultInt},
+    index::AbstractVector{Int},
     scale::T
 ) where{T}
 
