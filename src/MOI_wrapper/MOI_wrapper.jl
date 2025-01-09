@@ -314,6 +314,16 @@ function MOI.supports_constraint(
     true
 end
 
+
+function MOI.supports_constraint(
+    opt::Optimizer{T},
+    ::Type{<:MOI.VectorOfVariables},
+    t::Type{<:OptimizerSupportedMOICones{T}}
+) where {T}     
+    return true
+end
+
+
 #------------------------------
 # supported objective functions
 #------------------------------
@@ -548,6 +558,16 @@ function push_constraint_constant!(
     return nothing
 end
 
+function push_constraint_constant!(
+    b::AbstractVector{T},
+    rows::UnitRange{DefaultInt},
+    f::MOI.VectorOfVariables,
+    s::OptimizerSupportedMOICones{T},
+) where {T}
+    b[rows] .= zero(T)
+    return nothing
+end
+
 function push_constraint_linear!(
     triplet::SparseTriplet,
     f::MOI.VectorAffineFunction{T},
@@ -567,6 +587,25 @@ function push_constraint_linear!(
     end
     return nothing
 end
+
+function push_constraint_linear!(
+    triplet::SparseTriplet{T},
+    f::MOI.VectorOfVariables,
+    rows::UnitRange{DefaultInt},
+    idxmap,
+    s::OptimizerSupportedMOICones{T},
+) where {T}
+
+    (I, J, V) = triplet
+    cols = [idxmap[var].value for var in f.variables]
+    append!(I, rows)
+    append!(J, cols)
+    vals = ones(T, length(cols))
+    append!(V, vals)
+
+    return nothing
+end
+
 
 function push_constraint_set!(
     cone_spec::Vector{Clarabel.SupportedCone},
