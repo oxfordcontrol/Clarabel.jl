@@ -266,7 +266,7 @@ function variables_unscale!(
 	cinv = inv(data.equilibration.c[])
 
 	@. variables.x *= d * scaleinv
-    @. variables.z *= e * scaleinv * cinv
+    @. variables.z *= e * (scaleinv * cinv)
     @. variables.s *= einv * scaleinv
 
     variables.τ *= scaleinv
