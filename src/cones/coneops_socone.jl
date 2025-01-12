@@ -169,7 +169,9 @@ function get_Hs!(
         #for dense form, we return H = \eta^2 (2*ww^T - J), where 
         #J = diag(1,-I).  We are packing into dense triu form
 
-        Hsblock[1] = 2*K.w[1]^2 - one(T)
+        # 2*w[1]^2 - 1., avoiding bad cancellations
+        Hsblock[1] = (sqrt(2)*K.w[1] - one(T))*(sqrt(2)*K.w[1] + one(T))
+
         hidx = 2
 
         @inbounds for col in 2:K.dim
@@ -415,7 +417,8 @@ end
 
 @inline function _soc_residual(z:: AbstractVector{T}) where {T} 
 
-    @views z[1]*z[1] - sumsq(z[2:end])
+    z1norm = norm(@view z[2:end])
+    return (z[1] - z1norm)*(z[1] + z1norm)
 end 
 
 @inline function _sqrt_soc_residual(z:: AbstractVector{T}) where {T} 
@@ -433,8 +436,9 @@ end
 ) where {T} 
     
     x0 = z[1] + α * dz[1];
-    @views x1_sq = dot_shifted(z[2:end],z[2:end],dz[2:end],dz[2:end],α)
-    res = x0*x0 - x1_sq
+    @views x1sq = dot_shifted(z[2:end],z[2:end],dz[2:end],dz[2:end],α)
+    x1norm = sqrt(x1sq)
+    res = (x0 - x1norm) * (x0 + x1norm)
     return res
 end 
 
