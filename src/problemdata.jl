@@ -74,7 +74,8 @@ function data_get_normq!(data::DefaultProblemData{T}) where {T}
 	if isnothing(data.normq)
 		# recover unscaled norm
 		dinv = data.equilibration.dinv
-		data.normq = norm_inf_scaled(data.q,dinv)
+		cinv = inv(data.equilibration.c[])
+		data.normq = norm_inf_scaled(data.q,dinv) * cinv
 	end
 	return data.normq
 end 

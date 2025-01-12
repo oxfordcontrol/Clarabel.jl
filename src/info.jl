@@ -92,10 +92,10 @@ function info_check_termination!(
 
         # Going backwards. Stop immediately if residuals diverge out of feasibility tolerance.
         if info.ktratio < one(T)
-            if ( info.res_dual > settings.tol_feas && 
+            if ( info.res_dual > 100*settings.tol_feas && 
                 info.res_dual > 100*info.prev_res_dual
               ) || 
-              ( info.res_primal > settings.tol_feas && 
+              ( info.res_primal > 100*settings.tol_feas && 
                 info.res_primal > 100*info.prev_res_primal
               )
                 info.status = INSUFFICIENT_PROGRESS
