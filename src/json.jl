@@ -142,6 +142,8 @@ function lower(cone::SupportedCone)
 
     if isa(cone, PowerConeT)
         return OrderedDict(typesym => cone.α)
+    elseif isa(cone, ExponentialConeT)
+        return OrderedDict(typesym => ())
     elseif isa(cone,GenPowerConeT)
         return OrderedDict(typesym => [cone.α, cone.dim2])
     else 
@@ -191,6 +193,9 @@ function parse(dict::AbstractDict, ::Type{Settings{T}}) where T
         α = convert(Vector{Float64}, vals[1])
         dim2 = DefaultInt(vals[2])
         return coneT(α,dim2)
+
+    elseif key == "ExponentialConeT"
+        return coneT()
 
     else 
         # all other cones have a single scalar field
