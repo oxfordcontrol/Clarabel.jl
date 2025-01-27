@@ -98,6 +98,14 @@ function data_clear_normb!(data::DefaultProblemData{T}) where {T}
 		data.normb = nothing
 end 
 
+function data_is_presolved(data::DefaultProblemData{T}) where {T}
+	return !isnothing(data.presolver)
+end
+
+function data_is_chordal_decomposed(data::DefaultProblemData{T}) where {T}
+	return !isnothing(data.chordal_info)
+end
+
 #Ruiz Equilibration procedure, using same method as in COSMO.jl
 function data_equilibrate!(
         data::DefaultProblemData{T},

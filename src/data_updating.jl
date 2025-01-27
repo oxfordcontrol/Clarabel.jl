@@ -59,7 +59,7 @@ function update_P!(
 ) where{T}
 
     isnothing(data) && return
-    _check_update_allowed(s)
+    check_data_update_allowed(s)
     d = s.data.equilibration.d
     c = s.data.equilibration.c[]
     _update_matrix(data,s.data.P,d,d,c)
@@ -89,7 +89,7 @@ function update_A!(
 ) where{T}
 
     isnothing(data) && return
-    _check_update_allowed(s)
+    check_data_update_allowed(s)
     d = s.data.equilibration.d
     e = s.data.equilibration.e 
     _update_matrix(data,s.data.A,e,d,nothing)
@@ -112,7 +112,7 @@ function update_q!(
 ) where{T}
 
     isnothing(data) && return
-    _check_update_allowed(s)
+    check_data_update_allowed(s)
     d = s.data.equilibration.d
     c = s.data.equilibration.c[] 
     _update_vector(data,s.data.q,d,c)
@@ -136,7 +136,7 @@ function update_b!(
 ) where{T}
 
     isnothing(data) && return
-    _check_update_allowed(s)
+    check_data_update_allowed(s)
     e = s.data.equilibration.e     
     _update_vector(data,s.data.b,e,nothing)
 
@@ -146,23 +146,22 @@ function update_b!(
     return nothing
 end 
 
-function _check_update_allowed(s)
-
-    # Fail if presolve / chordal decomp is enabled.  
-    # Not strictly necessary since the presolve and chordal decomp 
-    # might not do anything, but may avoid confusion about expectations.
-
-    # checks both settings and existence of presolve objects, since otherwise 
-    # it would be possible to presolve and then disable the settings. 
-
-    if s.settings.presolve_enable || 
-       s.settings.chordal_decomposition_enable || 
-       !isnothing(s.data.presolver) ||
-       !isnothing(s.data.chordal_info)
-
-        error("Disable presolve and chordal decomposition to allow data updates.")
+function check_data_update_allowed(s)
+    # Fail if presolve / chordal decomp have reduced problem  
+    if data_is_presolved(s.data)
+        error("Data updates not allowed if presolver is active.")
+    elseif data_is_chordal_decomposed(s.data)
+        error("Data updates not allowed if chordal decomposition is active.")
     end
+end 
 
+function is_data_update_allowed(s)
+    try
+        check_data_update_allowed(s)
+        return true
+    catch
+        return false
+    end
 end 
 
 function _update_matrix(
