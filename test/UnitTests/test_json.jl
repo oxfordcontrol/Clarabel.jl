@@ -33,7 +33,7 @@ include("../testing_utils.jl")
     settings.max_iter = 1
     solver3 = Clarabel.read_from_file(file,settings)
     Clarabel.solve!(solver3)
-    @test isequal(solver.solution.status,Clarabel.MAX_ITERATIONS)
+    @test isequal(solver3.solution.status,Clarabel.MAX_ITERATIONS)
 
 end
 nothing
