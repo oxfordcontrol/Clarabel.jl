@@ -41,6 +41,7 @@ min\\_switch\\_step\\_length            | 1e-1      | minimum step size allowed 
 min\\_terminate\\_step\\_length         | 1e-4      | minimum step size allowed for symmetric cones & asymmetric cones with Dual scaling
 ||
 __Linear Solver Settings__||
+max\\_threads                           | 0         | max threads for multithreaded solvers (choose 0 for automatic)
 direct\\_kkt\\_solver                   | true      | use a direct linear solver method (required true)
 direct\\_solve\\_method                 | :qdldl    | direct linear solver (e.g. :qdldl, :mkl, :panua, :ma57, :cholmod, :faer)
 static\\_regularization\\_enable        | true      | enable KKT static regularization
@@ -102,6 +103,10 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
     linesearch_backtrack_step::T        = 0.8     
     min_switch_step_length::T           = 1e-1   
     min_terminate_step_length::T        = 1e-4    
+
+    #maximum solver threads for multithreaded KKT solvers 
+    #choosing 0 lets the solver choose for itself
+    max_threads::UInt32    	            = 0
 
     #the direct linear solver package to use
     direct_kkt_solver::Bool             = true   #indirect not yet supported

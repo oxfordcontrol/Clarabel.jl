@@ -74,7 +74,8 @@ function data_get_normq!(data::DefaultProblemData{T}) where {T}
 	if isnothing(data.normq)
 		# recover unscaled norm
 		dinv = data.equilibration.dinv
-		data.normq = norm_inf_scaled(data.q,dinv)
+		cinv = inv(data.equilibration.c[])
+		data.normq = norm_inf_scaled(data.q,dinv) * cinv
 	end
 	return data.normq
 end 
@@ -96,6 +97,14 @@ end
 function data_clear_normb!(data::DefaultProblemData{T}) where {T}
 		data.normb = nothing
 end 
+
+function data_is_presolved(data::DefaultProblemData{T}) where {T}
+	return !isnothing(data.presolver)
+end
+
+function data_is_chordal_decomposed(data::DefaultProblemData{T}) where {T}
+	return !isnothing(data.chordal_info)
+end
 
 #Ruiz Equilibration procedure, using same method as in COSMO.jl
 function data_equilibrate!(

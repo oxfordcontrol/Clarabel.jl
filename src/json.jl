@@ -58,10 +58,12 @@ end
 """
 	read_from_file(filename)
 
-Creat a `Clarabel.Solver` object from data in `filename` previously 
+Create a `Clarabel.Solver` object from data in `filename` previously 
 written by [`write_to_file`](@ref).
+
+
 """
-function read_from_file(file::String)
+function read_from_file(file::String, settings::Option{Settings{Float64}} = nothing) 
 
     buffer = open(file, "r") do file
         read(file, String)
@@ -73,10 +75,12 @@ function read_from_file(file::String)
     A = parse(json_data["A"], SparseMatrixCSC{Float64})
     b = parse(json_data["b"], Vector{Float64})
     cones = parse.(json_data["cones"], SupportedCone)
-    settings = parse(json_data["settings"], Settings{Float64})
 
-    # desanitize settings to restore inf bounds 
-    desanitize_settings!(settings)
+    if isnothing(settings)
+        settings = parse(json_data["settings"], Settings{Float64})
+        # desanitize settings to restore inf bounds 
+        desanitize_settings!(settings)
+    end 
 
     return Clarabel.Solver(P, q, A, b, cones, settings)
 
@@ -142,6 +146,8 @@ function lower(cone::SupportedCone)
 
     if isa(cone, PowerConeT)
         return OrderedDict(typesym => cone.α)
+    elseif isa(cone, ExponentialConeT)
+        return OrderedDict(typesym => ())
     elseif isa(cone,GenPowerConeT)
         return OrderedDict(typesym => [cone.α, cone.dim2])
     else 
@@ -191,6 +197,9 @@ function parse(dict::AbstractDict, ::Type{Settings{T}}) where T
         α = convert(Vector{Float64}, vals[1])
         dim2 = DefaultInt(vals[2])
         return coneT(α,dim2)
+
+    elseif key == "ExponentialConeT"
+        return coneT()
 
     else 
         # all other cones have a single scalar field

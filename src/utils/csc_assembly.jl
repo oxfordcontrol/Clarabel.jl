@@ -242,18 +242,31 @@ function _kkt_backshift_colptrs(K)
 end
 
 
-function _count_diagonal_entries(P)
+function _count_diagonal_entries(P, shape)
 
     count = 0
-    for i = 1:P.n
 
-        #compare last entry in each column with
-        #its row number to identify diagonal entries
-        if((P.colptr[i+1] != P.colptr[i]) &&    #nonempty column
-           (P.rowval[P.colptr[i+1]-1] == i) )   #last element is on diagonal
-                count += 1
+    if shape == :triu
+        for i = 1:P.n
+            #compare last entry in each column with
+            #its row number to identify diagonal entries
+            if((P.colptr[i+1] != P.colptr[i]) &&    #nonempty column
+            (P.rowval[P.colptr[i+1]-1] == i) )   #last element is on diagonal
+                    count += 1
+            end
         end
-    end
+
+    elseif shape == :tril
+        for i = 1:P.n
+            #compare first entry in each column with
+            #its row number to identify diagonal entries
+            if((P.colptr[i+1] != P.colptr[i]) &&    #nonempty column
+            (P.rowval[P.colptr[i]] == i) )   #last element is on diagonal
+                    count += 1
+            end
+        end
+    end 
+
     return count
 
 end

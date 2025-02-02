@@ -27,5 +27,13 @@ include("../testing_utils.jl")
     @test isapprox(solver.solution.x, solver2.solution.x, atol=1e-10)
     @test isequal(solver.solution.status, solver2.solution.status)
 
+
+    # test loading with custom settings 
+    settings = Clarabel.Settings()
+    settings.max_iter = 1
+    solver3 = Clarabel.read_from_file(file,settings)
+    Clarabel.solve!(solver3)
+    @test isequal(solver3.solution.status,Clarabel.MAX_ITERATIONS)
+
 end
 nothing

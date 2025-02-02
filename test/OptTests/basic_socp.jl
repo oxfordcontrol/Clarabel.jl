@@ -52,6 +52,19 @@ end
 
             end
 
+            @testset "feasible_sparse" begin
+
+                # same data, but with one SOC cone so that we get the 
+                # sparse representation for code coverage
+                P,c,A,b,cones = basic_SOCP_data(FloatT)
+                cones = Clarabel.SupportedCone[Clarabel.NonnegativeConeT(3), Clarabel.NonnegativeConeT(6)]
+                solver   = Clarabel.Solver(P,c,A,b,cones)
+                Clarabel.solve!(solver)
+
+                @test solver.solution.status == Clarabel.SOLVED
+
+            end
+
             @testset "infeasible" begin
 
                 P,c,A,b,cones = basic_SOCP_data(FloatT)

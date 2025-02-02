@@ -59,9 +59,10 @@ function update_P!(
 ) where{T}
 
     isnothing(data) && return
-    _check_update_allowed(s)
+    check_data_update_allowed(s)
     d = s.data.equilibration.d
-    _update_matrix(data,s.data.P,d,d)
+    c = s.data.equilibration.c[]
+    _update_matrix(data,s.data.P,d,d,c)
     # overwrite KKT data 
     kkt_update_P!(s.kktsystem,s.data.P)
 
@@ -88,10 +89,10 @@ function update_A!(
 ) where{T}
 
     isnothing(data) && return
-    _check_update_allowed(s)
+    check_data_update_allowed(s)
     d = s.data.equilibration.d
     e = s.data.equilibration.e 
-    _update_matrix(data,s.data.A,e,d)
+    _update_matrix(data,s.data.A,e,d,nothing)
     # overwrite KKT data 
     kkt_update_A!(s.kktsystem,s.data.A)
 
@@ -111,10 +112,10 @@ function update_q!(
 ) where{T}
 
     isnothing(data) && return
-    _check_update_allowed(s)
-    d    = s.data.equilibration.d
-    dinv = s.data.equilibration.dinv
-    _update_vector(data,s.data.q,d)
+    check_data_update_allowed(s)
+    d = s.data.equilibration.d
+    c = s.data.equilibration.c[] 
+    _update_vector(data,s.data.q,d,c)
 
     # flush unscaled norm.   Will be recalculated during solve
     data_clear_normq!(s.data)
@@ -135,10 +136,9 @@ function update_b!(
 ) where{T}
 
     isnothing(data) && return
-    _check_update_allowed(s)
-    e    = s.data.equilibration.e     
-    einv = s.data.equilibration.einv
-    _update_vector(data,s.data.b,e)
+    check_data_update_allowed(s)
+    e = s.data.equilibration.e     
+    _update_vector(data,s.data.b,e,nothing)
 
     # flush unscaled norm.   Will be recalculated during solve
     data_clear_normb!(s.data)
@@ -146,60 +146,67 @@ function update_b!(
     return nothing
 end 
 
-function _check_update_allowed(s)
-
-    # Fail if presolve / chordal decomp is enabled.  
-    # Not strictly necessary since the presolve and chordal decomp 
-    # might not do anything, but may avoid confusion about expectations.
-
-    # checks both settings and existence of presolve objects, since otherwise 
-    # it would be possible to presolve and then disable the settings. 
-
-    if s.settings.presolve_enable || 
-       s.settings.chordal_decomposition_enable || 
-       !isnothing(s.data.presolver) ||
-       !isnothing(s.data.chordal_info)
-
-        error("Disable presolve and chordal decomposition to allow data updates.")
+function check_data_update_allowed(s)
+    # Fail if presolve / chordal decomp have reduced problem  
+    if data_is_presolved(s.data)
+        error("Data updates not allowed if presolver is active.")
+    elseif data_is_chordal_decomposed(s.data)
+        error("Data updates not allowed if chordal decomposition is active.")
     end
+end 
 
+function is_data_update_allowed(s)
+    try
+        check_data_update_allowed(s)
+        return true
+    catch
+        return false
+    end
 end 
 
 function _update_matrix(
     data::SparseMatrixCSC{T},
     M::SparseMatrixCSC{T},
     lscale::AbstractVector{T},
-    rscale::AbstractVector{T}
+    rscale::AbstractVector{T},
+    cscale::Union{Nothing,T},
 ) where{T}
     
     isequal_sparsity(data,M) || throw(DimensionMismatch("Input must match sparsity pattern of original data."))
-    _update_matrix(data.nzval,M,lscale,rscale)
+    _update_matrix(data.nzval,M,lscale,rscale,cscale)
 end
 
 function _update_matrix(
     data::AbstractVector{T},
     M::SparseMatrixCSC{T},
     lscale::AbstractVector{T},
-    rscale::AbstractVector{T}
+    rscale::AbstractVector{T},
+    cscale::Union{Nothing,T},
 ) where{T}
     
     length(data) == 0 && return
     length(data) == nnz(M) || throw(DimensionMismatch("Input must match length of original data."))
     M.nzval .= data
     lrscale!(lscale,M,rscale)
+    isnothing(cscale) || (M.nzval .*= cscale)
 end
 
 function _update_matrix(
     data::Iterators.Zip{Tuple{Vector{DefaultInt}, Vector{T}}},
     M::SparseMatrixCSC{T},
     lscale::AbstractVector{T},
-    rscale::AbstractVector{T}
+    rscale::AbstractVector{T},
+    cscale::Union{Nothing,T},
 ) where{T}
     
     for (idx,value) in data
         idx ∈ 0:nnz(M) || throw(DimensionMismatch("Input must match sparsity pattern of original data."))
         (row,col) = index_to_coord(M,idx)
-        M.nzval[idx] = lscale[row] * rscale[col] * value
+        if isnothing(cscale)
+            M.nzval[idx] = lscale[row] * rscale[col] * value
+        else
+            M.nzval[idx] = lscale[row] * rscale[col] * cscale * value
+        end
     end
 end
 
@@ -207,23 +214,33 @@ end
 function _update_vector(
     data::AbstractVector{T},
     v::AbstractVector{T},
-    scale::AbstractVector{T}
+    vscale::AbstractVector{T},
+    cscale::Union{Nothing,T},
 ) where{T}
     
     length(data) == 0 && return
     length(data) == length(v) || throw(DimensionMismatch("Input must match length of original data."))
     
-    @. v= data*scale
+    if isnothing(cscale)
+        v .= data.*vscale
+    else
+        v .= data.*vscale.*cscale
+    end
 end
 
 
 function _update_vector(
     data::Base.Iterators.Zip{Tuple{Vector{DefaultInt}, Vector{T}}},
     v::AbstractVector{T},
-    scale::AbstractVector{T}
+    vscale::AbstractVector{T},
+    cscale::Union{Nothing,T},
 ) where{T}
     for (idx,value) in data
-        v[idx] = value*scale[idx]
+        if isnothing(cscale)
+            v[idx] = value*vscale[idx]
+        else
+            v[idx] = value*vscale[idx]*cscale
+        end
     end
 end
 
