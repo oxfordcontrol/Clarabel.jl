@@ -11,6 +11,7 @@ Version numbering in this project adheres to [Semantic Versioning](https://semve
 ## What's Changed
 - fix socp line search failure case [#179](https://github.com/oxfordcontrol/Clarabel.jl/pull/179)
 - norm unscaling bug fix [#180](https://github.com/oxfordcontrol/Clarabel.jl/pull/180)
+- added `max_threads` to settings
 
 ## [0.9.0] - 2024-06-06
 
