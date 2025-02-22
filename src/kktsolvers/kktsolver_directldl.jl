@@ -96,6 +96,8 @@ end
 DirectLDLKKTSolver(args...) = DirectLDLKKTSolver{DefaultFloat}(args...)
 
 function _get_ldlsolver_type(s::Symbol)
+
+    s = s == :auto ? :qdldl : s
     try
         return DirectLDLSolversDict[s]
     catch
