@@ -17,7 +17,7 @@ mutable struct HSLMA57DirectLDLSolver{T} <: HSLDirectLDLSolver{T}
 
         #Best guess at settings that will force LDL with diagonal D
         Fcontrol.icntl[5] = 0   # printing level.  verbose = 3
-        Fcontrol.icntl[6] = 0   # ordering.  0 = AMD, 1 = AMD with dense rows, 5 automatic (default)
+        Fcontrol.icntl[6] = 5   # ordering.  0 = AMD, 1 = AMD with dense rows, 5 automatic (default)
         Fcontrol.icntl[7] = 3   # do not perform pivoting 
         Fcontrol.icntl[9] = 0   # zero iterative refinement steps
     
@@ -37,6 +37,18 @@ end
 
 DirectLDLSolversDict[:ma57] = HSLMA57DirectLDLSolver
 required_matrix_shape(::Type{HSLMA57DirectLDLSolver}) = :tril
+
+function linear_solver_info(ldlsolver::HSLMA57DirectLDLSolver{T}) where{T}
+
+    name = :ma57
+    threads = 1   #always single threaded 
+    direct = true
+    nnzA = length(ldlsolver.F.vals)
+    nnzL = ldlsolver.F.info.info[5] # MA57: Forecast number of reals in factors.
+    nnzL = nnzL - ldlsolver.F.n # subtract diagonal terms
+    LinearSolverInfo(name, threads, direct, nnzA, nnzL)
+
+end
 
 
 #update entries in the KKT matrix using the

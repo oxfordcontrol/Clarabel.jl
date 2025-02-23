@@ -8,11 +8,14 @@ const DirectLDLSolversDict = Dict{Symbol, UnionAll}()
 # register type, .e.g
 # DirectLDLSolversDict[:qdldl] = QDLDLDirectLDLSolver
 
+function linear_solver_info(ldlsolver::AbstractDirectLDLSolver)
+    error("function not implemented")
+end
+
 # return either :triu or :tril
 function required_matrix_shape(::Type{AbstractDirectLDLSolver})
     error("function not implemented")
 end
-
 
 #update entries in the KKT matrix using the
 #given index into its CSC representation

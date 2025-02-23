@@ -196,6 +196,12 @@ function _scale_values_KKT!(
 end
 
 
+function kktsolver_linear_solver_info(
+    kktsolver::DirectLDLKKTSolver{T}
+) where {T}
+    linear_solver_info(kktsolver.ldlsolver)
+end
+
 function kktsolver_update!(
     kktsolver::DirectLDLKKTSolver{T},
     cones::CompositeCone{T}

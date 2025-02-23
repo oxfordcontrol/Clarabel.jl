@@ -33,6 +33,15 @@ end
 DirectLDLSolversDict[:qdldl] = QDLDLDirectLDLSolver
 required_matrix_shape(::Type{QDLDLDirectLDLSolver}) = :triu
 
+function linear_solver_info(ldlsolver::QDLDLDirectLDLSolver{T}) where{T}
+    name = :qdldl;
+    threads = 1;
+    direct = true;
+    nnzA = nnz(ldlsolver.factors.workspace.triuA);
+    nnzL = nnz(ldlsolver.factors.L);
+    LinearSolverInfo(name, threads, direct, nnzA, nnzL)
+end
+
 #update entries in the KKT matrix using the
 #given index into its CSC representation
 function update_values!(
