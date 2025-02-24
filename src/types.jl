@@ -197,8 +197,8 @@ struct LinearSolverInfo
     name::Symbol
     threads::DefaultInt
     direct::Bool
-    nnzA::DefaultInt # nnz in A = LDL^T
-    nnzL::DefaultInt # nnz in P = LDL^T
+    nnzA::DefaultInt # nnz in L for A = LDL^T
+    nnzL::DefaultInt # nnz in A for A = LDL^T
 end
 
 LinearSolverInfo() = LinearSolverInfo(:none, 1, true, 0, 0)
@@ -234,14 +234,15 @@ mutable struct DefaultInfo{T} <: AbstractInfo{T}
     # linear solver information
     linsolver::LinearSolverInfo
 
-    function DefaultInfo{T}() where {T}
+end
 
-        #here we set the first set of fields to zero (it doesn't matter),
-        #but the previous iterates to Inf to avoid weird edge cases 
-        prevvals = ntuple(x->floatmax(T), 6);
-        linsolver = LinearSolverInfo()
-        new((ntuple(x->0, fieldcount(DefaultInfo)-6-2)...,prevvals...,UNSOLVED,linsolver)...)
-    end
+function DefaultInfo{T}() where {T}
+
+    #here we set the first set of fields to zero (it doesn't matter),
+    #but the previous iterates to Inf to avoid weird edge cases 
+    prevvals = ntuple(x->floatmax(T), 6);
+    linsolver = LinearSolverInfo()
+    DefaultInfo((ntuple(x->0, fieldcount(DefaultInfo)-6-2)...,prevvals...,UNSOLVED,linsolver)...)
 
 end
 

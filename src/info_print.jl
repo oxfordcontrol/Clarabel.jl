@@ -219,7 +219,7 @@ end
 
 
 get_precision_string(T::Type{<:Real}) = string(T)
-get_precision_string(T::Type{<:BigFloat}) = string(T," (", precision(T), " bit)")
+get_precision_string(T::Type{<:AbstractFloat}) = string(sizeof(T)*8, " bit")
 
 
 function print_conedims_by_type(io::IO, cones::CompositeCone{T}, type::Type) where {T}
