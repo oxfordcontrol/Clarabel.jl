@@ -30,7 +30,7 @@ function get_auto_ldl_solver()
         return :mkl
     end
 
-    if haskey(Clarabel.DirectLDLSolversDict,:ma57)
+    if haskey(Clarabel.DirectLDLSolversDict,:ma57) && Clarabel.HSL.LIBHSL_isfunctional()
         return :ma57
     end
 

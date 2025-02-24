@@ -4,6 +4,7 @@ function print_banner(io::IO, verbose::Bool)
     if !verbose return; end
     println(io, "-------------------------------------------------------------")
     @printf(io, "           Clarabel.jl v%s  -  Clever Acronym              \n", version())
+    println(io); #blank line.   Rust debug status goes here
     println(io, "                   (c) Paul Goulart                          ")
     println(io, "                University of Oxford, 2022                   ")
     println(io, "-------------------------------------------------------------")
