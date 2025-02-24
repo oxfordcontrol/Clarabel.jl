@@ -13,7 +13,7 @@ struct MKLPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
         ps = Pardiso.MKLPardisoSolver()
         pardiso_init(ps,KKT,Dsigns,settings)
 
-        set_nprocs!(ps, settings.max_threads) 
+        Pardiso.set_nprocs!(ps, settings.max_threads) 
 
         return new(ps, nnz(KKT))
     end
