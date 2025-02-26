@@ -96,11 +96,12 @@ end
 DirectLDLKKTSolver(args...) = DirectLDLKKTSolver{DefaultFloat}(args...)
 
 function _get_ldlsolver_type(s::Symbol)
-    try
-        return DirectLDLSolversDict[s]
+    try 
+        DirectLDLSolversDict[s]
     catch
         throw(error("Unsupported direct LDL linear solver :", s))
     end
+    return _is_ldlsolver_implemented(DirectLDLSolversDict[s],s)
 end
 
 function _get_ldlsolver_config(settings::Settings)
