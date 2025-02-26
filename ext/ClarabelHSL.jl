@@ -1,8 +1,8 @@
-using HSL, AMD
+module ClarabelHSL
 
-abstract type HSLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T} end
+using HSL, AMD, Clarabel, SparseArrays
 
-mutable struct HSLMA57DirectLDLSolver{T} <: HSLDirectLDLSolver{T}
+mutable struct HSLMA57DirectLDLSolver{T} <: Clarabel.AbstractDirectLDLSolver{T}
 
     F::Ma57
     work::Vector{T}
@@ -34,16 +34,15 @@ mutable struct HSLMA57DirectLDLSolver{T} <: HSLDirectLDLSolver{T}
     end
 end
 
-
-DirectLDLSolversDict[:ma57] = HSLMA57DirectLDLSolver
-required_matrix_shape(::Type{HSLMA57DirectLDLSolver}) = :tril
+Clarabel._is_ldlsolver_implemented(ldlsolver::Type{Clarabel.HSLDirectLDLSolver}, s::Symbol) = HSLMA57DirectLDLSolver
+Clarabel.required_matrix_shape(::Type{HSLMA57DirectLDLSolver}) = :tril
 
 
 #update entries in the KKT matrix using the
 #given index into its CSC representation
-function update_values!(
-    ldlsolver::HSLDirectLDLSolver{T},
-    index::AbstractVector{DefaultInt},
+function Clarabel.update_values!(
+    ldlsolver::HSLMA57DirectLDLSolver{T},
+    index::AbstractVector{Clarabel.DefaultInt},
     values::Vector{T}
 ) where{T}
 
@@ -55,9 +54,9 @@ end
 
 #scale entries in the KKT matrix using the
 #given index into its CSC representation
-function scale_values!(
-    ldlsolver::HSLDirectLDLSolver{T},
-    index::AbstractVector{DefaultInt},
+function Clarabel.scale_values!(
+    ldlsolver::HSLMA57DirectLDLSolver{T},
+    index::AbstractVector{Clarabel.DefaultInt},
     scale::T
 ) where{T}
 
@@ -69,7 +68,7 @@ end
 
 
 #refactor the linear system
-function refactor!(ldlsolver::HSLMA57DirectLDLSolver{T}, K::SparseMatrixCSC{T}) where{T}
+function Clarabel.refactor!(ldlsolver::HSLMA57DirectLDLSolver{T}, K::SparseMatrixCSC{T}) where{T}
 
     ma57_factorize!(ldlsolver.F)
 
@@ -79,7 +78,7 @@ function refactor!(ldlsolver::HSLMA57DirectLDLSolver{T}, K::SparseMatrixCSC{T}) 
 end
 
 #solve the linear system
-function solve!(
+function Clarabel.solve!(
     ldlsolver::HSLMA57DirectLDLSolver{T},
     K::SparseMatrixCSC{T},
     x::Vector{T},
@@ -94,5 +93,4 @@ function solve!(
 end
 
 
-
-
+end
