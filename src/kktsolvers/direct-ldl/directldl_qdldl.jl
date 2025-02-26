@@ -31,6 +31,7 @@ struct QDLDLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
 end
 
 DirectLDLSolversDict[:qdldl] = QDLDLDirectLDLSolver
+_is_ldlsolver_implemented(ldlsolver::Type{QDLDLDirectLDLSolver}, s::Symbol) = QDLDLDirectLDLSolver
 required_matrix_shape(::Type{QDLDLDirectLDLSolver}) = :triu
 
 #update entries in the KKT matrix using the
