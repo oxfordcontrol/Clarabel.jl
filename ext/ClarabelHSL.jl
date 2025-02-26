@@ -34,8 +34,8 @@ mutable struct HSLMA57DirectLDLSolver{T} <: Clarabel.AbstractDirectLDLSolver{T}
     end
 end
 
-Clarabel._is_ldlsolver_implemented(ldlsolver::Type{Clarabel.HSLDirectLDLSolver}, s::Symbol) = HSLMA57DirectLDLSolver
 Clarabel.required_matrix_shape(::Type{HSLMA57DirectLDLSolver}) = :tril
+Clarabel._is_ldlsolver_implemented(ldlsolver::Type{Clarabel.HSLDirectLDLSolver}, s::Symbol) = HSLMA57DirectLDLSolver
 
 
 #update entries in the KKT matrix using the
