@@ -297,6 +297,14 @@ function mean(v::AbstractArray{T}) where {T}
     sum(v)/length(v)
 end
 
+function geomean(v::AbstractArray{T}) where {T}
+    s = zero(T)
+    for vi in v
+        s += log(vi)
+    end 
+    exp(s/length(v))
+end
+
 function isequal_sparsity(A::SparseMatrixCSC, B::SparseMatrixCSC)
 	return size(A) == size(B) &&
         isequal(A.colptr, B.colptr) &&

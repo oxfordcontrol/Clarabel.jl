@@ -8,12 +8,9 @@ numel(K::NonnegativeCone{T}) where {T} = K.dim
 function rectify_equilibration!(
     K::NonnegativeCone{T},
     δ::AbstractVector{T},
-    e::AbstractVector{T}
 ) where{T}
 
-    #allow elementwise equilibration scaling
-    δ .= one(T)
-    return false
+    return 
 end
 
 function margins(

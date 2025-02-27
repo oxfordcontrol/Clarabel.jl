@@ -148,7 +148,15 @@ function data_equilibrate!(
 		dwork .= inv.(sqrt.(dwork))
 		ework .= inv.(sqrt.(ework))
 
-		#bound the cumulative scaling 
+		# fix scalings in cones for which elementwise
+		# scaling can't be applied.   
+		rectify_equilibration!(cones, ework)
+	
+		# bound the cumulative scaling 
+		# NB: clipping is only safe because cones are 
+		# all either elementwise or scalar scaling.  
+		# Non-isotropic scalings on anything other than 
+		# the nonnegative cones would cause an error here
 		@. dwork = clip(dwork, scale_min/d, scale_max/d)
 		@. ework = clip(ework, scale_min/e, scale_max/e)
 
@@ -178,17 +186,6 @@ function data_equilibrate!(
 		end
 
 	end #end Ruiz scaling loop
-
-	# fix scalings in cones for which elementwise
-    # scaling can't be applied.   Rectification should 
-	# either do nothing or take a convex combination of
-	# scalings over a cone, so shouldn't need to check  
-	# bounds on the scalings here 
-	if rectify_equilibration!(cones, ework, e)
-		#only rescale again if some cones were rectified
-		scale_data!(P, A, q, b, nothing, ework)
-		@. e *= ework
-	end
 
 	#update the inverse scaling data
 	@. equil.dinv = one(T) / d

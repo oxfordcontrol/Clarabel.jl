@@ -28,7 +28,6 @@ end
 function rectify_equilibration!(
     cones::CompositeCone{T},
      δ::Vector{T},
-     e::Vector{T}
 ) where{T}
 
     any_changed = false
@@ -39,11 +38,9 @@ function rectify_equilibration!(
 
     for (cone,rng) in zip(cones,cones.rng_cones)
         δi = view(δ,rng)
-        ei = view(e,rng)
-        @conedispatch any_changed |= rectify_equilibration!(cone,δi,ei)
+        @conedispatch rectify_equilibration!(cone,δi)
     end
 
-    return any_changed
 end
 
 function margins(

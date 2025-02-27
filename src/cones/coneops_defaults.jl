@@ -27,18 +27,17 @@ allows_primal_dual_scaling(::AbstractCone{T}) where {T} = true
 
 # converts an elementwise scaling into
 # a scaling that preserves cone memership
-# NB:custom rectify functions should return
-# true unless δ == e on return
+# NB: custom rectify functions must return 
+# all values constant, or clipping will fail
 function rectify_equilibration!(
     K::AbstractCone{T},
-    δ::AbstractVector{T},
-    e::AbstractVector{T}
+    δ::AbstractVector{T}
 ) where{T}
 
     #all cones default to scalar equilibration
     #unless otherwise specified
-    tmp    = mean(e)
-    @.δ    = tmp / e
+    tmp    = geomean(δ)
+    @.δ    = tmp
 
     return true
 end

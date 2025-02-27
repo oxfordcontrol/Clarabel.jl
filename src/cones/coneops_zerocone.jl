@@ -16,12 +16,10 @@ is_symmetric(::ZeroCone{T}) where {T} = true
 function rectify_equilibration!(
     K::ZeroCone{T},
     δ::AbstractVector{T},
-    e::AbstractVector{T}
 ) where{T}
 
     #allow elementwise equilibration scaling
-    δ .= one(T)
-    return false
+    return 
 end
 
 function margins(
