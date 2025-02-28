@@ -19,7 +19,7 @@ function pardiso_init(ps,KKT,Dsigns,settings)
 end 
 
 # MKL Pardiso variant
-struct MKLPardisoDirectLDLSolver{T} <: Clarabel.AbstractDirectLDLSolver{T}
+struct MKLPardisoDirectLDLSolver{T} <: Clarabel.AbstractPardisoDirectLDLSolver{T}
     ps::Pardiso.MKLPardisoSolver
 
     function MKLPardisoDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
@@ -29,73 +29,8 @@ struct MKLPardisoDirectLDLSolver{T} <: Clarabel.AbstractDirectLDLSolver{T}
         return new(ps)
     end
 end
-
-Clarabel.required_matrix_shape(::Type{MKLPardisoDirectLDLSolver}) = :tril
-Clarabel._is_ldlsolver_implemented(ldlsolver::Type{Clarabel.AbstractMKLPardisoDirectLDLSolver}, s::Symbol) = MKLPardisoDirectLDLSolver
-
-#update entries in the KKT matrix using the
-#given index into its CSC representation
-function Clarabel.update_values!(
-    ldlsolver::MKLPardisoDirectLDLSolver{T},
-    index::AbstractVector{Clarabel.DefaultInt},
-    values::Vector{T}
-) where{T}
-
-    #no-op.  Will just use KKT matrix as it as
-    #passed to refactor!
-end
-
-#scale entries in the KKT matrix using the
-#given index into its CSC representation
-function Clarabel.scale_values!(
-    ldlsolver::MKLPardisoDirectLDLSolver{T},
-    index::AbstractVector{Clarabel.DefaultInt},
-    scale::T
-) where{T}
-
-    #no-op.  Will just use KKT matrix as it as
-    #passed to refactor!
-end
-
-
-#refactor the linear system
-function Clarabel.refactor!(ldlsolver::MKLPardisoDirectLDLSolver{T},K::SparseMatrixCSC{T}) where{T}
-
-    # Pardiso is quite robust and will usually produce some 
-    # kind of factorization unless there is an explicit 
-    # zero pivot or some other nastiness.   "success" 
-    # here just means that it didn't fail outright, although 
-    # the factorization could still be garbage 
-
-    # Recompute the numeric factorization susing fake RHS
-    try 
-        Pardiso.set_phase!(ldlsolver.ps, Pardiso.NUM_FACT)
-        Pardiso.pardiso(ldlsolver.ps, K, [1.])
-        return is_success = true
-    catch 
-        return is_success = false
-    end
-     
-end
-
-
-#solve the linear system
-function Clarabel.solve!(
-    ldlsolver::MKLPardisoDirectLDLSolver{T},
-    KKT::SparseMatrixCSC{T},
-    x::Vector{T},
-    b::Vector{T}
-) where{T}
-
-    ps  = ldlsolver.ps
-    Pardiso.set_phase!(ps, Pardiso.SOLVE_ITERATIVE_REFINE)
-    Pardiso.pardiso(ps, x, KKT, b)
-
-end
-
-
 # Panua Pardiso variant
-struct PanuaPardisoDirectLDLSolver{T} <: Clarabel.AbstractDirectLDLSolver{T}
+struct PanuaPardisoDirectLDLSolver{T} <: Clarabel.AbstractPardisoDirectLDLSolver{T}
     ps::Pardiso.PardisoSolver
 
     function PanuaPardisoDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
@@ -111,10 +46,13 @@ end
 Clarabel.required_matrix_shape(::Type{PanuaPardisoDirectLDLSolver}) = :tril
 Clarabel._is_ldlsolver_implemented(ldlsolver::Type{Clarabel.AbstractPanuaPardisoDirectLDLSolver}, s::Symbol) = PanuaPardisoDirectLDLSolver
 
+Clarabel.required_matrix_shape(::Type{MKLPardisoDirectLDLSolver}) = :tril
+Clarabel._is_ldlsolver_implemented(ldlsolver::Type{Clarabel.AbstractMKLPardisoDirectLDLSolver}, s::Symbol) = MKLPardisoDirectLDLSolver
+
 #update entries in the KKT matrix using the
 #given index into its CSC representation
 function Clarabel.update_values!(
-    ldlsolver::PanuaPardisoDirectLDLSolver{T},
+    ldlsolver::Clarabel.AbstractPardisoDirectLDLSolver{T},
     index::AbstractVector{Clarabel.DefaultInt},
     values::Vector{T}
 ) where{T}
@@ -126,7 +64,7 @@ end
 #scale entries in the KKT matrix using the
 #given index into its CSC representation
 function Clarabel.scale_values!(
-    ldlsolver::PanuaPardisoDirectLDLSolver{T},
+    ldlsolver::Clarabel.AbstractPardisoDirectLDLSolver{T},
     index::AbstractVector{Clarabel.DefaultInt},
     scale::T
 ) where{T}
@@ -137,7 +75,7 @@ end
 
 
 #refactor the linear system
-function Clarabel.refactor!(ldlsolver::PanuaPardisoDirectLDLSolver{T},K::SparseMatrixCSC{T}) where{T}
+function Clarabel.refactor!(ldlsolver::Clarabel.AbstractPardisoDirectLDLSolver{T},K::SparseMatrixCSC{T}) where{T}
 
     # Pardiso is quite robust and will usually produce some 
     # kind of factorization unless there is an explicit 
@@ -159,7 +97,7 @@ end
 
 #solve the linear system
 function Clarabel.solve!(
-    ldlsolver::PanuaPardisoDirectLDLSolver{T},
+    ldlsolver::Clarabel.AbstractPardisoDirectLDLSolver{T},
     KKT::SparseMatrixCSC{T},
     x::Vector{T},
     b::Vector{T}
