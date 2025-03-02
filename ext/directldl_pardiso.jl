@@ -1,4 +1,6 @@
-import Pardiso
+using Pardiso, SparseArrays, Clarabel
+import Clarabel: DefaultInt, AbstractDirectLDLSolver, ldlsolver_constructor, ldlsolver_matrix_shape
+import Clarabel: update_values!, scale_values!, refactor!, solve!
 
 abstract type AbstractPardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}  end
 

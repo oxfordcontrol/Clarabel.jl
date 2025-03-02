@@ -1,7 +1,7 @@
 __precompile__()
 module Clarabel
 
-    using SparseArrays, LinearAlgebra, Printf, Requires
+    using SparseArrays, LinearAlgebra, Printf
     const DefaultFloat = Float64
     const DefaultInt   = Int64
 

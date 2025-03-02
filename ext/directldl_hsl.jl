@@ -1,4 +1,6 @@
-using HSL, SparseArrays
+using HSL, SparseArrays, Clarabel
+import Clarabel: DefaultInt, AbstractDirectLDLSolver, ldlsolver_constructor, ldlsolver_matrix_shape
+import Clarabel: update_values!, scale_values!, refactor!, solve!
 
 abstract type HSLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T} end
 
@@ -9,7 +11,7 @@ mutable struct HSLMA57DirectLDLSolver{T} <: HSLDirectLDLSolver{T}
 
     function HSLMA57DirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
         
-        HSL.LIBHSL_isfunctional() || error("HSL is not available")
+        HSL.LIBHSL_isfunctional() || error("HSL is not functional")
 
         # work vector for solves
         Fcontrol = Ma57_Control{Float64}(; sqd = true)
