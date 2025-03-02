@@ -6,6 +6,7 @@ abstract type AbstractPardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}  e
 
 # MKL Pardiso variant
 struct MKLPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
+    
     ps::Pardiso.MKLPardisoSolver
 
     function MKLPardisoDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
@@ -18,15 +19,23 @@ end
 
 # Panua Pardiso variant
 struct PanuaPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
+    
     ps::Pardiso.PardisoSolver
+
+    #Pardiso wants 32 bit CSC indices
+    colptr32::Vector{Int32}
+    rowval32::Vector{Int32}
 
     function PanuaPardisoDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
 
         Pardiso.panua_is_available() || error("Panua Pardiso is not available")
         ps = Pardiso.PardisoSolver()
-        pardiso_init(ps,KKT,Dsigns,settings)
+        colptr32 = Int32.(KKT.colptr)
+        rowval32 = Int32.(KKT.rowval)
         ps.iparm[8]=-99 # No IR
-        return new(ps)
+        solver = new(ps,colptr32,rowval32)
+        pardiso_init(ps,pardiso_kkt(solver,KKT),Dsigns,settings)
+        return solver
     end
 end
 
@@ -42,12 +51,38 @@ function pardiso_init(ps,KKT,Dsigns,settings)
         Pardiso.set_phase!(ps, Pardiso.ANALYSIS)
         Pardiso.pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSIS
 end 
-
 ldlsolver_constructor(::Val{:mkl}) = MKLPardisoDirectLDLSolver
 ldlsolver_matrix_shape(::Val{:mkl}) = :tril
 
 ldlsolver_constructor(::Val{:panua}) = PanuaPardisoDirectLDLSolver
 ldlsolver_matrix_shape(::Val{:panua}) = :tril
+
+
+function pardiso_kkt(
+    ldlsolver::MKLPardisoDirectLDLSolver{T},
+    KKT::SparseMatrixCSC{T},
+) where{T}
+    # MKL allows for 64bit CSC indices, so just pass through
+    return KKT
+end
+
+function pardiso_kkt(
+    ldlsolver::PanuaPardisoDirectLDLSolver{Tf},
+    KKT::SparseMatrixCSC{Tf, Tv},
+) where{Tf, Tv}
+    # Panua wants 32bit CSC indices, so make a new 
+    # KKT matrix from the input KKT values and 
+    # internally copied 32 bit versions.  The sparsity
+    # pattern on the KKT matrix should not change
+    # between updates.   There is minimal allocation here
+    return SparseMatrixCSC{Tf,Int32}(
+        KKT.m,
+        KKT.n,
+        ldlsolver.colptr32,
+        ldlsolver.rowval32,
+        KKT.nzval
+    )
+end
 
 #update entries in the KKT matrix using the
 #given index into its CSC representation
@@ -75,7 +110,7 @@ end
 
 
 #refactor the linear system
-function refactor!(ldlsolver::AbstractPardisoDirectLDLSolver{T},K::SparseMatrixCSC{T}) where{T}
+function refactor!(ldlsolver::AbstractPardisoDirectLDLSolver{T},KKT::SparseMatrixCSC{T}) where{T}
 
     # Pardiso is quite robust and will usually produce some 
     # kind of factorization unless there is an explicit 
@@ -83,10 +118,13 @@ function refactor!(ldlsolver::AbstractPardisoDirectLDLSolver{T},K::SparseMatrixC
     # here just means that it didn't fail outright, although 
     # the factorization could still be garbage 
 
-    # Recompute the numeric factorization susing fake RHS
+    ps  = ldlsolver.ps
+    KKT = pardiso_kkt(ldlsolver,KKT)
+
+    # Recompute the numeric factorization using fake RHS
     try 
-        Pardiso.set_phase!(ldlsolver.ps, Pardiso.NUM_FACT)
-        Pardiso.pardiso(ldlsolver.ps, K, [1.])
+        Pardiso.set_phase!(ps, Pardiso.NUM_FACT)
+        Pardiso.pardiso(ps, KKT, [1.])
         return is_success = true
     catch 
         return is_success = false
@@ -104,6 +142,8 @@ function solve!(
 ) where{T}
 
     ps  = ldlsolver.ps
+    KKT = pardiso_kkt(ldlsolver,KKT)
+
     Pardiso.set_phase!(ps, Pardiso.SOLVE_ITERATIVE_REFINE)
     Pardiso.pardiso(ps, x, KKT, b)
 
