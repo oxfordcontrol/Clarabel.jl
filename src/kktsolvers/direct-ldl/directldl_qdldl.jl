@@ -1,5 +1,4 @@
 import QDLDL
-
 struct QDLDLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
 
     factors::QDLDL.QDLDLFactorisation{T, DefaultInt}
@@ -27,11 +26,10 @@ struct QDLDLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
 
         return new(factors)
     end
-
 end
 
-DirectLDLSolversDict[:qdldl] = QDLDLDirectLDLSolver
-required_matrix_shape(::Type{QDLDLDirectLDLSolver}) = :triu
+ldlsolver_constructor(::Val{:qdldl}) = QDLDLDirectLDLSolver
+ldlsolver_matrix_shape(::Val{:qdldl}) = :triu
 
 #update entries in the KKT matrix using the
 #given index into its CSC representation

@@ -1,5 +1,4 @@
-using HSL, AMD, SparseArrays
-import ..DirectLDLSolversDict
+using HSL, SparseArrays
 
 abstract type HSLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T} end
 
@@ -18,7 +17,7 @@ mutable struct HSLMA57DirectLDLSolver{T} <: HSLDirectLDLSolver{T}
 
         #Best guess at settings that will force LDL with diagonal D
         Fcontrol.icntl[5] = 0   # printing level.  verbose = 3
-        Fcontrol.icntl[6] = 0   # ordering.  0 = AMD, 1 = AMD with dense rows, 5 automatic (default)
+        Fcontrol.icntl[6] = 5   # ordering.  0 = AMD, 1 = AMD with dense rows, 5 automatic (default)
         Fcontrol.icntl[7] = 3   # do not perform pivoting 
         Fcontrol.icntl[9] = 0   # zero iterative refinement steps
     
@@ -35,7 +34,8 @@ mutable struct HSLMA57DirectLDLSolver{T} <: HSLDirectLDLSolver{T}
     end
 end
 
-required_matrix_shape(::Type{HSLMA57DirectLDLSolver}) = :tril
+ldlsolver_constructor(::Val{:ma57}) = HSLMA57DirectLDLSolver
+ldlsolver_matrix_shape(::Val{:ma57}) = :tril
 
 #update entries in the KKT matrix using the
 #given index into its CSC representation

@@ -41,12 +41,11 @@ function pardiso_init(ps,KKT,Dsigns,settings)
         Pardiso.pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSIS
 end 
 
+ldlsolver_constructor(::Val{:mkl}) = MKLPardisoDirectLDLSolver
+ldlsolver_matrix_shape(::Val{:mkl}) = :tril
 
-
-DirectLDLSolversDict[:mkl]   = MKLPardisoDirectLDLSolver
-DirectLDLSolversDict[:panua] = PanuaPardisoDirectLDLSolver
-required_matrix_shape(::Type{PanuaPardisoDirectLDLSolver}) = :tril
-required_matrix_shape(::Type{MKLPardisoDirectLDLSolver}) = :tril
+ldlsolver_constructor(::Val{:panua}) = PanuaPardisoDirectLDLSolver
+ldlsolver_matrix_shape(::Val{:panua}) = :tril
 
 #update entries in the KKT matrix using the
 #given index into its CSC representation
