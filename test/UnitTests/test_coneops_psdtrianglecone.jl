@@ -1,5 +1,4 @@
 using Test, LinearAlgebra, SparseArrays, Clarabel, Random
-include("../testing_utils.jl")
 
 rng = Random.MersenneTwister(242713)
 

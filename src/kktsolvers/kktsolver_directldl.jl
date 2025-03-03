@@ -53,7 +53,7 @@ mutable struct DirectLDLKKTSolver{T} <: AbstractKKTSolver{T}
 
         # get a constructor for the LDL solver we should use,
         # and also the matrix shape it requires
-        (kktshape, ldlsolverT) = _get_ldlsolver_config(settings)
+        (kktshape, ldlsolverT) = get_ldlsolver_config(settings)
 
         #construct a KKT matrix of the right shape
         KKT, map = _assemble_kkt_matrix(P,A,cones,kktshape)
@@ -95,7 +95,7 @@ end
 
 DirectLDLKKTSolver(args...) = DirectLDLKKTSolver{DefaultFloat}(args...)
 
-function _get_ldlsolver_type(s::Symbol)
+function get_ldlsolver_type(s::Symbol)
     try
         return DirectLDLSolversDict[s]
     catch
@@ -103,13 +103,15 @@ function _get_ldlsolver_type(s::Symbol)
     end
 end
 
-function _get_ldlsolver_config(settings::Settings)
+function get_ldlsolver_config(settings::Settings)
 
+    token = settings.direct_solve_method
+    
     #which LDL solver should I use?
-    ldlsolverT = _get_ldlsolver_type(settings.direct_solve_method)
+    ldlsolverT = ldlsolver_constructor(token)
 
     #does it want a :triu or :tril KKT matrix?
-    kktshape = required_matrix_shape(ldlsolverT)
+    kktshape = ldlsolver_matrix_shape(token)
 
     (kktshape,ldlsolverT)
 end 

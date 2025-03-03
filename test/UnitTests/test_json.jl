@@ -1,7 +1,4 @@
 using Test, LinearAlgebra, SparseArrays, Clarabel
-include("../testing_utils.jl")
-
-
 @testset "json" begin
 
     P = sparse([4. 1;1 2])

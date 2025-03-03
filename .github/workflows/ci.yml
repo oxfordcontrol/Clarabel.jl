@@ -10,13 +10,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - version: '1.7'
+          - version: '1.10'
             os: ubuntu-latest
             arch: x64
-          - version: '1.7'
+          - version: '1.10'
             os: macos-latest
             arch: x64
-          - version: '1.7'
+          - version: '1.10'
             os: windows-latest
             arch: x64
     steps:
@@ -25,7 +25,7 @@ jobs:
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: actions/cache@v1
+      - uses: actions/cache@v4
         env:
           cache-name: cache-artifacts
         with:

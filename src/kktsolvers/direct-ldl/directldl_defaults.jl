@@ -1,18 +1,21 @@
 abstract type AbstractDirectLDLSolver{T <: AbstractFloat} end
 
-const DirectLDLSolversDict = Dict{Symbol, UnionAll}()
-
-# Any new LDL solver type should provide implementations of all
-# of the following and add itself to the DirectLDLSolversDict
+# Any new LDL solver type should provide implementations 
+# of all of the following functions 
 
 # register type, .e.g
-# DirectLDLSolversDict[:qdldl] = QDLDLDirectLDLSolver
+# ldlsolver_matrix_shape(::Val{:qdldl}) = QDLDLDirectLDLSolver
+# ldlsolver_constructor(::Val{:qdldl}) = :triu
 
-# return either :triu or :tril
-function required_matrix_shape(::Type{AbstractDirectLDLSolver})
-    error("function not implemented")
+# return a concrete subtype of AbstractDirectLDLSolver
+function ldlsolver_constructor(::Val{T}) where T
+    error("No solver found for option ", T)
 end
 
+# return either :triu or :tril
+function ldlsolver_matrix_shape(::Val{T}) where T
+    error("No solver found for option ", T)
+end
 
 #update entries in the KKT matrix using the
 #given index into its CSC representation

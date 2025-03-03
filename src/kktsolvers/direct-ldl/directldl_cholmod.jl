@@ -18,8 +18,8 @@ mutable struct CholmodDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
     end
 end
 
-DirectLDLSolversDict[:cholmod] = CholmodDirectLDLSolver
-required_matrix_shape(::Type{CholmodDirectLDLSolver}) = :triu
+ldlsolver_constructor(::Val{:cholmod}) = CholmodDirectLDLSolver
+ldlsolver_matrix_shape(::Val{:cholmod}) = :triu
 
 #update entries in the KKT matrix using the
 #given index into its CSC representation
