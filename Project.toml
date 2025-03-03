@@ -14,7 +14,6 @@ MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
 Pardiso = "46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 QDLDL = "bfc457fd-c171-5ab7-bd9e-d5dbfc242d63"
-Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 SnoopPrecompile = "66db9d55-30c0-4569-8b51-7e840670fc0c"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
@@ -29,17 +28,23 @@ GenericLinearAlgebra = "0.3"
 HSL = "0.4, 0.5"
 JSON = "0.21"
 MathOptInterface = "1.20"
-Pardiso = "0.5, 1"
+Pardiso = "0.5.6,1"
 QDLDL = "0.4.1"
-Requires = "1"
 SnoopPrecompile = "1"
 StaticArrays = "1"
 TimerOutputs = "0.5"
-julia = "1.2"
+julia = "1.10"
+
+[weakdeps]
+Pardiso = "46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2" 
+HSL = "34c5aeac-e683-54a6-a0e9-6e0fdc586c50" 
+
+[extensions]
+PardisoExt = "Pardiso"
+HSLExt = "HSL"
 
 [extras]
-HSL = "34c5aeac-e683-54a6-a0e9-6e0fdc586c50"
-Pardiso = "46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2"
+Pardiso = "46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2" 
 
 [targets]
 test = ["Pardiso"]
