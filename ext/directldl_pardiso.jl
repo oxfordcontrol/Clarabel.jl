@@ -12,8 +12,9 @@ struct MKLPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
     function MKLPardisoDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
         Pardiso.mkl_is_available() || error("MKL Pardiso is not available")
         ps = Pardiso.MKLPardisoSolver()
-        pardiso_init(ps,KKT,Dsigns,settings)
-        return new(ps)
+        solver = new(ps)
+        pardiso_init(ps,pardiso_kkt(solver,KKT),Dsigns,settings)
+        return solver
     end
 end
 
@@ -51,15 +52,15 @@ function pardiso_init(ps,KKT,Dsigns,settings)
         Pardiso.set_phase!(ps, Pardiso.ANALYSIS)
         Pardiso.pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSIS
 end 
+
 ldlsolver_constructor(::Val{:mkl}) = MKLPardisoDirectLDLSolver
 ldlsolver_matrix_shape(::Val{:mkl}) = :tril
 
 ldlsolver_constructor(::Val{:panua}) = PanuaPardisoDirectLDLSolver
 ldlsolver_matrix_shape(::Val{:panua}) = :tril
 
-
 function pardiso_kkt(
-    ldlsolver::MKLPardisoDirectLDLSolver{T},
+    ::MKLPardisoDirectLDLSolver{T},
     KKT::SparseMatrixCSC{T},
 ) where{T}
     # MKL allows for 64bit CSC indices, so just pass through
