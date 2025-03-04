@@ -1,6 +1,7 @@
 using HSL, SparseArrays, Clarabel
-import Clarabel: DefaultInt, AbstractDirectLDLSolver, ldlsolver_constructor, ldlsolver_matrix_shape
-import Clarabel: update_values!, scale_values!, refactor!, solve!
+import Clarabel: DefaultInt, AbstractDirectLDLSolver, LinearSolverInfo
+import Clarabel: ldlsolver_constructor, ldlsolver_matrix_shape, ldlsolver_is_available
+import Clarabel: linear_solver_info, update_values!, scale_values!, refactor!, solve!
 
 abstract type HSLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T} end
 
@@ -11,7 +12,7 @@ mutable struct HSLMA57DirectLDLSolver{T} <: HSLDirectLDLSolver{T}
 
     function HSLMA57DirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
         
-        HSL.LIBHSL_isfunctional() || error("HSL is not functional")
+        ldlsolver_is_available(:ma57)  || error("HSL package is loaded but not working or unlicensed")
 
         # work vector for solves
         Fcontrol = Ma57_Control{Float64}(; sqd = true)
@@ -38,6 +39,21 @@ end
 
 ldlsolver_constructor(::Val{:ma57}) = HSLMA57DirectLDLSolver
 ldlsolver_matrix_shape(::Val{:ma57}) = :tril
+ldlsolver_is_available(::Val{:ma57}) = HSL.LIBHSL_isfunctional()
+
+
+function linear_solver_info(ldlsolver::HSLMA57DirectLDLSolver{T}) where{T}
+
+    name = :ma57
+    threads = 1   #always single threaded 
+    direct = true
+    nnzA = length(ldlsolver.F.vals)
+    nnzL = ldlsolver.F.info.info[5] # MA57: Forecast number of reals in factors.
+    nnzL = nnzL - ldlsolver.F.n # subtract diagonal terms
+    LinearSolverInfo(name, threads, direct, nnzA, nnzL)
+
+end
+
 
 #update entries in the KKT matrix using the
 #given index into its CSC representation

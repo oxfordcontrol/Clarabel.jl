@@ -119,6 +119,7 @@ function setup!(
         @timeit s.timers "kkt init" begin
             s.kktsystem = DefaultKKTSystem{T}(s.data,s.cones,s.settings)
         end
+        s.info.linsolver = kkt_linear_solver_info(s.kktsystem);
 
         # work variables for assembling step direction LHS/RHS
         s.step_rhs  = DefaultVariables{T}(s.data.n,s.data.m)

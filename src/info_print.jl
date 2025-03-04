@@ -4,6 +4,7 @@ function print_banner(io::IO, verbose::Bool)
     if !verbose return; end
     println(io, "-------------------------------------------------------------")
     @printf(io, "           Clarabel.jl v%s  -  Clever Acronym              \n", version())
+    println(io); #blank line.   Rust debug status goes here
     println(io, "                   (c) Paul Goulart                          ")
     println(io, "                University of Oxford, 2022                   ")
     println(io, "-------------------------------------------------------------")
@@ -42,7 +43,7 @@ function info_print_configuration(
     print_conedims_by_type(io, cones, PowerCone)
     print_conedims_by_type(io, cones, GenPowerCone)
     print_conedims_by_type(io, cones, PSDTriangleCone)
-    print_settings(io, settings)
+    info_print_settings(io, info, settings)
     @printf(io, "\n")
 
     return nothing
@@ -127,14 +128,20 @@ function bool_on_off(v::Bool)
 end
 
 
-function print_settings(io::IO, settings::Settings{T}) where {T}
+function info_print_settings(io::IO, info::DefaultInfo{T}, settings::Settings{T}) where {T}
 
     set = settings
     @printf(io, "\nsettings:\n")
 
-    if(set.direct_kkt_solver)
-        @printf(io, "  linear algebra: direct / %s, precision: %s\n", set.direct_solve_method, get_precision_string(T))
+    if info.linsolver.direct 
+        @printf(io, "  linear algebra: direct / ")
+    else 
+        @printf(io, "  linear algebra: indirect / ")
     end
+
+    @printf(io, "%s, precision: %s ", info.linsolver.name, get_precision_string(T))
+    print_nthreads(io, info.linsolver.threads);
+    @printf(io, "\n")
 
     @printf(io, "  max iter = %i, time limit = %f,  max step = %.3f\n",
         set.max_iter,
@@ -181,6 +188,16 @@ function print_settings(io::IO, settings::Settings{T}) where {T}
     return nothing
 end
 
+function print_nthreads(io::IO, nthreads) 
+    if nthreads == 0
+        return
+    elseif nthreads == 1 
+        @printf(io, "(1 thread)")
+    else 
+        @printf(io, "(%i threads)", nthreads)
+    end 
+end
+
 function print_chordal_decomposition(io::IO, chordal_info::ChordalInfo{T}, settings::Settings{T}) where {T}
 
     @printf(io, "\nchordal decomposition:\n")
@@ -203,7 +220,7 @@ end
 
 
 get_precision_string(T::Type{<:Real}) = string(T)
-get_precision_string(T::Type{<:BigFloat}) = string(T," (", precision(T), " bit)")
+get_precision_string(T::Type{<:AbstractFloat}) = string(sizeof(T)*8, " bit")
 
 
 function print_conedims_by_type(io::IO, cones::CompositeCone{T}, type::Type) where {T}

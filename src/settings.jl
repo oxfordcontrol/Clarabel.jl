@@ -110,7 +110,7 @@ Base.@kwdef mutable struct Settings{T <: AbstractFloat}
 
     #the direct linear solver package to use
     direct_kkt_solver::Bool             = true   #indirect not yet supported
-    direct_solve_method::Symbol         = :qdldl
+    direct_solve_method::Symbol         = :auto
 
     #static regularization parameters
     static_regularization_enable::Bool    = true
