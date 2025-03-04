@@ -298,8 +298,14 @@ function MOI.set(opt::Optimizer{T}, attr::MOI.TimeLimitSec, ::Nothing) where {T}
 end
 
 
-#attributes not currently supported
-MOI.supports(::Optimizer, ::MOI.NumberOfThreads) = false
+MOI.supports(::Optimizer, ::MOI.NumberOfThreads) = true
+function MOI.get(model::Optimizer, ::MOI.NumberOfThreads)::Int
+    return MOI.get(model, MOI.RawOptimizerAttribute("max_threads"))
+end
+function MOI.set(model::Optimizer, ::MOI.NumberOfThreads, threads::Int)
+    MOI.set(model, MOI.RawOptimizerAttribute("max_threads"), threads)
+    return
+end
 
 
 #------------------------------
