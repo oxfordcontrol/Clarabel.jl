@@ -242,7 +242,7 @@ function DefaultInfo{T}() where {T}
     #but the previous iterates to Inf to avoid weird edge cases 
     prevvals = ntuple(x->floatmax(T), 6);
     linsolver = LinearSolverInfo()
-    DefaultInfo((ntuple(x->0, fieldcount(DefaultInfo)-6-2)...,prevvals...,UNSOLVED,linsolver)...)
+    DefaultInfo{T}((ntuple(x->0, fieldcount(DefaultInfo)-6-2)...,prevvals...,UNSOLVED,linsolver)...)
 
 end
 
