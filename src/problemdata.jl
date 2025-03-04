@@ -39,8 +39,8 @@ function DefaultProblemData{T}(
 	end 
 
 	# now make sure we have a clean copy of everything if we
-	#haven't made one already.   Necessary since we will scale
-	# scale the internal copy and don't want to step on the user
+	# haven't made one already.   Necessary since we will scale
+	# the internal copy and don't want to step on the user
 	copy_if_nothing(x,y) = isnothing(x) ? deepcopy(y) : x
 	P_new = copy_if_nothing(P_new,P)
 	q_new = copy_if_nothing(q_new,q)
@@ -48,10 +48,10 @@ function DefaultProblemData{T}(
 	b_new = copy_if_nothing(b_new,b)
 	cones_new = copy_if_nothing(cones_new,cones)
 
-	#cap entries in b at INFINITY.  This is important 
-	#for inf values that were not in a reduced cone
-	#this is not considered part of the "presolve", so
-	#can always happen regardless of user settings 
+	# cap entries in b at INFINITY.  This is important 
+	# for inf values that were not in a reduced cone
+	# this is not considered part of the "presolve", so
+	# can always happen regardless of user settings 
 	@. b_new .= min(b_new,T(Clarabel.get_infinity()))
 	
 	#this ensures m is the *reduced* size m
@@ -68,6 +68,7 @@ function DefaultProblemData{T}(
 		presolver,chordal_info)
 
 end
+
 
 function data_get_normq!(data::DefaultProblemData{T}) where {T}
 
@@ -231,8 +232,9 @@ function try_chordal_info(
         return nothing
     end
 
-    # nothing to do if there are no PSD cones
-    if !any(c -> isa(c,PSDTriangleConeT), cones)
+    # nothing to do if there are no PSD cones or they 
+	# are all of trivial size 
+    if !any(c -> (isa(c,PSDTriangleConeT) && c.dim > 2), cones)
         return nothing 
     end 
 

@@ -697,6 +697,8 @@ function process_objective(
         function_type = MOI.get(src, MOI.ObjectiveFunctionType())
         q = zeros(T,n)
 
+        println("CLARABEL: process_objective: function_type = ", function_type)
+
         if function_type == MOI.ScalarAffineFunction{T}
             faffine = MOI.get(src, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}())
             P = spzeros(T, n, n)
