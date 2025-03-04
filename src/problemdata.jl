@@ -39,8 +39,8 @@ function DefaultProblemData{T}(
 	end 
 
 	# now make sure we have a clean copy of everything if we
-	#haven't made one already.   Necessary since we will scale
-	# scale the internal copy and don't want to step on the user
+	# haven't made one already.   Necessary since we will scale
+	# the internal copy and don't want to step on the user
 	copy_if_nothing(x,y) = isnothing(x) ? deepcopy(y) : x
 	P_new = copy_if_nothing(P_new,P)
 	q_new = copy_if_nothing(q_new,q)
