@@ -82,7 +82,7 @@ function setup!(
     cones::Vector{<:SupportedCone},
 ) where{T}
 
-    # project against cones with overly specific type, e.g. 
+    # protect against cones with overly specific type, e.g. 
     # when all of the cones are NonnegativeConeT
     cones = convert(Vector{SupportedCone},cones)
 
