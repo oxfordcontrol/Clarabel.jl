@@ -1,7 +1,8 @@
 using SuiteSparse
 mutable struct CholmodDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
 
-    F::Option{SuiteSparse.CHOLMOD.Factor}
+    F::SuiteSparse.CHOLMOD.Factor
+    nnzA::Int
 
     function CholmodDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
 
@@ -9,17 +10,27 @@ mutable struct CholmodDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
         #use information about the expected signs
 
         #There is no obvious way to force cholmod to make
-        #an initial symbolic factorization only, set
-        #set F to nothing and create F as needed on the
-        #first refactorization
-        F = nothing
+        #an initial symbolic factorization only
+        F = ldlt(Symmetric(KKT); check = false)
 
-        return new(F)
+        return new(F, nnz(KKT))
     end
 end
 
 ldlsolver_constructor(::Val{:cholmod}) = CholmodDirectLDLSolver
 ldlsolver_matrix_shape(::Val{:cholmod}) = :triu
+ldlsolver_is_available(::Val{:cholmod}) = true
+
+function linear_solver_info(ldlsolver::CholmodDirectLDLSolver{T}) where{T}
+
+    name = :cholmod;
+    threads = 0;   #unknown 
+    direct = true;
+    LD = sparse(ldlsolver.F.LD)
+    nnzA = ldlsolver.nnzA
+    nnzL = nnz(LD) - size(LD,1)
+    LinearSolverInfo(name, threads, direct, nnzA, nnzL)
+end
 
 #update entries in the KKT matrix using the
 #given index into its CSC representation
@@ -51,15 +62,8 @@ end
 #refactor the linear system
 function refactor!(ldlsolver::CholmodDirectLDLSolver{T}, K::SparseMatrixCSC{T}) where{T}
 
-    if ldlsolver.F === nothing
-        #initial symbolic and numeric factor since
-        #we can't do symbolic on its own
-        ldlsolver.F = ldlt(Symmetric(K))
-
-    else
-        #this reuses the symbolic factorization
-        ldlt!(ldlsolver.F, Symmetric(K))
-    end
+    #this reuses the symbolic factorization
+    ldlt!(ldlsolver.F, Symmetric(K))
 
     return issuccess(ldlsolver.F)
 end

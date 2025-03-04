@@ -95,14 +95,6 @@ end
 
 DirectLDLKKTSolver(args...) = DirectLDLKKTSolver{DefaultFloat}(args...)
 
-function get_ldlsolver_type(s::Symbol)
-    try
-        return DirectLDLSolversDict[s]
-    catch
-        throw(error("Unsupported direct LDL linear solver :", s))
-    end
-end
-
 function get_ldlsolver_config(settings::Settings)
 
     token = settings.direct_solve_method
@@ -195,6 +187,12 @@ function _scale_values_KKT!(
 
 end
 
+
+function kktsolver_linear_solver_info(
+    kktsolver::DirectLDLKKTSolver{T}
+) where {T}
+    linear_solver_info(kktsolver.ldlsolver)
+end
 
 function kktsolver_update!(
     kktsolver::DirectLDLKKTSolver{T},
