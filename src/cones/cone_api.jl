@@ -93,7 +93,7 @@ end
 
 
 
-function new_collapsed(cones::Vector{SupportedCone})
+function cones_new_collapsed(cones::Vector{SupportedCone})
 
     newcones = sizehint!(SupportedCone[], length(cones))
     iter = Iterators.Stateful(cones)
@@ -104,31 +104,21 @@ function new_collapsed(cones::Vector{SupportedCone})
         total_dim = init_dim
 
         while !isempty(iter)
-
             cone = peek(iter)
             # empty cones 
-            if isa(cone, ZeroConeT) && cone.dim == 0
+            if nvars(cone) == 0
                 # skip
-            elseif isa(cone, NonnegativeConeT) && cone.dim == 0
-                # skip
-            elseif isa(cone, SecondOrderConeT) && cone.dim == 0
-                # skip
-            elseif isa(cone, PSDTriangleConeT) && cone.dim == 0
-                # skip
-
-                # collapsible cones.  
+            # collapsible cones.  
             elseif isa(cone, NonnegativeConeT)
                 total_dim += cone.dim
             elseif isa(cone, SecondOrderConeT) && cone.dim == 1
                 total_dim += 1
             elseif isa(cone, PSDTriangleConeT) && cone.dim == 1
                 total_dim += 1
-
                 # stop when we hit a non-collapsible cone
             else
                 break
             end
-
             popfirst!(iter)
         end
 
@@ -140,25 +130,17 @@ function new_collapsed(cones::Vector{SupportedCone})
         cone = popfirst!(iter)
 
         # empty cones 
-        if isa(cone, ZeroConeT) && cone.dim == 0
-            # skip 
-        elseif isa(cone, NonnegativeConeT) && cone.dim == 0
+        if nvars(cone) == 0
             # skip
-        elseif isa(cone, SecondOrderConeT) && cone.dim == 0
-            # skip
-        elseif isa(cone, PSDTriangleConeT) && cone.dim == 0
-            # skip
-
-            # collapsible cones.  These are cones that can serve
-            # as the first term in a sequence of cones to be collapsed
-            # into a single nonnegative cone.
+        # collapsible cones.  These are cones that can serve
+        # as the first term in a sequence of cones to be collapsed
+        # into a single nonnegative cone.
         elseif isa(cone, NonnegativeConeT)
             collapse(iter, newcones, cone.dim)
         elseif isa(cone, SecondOrderConeT) && cone.dim == 1
             collapse(iter, newcones, cone.dim)
         elseif isa(cone, PSDTriangleConeT) && cone.dim == 1
             collapse(iter, newcones, cone.dim)
-
             # everything else
         else
             push!(newcones, cone)

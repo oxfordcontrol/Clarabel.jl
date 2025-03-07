@@ -16,7 +16,7 @@ using Random, Test
     include("./UnitTests/test_json.jl")
 
     #tests on cone simplification and merging 
-    include("./UnitTests/test_cone_new_collapsed.jl")
+    include("./UnitTests/test_cones_new_collapsed.jl")
 
 end
 nothing

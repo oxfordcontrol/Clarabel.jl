@@ -1,9 +1,9 @@
 using Test, Clarabel
 
-@testset "new_collapsed" begin
+@testset "cones_new_collapsed" begin
 
 
-    @testset "test_new_collapsed_no_changes" begin
+    @testset "test_cones_new_collapsed_no_changes" begin
 
         cones = [
             Clarabel.NonnegativeConeT(3),
@@ -12,12 +12,12 @@ using Test, Clarabel
         ];
 
         expected = deepcopy(cones)
-        result = Clarabel.new_collapsed(cones)
+        result = Clarabel.cones_new_collapsed(cones)
 
         @test isequal(result, expected)
     end
 
-    @testset "test_new_collapsed_consolidate_nonnegative" begin
+    @testset "test_cones_new_collapsed_consolidate_nonnegative" begin
 
         cones = [
             Clarabel.NonnegativeConeT(3),
@@ -29,13 +29,13 @@ using Test, Clarabel
             Clarabel.NonnegativeConeT(5),
             Clarabel.SecondOrderConeT(4),
         ];
-        result = Clarabel.new_collapsed(cones)
+        result = Clarabel.cones_new_collapsed(cones)
 
         @test isequal(result, expected)
 
     end
 
-    @testset "test_new_collapsed_remove_empty" begin 
+    @testset "test_cones_new_collapsed_remove_empty" begin 
 
         cones = [
             Clarabel.NonnegativeConeT(3),
@@ -48,12 +48,12 @@ using Test, Clarabel
             Clarabel.NonnegativeConeT(3),
             Clarabel.SecondOrderConeT(4),
         ];
-        result = Clarabel.new_collapsed(cones)
+        result = Clarabel.cones_new_collapsed(cones)
 
         @test isequal(result, expected)
     end
 
-    @testset "test_new_collapsed_soc_to_nonnegative" begin
+    @testset "test_cones_new_collapsed_soc_to_nonnegative" begin
 
         cones = Clarabel.SupportedCone[
             Clarabel.SecondOrderConeT(1),
@@ -64,12 +64,12 @@ using Test, Clarabel
             Clarabel.NonnegativeConeT(1),
             Clarabel.SecondOrderConeT(4),
         ];
-        result = Clarabel.new_collapsed(cones)
+        result = Clarabel.cones_new_collapsed(cones)
 
         @test isequal(result, expected)
     end
 
-    @testset "test_new_collapsed_psd_to_nonnegative" begin
+    @testset "test_cones_new_collapsed_psd_to_nonnegative" begin
         cones = [
             Clarabel.PSDTriangleConeT(1),
             Clarabel.SecondOrderConeT(4),
@@ -79,12 +79,12 @@ using Test, Clarabel
             Clarabel.NonnegativeConeT(1),
             Clarabel.SecondOrderConeT(4),
         ];
-        result = Clarabel.new_collapsed(cones)
+        result = Clarabel.cones_new_collapsed(cones)
 
         @test isequal(result, expected)
     end
 
-    @testset "test_new_collapsed_mixed" begin
+    @testset "test_cones_new_collapsed_mixed" begin
         cones = [
             Clarabel.SecondOrderConeT(1),
             Clarabel.NonnegativeConeT(3),
@@ -99,12 +99,12 @@ using Test, Clarabel
             Clarabel.ExponentialConeT(),
             Clarabel.NonnegativeConeT(1),
         ];
-        result = Clarabel.new_collapsed(cones)
+        result = Clarabel.cones_new_collapsed(cones)
 
         @test isequal(result, expected)
     end
 
-     @testset "test_new_collapsed_mixed_sdp" begin
+     @testset "test_cones_new_collapsed_mixed_sdp" begin
         cones = [
             Clarabel.NonnegativeConeT(3),
             Clarabel.NonnegativeConeT(2),
@@ -119,7 +119,7 @@ using Test, Clarabel
             Clarabel.NonnegativeConeT(7),
             Clarabel.SecondOrderConeT(4),
         ];
-        result = Clarabel.new_collapsed(cones)
+        result = Clarabel.cones_new_collapsed(cones)
 
         @test isequal(result, expected)
     end
