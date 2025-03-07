@@ -8,7 +8,7 @@ Version numbering in this project adheres to [Semantic Versioning](https://semve
 
 ## [0.11.0] - 2024-07-03
 
-### What's Changed
+### Changed
 
 - Implemented LDL :auto select as default [#193](https://github.com/oxfordcontrol/Clarabel.jl/pull/193)
 
@@ -26,7 +26,7 @@ Version numbering in this project adheres to [Semantic Versioning](https://semve
 
 ## [0.10.0] - 2024-03-02
 
-### What's Changed
+### Changed
 - fix socp line search failure case [#179](https://github.com/oxfordcontrol/Clarabel.jl/pull/179)
 - norm unscaling bug fix [#180](https://github.com/oxfordcontrol/Clarabel.jl/pull/180)
 - added `max_threads` to settings
@@ -41,6 +41,7 @@ Version numbering in this project adheres to [Semantic Versioning](https://semve
 
 
 ## [0.8.1] - 2024-22-05
+
 ### Changed 
 
 - minor documentation updates
