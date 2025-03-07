@@ -9,6 +9,11 @@ function DefaultProblemData{T}(
 	settings::Settings{T}
 ) where {T}
 
+	# clean up the cones by consolidating repeated NNs,
+	# eliminate empty cones, transform singletons etc
+	# this makes a locally owned copy of the cones
+	cones = cones_new_collapsed(cones);
+
 	# some caution is required to ensure we take a minimal,
 	# but nonzero, number of data copies during presolve steps 
 	P_new, q_new, A_new, b_new, cones_new = 
@@ -46,12 +51,14 @@ function DefaultProblemData{T}(
 	q_new = copy_if_nothing(q_new,q)
 	A_new = copy_if_nothing(A_new,A)
 	b_new = copy_if_nothing(b_new,b)
-	cones_new = copy_if_nothing(cones_new,cones)
 
-	#cap entries in b at INFINITY.  This is important 
-	#for inf values that were not in a reduced cone
-	#this is not considered part of the "presolve", so
-	#can always happen regardless of user settings 
+	# cones was already copied, so can just pass it through without copying
+	cones_new = isnothing(cones_new) ? cones : cones_new
+
+	# cap entries in b at INFINITY.  This is important 
+	# for inf values that were not in a reduced cone
+	# this is not considered part of the "presolve", so
+	# can always happen regardless of user settings 
 	@. b_new .= min(b_new,T(Clarabel.get_infinity()))
 	
 	#this ensures m is the *reduced* size m
@@ -68,6 +75,7 @@ function DefaultProblemData{T}(
 		presolver,chordal_info)
 
 end
+
 
 function data_get_normq!(data::DefaultProblemData{T}) where {T}
 
@@ -231,8 +239,9 @@ function try_chordal_info(
         return nothing
     end
 
-    # nothing to do if there are no PSD cones
-    if !any(c -> isa(c,PSDTriangleConeT), cones)
+    # nothing to do if there are no PSD cones or they 
+	# are all of trivial size 
+    if !any(c -> (isa(c,PSDTriangleConeT) && c.dim > 2), cones)
         return nothing 
     end 
 

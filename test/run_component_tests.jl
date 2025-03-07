@@ -15,5 +15,8 @@ using Random, Test
     #tests on json IO
     include("./UnitTests/test_json.jl")
 
+    #tests on cone simplification and merging 
+    include("./UnitTests/test_cones_new_collapsed.jl")
+
 end
 nothing
