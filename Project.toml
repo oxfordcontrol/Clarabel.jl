@@ -1,7 +1,7 @@
 name = "Clarabel"
 uuid = "61c947e1-3e6d-4ee4-985a-eec8c727bd6e"
 authors = ["Paul Goulart <paul.goulart@eng.ox.ac.uk>"]
-version = "0.10.0"
+version = "0.11.0"
 
 [deps]
 AMD = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
