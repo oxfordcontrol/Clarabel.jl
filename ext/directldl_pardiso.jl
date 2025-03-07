@@ -1,6 +1,7 @@
 using Pardiso, SparseArrays, Clarabel
-import Clarabel: DefaultInt, AbstractDirectLDLSolver, ldlsolver_constructor, ldlsolver_matrix_shape
-import Clarabel: update_values!, scale_values!, refactor!, solve!
+import Clarabel: DefaultInt, AbstractDirectLDLSolver, LinearSolverInfo
+import Clarabel: ldlsolver_constructor, ldlsolver_matrix_shape, ldlsolver_is_available
+import Clarabel: linear_solver_info, update_values!, scale_values!, refactor!, solve!
 
 abstract type AbstractPardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}  end
 
@@ -8,12 +9,19 @@ abstract type AbstractPardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}  e
 struct MKLPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
     
     ps::Pardiso.MKLPardisoSolver
+    nnzA::DefaultInt
 
     function MKLPardisoDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
-        Pardiso.mkl_is_available() || error("MKL Pardiso is not available")
+
+        ldlsolver_is_available(:mkl) || error("MKL Pardiso is loaded but not working or unlicensed")
+
         ps = Pardiso.MKLPardisoSolver()
-        solver = new(ps)
+
+        solver = new(ps,nnz(KKT))
         pardiso_init(ps,pardiso_kkt(solver,KKT),Dsigns,settings)
+
+        Pardiso.set_nprocs!(ps, settings.max_threads) 
+
         return solver
     end
 end
@@ -22,6 +30,7 @@ end
 struct PanuaPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
     
     ps::Pardiso.PardisoSolver
+    nnzA::DefaultInt
 
     #Pardiso wants 32 bit CSC indices
     colptr32::Vector{Int32}
@@ -29,13 +38,19 @@ struct PanuaPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
 
     function PanuaPardisoDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
 
-        Pardiso.panua_is_available() || error("Panua Pardiso is not available")
+        ldlsolver_is_available(:panua) || error("Panua Pardiso is loaded but not working or unlicensed")
+
         ps = Pardiso.PardisoSolver()
         colptr32 = Int32.(KKT.colptr)
         rowval32 = Int32.(KKT.rowval)
         ps.iparm[8]=-99 # No IR
-        solver = new(ps,colptr32,rowval32)
+
+        solver = new(ps,nnz(KKT),colptr32,rowval32)
         pardiso_init(ps,pardiso_kkt(solver,KKT),Dsigns,settings)
+
+        #Note : Panua doesn't support setting the number of threads
+        #Always reads instead from ENV["OMP_NUM_THREADS"] before loading
+
         return solver
     end
 end
@@ -55,9 +70,11 @@ end
 
 ldlsolver_constructor(::Val{:mkl}) = MKLPardisoDirectLDLSolver
 ldlsolver_matrix_shape(::Val{:mkl}) = :tril
+ldlsolver_is_available(::Val{:mkl}) = Pardiso.mkl_is_available() 
 
 ldlsolver_constructor(::Val{:panua}) = PanuaPardisoDirectLDLSolver
 ldlsolver_matrix_shape(::Val{:panua}) = :tril
+ldlsolver_is_available(::Val{:panua}) = Pardiso.panua_is_available()
 
 function pardiso_kkt(
     ::MKLPardisoDirectLDLSolver{T},
@@ -83,6 +100,24 @@ function pardiso_kkt(
         ldlsolver.rowval32,
         KKT.nzval
     )
+end
+
+function linear_solver_info(ldlsolver::AbstractPardisoDirectLDLSolver{T}) where{T}
+
+    if isa(ldlsolver, MKLPardisoDirectLDLSolver)
+        name = :mkl
+    elseif isa(ldlsolver, PanuaPardisoDirectLDLSolver)  
+        name = :panua
+    else 
+        name = :unknown
+    end 
+    threads = Pardiso.get_nprocs(ldlsolver.ps)
+    direct = true
+    nnzA = ldlsolver.nnzA
+    ncols = length(ldlsolver.ps.perm) #length of permutation vector
+    nnzL = ldlsolver.ps.iparm[18] - ncols
+    LinearSolverInfo(name, threads, direct, nnzA, nnzL)
+
 end
 
 #update entries in the KKT matrix using the

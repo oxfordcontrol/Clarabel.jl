@@ -14,8 +14,12 @@ function __precompile_printfcns()
     stdoutT = typeof(stdout)
 
     precompile(Clarabel.print_banner, (Bool,))
-    precompile(Clarabel.print_settings, 
-        (stdoutT, Clarabel.Settings{Float64},)
+    precompile(Clarabel.info_print_settings, 
+        (
+            stdoutT, 
+            Clarabel.DefaultInfo{Float64}, 
+            Clarabel.Settings{Float64},
+        )
     )
 
     precompile(Clarabel.info_print_configuration,

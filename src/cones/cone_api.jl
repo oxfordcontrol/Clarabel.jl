@@ -85,7 +85,7 @@ function make_cone(T::Type, coneT)
     elseif typeT == PowerConeT
         cone = ConeDict[typeT]{T}(T(coneT.α))
     elseif typeT == GenPowerConeT
-        cone = ConeDict[typeof(coneT)]{T}(T.(coneT.α),coneT.dim2)
+        cone = ConeDict[typeT]{T}(T.(coneT.α),coneT.dim2)
     else
         cone = ConeDict[typeT]{T}(coneT.dim)
     end

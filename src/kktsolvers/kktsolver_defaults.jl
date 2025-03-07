@@ -1,6 +1,15 @@
 
+function kktsolver_linear_solver_info(
+    kktsolver::AbstractKKTSolver{T}
+) where{T}
+    error("function not implemented")
+end
+
 #update matrix data and factor
-function kktsolver_update!(linsys::AbstractKKTSolver{T},cones::CompositeCone{T}) where{T}
+function kktsolver_update!(
+    kktsolver::AbstractKKTSolver{T},
+    cones::CompositeCone{T}
+) where{T}
     error("function not implemented")
 end
 

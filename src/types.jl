@@ -193,6 +193,17 @@ DefaultProblemData(args...) = DefaultProblemData{DefaultFloat}(args...)
 # progress info
 # ----------------------
 
+struct LinearSolverInfo 
+    name::Symbol
+    threads::DefaultInt
+    direct::Bool
+    nnzA::DefaultInt # nnz in L for A = LDL^T
+    nnzL::DefaultInt # nnz in A for A = LDL^T
+end
+
+LinearSolverInfo() = LinearSolverInfo(:none, 1, true, 0, 0)
+
+
 mutable struct DefaultInfo{T} <: AbstractInfo{T}
 
     μ::T
@@ -220,13 +231,18 @@ mutable struct DefaultInfo{T} <: AbstractInfo{T}
     solve_time::Float64
     status::SolverStatus
 
-    function DefaultInfo{T}() where {T}
+    # linear solver information
+    linsolver::LinearSolverInfo
 
-        #here we set the first set of fields to zero (it doesn't matter),
-        #but the previous iterates to Inf to avoid weird edge cases 
-        prevvals = ntuple(x->floatmax(T), 6);
-        new((ntuple(x->0, fieldcount(DefaultInfo)-6-1)...,prevvals...,UNSOLVED)...)
-    end
+end
+
+function DefaultInfo{T}() where {T}
+
+    #here we set the first set of fields to zero (it doesn't matter),
+    #but the previous iterates to Inf to avoid weird edge cases 
+    prevvals = ntuple(x->floatmax(T), 6);
+    linsolver = LinearSolverInfo()
+    DefaultInfo{T}((ntuple(x->0, fieldcount(DefaultInfo)-6-2)...,prevvals...,UNSOLVED,linsolver)...)
 
 end
 

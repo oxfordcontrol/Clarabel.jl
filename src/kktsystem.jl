@@ -55,6 +55,10 @@ end
 
 DefaultKKTSystem(args...) = DefaultKKTSystem{DefaultFloat}(args...)
 
+function kkt_linear_solver_info(kktsystem::DefaultKKTSystem{T}) where{T}
+    return kktsolver_linear_solver_info(kktsystem.kktsolver)
+end
+
 function kkt_update!(
     kktsystem::DefaultKKTSystem{T},
     data::DefaultProblemData{T},
