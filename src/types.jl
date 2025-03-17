@@ -335,11 +335,29 @@ mutable struct Solver{T <: AbstractFloat} <: AbstractSolver{T}
     settings::Settings{T}
     timers::TimerOutput
 
+    # all inner constructors initalize most fields to nothing,
+    # initialize the timers and copy user settings as needed 
+
+    function Solver{T}(settings::Settings{T}) where {T}
+        settings = deepcopy(settings)
+        new{T}(ntuple(x->nothing, fieldcount(Solver)-2)...,settings,_timer_init())
+    end 
+
+    function Solver{T}() where {T}
+        settings = Settings{T}()
+        new{T}(ntuple(x->nothing, fieldcount(Solver)-2)...,settings,_timer_init())
+    end
+
+    function Solver{T}(d::Dict) where {T}
+        settings = Settings{T}(d)
+        new{T}(ntuple(x->nothing, fieldcount(Solver)-2)...,settings,_timer_init())
+    end
+
 end
 
-#initializes all fields except settings to nothing
-function Solver{T}(settings::Settings{T}) where {T}
+Solver(args...; kwargs...) = Solver{DefaultFloat}(args...; kwargs...)
 
+function _timer_init()
     to = TimerOutput()
     #setup the main timer sections here and
     #zero them.   This ensures that the sections
@@ -348,19 +366,9 @@ function Solver{T}(settings::Settings{T}) where {T}
     @timeit to "solve!" begin (nothing) end
     reset_timer!(to["setup!"])
     reset_timer!(to["solve!"])
+    to
+end 
 
-    Solver{T}(ntuple(x->nothing, fieldcount(Solver)-2)...,settings,to)
-end
 
-function Solver{T}() where {T}
-    #default settings
-    Solver{T}(Settings{T}())
-end
 
-#partial user defined settings
-function Solver{T}(d::Dict) where {T}
-    Solver{T}(Settings{T}(d))
-end
-
-Solver(args...; kwargs...) = Solver{DefaultFloat}(args...; kwargs...)
 

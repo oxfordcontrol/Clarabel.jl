@@ -62,7 +62,7 @@ To solve the problem, you must make a subsequent call to [`solve!`](@ref)
 """
 function setup!(s,P,c,A,b,cones,settings::Settings)
     #this allows total override of settings during setup
-    s.settings = settings
+    s.settings = deepcopy(settings)
     setup!(s,P,c,A,b,cones)
 end
 

@@ -15,7 +15,7 @@ using Test, LinearAlgebra, SparseArrays, Clarabel
 
     # write to a JSON file then reload 
     file = tempname() * ".json"
-    Clarabel.write_to_file(solver, file)
+    Clarabel.save_to_file(solver, file)
     solver2 = Clarabel.load_from_file(file)
 
     # solve both problems and compare
