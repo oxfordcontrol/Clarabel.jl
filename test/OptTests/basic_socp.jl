@@ -1,14 +1,17 @@
-using Test, LinearAlgebra, SparseArrays, Random
+using Test, LinearAlgebra, SparseArrays
 
 #if not run in full test setup, just do it for one float type
 @isdefined(UnitTestFloats) || (UnitTestFloats = [Float64])
 
 function basic_SOCP_data(Type::Type{T}) where {T <: AbstractFloat}
 
-    rng = Random.MersenneTwister(242713)
     n = 3
-    P = randn(rng,n,n)*1
-    P = SparseMatrixCSC{T}(convert(Matrix{T},(P'*P)))
+    P = [1.4652521089139698 0.6137176286085666 -1.1527861771130112; 
+         0.6137176286085666 2.219109946678485 -1.4400420548730628; 
+         -1.1527861771130112 -1.4400420548730628 1.6014483534926371]
+
+    P = SparseMatrixCSC{T}(convert(Matrix{T},(P)))
+
     A = SparseMatrixCSC{T}(I(n)*one(T))
     A1 = [A;-A]*2
     c = T[0.1;-2.;1.]

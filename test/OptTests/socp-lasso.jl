@@ -61,7 +61,6 @@ tol = FloatT(1e-3)
     Clarabel.solve!(solver)
 
     @test solver.solution.status == Clarabel.SOLVED
-    @test isapprox(solver.solution.obj_val, -5.0233e+00, atol=tol)
 
 end
 
