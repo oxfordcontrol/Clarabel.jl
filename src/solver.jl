@@ -512,3 +512,4 @@ end
 
 get_solution(s::Solver{T}) where {T} = s.solution
 get_info(s::Solver{T}) where {T} = s.info
+print_timers(s::Solver{T}) where {T} = display(s.timers)
