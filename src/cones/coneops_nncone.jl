@@ -198,14 +198,11 @@ function mul_W!(
     is_transpose::Symbol,
     y::AbstractVector{T},
     x::AbstractVector{T},
-    α::T,
-    β::T
 ) where {T}
 
   #W is diagonal so ignore transposition
-  #@. y = α*(x*K.w) + β*y
   @inbounds for i = eachindex(y)
-      y[i] = α*(x[i]*K.w[i]) + β*y[i]
+      y[i] = (x[i]*K.w[i]) 
   end
 
   return nothing
@@ -217,14 +214,11 @@ function mul_Winv!(
     is_transpose::Symbol,
     y::AbstractVector{T},
     x::AbstractVector{T},
-    α::T,
-    β::T
 ) where {T}
 
   #W is diagonal, so ignore transposition
-  #@. y = α*(x/K.w) + β.*y
   @inbounds for i = eachindex(y)
-      y[i] = α*(x[i]/K.w[i]) + β*y[i]
+      y[i] = x[i]/K.w[i]
   end
 
   return nothing

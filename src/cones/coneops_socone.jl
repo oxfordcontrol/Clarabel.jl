@@ -315,8 +315,6 @@ function mul_W!(
     is_transpose::Symbol,
     y::AbstractVector{T},
     x::AbstractVector{T},
-    α::T,
-    β::T
 ) where {T}
 
   #NB: symmetric, so ignore transpose
@@ -325,10 +323,10 @@ function mul_W!(
   @views ζ = dot(K.w[2:end],x[2:end])
   c = x[1] + ζ/(1+K.w[1])
 
-  y[1] = α*K.η*(K.w[1]*x[1] + ζ) + β*y[1]
+  y[1] = K.η*(K.w[1]*x[1] + ζ) 
 
   @inbounds for i in 2:length(y)
-      y[i] = α*K.η*(x[i] + c*K.w[i]) + β*y[i]
+      y[i] = K.η*(x[i] + c*K.w[i]) 
   end
 
   return nothing
@@ -340,8 +338,6 @@ function mul_Winv!(
     is_transpose::Symbol,
     y::AbstractVector{T},
     x::AbstractVector{T},
-    α::T,
-    β::T
 ) where {T}
 
     #NB: symmetric, so ignore transpose
@@ -349,11 +345,12 @@ function mul_Winv!(
     # use the fast inverse product method from ECOS ECC paper
     @views ζ = dot(K.w[2:end],x[2:end])
     c = -x[1] + ζ/(1+K.w[1])
+    etainv = inv(K.η);
 
-    y[1] = (α/K.η)*(K.w[1]*x[1] - ζ) + β*y[1]
+    y[1] = etainv * (K.w[1]*x[1] - ζ)
 
     @inbounds for i = 2:length(y)
-        y[i] = (α/K.η)*(x[i] + c*K.w[i]) + β*y[i]
+        y[i] = etainv * (x[i] + c*K.w[i])
     end
 
     return nothing

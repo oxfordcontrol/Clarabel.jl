@@ -19,11 +19,11 @@
 
      #Δz <- WΔz
     tmp .= step_z         
-    mul_W!(K,:N,step_z,tmp,one(T),zero(T))        
+    mul_W!(K,:N,step_z,tmp)        
 
     #Δs <- W⁻¹Δs
     tmp .= step_s           
-    mul_Winv!(K,:T,step_s,tmp,one(T),zero(T))      
+    mul_Winv!(K,:T,step_s,tmp)      
 
     #shift = W⁻¹Δs ∘ WΔz - σμe
     circ_op!(K,shift,step_s,step_z)         
@@ -47,6 +47,6 @@ end
     λ_inv_circ_op!(K,work,ds) 
 
     #out = Wᵀ(λ \ ds) = Wᵀ(work) 
-    mul_W!(K,:T,out,work,one(T),zero(T))
+    mul_W!(K,:T,out,work)
 
 end

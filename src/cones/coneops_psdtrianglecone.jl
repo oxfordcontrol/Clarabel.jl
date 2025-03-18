@@ -95,23 +95,25 @@ function update_scaling!(
     map((M,v)->svec_to_mat!(M,v),(S,Z),(s,z))
 
     #compute Cholesky factors (PG: this is allocating)
-    f.chol1 = cholesky!(S, check = false)
-    f.chol2 = cholesky!(Z, check = false)
+    f.chol1 = cholesky!(Hermitian(S,:L), check = false)
+    f.chol2 = cholesky!(Hermitian(Z,:L), check = false)
 
     # bail if the cholesky factorization fails
     if !(issuccess(f.chol1) && issuccess(f.chol2))
         return is_scaling_success = false
     end
 
-    (L1,L2) = (f.chol1.L,f.chol2.L)
+    L1 = f.chol1.L
+    L2 = f.chol2.L
 
     #SVD of L2'*L1,
-    tmp = f.workmat1;
+    tmp = f.workmat3;
     mul!(tmp,L2',L1)   
     f.SVD = svd(tmp)
 
     #assemble λ (diagonal), R and Rinv.
-    f.λ           .= f.SVD.S
+    copyto!(f.λ,f.SVD.S)
+
     f.Λisqrt.diag .= inv.(sqrt.(f.λ))
 
     #f.R = L1*(f.SVD.V)*f.Λisqrt
@@ -180,8 +182,8 @@ function mul_Hs!(
     # needed to populate the KKT Hs block.   For a direct 
     # method that block is never needed, so better to only 
     # form it in memory if get_Hs is actually called  
-    mul_W!(K,:N,work,x,one(T),zero(T))    #work = Wx
-    mul_W!(K,:T,y,work,one(T),zero(T))    #y = Wᵀwork = W^TWx
+    mul_W!(K,:N,work,x)    #work = Wx
+    mul_W!(K,:T,y,work)    #y = Wᵀwork = W^TWx
 
 end
 
@@ -241,11 +243,11 @@ function step_length(
     workΔ  = K.data.workmat1
 
     #d = Δz̃ = WΔz
-    mul_W!(K, :N, d, dz, one(T), zero(T))
+    mul_W!(K, :N, d, dz)
     αz = step_length_psd_component(workΔ,d,Λisqrt,αmax)
 
     #d = Δs̃ = W^{-T}Δs
-    mul_Winv!(K, :T, d, ds, one(T), zero(T))
+    mul_Winv!(K, :T, d, ds)
     αs = step_length_psd_component(workΔ,d,Λisqrt,αmax)
 
     return (αz,αs)
@@ -299,15 +301,12 @@ function mul_W!(
     is_transpose::Symbol,
     y::AbstractVector{T},
     x::AbstractVector{T},
-    α::T,
-    β::T
 ) where {T}
 
     mul_Wx_inner(
         is_transpose,
-        y,x,
-        α,
-        β,
+        y,
+        x,
         K.data.R,
         K.data.workmat1,
         K.data.workmat2,
@@ -320,15 +319,12 @@ function mul_Winv!(
     is_transpose::Symbol,
     y::AbstractVector{T},
     x::AbstractVector{T},
-    α::T,
-    β::T
 ) where {T}
 
     mul_Wx_inner(
         is_transpose,
-        y,x,
-        α,
-        β,
+        y,
+        x,
         K.data.Rinv,
         K.data.workmat1,
         K.data.workmat2,
@@ -414,8 +410,6 @@ function mul_Wx_inner(
     is_transpose::Symbol,
     y::AbstractVector{T},
     x::AbstractVector{T},
-    α::T,
-    β::T,
     Rx::AbstractMatrix{T},
     workmat1::AbstractMatrix{T},
     workmat2::AbstractMatrix{T},
@@ -426,15 +420,15 @@ function mul_Wx_inner(
     map((M,v)->svec_to_mat!(M,v),(X,Y),(x,y))
 
     if is_transpose === :T
-        #Y .= α*(R*X*R')                #W^T*x    or....
-        # Y .= α*(Rinv*X*Rinv') + βY    #W^{-T}*x
-        mul!(tmp,X,Rx',one(T),zero(T))
-        mul!(Y,Rx,tmp,α,β)
+        # Y .= R*X*R'          #W^T*x    or....
+        # Y .= Rinv*X*Rinv'    #W^{-T}*x
+        mul!(tmp,X,Rx')
+        mul!(Y,Rx,tmp)
     else  # :N
-        #Y .= α*(R'*X*R)                #W*x       or...
-        # Y .= α*(Rinv'*X*Rinv) + βY    #W^{-1}*x
-        mul!(tmp,Rx',X,one(T),zero(T))
-        mul!(Y,tmp,Rx,α,β)
+        # Y .= R'*X*R           #W*x       or...
+        # Y .= Rinv'*X*Rinv     #W^{-1}*x
+        mul!(tmp,Rx',X)
+        mul!(Y,tmp,Rx)
     end
 
     mat_to_svec!(y,Y)

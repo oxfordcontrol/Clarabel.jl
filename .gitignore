@@ -1,7 +1,7 @@
 
 # local files / testing
 _*.jl
-*.*.mem
+#*.*.mem
 *.cov
 .DS_Store*
 .vscode
