@@ -68,9 +68,9 @@ function unit_initialization!(
     K::PSDTriangleCone{T}
 ) where {T}
 
-    K.data.R    .= I(K.n)
-    K.data.Rinv .= K.data.R
-    K.data.Hs   .= I(size(K.data.Hs,1))
+    copyto!(K.data.R,I)
+    copyto!(K.data.Rinv,I)
+    copyto!(K.data.Hs,I)
 
     return nothing
 end
