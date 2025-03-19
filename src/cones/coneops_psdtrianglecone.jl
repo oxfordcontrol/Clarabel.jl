@@ -1,5 +1,3 @@
-using GenericLinearAlgebra  # extends SVD, eigs etc for BigFloats
-
 # ----------------------------------------------------
 # Positive Semidefinite Cone
 # ----------------------------------------------------
@@ -19,7 +17,8 @@ function margins(
     else
         Z = K.data.workmat1
         svec_to_mat!(Z,z)
-        e = eigvals!(Hermitian(Z))  #NB: GenericLinearAlgebra doesn't support eigvals!(::Symmetric(...))
+        eigvals!(K.data.Eig, Z)
+        e = K.data.Eig.λ
         α = minimum(e)  #minimum eigenvalue. 
     end
     β = reduce((x,y) -> y > 0 ? x + y : x, e, init = zero(T)) # = sum(e[e.>0]) (no alloc)
@@ -109,15 +108,15 @@ function update_scaling!(
     #SVD of L2'*L1,
     tmp = f.workmat3;
     mul!(tmp,L2',L1)   
-    f.SVD = svd(tmp)
+    factor!(f.SVD, tmp)
 
     #assemble λ (diagonal), R and Rinv.
-    copyto!(f.λ,f.SVD.S)
+    copyto!(f.λ,f.SVD.s)
 
     f.Λisqrt.diag .= inv.(sqrt.(f.λ))
 
     #f.R = L1*(f.SVD.V)*f.Λisqrt
-    mul!(f.R,L1,f.SVD.V);
+    mul!(f.R,L1,f.SVD.Vt');
     mul!(f.R,f.R,f.Λisqrt) #mul! can take R twice because Λ is diagonal
 
     #f.Rinv .= f.Λisqrt*(f.SVD.U)'*L2'
@@ -240,15 +239,16 @@ function step_length(
 
     Λisqrt = K.data.Λisqrt
     d      = K.data.workvec
+    engine = K.data.Eig
     workΔ  = K.data.workmat1
 
     #d = Δz̃ = WΔz
     mul_W!(K, :N, d, dz)
-    αz = step_length_psd_component(workΔ,d,Λisqrt,αmax)
+    αz = step_length_psd_component(workΔ,engine,d,Λisqrt,αmax)
 
     #d = Δs̃ = W^{-T}Δs
     mul_Winv!(K, :T, d, ds)
-    αs = step_length_psd_component(workΔ,d,Λisqrt,αmax)
+    αs = step_length_psd_component(workΔ,engine,d,Λisqrt,αmax)
 
     return (αz,αs)
 end
@@ -438,6 +438,7 @@ end
 
 function step_length_psd_component(
     workΔ::Matrix{T},
+    engine::EigEngine{T},
     d::Vector{T},
     Λisqrt::Diagonal{T},
     αmax::T
@@ -449,13 +450,11 @@ function step_length_psd_component(
         # NB: this could be made faster since we only need to populate the upper triangle 
         svec_to_mat!(workΔ,d)
         lrscale!(Λisqrt.diag,workΔ,Λisqrt.diag)
-        # GenericLinearAlgebra doesn't support eigvals!(::Symmetric(::Matrix)), 
-        # and doesn't support choosing a subset of values 
-        if T <: LinearAlgebra.BlasFloat
-            γ = eigvals!(Hermitian(workΔ),1:1)[1] #minimum eigenvalue
-        else 
-            γ = eigvals!(Hermitian(workΔ))[1] #minimum eigenvalue, a bit slower
-        end
+
+        # NB: could be faster since we only 1 want eigenvalue
+        eigvals!(engine, workΔ)
+        γ = minimum(engine.λ)
+
     end
 
     if γ < 0
