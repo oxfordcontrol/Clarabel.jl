@@ -216,7 +216,7 @@ function step_length(
 
     function innerfcn(α,symcond)
         for (cone,rng) in zip(cones,cones.rng_cones)
-            if @conedispatch is_symmetric(cone) == symcond
+            if @conedispatch is_symmetric(cone) != symcond
                 continue 
             end
             (dzi,dsi) = (view(dz,rng),view(ds,rng))
