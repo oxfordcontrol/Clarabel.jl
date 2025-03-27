@@ -70,7 +70,7 @@ struct PanuaPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
             pardiso_indices = nothing
         end 
 
-        ps.iparm[8]=-99 # No IR
+        #ps.iparm[8]=-99 # No IR
 
         solver = new(ps,nnz(KKT),pardiso_indices)
         pardiso_init(ps,pardiso_kkt(solver,KKT),Dsigns,settings)
@@ -90,9 +90,12 @@ function pardiso_init(ps,KKT,Dsigns,settings)
         #perform logical factor
         Pardiso.set_matrixtype!(ps, Pardiso.REAL_SYM_INDEF)
         Pardiso.pardisoinit(ps)
-        Pardiso.fix_iparm!(ps, :N)
+        #ps.iparm[1] = 1   # manual settings
+        #ps.iparm[2] = 4   # AMD ordering 
+        #Pardiso.fix_iparm!(ps, :N)
         Pardiso.set_phase!(ps, Pardiso.ANALYSIS)
         Pardiso.pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSIS
+        #ps.msglvl = Pardiso.MESSAGE_LEVEL_ON
 end 
 
 ldlsolver_constructor(::Val{:mkl}) = MKLPardisoDirectLDLSolver
