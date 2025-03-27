@@ -91,7 +91,11 @@ for (xsyevr, elty) in
             info   = engine.info
 
             # target for computed eigenvectors (if any)
-            z = isnothing(engine.V) ? [zero($elty)] : engine.V 
+            # PG: assigning `work` as a placeholder target for V is perhaps iffy, 
+            # but should be OK because we aren't writing to the vectors anyway.
+            # Doing this instead of putting a placeholder [0.] because the 
+            # placeholder vec is allocating  
+            z = isnothing(engine.V) ? work : engine.V 
 
             for i = 0:1
 
