@@ -1,11 +1,11 @@
-using Test, LinearAlgebra, SparseArrays, Random
+using Test, LinearAlgebra, SparseArrays, StableRNGs
 
 #if not run in full test setup, just do it for one float type
 @isdefined(UnitTestFloats) || (UnitTestFloats = [Float64])
 
 function basic_SOCP_data(Type::Type{T}) where {T <: AbstractFloat}
 
-    rng = Random.MersenneTwister(242713)
+    rng = StableRNGs.StableRNG(242713)
     n = 3
     P = randn(rng,n,n)*1
     P = SparseMatrixCSC{T}(convert(Matrix{T},(P'*P)))
@@ -43,18 +43,19 @@ end
 
                 @test solver.solution.status == Clarabel.SOLVED
                 @test isapprox(
-                norm(solver.solution.x -
-                FloatT[ -0.5 ; 0.435603 ;  -0.245459]),
-                zero(FloatT), atol=tol)
-                @test isapprox(solver.solution.obj_val, FloatT(-8.4590e-01), atol=tol)
-                @test isapprox(solver.solution.obj_val_dual, FloatT(-8.4590e-01), atol=tol)
+                    norm(solver.solution.x - FloatT[-0.127715, 0.108242, -0.067784]),
+                    zero(FloatT);
+                    atol=tol,
+                )
+                @test isapprox(solver.solution.obj_val, FloatT(-0.148520), atol=tol)
+                @test isapprox(solver.solution.obj_val_dual, FloatT(-0.148520), atol=tol)
 
 
             end
 
             @testset "feasible_sparse" begin
 
-                # same data, but with one SOC cone so that we get the 
+                # same data, but with one SOC cone so that we get the
                 # sparse representation for code coverage
                 P,c,A,b,cones = basic_SOCP_data(FloatT)
                 cones = Clarabel.SupportedCone[Clarabel.NonnegativeConeT(3), Clarabel.NonnegativeConeT(6)]

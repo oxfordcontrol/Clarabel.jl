@@ -2,10 +2,10 @@ using Test, LinearAlgebra, SparseArrays
 
 #Test each of these solvers, but only for Float64
 
-#NB: mkl fails here because of some weird library 
+#NB: mkl fails here because of some weird library
 #issue caused by loading conflicting BLAS libraries.
-#:mkl works, but not if you are also testing 
-#JuMP.  Issue here: 
+#:mkl works, but not if you are also testing
+#JuMP.  Issue here:
 # https://github.com/JuliaSparse/Pardiso.jl/issues/88
 
 SolverTypes = [:qdldl, :cholmod]
@@ -37,10 +37,10 @@ for SolverType in SolverTypes
             @test solver.solution.status == Clarabel.SOLVED
             @test isapprox(
                 norm(solver.solution.x -
-                FloatT[ -0.5 ; 0.435603 ;  -0.245459]),
+                FloatT[-0.127715, 0.108242, -0.067784]),
                 zero(FloatT), atol=tol
             )
-            @test isapprox(solver.solution.obj_val, FloatT(-8.4590e-01), atol=tol)
+            @test isapprox(solver.solution.obj_val, FloatT(-0.148520), atol=tol)
 
         end
 

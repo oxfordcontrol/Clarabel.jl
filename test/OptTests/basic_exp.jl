@@ -1,10 +1,10 @@
-using Test, LinearAlgebra, SparseArrays, Random
+using Test, LinearAlgebra, SparseArrays
 
 #if not run in full test setup, just do it for one float type
 @isdefined(UnitTestFloats) || (UnitTestFloats = [Float64])
 
 function basic_exp_data(Type::Type{T}) where {T <: AbstractFloat}
- 
+
     #x is of dimension 7
     n = 7
     A1 = hcat(ones(T,1,3), zeros(T,1,4))        #ZeroCone

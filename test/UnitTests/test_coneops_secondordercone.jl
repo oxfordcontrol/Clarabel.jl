@@ -1,6 +1,6 @@
-using Test, LinearAlgebra, SparseArrays, Clarabel, Random
+using Test, LinearAlgebra, SparseArrays, Clarabel, StableRNGs
 
-rng = Random.MersenneTwister(242713)
+rng = StableRNGs.StableRNG(242713)
 
 FloatT = Float64
 
@@ -17,8 +17,8 @@ FloatT = Float64
 
     @testset "test_coneops_scaled_unit_shift" begin
 
-        n = 5 
-        s = randn(n)
+        n = 5
+        s = randn(rng, n)
         s[1] = -1.
         K = Clarabel.SecondOrderCone(5)
         (m,_) = Clarabel.margins(K,s,Clarabel.PrimalCone)
@@ -32,8 +32,8 @@ FloatT = Float64
 
         n = 5  #must be > 4 to avoid dense representation
         K = Clarabel.SecondOrderCone(n)
-        s = randn(n)
-        z = randn(n)
+        s = randn(rng, n)
+        z = randn(rng, n)
         (mz,_) = Clarabel.margins(K,z,Clarabel.DualCone)
         corz = mz > 0. ? 0. : 1. -mz
         (ms,_) = Clarabel.margins(K,s,Clarabel.PrimalCone)
@@ -59,7 +59,7 @@ FloatT = Float64
         #this should be W^TW
         W2_A = η^2 .* (D + u*u' - v*v')
 
-        #W^TW should agree with Hinv 
+        #W^TW should agree with Hinv
         J = -I(n).*1.; J[1,1] = 1.
         Hinv = η^2 .* (2*w*w' - J)
 
@@ -80,14 +80,14 @@ FloatT = Float64
         # W_B should be symmetric
         @test norm(W_B-W_B') ≈ 0     atol = 1e-14
 
-        #matrix and its inverse should agree 
+        #matrix and its inverse should agree
         @test norm(W_B*W_Binv - I(n)) ≈ 0     atol = 1e-14
 
         # square should agree with the directly constructed one
         W2_B = W_B*W_B
         @test norm(W2_B-W2_A) ≈ 0     atol = 1e-12
 
-        
+
     end
 
 

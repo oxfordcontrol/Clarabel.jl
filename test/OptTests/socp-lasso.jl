@@ -1,4 +1,4 @@
-using Test, LinearAlgebra, Random, SparseArrays
+using Test, LinearAlgebra, SparseArrays, StableRNGs
 
 #only test this once
 FloatT = Float64
@@ -10,7 +10,7 @@ function SOCP_lasso_data(Type::Type{T}) where {T <: AbstractFloat}
     #instances will have different optimal values
 
     # generate problem data
-    rng = Random.MersenneTwister(12345)
+    rng = StableRNGs.StableRNG(12345)
     n = 8
     m = 50 * n
     F = rand(rng, T, m, n)
@@ -61,7 +61,7 @@ tol = FloatT(1e-3)
     Clarabel.solve!(solver)
 
     @test solver.solution.status == Clarabel.SOLVED
-    @test isapprox(solver.solution.obj_val, -5.0233e+00, atol=tol)
+    @test isapprox(solver.solution.obj_val, -4.7081728e+02, atol=tol)
 
 end
 
