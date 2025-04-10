@@ -1,6 +1,6 @@
-using Test, LinearAlgebra, SparseArrays, Clarabel, Random
+using Test, LinearAlgebra, SparseArrays, Clarabel, StableRNGs
 
-rng = Random.MersenneTwister(242713)
+rng = StableRNGs.StableRNG(242713)
 
 FloatT = Float64
 
@@ -11,8 +11,8 @@ FloatT = Float64
         K = Clarabel.PSDTriangleCone(5)
         @test Clarabel.numel(K)== 15
         @test Clarabel.degree(K) == 5
-        @test_throws DomainError Clarabel.PSDTriangleCone(-1) 
-        
+        @test_throws DomainError Clarabel.PSDTriangleCone(-1)
+
 
     end
 
@@ -169,7 +169,7 @@ FloatT = Float64
         eS = eigvals(S + αs.*dS)
         @test minimum([eZ;eS]) ≈ 0.  atol = sqrt(eps(FloatT))
 
-        #should reach maximum step 
+        #should reach maximum step
         dS .= randpsd(rng,n); dZ .= randpsd(rng,n)
         map((v,M)->Clarabel.mat_to_svec!(v,M),(ds,dz),(dS,dZ))
         (αz,αs) = Clarabel.step_length(K,dz,ds,z,s,settings,1.0)

@@ -1,4 +1,4 @@
-using Random, Test
+using Test
 using Clarabel
 
 @testset "Clarabel Interfaces Testset" begin

@@ -1,4 +1,4 @@
- using Random, Test, Clarabel
+ using Test, Clarabel
 include("./testing_utils.jl")
 
 @testset "Clarabel Tests" begin

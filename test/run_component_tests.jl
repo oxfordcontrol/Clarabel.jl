@@ -1,4 +1,4 @@
-using Random, Test
+using Test
 
 @testset "Clarabel Unit Tests" begin
 
@@ -6,7 +6,7 @@ using Random, Test
     include("./UnitTests/test_coneops_psdtrianglecone.jl")
     include("./UnitTests/test_coneops_secondordercone.jl")
 
-    #tests on constructors 
+    #tests on constructors
     include("./UnitTests/test_constructors.jl")
 
     #tests on equilibration
@@ -15,7 +15,7 @@ using Random, Test
     #tests on json IO
     include("./UnitTests/test_json.jl")
 
-    #tests on cone simplification and merging 
+    #tests on cone simplification and merging
     include("./UnitTests/test_cones_new_collapsed.jl")
 
 end

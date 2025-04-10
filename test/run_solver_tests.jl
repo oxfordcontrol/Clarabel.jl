@@ -1,4 +1,4 @@
-using Random, Test
+using Test
 using Clarabel
 
 UnitTestFloats = [Float64,BigFloat]
