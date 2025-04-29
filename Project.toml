@@ -5,6 +5,7 @@ version = "0.10.0"
 
 [deps]
 AMD = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
+CliqueTrees = "60701a23-6482-424a-84db-faee86b9b1f8"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 GenericLinearAlgebra = "14197337-ba66-59df-a3e3-ca00e7dcff7a"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
@@ -29,6 +30,7 @@ PardisoExt = "Pardiso"
 
 [compat]
 AMD = "0.4, 0.5"
+CliqueTrees = "1.5.1"
 DataStructures = "0.18"
 GenericLinearAlgebra = "0.3"
 HSL = "0.4, 0.5"

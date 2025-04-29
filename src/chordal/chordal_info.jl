@@ -1,3 +1,5 @@
+import CliqueTrees
+
 # -------------------------------------
 # Chordal Decomposition Information
 # -------------------------------------
@@ -235,19 +237,18 @@ function find_graph!(nz_mask::AbstractVector{Bool})
             push!(cols, col)
         end
     end
-    
+
     # QDLDL doesn't currently allow for logical-only decomposition 
     # on a matrix of Bools, so pattern must be a Float64 matrix here
     pattern = sparse(rows, cols, ones(Float64, length(rows)), n, n)
-
-	F = QDLDL.qdldl(pattern, logical = true)
-
+    
+    perm, _ = CliqueTrees.permutation(Symmetric(pattern, :U); alg=CliqueTrees.MF())
+    F = QDLDL.qdldl(pattern; perm, logical = true)
     L = F.L
     ordering = F.perm
-
-	# this takes care of the case that QDLDL returns an unconnected adjacency matrix L
-	connect_graph!(L)
-
+    
+    # this takes care of the case that QDLDL returns an unconnected adjacency matrix L
+    connect_graph!(L)
     return L, ordering 
 end
 
