@@ -206,7 +206,7 @@ LinearSolverInfo() = LinearSolverInfo(:none, 1, true, 0, 0)
 
 mutable struct DefaultInfo{T} <: AbstractInfo{T}
 
-    μ::T
+    mu::T
     sigma::T
     step_length::T
     iterations::UInt32

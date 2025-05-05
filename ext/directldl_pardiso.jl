@@ -70,32 +70,68 @@ struct PanuaPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
             pardiso_indices = nothing
         end 
 
-        #ps.iparm[8]=-99 # No IR
-
-        solver = new(ps,nnz(KKT),pardiso_indices)
-        pardiso_init(ps,pardiso_kkt(solver,KKT),Dsigns,settings)
+        ldlsolver = new(ps,nnz(KKT),pardiso_indices)
+        pardiso_init(ldlsolver,KKT,Dsigns,settings)
 
         #Note : Panua doesn't support setting the number of threads
         #Always reads instead from ENV["OMP_NUM_THREADS"] before loading
 
-        return solver
+        return ldlsolver
     end
 end
 
-function pardiso_init(ps,KKT,Dsigns,settings)
+function custom_iparm_initialization!(ps::Pardiso.PardisoSolver, settings)
+    # disable internal iterative refinement if user enabled
+    # iterative refinement is enabled in the settings.   It is
+    # seemingly not possible to disable this completely within
+    # MKL, and setting -99 there would mean "execute 99 high
+    # accuracy refinements steps".   Not good.
+    if settings.iterative_refinement_enable 
+        set_iparm!(ps, 8, -99); # NB: 1 indexed
+    end
+end
 
-        #NB: ignore Dsigns here because pardiso doesn't
-        #use information about the expected signs
+function custom_iparm_initialization!(ps::Pardiso.MKLPardisoSolver, settings)
+    # no op
+end
 
-        #perform logical factor
-        Pardiso.set_matrixtype!(ps, Pardiso.REAL_SYM_INDEF)
-        Pardiso.pardisoinit(ps)
-        #ps.iparm[1] = 1   # manual settings
-        #ps.iparm[2] = 4   # AMD ordering 
-        #Pardiso.fix_iparm!(ps, :N)
-        Pardiso.set_phase!(ps, Pardiso.ANALYSIS)
-        Pardiso.pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSIS
-        #ps.msglvl = Pardiso.MESSAGE_LEVEL_ON
+function pardiso_init(ldlsolver::AbstractPardisoDirectLDLSolver{T},KKT,Dsigns,settings) where T
+
+    # NB: ignore Dsigns here because pardiso doesn't
+    # use information about the expected signs
+
+    KKT = pardiso_kkt(ldlsolver,KKT)
+    ps = ldlsolver.ps
+
+    # matrix is quasidefinite
+    Pardiso.set_matrixtype!(ps, Pardiso.REAL_SYM_INDEF)
+
+    #init here gets the defaults
+    Pardiso.pardisoinit(ps)
+
+    # overlay custom iparm initializations that might
+    # be specific to MKL or Panua
+    custom_iparm_initialize(ps, settings);
+
+    # now apply user defined iparm settings if they exist.
+    # Check here first for failed solves, because misuse of 
+    # this setting would likely be a disaster.
+    for (i,iparm) in enumerate(settings.pardiso_iparm) 
+        if iparm != typemin(Int32) 
+            set_iparm!(ps, i, iparm);
+        end
+    end
+
+    if settings.pardiso_verbose 
+        set_msglvl!(ps, Pardiso.MESSAGE_LEVEL_ON)
+    else 
+        set_msglvl!(ps, Pardiso.MESSAGE_LEVEL_OFF)
+    end
+
+    # perform logical factorization
+    Pardiso.set_phase!(ps, Pardiso.ANALYSIS)
+    Pardiso.pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSIS phase
+
 end 
 
 ldlsolver_constructor(::Val{:mkl}) = MKLPardisoDirectLDLSolver
