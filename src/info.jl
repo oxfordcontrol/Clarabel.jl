@@ -160,7 +160,7 @@ function info_save_scalars(
     iter::DefaultInt
 ) where {T}
 
-    info.μ = μ
+    info.mu = μ
     info.step_length = α
     info.sigma = σ
     info.iterations = iter
