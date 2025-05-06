@@ -150,6 +150,8 @@ function check_data_update_allowed(s)
     # Fail if presolve / chordal decomp have reduced problem  
     if data_is_presolved(s.data)
         error("Data updates not allowed if presolver is active.")
+    elseif data_is_dropped_zeros(s.data)
+        error("Data updates not allowed if sparse zeros are dropped.")
     elseif data_is_chordal_decomposed(s.data)
         error("Data updates not allowed if chordal decomposition is active.")
     end

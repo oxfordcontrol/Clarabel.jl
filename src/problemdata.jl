@@ -64,6 +64,17 @@ function DefaultProblemData{T}(
 	#this ensures m is the *reduced* size m
 	(m,n) = size(A_new)
 
+	# explicitly dropzeros on the copied data, since dropzeros
+	# operates in place.  PJG: revisit this order of operations
+	# once a proper presolver is implemented, since it might
+	# be preferable to dropzeros then presolve
+	dropped_zeros = 0;
+	if settings.input_sparse_dropzeros 
+		dropped_zeros += nnz(P_new) - nnz(dropzeros!(P_new))
+		dropped_zeros += nnz(A_new) - nnz(dropzeros!(A_new))
+	end
+
+
 	equilibration = DefaultEquilibration{T}(n,m)
 
 	normq = norm(q_new, Inf)
@@ -72,7 +83,7 @@ function DefaultProblemData{T}(
 	DefaultProblemData{T}(
 		P_new,q_new,A_new,b_new,cones_new,
 		n,m,equilibration,normq,normb,
-		presolver,chordal_info)
+		presolver,dropped_zeros,chordal_info)
 
 end
 
@@ -108,6 +119,10 @@ end
 
 function data_is_presolved(data::DefaultProblemData{T}) where {T}
 	return !isnothing(data.presolver)
+end
+
+function data_is_dropped_zeros(data::DefaultProblemData{T}) where {T}
+	return data.dropped_zeroes != 0
 end
 
 function data_is_chordal_decomposed(data::DefaultProblemData{T}) where {T}
