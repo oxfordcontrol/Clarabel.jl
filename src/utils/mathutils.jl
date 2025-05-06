@@ -54,14 +54,57 @@ function norm_scaled(M::Diagonal{T},v::AbstractVector{T}) where{T}
     return norm_scaled(M.diag,v)
 end
 
-#2-norm of the product a.*b
-function norm_scaled(m::AbstractVector{T},v::AbstractVector{T}) where{T}
-    t = zero(T)
-    for i in eachindex(v)
-        p  = m[i]*v[i]
-        t += p*p
+# 2-norm of elementwise product x.*v
+function norm_scaled(x::AbstractVector{T},v::AbstractVector{T}) where{T}
+    
+    # Check that vectors have the same length
+    @assert length(x) == length(v)
+
+    scale = zero(T)
+    sumsq = one(T)
+    
+    for i in 1:length(x)
+        xi = x[i] * v[i]
+        if xi != zero(T)
+            absxi = abs(xi)
+            if scale < absxi
+                r = scale / absxi
+                scale = absxi
+                sumsq = one(T) + sumsq * r * r
+            else
+                r = absxi / scale
+                sumsq += r * r
+            end
+        end
     end
-    return sqrt(t)
+    return scale * sqrt(sumsq)
+end
+
+#PJG: should consolidate with norm_scaled above
+# 2-norm of elementwise product x .+ a.*dx
+function norm_shifted(x::AbstractVector{T},dx::AbstractVector{T},a::T) where{T}
+    
+    # Check that vectors have the same length
+    @assert length(x) == length(dx)
+
+    scale = zero(T)
+    sumsq = one(T)
+    
+    for i in 1:length(x)
+        xi = x[i] + a * dx[i]
+        if xi != zero(T)
+            absxi = abs(xi)
+            if scale < absxi
+                r = scale / absxi
+                scale = absxi
+                sumsq = one(T) + sumsq * r * r
+            else
+                r = absxi / scale
+                sumsq += r * r
+            end
+        end
+    end
+    return scale * sqrt(sumsq)
 end
 
 #inf-norm of the product a.*b

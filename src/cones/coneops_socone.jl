@@ -433,8 +433,7 @@ end
 ) where {T} 
     
     x0 = z[1] + α * dz[1];
-    @views x1sq = dot_shifted(z[2:end],z[2:end],dz[2:end],dz[2:end],α)
-    x1norm = sqrt(x1sq)
+    @views x1norm = norm_shifted(z[2:end],dz[2:end],α)
     res = (x0 - x1norm) * (x0 + x1norm)
     return res
 end 
