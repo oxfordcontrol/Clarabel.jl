@@ -26,6 +26,7 @@ struct MKLPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
     
     ps::Pardiso.MKLPardisoSolver
     nnzA::DefaultInt
+    nvars::DefaultInt
 
     pardiso_indices::Option{PardisoSparseIndex{MklInt}}
 
@@ -41,12 +42,12 @@ struct MKLPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
             pardiso_indices = nothing
         end 
 
-        solver = new(ps,nnz(KKT),pardiso_indices)
-        pardiso_init(ps,pardiso_kkt(solver,KKT),Dsigns,settings)
+        ldlsolver = new(ps,nnz(KKT),size(KKT)[1],pardiso_indices)
+        pardiso_init(ldlsolver,KKT,Dsigns,settings)
 
         Pardiso.set_nprocs!(ps, settings.max_threads) 
 
-        return solver
+        return ldlsolver
     end
 end
 
@@ -55,6 +56,7 @@ struct PanuaPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
     
     ps::Pardiso.PardisoSolver
     nnzA::DefaultInt
+    nvars::DefaultInt
 
     pardiso_indices::Option{PardisoSparseIndex{PanuaInt}}
 
@@ -70,7 +72,7 @@ struct PanuaPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
             pardiso_indices = nothing
         end 
 
-        ldlsolver = new(ps,nnz(KKT),pardiso_indices)
+        ldlsolver = new(ps,nnz(KKT),size(KKT)[1],pardiso_indices)
         pardiso_init(ldlsolver,KKT,Dsigns,settings)
 
         #Note : Panua doesn't support setting the number of threads
@@ -80,7 +82,7 @@ struct PanuaPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
     end
 end
 
-function custom_iparm_initialization!(ps::Pardiso.PardisoSolver, settings)
+function custom_iparm_initialize!(ps::Pardiso.PardisoSolver, settings)
     # disable internal iterative refinement if user enabled
     # iterative refinement is enabled in the settings.   It is
     # seemingly not possible to disable this completely within
@@ -89,13 +91,16 @@ function custom_iparm_initialization!(ps::Pardiso.PardisoSolver, settings)
     if settings.iterative_refinement_enable 
         set_iparm!(ps, 8, -99); # NB: 1 indexed
     end
+    # request non-zeros in the factorization
+    set_iparm!(ps, 18, -1);  
 end
 
-function custom_iparm_initialization!(ps::Pardiso.MKLPardisoSolver, settings)
-    # no op
+function custom_iparm_initialize!(ps::Pardiso.MKLPardisoSolver, settings)
+    # request non-zeros in the factorization
+    set_iparm!(ps, 18, -1);  
 end
 
-function pardiso_init(ldlsolver::AbstractPardisoDirectLDLSolver{T},KKT,Dsigns,settings) where T
+function pardiso_init(ldlsolver,KKT,Dsigns,settings) 
 
     # NB: ignore Dsigns here because pardiso doesn't
     # use information about the expected signs
@@ -111,7 +116,7 @@ function pardiso_init(ldlsolver::AbstractPardisoDirectLDLSolver{T},KKT,Dsigns,se
 
     # overlay custom iparm initializations that might
     # be specific to MKL or Panua
-    custom_iparm_initialize(ps, settings);
+    custom_iparm_initialize!(ps, settings);
 
     # now apply user defined iparm settings if they exist.
     # Check here first for failed solves, because misuse of 
@@ -179,8 +184,7 @@ function linear_solver_info(ldlsolver::AbstractPardisoDirectLDLSolver{T}) where{
     threads = Pardiso.get_nprocs(ldlsolver.ps)
     direct = true
     nnzA = ldlsolver.nnzA
-    ncols = length(ldlsolver.ps.perm) #length of permutation vector
-    nnzL = ldlsolver.ps.iparm[18] - ncols
+    nnzL = ldlsolver.ps.iparm[18] - ldlsolver.nvars
     LinearSolverInfo(name, threads, direct, nnzA, nnzL)
 
 end
