@@ -214,7 +214,7 @@ function _csc_fill_missing_diag(K,M,initcol)
             dest           = K.colptr[i + (initcol - 1)]
             K.rowval[dest] = i + (initcol - 1)
             K.nzval[dest]  = 0.  #structural zero
-            K.colptr[i]   += 1
+            K.colptr[i + initcol - 1]   += 1
         end
     end
 end
