@@ -91,12 +91,12 @@ function custom_iparm_initialize!(ps::Pardiso.PardisoSolver, settings)
     if settings.iterative_refinement_enable 
         set_iparm!(ps, 8, -99); # NB: 1 indexed
     end
-    # request non-zeros in the factorization
+    # request count of non-zeros in the factorization
     set_iparm!(ps, 18, -1);  
 end
 
 function custom_iparm_initialize!(ps::Pardiso.MKLPardisoSolver, settings)
-    # request non-zeros in the factorization
+    # request count of non-zeros in the factorization
     set_iparm!(ps, 18, -1);  
 end
 
