@@ -14,9 +14,12 @@ struct QDLDLDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}
         # different value.   We fix a bit more generous AMD_DENSE here, which should perhaps 
         # be user-settable.  
 
+        perm, _ = CliqueTrees.permutation(Symmetric(KKT, :U); alg=CliqueTrees.MF())
+
         #make a logical factorization to fix memory allocations
         factors = QDLDL.qdldl(
             KKT;
+            perm = perm,
             Dsigns = Dsigns,
             regularize_eps   = settings.dynamic_regularization_eps,
             regularize_delta = settings.dynamic_regularization_delta,
