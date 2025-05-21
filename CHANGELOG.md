@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 Version numbering in this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).  We aim to keep the core solver functionality and minor releases in sync between the Rust/Python and Julia implementations. Small fixes that affect one implementation only may result in the patch release versions differing.
 
-## [0.11.0] - 2024-07-03
+## [0.11.0] - 2025-21-05
 
 ### Changed
 
@@ -24,7 +24,11 @@ Version numbering in this project adheres to [Semantic Versioning](https://semve
 
 - Julia min version bumped to 1.10 
 
-## [0.10.0] - 2024-03-02
+- improved robustness of 2-norms for shifting and scaling [#200] (https://github.com/oxfordcontrol/Clarabel.jl/pull/200)
+
+- Improve type bounds on setup functions [#201] (https://github.com/oxfordcontrol/Clarabel.jl/pull/200)
+
+## [0.10.0] - 2025-03-02
 
 ### Changed
 - fix socp line search failure case [#179](https://github.com/oxfordcontrol/Clarabel.jl/pull/179)
