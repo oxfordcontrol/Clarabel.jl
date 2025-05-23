@@ -250,28 +250,24 @@ end
 # operations supported by symmetric cones only 
 # ---------------------------------------------
 
-# implements y = αWx + βy
+# implements y = Wx
 function mul_W!(
     K::AbstractCone{T},
     is_transpose::Symbol,  #:T for transpose, :N otherwise
     y::AbstractVector{T},
     x::AbstractVector{T},
-    α::T,
-    β::T
 ) where {T}
 
     error("Incomplete cone operation specification: ",typeof(K))
 end
 
 
-# implements y = αW^{-1}x + βy
+# implements y = W^{-1}x 
 function mul_Winv!(
     K::AbstractCone{T},
     is_transpose::Symbol,  #:T for transpose, :N otherwise
     y::AbstractVector{T},
     x::AbstractVector{T},
-    α::T,
-    β::T
 ) where {T}
 
   error("Incomplete cone operation specification: ",typeof(K))

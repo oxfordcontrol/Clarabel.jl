@@ -126,7 +126,8 @@ mutable struct PSDConeData{T}
 
     chol1::Option{Cholesky{T,Matrix{T}}}
     chol2::Option{Cholesky{T,Matrix{T}}}
-    SVD::Option{SVD{T,T,Matrix{T}}}
+    SVD::SVDEngine{T}
+    Eig::EigEngine{T}
     λ::Vector{T}
     Λisqrt::Diagonal{T,Vector{T}}
     R::Matrix{T}
@@ -143,7 +144,10 @@ mutable struct PSDConeData{T}
 
         #there is no obvious way of pre-allocating
         #or recycling memory in these factorizations
-        (chol1,chol2,SVD) = (nothing,nothing,nothing)
+        (chol1,chol2) = (nothing,nothing)
+
+        SVD = SVDEngine{T}((n,n))
+        Eig = EigEngine{T}(n)
 
         λ      = zeros(T,n)
         Λisqrt = Diagonal(zeros(T,n))
@@ -156,7 +160,7 @@ mutable struct PSDConeData{T}
         workmat3 = zeros(T,n,n)
         workvec  = zeros(T,triangular_number(n))
 
-        return new(chol1,chol2,SVD,λ,Λisqrt,R,Rinv,
+        return new(chol1,chol2,SVD,Eig,λ,Λisqrt,R,Rinv,
                    Hs,workmat1,workmat2,workmat3,workvec)
     end
 end

@@ -71,9 +71,9 @@ FloatT = Float64
         for i = 1:n
             e = zeros(n); e[i] = 1;
             out = zeros(n)
-            Clarabel.mul_W!(K,:N,out,e,1.,0.)
+            Clarabel.mul_W!(K,:N,out,e)
             W_B[:,i] .= out
-            Clarabel.mul_Winv!(K,:N,out,e,1.,0.)
+            Clarabel.mul_Winv!(K,:N,out,e)
             W_Binv[:,i] .= out
         end
 

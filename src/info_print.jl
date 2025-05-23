@@ -92,7 +92,7 @@ function info_print_status(
     @printf(io, "%.2e  ", info.res_primal)
     @printf(io, "%.2e  ", info.res_dual)
     @printf(io, "%.2e  ", info.ktratio)
-    @printf(io, "%.2e  ", info.μ)
+    @printf(io, "%.2e  ", info.mu)
     if(info.iterations > 0)
         @printf(io, "%.2e  ", info.step_length)
     else

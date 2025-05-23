@@ -6,9 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 Version numbering in this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).  We aim to keep the core solver functionality and minor releases in sync between the Rust/Python and Julia implementations. Small fixes that affect one implementation only may result in the patch release versions differing.
 
-## [0.10.0] - 2024-03-02
+## [0.11.0] - 2025-21-05
 
-## What's Changed
+### Changed
+
+- Implemented LDL :auto select as default [#193](https://github.com/oxfordcontrol/Clarabel.jl/pull/193)
+
+- Consecutive 1D cones are collapsed and aggregated to a nonnegative cone [#195](https://github.com/oxfordcontrol/Clarabel.jl/pull/195)
+
+### Julia-specific changes
+
+- HSL and Pardiso are included via weakdeps [#192](https://github.com/oxfordcontrol/Clarabel.jl/pull/192)
+
+- Reduced allocs in panua pardiso wrapper [#191](https://github.com/oxfordcontrol/Clarabel.jl/pull/191)
+
+- Support for MOI.NumberOfThreads [#196] (https://github.com/oxfordcontrol/Clarabel.jl/pull/196)
+
+- Julia min version bumped to 1.10 
+
+- improved robustness of 2-norms for shifting and scaling [#200] (https://github.com/oxfordcontrol/Clarabel.jl/pull/200)
+
+- Improve type bounds on setup functions [#201] (https://github.com/oxfordcontrol/Clarabel.jl/pull/200)
+
+## [0.10.0] - 2025-03-02
+
+### Changed
 - fix socp line search failure case [#179](https://github.com/oxfordcontrol/Clarabel.jl/pull/179)
 - norm unscaling bug fix [#180](https://github.com/oxfordcontrol/Clarabel.jl/pull/180)
 - added `max_threads` to settings
@@ -23,6 +45,7 @@ Version numbering in this project adheres to [Semantic Versioning](https://semve
 
 
 ## [0.8.1] - 2024-22-05
+
 ### Changed 
 
 - minor documentation updates
@@ -134,6 +157,7 @@ Internal modifications to SDP cone implementation to reduce allocations.
 
 - Initial release
 
+[0.10.0]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/oxfordcontrol/Clarabel.jl/compare/v0.8.0...v0.8.1

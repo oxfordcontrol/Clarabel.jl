@@ -4,15 +4,27 @@
 #--------------------------------------
 function Solver(
     P::AbstractMatrix{T},
-    c::Vector{T},
+    q::Vector{T},
+    A::AbstractMatrix{T},
+    b::Vector{T},
+    cones::Vector{<:SupportedCone};
+    kwargs...
+) where{T <: AbstractFloat}
+    s = Solver{T}()
+    setup!(s,P,q,A,b,cones;kwargs...)
+    return s
+end
+
+function Solver(
+    P::AbstractMatrix{T},
+    q::Vector{T},
     A::AbstractMatrix{T},
     b::Vector{T},
     cones::Vector{<:SupportedCone},
-    kwargs...
+    settings::Settings{T}
 ) where{T <: AbstractFloat}
-
     s = Solver{T}()
-    setup!(s,P,c,A,b,cones,kwargs...)
+    setup!(s,P,q,A,b,cones,settings)
     return s
 end
 
@@ -60,19 +72,6 @@ setup!(model, P, q, A, b, cones, settings)
 
 To solve the problem, you must make a subsequent call to [`solve!`](@ref)
 """
-function setup!(s,P,c,A,b,cones,settings::Settings)
-    #this allows total override of settings during setup
-    s.settings = settings
-    setup!(s,P,c,A,b,cones)
-end
-
-function setup!(s,P,c,A,b,cones; kwargs...)
-    #this allows override of individual settings during setup
-    settings_populate!(s.settings, Dict(kwargs))
-    setup!(s,P,c,A,b,cones)
-end
-
-# main setup function
 function setup!(
     s::Solver{T},
     P::AbstractMatrix{T},
@@ -80,7 +79,27 @@ function setup!(
     A::AbstractMatrix{T},
     b::Vector{T},
     cones::Vector{<:SupportedCone},
-) where{T}
+    settings::Settings{T}
+) where{T <: AbstractFloat}
+    #this allows total override of settings during setup
+    s.settings = deepcopy(settings)
+    setup!(s,P,q,A,b,cones)
+end
+
+function setup!(
+    s::Solver{T},
+    P::AbstractMatrix{T},
+    q::Vector{T},
+    A::AbstractMatrix{T},
+    b::Vector{T},
+    cones::Vector{<:SupportedCone}; 
+    kwargs...
+) where{T <: AbstractFloat}
+
+    #this allows override of individual settings during setup
+    if !isempty(kwargs)
+        settings_populate!(s.settings, Dict(kwargs))
+    end
 
     # protect against cones with overly specific type, e.g. 
     # when all of the cones are NonnegativeConeT
@@ -366,7 +385,7 @@ function solver_default_start!(s::Solver{T}) where {T}
     # If there are only symmetric cones, use CVXOPT style initilization
     # Otherwise, initialize along central rays
 
-    if (is_symmetric(s.cones))
+    if is_symmetric(s.cones)
         #set all scalings to identity (or zero for the zero cone)
         set_identity_scaling!(s.cones)
         #Refactor
@@ -512,3 +531,4 @@ end
 
 get_solution(s::Solver{T}) where {T} = s.solution
 get_info(s::Solver{T}) where {T} = s.info
+print_timers(s::Solver{T}) where {T} = display(s.timers)

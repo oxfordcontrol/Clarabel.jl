@@ -15,8 +15,8 @@ using Test, LinearAlgebra, SparseArrays, Clarabel
 
     # write to a JSON file then reload 
     file = tempname() * ".json"
-    Clarabel.write_to_file(solver, file)
-    solver2 = Clarabel.read_from_file(file)
+    Clarabel.save_to_file(solver, file)
+    solver2 = Clarabel.load_from_file(file)
 
     # solve both problems and compare
     Clarabel.solve!(solver)
@@ -28,7 +28,7 @@ using Test, LinearAlgebra, SparseArrays, Clarabel
     # test loading with custom settings 
     settings = Clarabel.Settings()
     settings.max_iter = 1
-    solver3 = Clarabel.read_from_file(file,settings)
+    solver3 = Clarabel.load_from_file(file,settings)
     Clarabel.solve!(solver3)
     @test isequal(solver3.solution.status,Clarabel.MAX_ITERATIONS)
 

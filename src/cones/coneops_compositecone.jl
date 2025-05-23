@@ -216,7 +216,7 @@ function step_length(
 
     function innerfcn(α,symcond)
         for (cone,rng) in zip(cones,cones.rng_cones)
-            if @conedispatch is_symmetric(cone) == symcond
+            if @conedispatch is_symmetric(cone) != symcond
                 continue 
             end
             (dzi,dsi) = (view(dz,rng),view(ds,rng))
@@ -233,7 +233,7 @@ function step_length(
     #if we have any nonsymmetric cones, then back off from full steps slightly
     #so that centrality checks and logarithms don't fail right at the boundaries
     if(!is_symmetric(cones))
-        α = min(α,settings.max_step_fraction)
+        α = min(α,one(T) - sqrt(eps(T)))
     end
 
     # now the nonsymmetric cones

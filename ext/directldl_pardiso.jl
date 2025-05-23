@@ -1,7 +1,23 @@
 using Pardiso, SparseArrays, Clarabel
-import Clarabel: DefaultInt, AbstractDirectLDLSolver, LinearSolverInfo
+import Clarabel: Option, DefaultInt, AbstractDirectLDLSolver, LinearSolverInfo
 import Clarabel: ldlsolver_constructor, ldlsolver_matrix_shape, ldlsolver_is_available
 import Clarabel: linear_solver_info, update_values!, scale_values!, refactor!, solve!
+
+MklInt = Pardiso.MklInt
+PanuaInt = Int32 # always int32?
+
+# on some platforms MKL or Panua might require a different 
+# index type than we use for SparseMatrixCSC.  Sparse indices 
+# are created once if necessary  
+struct PardisoSparseIndex{Ti <: Integer} 
+    colptr::Vector{Ti}
+    rowval::Vector{Ti}
+    function PardisoSparseIndex{Ti}(A::SparseMatrixCSC) where{Ti}
+        colptr = Ti.(A.colptr)
+        rowval = Ti.(A.rowval)
+        new{Ti}(colptr,rowval)
+    end
+end 
 
 abstract type AbstractPardisoDirectLDLSolver{T} <: AbstractDirectLDLSolver{T}  end
 
@@ -10,6 +26,9 @@ struct MKLPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
     
     ps::Pardiso.MKLPardisoSolver
     nnzA::DefaultInt
+    nvars::DefaultInt
+
+    pardiso_indices::Option{PardisoSparseIndex{MklInt}}
 
     function MKLPardisoDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
 
@@ -17,12 +36,18 @@ struct MKLPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
 
         ps = Pardiso.MKLPardisoSolver()
 
-        solver = new(ps,nnz(KKT))
-        pardiso_init(ps,pardiso_kkt(solver,KKT),Dsigns,settings)
+        if MklInt !== typeof(KKT.colptr)
+            pardiso_indices = PardisoSparseIndex{MklInt}(KKT)
+        else
+            pardiso_indices = nothing
+        end 
+
+        ldlsolver = new(ps,nnz(KKT),size(KKT)[1],pardiso_indices)
+        pardiso_init(ldlsolver,KKT,Dsigns,settings)
 
         Pardiso.set_nprocs!(ps, settings.max_threads) 
 
-        return solver
+        return ldlsolver
     end
 end
 
@@ -31,41 +56,87 @@ struct PanuaPardisoDirectLDLSolver{T} <: AbstractPardisoDirectLDLSolver{T}
     
     ps::Pardiso.PardisoSolver
     nnzA::DefaultInt
+    nvars::DefaultInt
 
-    #Pardiso wants 32 bit CSC indices
-    colptr32::Vector{Int32}
-    rowval32::Vector{Int32}
+    pardiso_indices::Option{PardisoSparseIndex{PanuaInt}}
 
     function PanuaPardisoDirectLDLSolver{T}(KKT::SparseMatrixCSC{T},Dsigns,settings) where {T}
 
         ldlsolver_is_available(:panua) || error("Panua Pardiso is loaded but not working or unlicensed")
 
         ps = Pardiso.PardisoSolver()
-        colptr32 = Int32.(KKT.colptr)
-        rowval32 = Int32.(KKT.rowval)
-        ps.iparm[8]=-99 # No IR
 
-        solver = new(ps,nnz(KKT),colptr32,rowval32)
-        pardiso_init(ps,pardiso_kkt(solver,KKT),Dsigns,settings)
+        if PanuaInt !== typeof(KKT.colptr)
+            pardiso_indices = PardisoSparseIndex{PanuaInt}(KKT)
+        else
+            pardiso_indices = nothing
+        end 
+
+        ldlsolver = new(ps,nnz(KKT),size(KKT)[1],pardiso_indices)
+        pardiso_init(ldlsolver,KKT,Dsigns,settings)
 
         #Note : Panua doesn't support setting the number of threads
         #Always reads instead from ENV["OMP_NUM_THREADS"] before loading
 
-        return solver
+        return ldlsolver
     end
 end
 
-function pardiso_init(ps,KKT,Dsigns,settings)
+function custom_iparm_initialize!(ps::Pardiso.PardisoSolver, settings)
+    # disable internal iterative refinement if user enabled
+    # iterative refinement is enabled in the settings.   It is
+    # seemingly not possible to disable this completely within
+    # MKL, and setting -99 there would mean "execute 99 high
+    # accuracy refinements steps".   Not good.
+    if settings.iterative_refinement_enable 
+        set_iparm!(ps, 8, -99); # NB: 1 indexed
+    end
+    # request count of non-zeros in the factorization
+    set_iparm!(ps, 18, -1);  
+end
 
-        #NB: ignore Dsigns here because pardiso doesn't
-        #use information about the expected signs
+function custom_iparm_initialize!(ps::Pardiso.MKLPardisoSolver, settings)
+    # request count of non-zeros in the factorization
+    set_iparm!(ps, 18, -1);  
+end
 
-        #perform logical factor
-        Pardiso.set_matrixtype!(ps, Pardiso.REAL_SYM_INDEF)
-        Pardiso.pardisoinit(ps)
-        Pardiso.fix_iparm!(ps, :N)
-        Pardiso.set_phase!(ps, Pardiso.ANALYSIS)
-        Pardiso.pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSIS
+function pardiso_init(ldlsolver,KKT,Dsigns,settings) 
+
+    # NB: ignore Dsigns here because pardiso doesn't
+    # use information about the expected signs
+
+    KKT = pardiso_kkt(ldlsolver,KKT)
+    ps = ldlsolver.ps
+
+    # matrix is quasidefinite
+    Pardiso.set_matrixtype!(ps, Pardiso.REAL_SYM_INDEF)
+
+    #init here gets the defaults
+    Pardiso.pardisoinit(ps)
+
+    # overlay custom iparm initializations that might
+    # be specific to MKL or Panua
+    custom_iparm_initialize!(ps, settings);
+
+    # now apply user defined iparm settings if they exist.
+    # Check here first for failed solves, because misuse of 
+    # this setting would likely be a disaster.
+    for (i,iparm) in enumerate(settings.pardiso_iparm) 
+        if iparm != typemin(Int32) 
+            set_iparm!(ps, i, iparm);
+        end
+    end
+
+    if settings.pardiso_verbose 
+        set_msglvl!(ps, Pardiso.MESSAGE_LEVEL_ON)
+    else 
+        set_msglvl!(ps, Pardiso.MESSAGE_LEVEL_OFF)
+    end
+
+    # perform logical factorization
+    Pardiso.set_phase!(ps, Pardiso.ANALYSIS)
+    Pardiso.pardiso(ps, KKT, [1.])  #RHS irrelevant for ANALYSIS phase
+
 end 
 
 ldlsolver_constructor(::Val{:mkl}) = MKLPardisoDirectLDLSolver
@@ -76,31 +147,30 @@ ldlsolver_constructor(::Val{:panua}) = PanuaPardisoDirectLDLSolver
 ldlsolver_matrix_shape(::Val{:panua}) = :tril
 ldlsolver_is_available(::Val{:panua}) = Pardiso.panua_is_available()
 
-function pardiso_kkt(
-    ::MKLPardisoDirectLDLSolver{T},
-    KKT::SparseMatrixCSC{T},
-) where{T}
-    # MKL allows for 64bit CSC indices, so just pass through
-    return KKT
-end
 
 function pardiso_kkt(
-    ldlsolver::PanuaPardisoDirectLDLSolver{Tf},
-    KKT::SparseMatrixCSC{Tf, Tv},
-) where{Tf, Tv}
-    # Panua wants 32bit CSC indices, so make a new 
-    # KKT matrix from the input KKT values and 
-    # internally copied 32 bit versions.  The sparsity
-    # pattern on the KKT matrix should not change
-    # between updates.   There is minimal allocation here
-    return SparseMatrixCSC{Tf,Int32}(
-        KKT.m,
-        KKT.n,
-        ldlsolver.colptr32,
-        ldlsolver.rowval32,
-        KKT.nzval
-    )
+    ldlsolver::AbstractPardisoDirectLDLSolver{Tf},
+    KKT::SparseMatrixCSC{Tf, Ti},
+) where{Tf, Ti}
+
+    # if ldlsolver carries its own indices, its because there 
+    # is a mismatch between the SparseMatrixCSC int type and 
+    # pardisos int type.   In that case, construct a shallow 
+    # KKT with substitute indices 
+    if isnothing(ldlsolver.pardiso_indices)
+        return KKT
+    else 
+        return SparseMatrixCSC(
+            KKT.m,
+            KKT.n,
+            ldlsolver.pardiso_indices.colptr,
+            ldlsolver.pardiso_indices.rowval,
+            KKT.nzval
+        )
+    end 
 end
+
+
 
 function linear_solver_info(ldlsolver::AbstractPardisoDirectLDLSolver{T}) where{T}
 
@@ -114,8 +184,7 @@ function linear_solver_info(ldlsolver::AbstractPardisoDirectLDLSolver{T}) where{
     threads = Pardiso.get_nprocs(ldlsolver.ps)
     direct = true
     nnzA = ldlsolver.nnzA
-    ncols = length(ldlsolver.ps.perm) #length of permutation vector
-    nnzL = ldlsolver.ps.iparm[18] - ncols
+    nnzL = ldlsolver.ps.iparm[18] - ldlsolver.nvars
     LinearSolverInfo(name, threads, direct, nnzA, nnzL)
 
 end
