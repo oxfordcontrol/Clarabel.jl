@@ -274,8 +274,57 @@ function variables_unscale!(
     
 end
 
+function variables_scale!(
+    variables::DefaultVariables{T},
+    data::DefaultProblemData{T}
+) where {T}
+	#do the equilibration
+	dinv = data.equilibration.dinv
+	e = data.equilibration.e
+    einv = data.equilibration.einv
+	cscale = data.equilibration.c[]
+
+	@. variables.x *= dinv
+    @. variables.z *= einv * cscale
+    @. variables.s *= e
+
+end
+
+function variables_copyto!(variables::DefaultVariables{T},solution::DefaultSolution{T}, ratio::T) where {T}
+    
+    @. variables.x = solution.x
+    @. variables.z = solution.z
+    @. variables.s = solution.s
+    variables.τ  = one(T)
+    variables.κ  = ratio
+    
+end
 
 # return (n_variables, n_duals)
 function variables_dims(variables::DefaultVariables{T}) where {T}
     return (length(variables.x), length(variables.s))
+end
+
+#Warm start from the previous iterates
+function variables_warmstart!(
+    s::Solver{T}
+) where {T}
+
+    variables_scale!(s.variables, s.data)
+    residuals_update!(s.residuals,s.variables,s.data)
+    info_update!(
+        s.info,s.data,s.variables,
+        s.residuals,s.settings,s.timers
+    )
+
+    warm_res = max(s.info.res_primal,s.info.res_dual,min(s.info.gap_abs,s.info.gap_rel))
+    ratio = max(warm_res,1e-6)
+
+    variables_copyto!(s.variables, s.solution, ratio)      #use the unscaled solution for smoothing
+    smoothing!(s.cones,s.step_lhs.s,s.variables.z,s.variables.s,ratio)      #step_lhs as the workspace  
+
+    #scaling the smoothed warm-start point 
+    variables_scale!(s.variables, s.data)
+    s.variables.κ = ratio
+
 end

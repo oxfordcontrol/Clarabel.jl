@@ -187,7 +187,8 @@ end
 Computes the solution to the problem in a `Clarabel.Solver` previously defined in [`setup!`](@ref).
 """
 function solve!(
-    s::Solver{T}
+    s::Solver{T};
+    warmstart::Bool=false
 ) where{T}
 
     # initialization needed for first loop pass 
@@ -209,7 +210,7 @@ function solve!(
     @timeit s.timers "solve!" begin
 
         # initialize variables to some reasonable starting point
-        @timeit s.timers "default start" solver_default_start!(s)
+        @timeit s.timers "default start" solver_default_start!(s, warmstart)
 
         @timeit s.timers "IP iteration" begin
 
@@ -380,12 +381,18 @@ function solve!(
 end
 
 
-function solver_default_start!(s::Solver{T}) where {T}
+function solver_default_start!(s::Solver{T},warmstart::Bool) where {T}
 
     # If there are only symmetric cones, use CVXOPT style initilization
     # Otherwise, initialize along central rays
 
-    if is_symmetric(s.cones)
+    #YC: warm-start technique (currently only for feasible solution)
+    if warmstart && !status_is_infeasible(s.info.status)
+        variables_warmstart!(s)        
+        return nothing
+    end
+
+    if (is_symmetric(s.cones))
         #set all scalings to identity (or zero for the zero cone)
         set_identity_scaling!(s.cones)
         #Refactor

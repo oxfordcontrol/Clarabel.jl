@@ -465,3 +465,16 @@ function cholesky_3x3_explicit_solve!(L,b)
     return SVector(x1,x2,x3)
 end
 
+# In-place solve of x and return Newton decrement λ
+function cholesky_3x3_explicit_solve_warmstart!(L,x,b)
+
+    c1 = b[1]/L[1,1]
+    c2 = (b[2]*L[1,1] - b[1]*L[2,1])/(L[1,1]*L[2,2])
+    c3 = (b[3]*L[1,1]*L[2,2] - b[2]*L[1,1]*L[3,2] + b[1]*L[2,1]*L[3,2] - b[1]*L[2,2]*L[3,1])/(L[1,1]*L[2,2]*L[3,3])
+
+    x[1] = (c1*L[2,2]*L[3,3] - c2*L[2,1]*L[3,3] + c3*L[2,1]*L[3,2] - c3*L[2,2]*L[3,1])/(L[1,1]*L[2,2]*L[3,3])
+    x[2] = (c2*L[3,3] - c3*L[3,2])/(L[2,2]*L[3,3])
+    x[3] = c3/L[3,3]
+
+    return sqrt(c1^2+c2^2+c3^2)
+end

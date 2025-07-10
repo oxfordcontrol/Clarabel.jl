@@ -264,3 +264,26 @@ function compute_barrier(
     return barrier
 end
 
+#--------------------------------
+# Warm start 
+#--------------------------------
+function smoothing!(
+    cones::CompositeCone{T},
+    work::Vector{T},
+    z::Vector{T},
+    s::Vector{T},
+    μ::T
+) where {T}
+
+    @. work = z - s     #before smoothing
+
+    for (cone,rng) in zip(cones,cones.rng_cones)
+        worki = view(work,rng)
+        zi    = view(z,rng)
+        si   = view(s,rng)
+        @conedispatch smoothing!(cone,worki,zi,si,μ)
+    end
+
+    # generate snew via z - s = znew - snew = work
+    @. s = z - work
+end

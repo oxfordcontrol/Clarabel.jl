@@ -408,6 +408,30 @@ function inv_circ_op!(
     return nothing
 end
 
+#--------------------------------
+# Warm start 
+#--------------------------------
+function smoothing!(
+    K::SecondOrderCone{T},
+    work::AbstractVector{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    μ::T
+) where {T}
+
+    w0sq = work[1]^2
+    @views w1sq = sumsq(work[2:end])
+    res = w0sq - w1sq
+    c = res/μ
+    γ = (c + sqrt(c^2+4*(2*(w0sq+w1sq)/μ + 4)))/2
+    ρ = (work[1] > 0) ? (γ + sqrt(γ^2-4))/2 : (γ - sqrt(γ^2-4))/2
+
+    z[1] = (abs(ρ-1) < eps(T)) ? sqrt(μ+w1sq/4) : ρ/(ρ-1)*work[1]
+    d = ρ/(ρ+1)
+    @views z[2:end] = d*work[2:end]
+
+end
+
 # ---------------------------------------------
 # internal operations for second order cones 
 # ---------------------------------------------

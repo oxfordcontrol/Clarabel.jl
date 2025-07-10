@@ -175,3 +175,18 @@ function compute_barrier(
 
 end
 
+#--------------------------------
+# Warm start 
+#--------------------------------
+function smoothing!(
+    K::ZeroCone{T},
+    work::AbstractVector{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    μ::T
+) where {T}
+
+    @. z = work
+
+end
+

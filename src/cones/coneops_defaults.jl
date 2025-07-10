@@ -313,4 +313,14 @@ function inv_circ_op!(
 
 end
 
+function smoothing!(
+    K::AbstractCone{T},
+    work::AbstractVector{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    μ::T
+) where {T}
 
+    error("Incomplete cone operation specification: ",typeof(K))
+
+end

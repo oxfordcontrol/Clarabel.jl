@@ -265,3 +265,18 @@ function inv_circ_op!(
 
     return nothing
 end
+
+#--------------------------------
+# Warm start 
+#--------------------------------
+function smoothing!(
+    K::NonnegativeCone{T},
+    work::AbstractVector{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    μ::T
+) where {T}
+
+    @. z = (work + sqrt(work^2+4*μ))/2
+
+end

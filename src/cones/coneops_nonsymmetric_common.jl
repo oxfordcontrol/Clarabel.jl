@@ -163,6 +163,79 @@ function use_primal_dual_scaling(
     
 end
 
+#----------------------------------
+# Warm start for nonsymmetric cones
+#----------------------------------
+function smoothing!(
+    K::Union{PowerCone{T},ExponentialCone{T}},
+    work::AbstractVector{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    μ::T
+) where {T}
+
+    newton_smoothing(K,work,z,μ)
+
+end
+
+function newton_smoothing(
+    K::Union{PowerCone{T},ExponentialCone{T}},
+    work::AbstractVector{T},
+    z::AbstractVector{T},
+    μ::T
+) where {T}
+    H = K.H_dual
+    cholH = K.Hs
+    grad = K.grad
+    Δ = MVector(floatmax(T), floatmax(T), floatmax(T))
+
+    update_dual_grad_H(K,z)
+
+    iter = 0
+
+    while norm(Δ)> sqrt(eps(T)) && iter < 100
+        # println("Iteration ", iter)
+        # compute grad = μ*∇f(s) + (z - work)
+        update_dual_grad_H(K,z)
+        @inbounds for i in 1:3
+            grad[i] = μ*grad[i] + z[i] - work[i]
+        end
+        
+        #compute Hess = μ*∇^2f(s) + I
+        H .*= μ
+        @inbounds for i in 1:3
+            H[i,i] += one(T)
+        end
+
+        # factorize Hess
+        #regularizer for the numerical stability of Cholesky factorization
+        regularizer = eps(T)*maximum(H)
+        issuccess = false
+        while !issuccess
+            @inbounds for i in 1:3
+                H[i,i] += regularizer
+            end
+            issuccess = cholesky_3x3_explicit_factor!(cholH,H)
+        end
+
+        # Newton step
+        λ = cholesky_3x3_explicit_solve_warmstart!(cholH,Δ,grad)
+        # damped Newton update
+        damping_ratio = λ < (2-sqrt(3)) ? one(T) : inv(1+λ)
+        @inbounds for i in 1:3
+            z[i] = z[i] - damping_ratio*Δ[i]
+        end
+
+        iter += 1
+
+    end
+
+    if iter == 100
+        println("norm is ", norm(grad))
+        error("Fail to converge for warmstart nonsymmetric cones")
+    end
+
+end
 
 #------------------------------------------------------------
 # Numerical sub-routines for primal barrier computation
