@@ -210,7 +210,7 @@ function variables_combined_step_rhs!(
     d.s .+= d.z
 
     # now we copy the scaled res for rz and d.z is no longer work
-    @. d.z .= (1 - σ)*r.rz
+    @. d.z .= (one(T) - σ)*r.rz
 
     return nothing
 end
@@ -268,8 +268,8 @@ function variables_symmetric_initialization!(
     _shift_to_cone_interior!(variables.s, cones, PrimalCone::PrimalOrDualCone)
     _shift_to_cone_interior!(variables.z, cones, DualCone::PrimalOrDualCone)
 
-    variables.τ = 1
-    variables.κ = 1
+    variables.τ = one(T)
+    variables.κ = one(T)
 end
 
 
