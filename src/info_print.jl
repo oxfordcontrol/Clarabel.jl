@@ -153,9 +153,9 @@ function info_print_footer(
 
     println(io, "---------------------------------------------------------------------------------------------")
     @printf(io, "Terminated with status = %s\n",SolverStatusDict[info.status])
-    @printf(io, "total time = %s",TimerOutputs.prettytime(info.total_time*1e9))
-    @printf(io, " (setup time = %s,",TimerOutputs.prettytime(info.setup_time*1e9))
-    @printf(io, " solve time = %s)\n",TimerOutputs.prettytime(info.solve_time*1e9))
+    @printf(io, "total time = %s",TimerOutputs.prettytime(info.solve_time*1e9))
+    @printf(io, " (setup time = %s,",TimerOutputs.prettytime(info.setup_phase_time*1e9))
+    @printf(io, " solve time = %s)\n",TimerOutputs.prettytime(info.solve_phase_time*1e9))
 
     return nothing
 end

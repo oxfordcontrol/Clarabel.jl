@@ -59,7 +59,7 @@ function info_update!(
     info.ktratio = variables.κ * τinv
 
     #solve time so far (includes setup!)
-    info_get_solve_time!(info,timers)
+    info_get_solve_phase_time!(info,timers)
 
 end
 
@@ -128,7 +128,7 @@ function info_update!(
     info.ktratio = variables.κ / variables.τ
 
     #solve time so far (includes setup!)
-    info_get_solve_time!(info,timers)
+    info_get_solve_phase_time!(info,timers)
 
 end
 
@@ -180,7 +180,7 @@ function info_check_termination!(
         if settings.max_iter  == info.iterations
             info.status = MAX_ITERATIONS
 
-        elseif info.total_time > settings.time_limit
+        elseif info.solve_time > settings.time_limit
             info.status = MAX_TIME
         end
     end
@@ -244,14 +244,14 @@ function info_reset!(
     timers::TimerOutput
 ) where {T}
     #Reset the setup time when the problem is solved again
-    if !iszero(info.solve_time)
+    if !iszero(info.solve_phase_time)
         reset_timer!(timers["setup!"])
     end
 
     info.status     = UNSOLVED
     info.iterations = zero(T)
+    info.solve_phase_time = zero(T)
     info.solve_time = zero(T)
-    info.total_time = zero(T)
 
     #reset the solve! timer
     reset_timer!(timers["solve!"])
@@ -260,14 +260,14 @@ function info_reset!(
 end
 
 
-function info_get_solve_time!(
+function info_get_solve_phase_time!(
     info::DefaultInfo{T},
     timers::TimerOutput
 ) where {T}
     #TimerOutputs reports in nanoseconds
-    info.setup_time = TimerOutputs.tottime(timers["setup!"])*1e-9
-    info.solve_time = TimerOutputs.tottime(timers["solve!"])*1e-9
-    info.total_time = TimerOutputs.tottime(timers)*1e-9
+    info.setup_phase_time = TimerOutputs.tottime(timers["setup!"])*1e-9
+    info.solve_phase_time = TimerOutputs.tottime(timers["solve!"])*1e-9
+    info.solve_time = TimerOutputs.tottime(timers)*1e-9
     return nothing
 end
 
@@ -296,7 +296,7 @@ function info_finalize!(
 ) where {T}
 
     # final check of timers
-    info_get_solve_time!(info,timers)
+    info_get_solve_phase_time!(info,timers)
     return nothing
 end
 

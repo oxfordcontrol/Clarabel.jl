@@ -171,9 +171,9 @@ function Base.show(io::IO, optimizer::Optimizer{T}) where {T}
         value = round(MOI.get(optimizer,MOI.ObjectiveValue()),digits=3)
         println(io, " : Optimal objective: $(value)")
         println(io, " : Iterations: $(MOI.get(optimizer,MOI.BarrierIterations()))")
-        setuptime = round.(optimizer.solver_info.setup_time*1000,digits=2)
-        solvetime = round.(optimizer.solver_info.solve_time*1000,digits=2)
-        totaltime = round.(optimizer.solver_info.total_time*1000,digits=2)
+        setuptime = round.(optimizer.solver_info.setup_phase_time*1000,digits=2)
+        solvetime = round.(optimizer.solver_info.solve_phase_time*1000,digits=2)
+        totaltime = round.(optimizer.solver_info.solve_time*1000,digits=2)
         println(io, " : Total time: $(totaltime)ms (", "setup time: $(setuptime)ms, ", "solve time: $(solvetime)ms", ")")
         end
     end
@@ -189,7 +189,7 @@ MOI.get(opt::Optimizer, ::MOI.SolverVersion)     = Clarabel.version()
 MOI.get(opt::Optimizer, ::MOI.RawSolver)         = opt.solver
 MOI.get(opt::Optimizer, ::MOI.ResultCount)       = DefaultInt(!isnothing(opt.solver_solution))
 MOI.get(opt::Optimizer, ::MOI.NumberOfVariables) = opt.solver_nvars
-MOI.get(opt::Optimizer, ::MOI.SolveTimeSec)      = opt.solver_info.total_time
+MOI.get(opt::Optimizer, ::MOI.SolveTimeSec)      = opt.solver_info.solve_time
 MOI.get(opt::Optimizer, ::MOI.RawStatusString)   = string(opt.solver_info.status)
 MOI.get(opt::Optimizer, ::MOI.BarrierIterations) = DefaultInt(opt.solver_info.iterations)
 

@@ -53,9 +53,9 @@ function solution_finalize!(
 	solution::DefaultSolution{T},
 	info::DefaultInfo{T},
 ) where {T}
-	solution.setup_time  = info.setup_time
+	solution.setup_phase_time  = info.setup_phase_time
+	solution.solve_phase_time  = info.solve_phase_time
 	solution.solve_time  = info.solve_time
-	solution.total_time  = info.total_time
 end
 
 
@@ -69,6 +69,6 @@ function Base.show(io::IO, solution::DefaultSolution)
 	printstyled(io,"$(string(solution.status))\n", color = status_color)
 	println(io,"Iterations: $(solution.iterations)")
     println(io,"Objective: $(@sprintf("%#.4g", solution.obj_val))")
-    println(io,"Total time: ",TimerOutputs.prettytime(solution.total_time*1e9), "(setup time = %s\n",TimerOutputs.prettytime(solution.setup_time*1e9), ", solve time = %s\n",TimerOutputs.prettytime(solution.solve_time*1e9),")")
+    println(io,"Total time: ",TimerOutputs.prettytime(solution.solve_time*1e9), "(setup time = %s\n",TimerOutputs.prettytime(solution.setup_phase_time*1e9), ", solve time = %s\n",TimerOutputs.prettytime(solution.solve_phase_time*1e9),")")
 
 end
