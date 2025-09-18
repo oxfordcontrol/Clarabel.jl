@@ -54,6 +54,7 @@ NVTX.@annotate "margins" function margins(
     rng_cones = cones.rng_cones
     idx_inq = cones.idx_inq
     Z = cones.workmat1
+    eigvals = cones.eigvals
 
     α = cones.α
     @. α = αmin
@@ -71,7 +72,7 @@ NVTX.@annotate "margins" function margins(
 
     if n_psd > 0
         n_shift = n_linear + n_soc
-        (αmin,val) = margins_psd(Z, z, rng_cones, n_shift, n_psd, αmin)
+        (αmin,val) = margins_psd(Z, z, eigvals, rng_cones, n_shift, n_psd, αmin)
         β += val
     end
 
@@ -213,20 +214,16 @@ NVTX.@annotate "update_scaling!" function update_scaling!(
     vut = cones.vut
     numel_linear = cones.numel_linear
 
-    NVTX.@range "Nonnegative" begin
-        update_scaling_nonnegative!(s, z, w, λ, rng_cones, idx_inq)
-    end
+    update_scaling_nonnegative!(s, z, w, λ, rng_cones, idx_inq)
 
     n_shift = n_linear
 
-    NVTX.@range "soc medium" begin
-        if n_sparse_soc > 0 && n_sparse_soc <= SPARSE_SOC_PARALELL_NUM
-            update_scaling_soc_parallel_medium!(s, z, w, λ, η, 
-                                                cones.worksoc1, cones.worksoc2, cones.worksoc3, 
-                                                rng_cones, n_shift, n_sparse_soc)
-            n_shift += n_sparse_soc
-            n_soc -= n_sparse_soc       
-        end
+    if n_sparse_soc > 0 && n_sparse_soc <= SPARSE_SOC_PARALELL_NUM
+        update_scaling_soc_parallel_medium!(s, z, w, λ, η, 
+                                            cones.worksoc1, cones.worksoc2, cones.worksoc3, 
+                                            rng_cones, n_shift, n_sparse_soc)
+        n_shift += n_sparse_soc
+        n_soc -= n_sparse_soc       
     end
 
     if n_soc > 0
@@ -234,13 +231,11 @@ NVTX.@annotate "update_scaling!" function update_scaling!(
         n_shift += n_soc
     end  
 
-    NVTX.@range "soc sparse off-diagonal" begin
-        # off-diagonal update
-        if n_sparse_soc > SPARSE_SOC_PARALELL_NUM
-            update_scaling_soc_sparse_parallel!(w, η, d, vut, rng_cones, numel_linear, n_linear, n_sparse_soc)
-        elseif n_sparse_soc > 0
-            update_scaling_soc_sparse_parallel_medium!(w, η, d, vut, rng_cones, numel_linear, n_linear, n_sparse_soc)
-        end
+    # off-diagonal update
+    if n_sparse_soc > SPARSE_SOC_PARALELL_NUM
+        update_scaling_soc_sparse_parallel!(w, η, d, vut, rng_cones, numel_linear, n_linear, n_sparse_soc)
+    elseif n_sparse_soc > 0
+        update_scaling_soc_sparse_parallel_medium!(w, η, d, vut, rng_cones, numel_linear, n_linear, n_sparse_soc)
     end
 
     if n_exp > 0
@@ -254,7 +249,7 @@ NVTX.@annotate "update_scaling!" function update_scaling!(
     end
 
     if n_psd > 0
-        update_scaling_psd!(cones.chol1, cones.chol2, z, s, cones.workmat1, cones.λpsd, cones.Λisqrt, cones.R, cones.Rinv, cones.Hspsd, rng_cones, n_shift, n_psd)
+        update_scaling_psd!(cones.chol1, cones.chol2, cones.U, cones.S, cones.V, z, s, cones.workmat1, cones.λpsd, cones.Λisqrt, cones.R, cones.Rinv, cones.Hspsd, rng_cones, n_shift, n_psd)
     end
 
     synchronize()
@@ -619,6 +614,7 @@ NVTX.@annotate "step_length" function step_length(
     α               = cones.α
     αp              = cones.αp
     Λisqrt = cones.Λisqrt
+    eigvals = cones.eigvals
     d      = cones.workvec
     Rx     = cones.R
     Rinv   = cones.Rinv
@@ -649,7 +645,7 @@ NVTX.@annotate "step_length" function step_length(
     n_nonsymmetric = n_exp+n_pow
     if n_psd > 0
         n_shift = n_linear+n_soc+n_nonsymmetric
-        αmax = step_length_psd(dz, ds, Λisqrt, d, Rx, Rinv, workmat1, workmat2, workmat3, αmax, rng_cones, n_shift, n_psd)
+        αmax = step_length_psd(dz, ds, Λisqrt, eigvals, d, Rx, Rinv, workmat1, workmat2, workmat3, αmax, rng_cones, n_shift, n_psd)
         if αmax < 0
             throw(DomainError("starting point of line search not in positive semidefinite cones"))
         end

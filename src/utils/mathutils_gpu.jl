@@ -1,8 +1,18 @@
 import CUDA.CUSPARSE: CuSparseDeviceMatrixCSR
 import CUDA.CUBLAS: unsafe_strided_batch, handle
 import CUDA.CUBLAS: cublasStatus_t, cublasHandle_t, cublasFillMode_t
-import CUDA.CUSOLVER: cusolverDnHandle_t, cusolverStatus_t
-import CUDA: unsafe_free!
+import CUDA.CUSOLVER: BlasInt, dense_handle, 
+        cusolverDnHandle_t, cusolverStatus_t,
+        syevjInfo_t, cusolverDnCreateSyevjInfo, cusolverDnXsyevjSetTolerance, cusolverDnXsyevjSetMaxSweeps, 
+        cusolverDnDestroySyevjInfo, 
+        cusolverDnDsyevjBatched_bufferSize, cusolverDnDsyevjBatched,
+        cusolverDnSsyevjBatched_bufferSize, cusolverDnSsyevjBatched,
+        gesvdjInfo_t, cusolverDnCreateGesvdjInfo, cusolverDnXgesvdjSetTolerance, cusolverDnXgesvdjSetMaxSweeps,
+        cusolverDnDestroyGesvdjInfo,
+        cusolverDnSgesvdjBatched_bufferSize, cusolverDnSgesvdjBatched,
+        cusolverDnDgesvdjBatched_bufferSize, cusolverDnDgesvdjBatched
+        
+import CUDA: unsafe_free!, with_workspace
 using LinearAlgebra.LAPACK: chkargsok, chklapackerror, chktrans, chkside, chkdiag, chkuplo
 # using Libdl
 
@@ -293,18 +303,126 @@ for (fname, elty) in ((:cusolverDnSpotrfBatched, :Float32),
             # Run the solver
             $fname(dh, uplo, n, Aptrs, lda, dh.info, batchSize)
 
-            # Copy the solver info and delete the device memory
-            info = CUDA.@allowscalar collect(dh.info)
-
+            ret = any(x -> x < 0, dh.info)
             # Double check the solver's exit status
-            for i = 1:batchSize
-                chkargsok(CUDA.CUSOLVER.BlasInt(info[i]))
+            if ret < 0
+                throw(ArgumentError(lazy"invalid argument #$(-ret) to LAPACK call"))
             end
 
             # info[i] > 0 means the leading minor of order info[i] is not positive definite
             # LinearAlgebra.LAPACK does not throw Exception here
             # to simplify calls to isposdef! and factorize
-            return A, info
+            return ret
+        end
+    end
+end
+
+#############################################
+# Batched SVD for symmetric matrices (in-place decomposition)
+#############################################
+for (jname, bname, fname, elty, relty) in ((:syevjBatched!, :cusolverDnSsyevjBatched_bufferSize, :cusolverDnSsyevjBatched, :Float32, :Float32),
+                                           (:syevjBatched!, :cusolverDnDsyevjBatched_bufferSize, :cusolverDnDsyevjBatched, :Float64, :Float64))
+    @eval begin
+        function $jname(A::StridedCuArray{$elty},
+                        W::CuMatrix{$relty},
+                        n::Int64;
+                        tol::$relty=eps($relty),
+                        max_sweeps::Int=100)
+
+            #Settings for syevjBatched!
+            jobz = 'N'
+            uplo = 'U'
+            
+            # Set up information for the solver arguments
+            chkuplo(uplo)
+            lda       = n            #max(1, stride(A, 2))
+            batchSize = size(A,3)
+
+            params    = Ref{syevjInfo_t}(C_NULL)
+
+            dh = dense_handle()
+            resize!(dh.info, batchSize)
+
+            # Initialize the solver parameters
+            cusolverDnCreateSyevjInfo(params)
+            cusolverDnXsyevjSetTolerance(params[], tol)
+            cusolverDnXsyevjSetMaxSweeps(params[], max_sweeps)
+
+            # Calculate the workspace size
+            function bufferSize()
+                out = Ref{Cint}(0)
+                $bname(dh, jobz, uplo, n, A, lda, W, out, params[], batchSize)
+                return out[] * sizeof($elty)
+            end
+
+            # Run the solver
+            with_workspace(dh.workspace_gpu, bufferSize) do buffer
+                $fname(dh, jobz, uplo, n, A, lda, W, buffer,
+                       sizeof(buffer) ÷ sizeof($elty), dh.info, params[], batchSize)
+            end
+
+            ret = any(x -> x < 0, dh.info)
+            # Double check the solver's exit status
+            if ret < 0
+                throw(ArgumentError(lazy"invalid argument #$(-ret) to LAPACK call"))
+            end
+
+            cusolverDnDestroySyevjInfo(params[])
+        end
+    end
+end
+
+#############################################
+# Batched Jacobi-based SVD for genneral matrices (in-place decomposition)
+#############################################
+for (bname, fname, elty, relty) in ((:cusolverDnSgesvdjBatched_bufferSize, :cusolverDnSgesvdjBatched, :Float32, :Float32),
+                                    (:cusolverDnDgesvdjBatched_bufferSize, :cusolverDnDgesvdjBatched, :Float64, :Float64),
+                                    # (:cusolverDnCgesvdjBatched_bufferSize, :cusolverDnCgesvdjBatched, :ComplexF32, :Float32),
+                                    # (:cusolverDnZgesvdjBatched_bufferSize, :cusolverDnZgesvdjBatched, :ComplexF64, :Float64)
+                                    )
+    @eval begin
+        @inline function gesvdjBatched!(jobz::Char,
+                         A::StridedCuArray{$elty,3},
+                         U::StridedCuArray{$elty,3},
+                         S::StridedCuArray{$relty,2},
+                         V::StridedCuArray{$elty,3};
+                         tol::$relty=eps($relty),
+                         max_sweeps::Int=100)
+            m, n, batchSize = size(A)
+            if m > 32 || n > 32
+                throw(ArgumentError("CUSOLVER's gesvdjBatched currently requires m <=32 and n <= 32"))
+            end
+            lda = max(1, stride(A, 2)) 
+            ldu = max(1, stride(U, 2))
+            ldv = max(1, stride(V, 2))
+
+            params = Ref{gesvdjInfo_t}(C_NULL)
+            cusolverDnCreateGesvdjInfo(params)
+            cusolverDnXgesvdjSetTolerance(params[], tol)
+            cusolverDnXgesvdjSetMaxSweeps(params[], max_sweeps)
+
+            dh = dense_handle()
+            resize!(dh.info, batchSize)
+
+            function bufferSize()
+                out = Ref{Cint}(0)
+                $bname(dh, jobz, m, n, A, lda, S, U, ldu, V, ldv,
+                    out, params[], batchSize)
+                return out[] * sizeof($elty)
+            end
+
+            with_workspace(dh.workspace_gpu, bufferSize) do buffer
+                $fname(dh, jobz, m, n, A, lda, S, U, ldu, V, ldv,
+                    buffer, sizeof(buffer) ÷ sizeof($elty), dh.info, params[], batchSize)
+            end
+
+            ret = any(x -> x < 0, dh.info)
+            # Double check the solver's exit status
+            if ret < 0
+                throw(ArgumentError(lazy"invalid argument #$(-ret) to LAPACK call"))
+            end
+
+            cusolverDnDestroyGesvdjInfo(params[])
         end
     end
 end

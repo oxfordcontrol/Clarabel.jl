@@ -53,7 +53,10 @@ struct CompositeConeGPU{T} <: AbstractCone{T}
     psd_dim::Cint                  #We only support PSD cones with the same small dimension
     chol1::CuArray{T,3}
     chol2::CuArray{T,3}
-    SVD::CuArray{T,3}
+    U::CuArray{T,3}
+    S::CuMatrix{T}
+    V::CuArray{T,3}    
+    eigvals::CuMatrix{T}
     λpsd::CuMatrix{T}
     Λisqrt::CuMatrix{T}
     R::CuArray{T,3}
@@ -162,7 +165,10 @@ struct CompositeConeGPU{T} <: AbstractCone{T}
 
         chol1 = CUDA.zeros(T,psd_dim,psd_dim,n_psd)
         chol2 = CUDA.zeros(T,psd_dim,psd_dim,n_psd)
-        SVD   = CUDA.zeros(T,psd_dim,psd_dim,n_psd)
+        U = CUDA.zeros(T,psd_dim,psd_dim,n_psd)
+        S = CUDA.zeros(T,psd_dim,n_psd)
+        V = CUDA.zeros(T,psd_dim,psd_dim,n_psd)
+        eigvals = CUDA.zeros(T,psd_dim,n_psd)
 
         λpsd   = CUDA.zeros(T,psd_dim,n_psd)
         Λisqrt = CUDA.zeros(T,psd_dim,n_psd)
@@ -205,7 +211,7 @@ struct CompositeConeGPU{T} <: AbstractCone{T}
                 idx_eq, idx_inq,
                 w, λ, η, d, vut, Matvut,
                 αp,H_dual,Hs,grad,
-                psd_dim, chol1, chol2, SVD, λpsd, Λisqrt, R, Rinv, Hspsd, α,
+                psd_dim, chol1, chol2, U, S, V, eigvals, λpsd, Λisqrt, R, Rinv, Hspsd, α,
                 workmat1, workmat2, workmat3, workvec,
                 worksoc1, worksoc2, worksoc3)
     end

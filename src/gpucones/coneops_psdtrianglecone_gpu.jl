@@ -11,6 +11,7 @@ using GenericLinearAlgebra  # extends SVD, eigs etc for BigFloats
 @inline function margins_psd(
     Z::AbstractArray{T,3},
     z::AbstractVector{T},
+    eigvals::AbstractMatrix{T},
     rng_cones::AbstractVector,
     n_shift::Cint,
     n_psd::Cint,
@@ -19,11 +20,10 @@ using GenericLinearAlgebra  # extends SVD, eigs etc for BigFloats
     svec_to_mat_gpu!(Z, z, rng_cones, n_shift, n_psd)
 
     # Batched SVD decomposition
-    # YC: memory of e can be optimized later
-    e = CUDA.CUSOLVER.syevjBatched!('N','U', Z)      #'N' returns eigenvalues only; 'V' returns both eigenvalues and eigenvectors
-    αmin = min(αmin, minimum(e))
-    CUDA.@sync @. e = max(e, zero(T))
-    return (αmin, sum(e))
+    syevjBatched!(Z, eigvals, size(eigvals,1))      #'N' returns eigenvalues only; 'V' returns both eigenvalues and eigenvectors
+    αmin = min(αmin, minimum(eigvals))
+    CUDA.@sync @. eigvals = max(eigvals, zero(T))
+    return (αmin, sum(eigvals))
 end
 
 # place vector into sdp cone
@@ -134,6 +134,9 @@ end
 @inline function update_scaling_psd!(
     L1::AbstractArray{T,3},
     L2::AbstractArray{T,3},
+    U::AbstractArray{T,3}, 
+    S::AbstractArray{T,2}, 
+    V::AbstractArray{T,3},
     z::AbstractVector{T},
     s::AbstractVector{T},
     workmat1::AbstractArray{T,3},
@@ -150,8 +153,8 @@ end
     svec_to_mat_gpu!(L2,z,rng_cones,n_shift,n_psd)
     svec_to_mat_gpu!(L1,s,rng_cones,n_shift,n_psd)
 
-    _, infoz = potrfBatched!(L2, 'L')
-    _, infos = potrfBatched!(L1, 'L')
+    infoz = potrfBatched!(L2, 'L')
+    infos = potrfBatched!(L1, 'L')
 
     # YC: This is an issue related to the batched Cholesky factorization in CUSOLVER,
     # which fills in both lower and upper triangular of each submatrix during factorization
@@ -160,14 +163,14 @@ end
     mask_zeros!(L1, 'U')
 
     # bail if the cholesky factorization fails
-    if !(all(==(0), infoz) && all(==(0), infos))
+    if !(iszero(infoz) && iszero(infos))
         return is_scaling_success = false
     end
 
     #SVD of L2'*L1,
     tmp = workmat1;
     CUDA.CUBLAS.gemm_strided_batched!('T', 'N', one(T), L2, L1, zero(T), tmp)
-    U, S, V = CUDA.CUSOLVER.gesvdj!('V', tmp)
+    gesvdjBatched!('V', tmp, U, S, V)
 
     #assemble λ (diagonal), R and Rinv.
     copyto!(λpsd, S)
@@ -424,6 +427,7 @@ end
     dz::AbstractVector{T},
     ds::AbstractVector{T},
     Λisqrt::AbstractMatrix{T}, 
+    eigvals::AbstractMatrix{T},
     d::AbstractVector{T}, 
     Rx::AbstractArray{T,3}, 
     Rinv::AbstractArray{T,3}, 
@@ -441,11 +445,11 @@ end
     # We need an extra parameter since the dimension of d is not equal to that of dz
     # αz = step_length_psd_component(workΔ,d,Λisqrt,αmax)
     mul_Wx_psd!(d, dz, Rx, rng_cones, workmat1, workmat2, workmat3, n_shift, n_psd, true)
-    αz = step_length_psd_component_gpu(workΔ, d, Λisqrt, n_psd, αmax)
+    αz = step_length_psd_component_gpu(workΔ, d, Λisqrt, eigvals, n_psd, αmax)
     
     #d = Δs̃ = W^{-T}Δs
     mul_WTx_psd!(d, ds, Rinv, rng_cones, workmat1, workmat2, workmat3, n_shift, n_psd, true)
-    αs = step_length_psd_component_gpu(workΔ, d, Λisqrt, n_psd, αmax)
+    αs = step_length_psd_component_gpu(workΔ, d, Λisqrt, eigvals, n_psd, αmax)
     
     @views αmax = min(αmax,αz,αs)
 
@@ -488,10 +492,10 @@ end
 
     CUDA.@sync @. q = x[rng] + alpha*dx[rng]
     svec_to_mat_no_shift_gpu!(Q, q, n_psd)
-    _, info = potrfBatched!(Q, 'L')
+    info = potrfBatched!(Q, 'L')
 
 
-    if all(==(0), info)
+    if iszero(info)
         kernel = @cuda launch=false _kernel_logdet!(barrier, Q, psd_dim, n_psd)
         config = launch_configuration(kernel.fun)
         threads = min(n_psd, config.threads)
@@ -601,6 +605,7 @@ function step_length_psd_component_gpu(
     workΔ::AbstractArray{T,3},
     d::AbstractVector{T},
     Λisqrt::AbstractMatrix{T},
+    eigvals::AbstractMatrix{T},
     n_psd::Cint,
     αmax::T
 ) where {T}
@@ -611,9 +616,9 @@ function step_length_psd_component_gpu(
     # symmetric_part_gpu!(workΔ)
 
     # batched eigenvalue decomposition
-    e = CUDA.CUSOLVER.syevjBatched!('N','U',workΔ)
+    syevjBatched!(workΔ, eigvals,size(eigvals,1))
 
-    γ = minimum(e)
+    γ = minimum(eigvals)
     if γ < 0
         return min(inv(-γ),αmax)
     else
