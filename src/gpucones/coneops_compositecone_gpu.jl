@@ -59,22 +59,16 @@ NVTX.@annotate "margins" function margins(
     α = cones.α
     @. α = αmin
     
-    if n_nn > 0
-        (αmin,val) = margins_nonnegative(z, α, rng_cones, idx_inq, αmin)
-        β += val
-    end
+    (αmin,val) = margins_nonnegative(Val(n_nn > 0), z, α, rng_cones, idx_inq, αmin)
+    β += val
 
-    if n_soc > 0
-        n_shift = n_linear
-        (αmin,val) = margins_soc(z, α, rng_cones, n_shift, n_soc, αmin)
-        β += val
-    end
+    n_shift = n_linear
+    (αmin,val) = margins_soc(Val(n_soc > 0), z, α, rng_cones, n_shift, n_soc, αmin)
+    β += val
 
-    if n_psd > 0
-        n_shift = n_linear + n_soc
-        (αmin,val) = margins_psd(Z, z, eigvals, rng_cones, n_shift, n_psd, αmin)
-        β += val
-    end
+    n_shift = n_linear + n_soc
+    (αmin,val) = margins_psd(Val(n_psd > 0), Z, z, eigvals, rng_cones, n_shift, n_psd, αmin)
+    β += val
 
     return (αmin,β)
 end
@@ -98,15 +92,9 @@ NVTX.@annotate "scaled_unit_shift" function scaled_unit_shift!(
 
     scaled_unit_shift_nonnegative!(z, rng_cones, idx_inq, α)
 
-    if n_soc > 0
-        n_shift = n_linear
-        scaled_unit_shift_soc!(z, rng_cones, α, n_shift, n_soc)
-    end
+    scaled_unit_shift_soc!(Val(n_soc > 0), z, rng_cones, α, n_linear, n_soc)
 
-    if n_psd > 0
-        n_shift = n_linear + n_soc
-        scaled_unit_shift_psd!(z, α, rng_cones, psd_dim, n_shift, n_psd)
-    end
+    scaled_unit_shift_psd!(Val(n_psd > 0), z, α, rng_cones, psd_dim, n_linear + n_soc, n_psd)
 
     synchronize()
     return nothing
@@ -136,25 +124,13 @@ NVTX.@annotate "unit_initialization" function unit_initialization!(
 
     unit_initialization_nonnegative!(z, s, rng_cones, idx_inq)
     
-    if n_soc > 0
-        n_shift = n_linear
-        unit_initialization_soc!(z, s, rng_cones, n_shift, n_soc)
-    end
+    unit_initialization_soc!(Val(n_soc > 0), z, s, rng_cones, n_linear, n_soc)
 
-    if n_exp > 0
-        n_shift = n_linear+n_soc
-        unit_initialization_exp!(z, s, rng_cones, n_shift, n_exp)
-    end
+    unit_initialization_exp!(Val(n_exp > 0), z, s, rng_cones, n_linear+n_soc, n_exp)
 
-    if n_pow > 0
-        n_shift = n_linear+n_soc+n_exp
-        unit_initialization_pow!(z, s, αp, rng_cones, n_shift, n_pow)
-    end
+    unit_initialization_pow!(Val(n_pow > 0), z, s, αp, rng_cones, n_linear+n_soc+n_exp, n_pow)
 
-    if n_psd > 0
-        n_shift = n_linear+n_soc+n_exp+n_pow
-        unit_initialization_psd_gpu!(z,s,rng_cones,psd_dim,n_shift,n_psd)
-    end
+    unit_initialization_psd!(Val(n_psd > 0), z, s, rng_cones, psd_dim, n_linear+n_soc+n_exp+n_pow, n_psd)
 
     synchronize()
     return nothing
@@ -173,14 +149,10 @@ NVTX.@annotate "set_identity_scaling!" function set_identity_scaling!(
     
     set_identity_scaling_nonnegative!(w, rng_cones, cones.idx_inq)
 
-    if n_soc > 0
-        set_identity_scaling_soc!(w, cones.η, rng_cones, n_linear, n_soc)
-        set_identity_scaling_soc_sparse!(cones.d, cones.vut, rng_cones, n_linear, cones.n_sparse_soc)
-    end
+    set_identity_scaling_soc!(Val(n_soc > 0), w, cones.η, rng_cones, n_linear, n_soc)
+    set_identity_scaling_soc_sparse!(Val(n_soc > 0), cones.d, cones.vut, rng_cones, n_linear, cones.n_sparse_soc)
 
-    if n_psd > 0
-        set_identity_scaling_psd!(cones.R, cones.Rinv, cones.Hspsd, cones.psd_dim, n_psd)
-    end
+    set_identity_scaling_psd!(Val(n_psd > 0), cones.R, cones.Rinv, cones.Hspsd, cones.psd_dim, n_psd)
 
     synchronize()
     return nothing
@@ -196,6 +168,7 @@ NVTX.@annotate "update_scaling!" function update_scaling!(
 
     n_linear = cones.n_linear
     n_soc = cones.n_soc
+    n_dense_soc = cones.n_dense_soc
     n_sparse_soc = cones.n_sparse_soc
     n_exp = cones.n_exp
     n_pow = cones.n_pow
@@ -216,41 +189,17 @@ NVTX.@annotate "update_scaling!" function update_scaling!(
 
     update_scaling_nonnegative!(s, z, w, λ, rng_cones, idx_inq)
 
-    n_shift = n_linear
+    update_scaling_soc!(sparse_soc_case(Val(n_sparse_soc)), s, z, w, λ, η, 
+                                    cones.worksoc1, cones.worksoc2, cones.worksoc3, 
+                                    rng_cones, n_linear, n_soc, n_dense_soc, n_sparse_soc)
+    # off-diagonal update of SOCs
+    update_scaling_soc_sparse!(sparse_soc_case(Val(n_sparse_soc)), w, η, d, vut, rng_cones, numel_linear, n_linear, n_sparse_soc)
 
-    if n_sparse_soc > 0 && n_sparse_soc <= SPARSE_SOC_PARALELL_NUM
-        update_scaling_soc_parallel_medium!(s, z, w, λ, η, 
-                                            cones.worksoc1, cones.worksoc2, cones.worksoc3, 
-                                            rng_cones, n_shift, n_sparse_soc)
-        n_shift += n_sparse_soc
-        n_soc -= n_sparse_soc       
-    end
+    update_scaling_exp!(Val(n_exp > 0), s, z, grad, Hs, H_dual, rng_cones, μ, scaling_strategy, n_linear+n_soc, n_exp)
 
-    if n_soc > 0
-        update_scaling_soc!(s, z, w, λ, η, rng_cones, n_shift, n_soc)
-        n_shift += n_soc
-    end  
+    update_scaling_pow!(Val(n_pow > 0), s, z, grad, Hs, H_dual, αp, rng_cones, μ, scaling_strategy, n_linear+n_soc+n_exp, n_exp, n_pow)
 
-    # off-diagonal update
-    if n_sparse_soc > SPARSE_SOC_PARALELL_NUM
-        update_scaling_soc_sparse_parallel!(w, η, d, vut, rng_cones, numel_linear, n_linear, n_sparse_soc)
-    elseif n_sparse_soc > 0
-        update_scaling_soc_sparse_parallel_medium!(w, η, d, vut, rng_cones, numel_linear, n_linear, n_sparse_soc)
-    end
-
-    if n_exp > 0
-        update_scaling_exp!(s, z, grad, Hs, H_dual, rng_cones, μ, scaling_strategy, n_shift, n_exp)
-        n_shift += n_exp
-    end
-
-    if n_pow > 0
-        update_scaling_pow!(s, z, grad, Hs, H_dual, αp, rng_cones, μ, scaling_strategy, n_shift, n_exp, n_pow)
-        n_shift += n_pow
-    end
-
-    if n_psd > 0
-        update_scaling_psd!(cones.chol1, cones.chol2, cones.U, cones.S, cones.V, z, s, cones.workmat1, cones.λpsd, cones.Λisqrt, cones.R, cones.Rinv, cones.Hspsd, rng_cones, n_shift, n_psd)
-    end
+    update_scaling_psd!(Val(n_psd > 0), cones.chol1, cones.chol2, cones.U, cones.S, cones.V, z, s, cones.workmat1, cones.λpsd, cones.Λisqrt, cones.R, cones.Rinv, cones.Hspsd, rng_cones, n_linear+n_soc+n_exp+n_pow, n_psd)
 
     synchronize()
     return is_scaling_success = true
@@ -285,33 +234,13 @@ NVTX.@annotate "get_Hs!" function get_Hs!(
 
     get_Hs_nonnegative!(Hsblocks, w, rng_cones, rng_blocks, idx_inq)
 
-    if n_soc > 0
-        n_shift = n_linear
-        if n_sparse_soc > SPARSE_SOC_PARALELL_NUM
-            get_Hs_soc_sparse_parallel!(Hsblocks, η, d, rng_blocks, n_shift, n_sparse_soc)
-        elseif n_sparse_soc > 0
-            get_Hs_soc_sparse_parallel_medium!(Hsblocks, η, d, rng_blocks, n_shift, n_sparse_soc)
-        end
+    get_Hs_soc!(sparse_soc_case(Val(n_sparse_soc)), Hsblocks, w, η, d, rng_cones, rng_blocks, n_linear, n_dense_soc, n_sparse_soc)
 
-        if n_dense_soc > 0 
-            get_Hs_soc_dense!(Hsblocks, w, η, rng_cones, rng_blocks, n_shift + n_sparse_soc, n_sparse_soc, n_dense_soc)
-        end
-    end
+    get_Hs_exp!(Val(n_exp > 0), Hsblocks, Hs, rng_blocks, n_linear+n_soc, n_exp)
 
-    if n_exp > 0
-        n_shift = n_linear+n_soc
-        get_Hs_exp!(Hsblocks, Hs, rng_blocks, n_shift, n_exp)
-    end
+    get_Hs_pow!(Val(n_pow > 0), Hsblocks, Hs, rng_blocks, n_linear+n_soc+n_exp, n_exp, n_pow)
 
-    if n_pow > 0
-        n_shift = n_linear+n_soc+n_exp
-        get_Hs_pow!(Hsblocks, Hs, rng_blocks, n_shift, n_exp, n_pow)
-    end
-
-    if n_psd > 0
-        n_shift = n_linear+n_soc+n_exp+n_pow
-        get_Hs_psd!(Hsblocks, Hspsd, rng_blocks, n_shift, n_psd)
-    end
+    get_Hs_psd!(Val(n_psd > 0), Hsblocks, Hspsd, rng_blocks, n_linear+n_soc+n_exp+n_pow, n_psd)
 
     synchronize()
     return nothing
@@ -330,6 +259,7 @@ NVTX.@annotate "mul_Hs" function mul_Hs!(
 
     n_linear = cones.n_linear
     n_soc = cones.n_soc
+    n_dense_soc = cones.n_dense_soc
     n_sparse_soc = cones.n_sparse_soc
     n_exp = cones.n_exp
     n_pow = cones.n_pow
@@ -347,77 +277,61 @@ NVTX.@annotate "mul_Hs" function mul_Hs!(
     
     mul_Hs_nonnegative!(y, x, w, rng_cones, idx_inq)
 
-    n_shift = n_linear
-    if n_sparse_soc > 0 && n_sparse_soc <= SPARSE_SOC_PARALELL_NUM
-        mul_Hs_soc_parallel_medium!(y, x, w, η, 
-                            cones.worksoc1,
-                            rng_cones, n_shift, n_sparse_soc)
-        n_shift += n_sparse_soc
-        n_soc -= n_sparse_soc
-    end
-    if n_soc > 0
-        mul_Hs_soc!(y, x, w, η, rng_cones, n_shift, n_soc)
-        n_shift += n_soc
-    end
+    mul_Hs_soc!(sparse_soc_case(Val(n_sparse_soc)), y, x, w, η, cones.worksoc1, rng_cones, n_linear, n_soc, n_dense_soc, n_sparse_soc)
 
     n_nonsymmetric = n_exp + n_pow
-    if n_nonsymmetric > 0
-        mul_Hs_nonsymmetric!(y, Hs, x, rng_cones, n_shift, n_nonsymmetric)
-        n_shift += n_nonsymmetric
-    end
+    mul_Hs_nonsymmetric!(Val(n_nonsymmetric > 0), y, Hs, x, rng_cones, n_linear+n_soc, n_nonsymmetric)
 
-    if n_psd > 0
-        mul_Hs_psd!(y, x, Hspsd, rng_cones, n_shift, n_psd, psd_dim)
-    end
+    mul_Hs_psd!(Val(n_psd > 0), y, x, Hspsd, rng_cones, n_linear+n_soc+n_nonsymmetric, n_psd, psd_dim)
 
     synchronize()
 
     return nothing
 end
 
-NVTX.@annotate "mul_Hs_diag!" function mul_Hs_diag!(
-    cones::CompositeConeGPU{T},
-    y::CuVector{T},
-    x::CuVector{T}
-) where {T}
+# NVTX.@annotate "mul_Hs_diag!" function mul_Hs_diag!(
+#     cones::CompositeConeGPU{T},
+#     y::CuVector{T},
+#     x::CuVector{T}
+# ) where {T}
 
-    n_linear = cones.n_linear
-    n_soc = cones.n_soc
-    n_sparse_soc = cones.n_sparse_soc
-    n_exp = cones.n_exp
-    n_pow = cones.n_pow
-    n_psd = cones.n_psd
-    psd_dim = cones.psd_dim
-    Hs = cones.Hs
-    Hspsd = cones.Hspsd
-    rng_cones = cones.rng_cones
-    idx_eq = cones.idx_eq
-    idx_inq = cones.idx_inq
-    w = cones.w
-    η = cones.η
+#     n_linear = cones.n_linear
+#     n_soc = cones.n_soc
+#     n_sparse_soc = cones.n_sparse_soc
+#     n_exp = cones.n_exp
+#     n_pow = cones.n_pow
+#     n_psd = cones.n_psd
+#     psd_dim = cones.psd_dim
+#     Hs = cones.Hs
+#     Hspsd = cones.Hspsd
+#     rng_cones = cones.rng_cones
+#     idx_eq = cones.idx_eq
+#     idx_inq = cones.idx_inq
+#     w = cones.w
+#     η = cones.η
 
-    mul_Hs_zero!(y, rng_cones, idx_eq)
+#     mul_Hs_zero!(y, rng_cones, idx_eq)
     
-    mul_Hs_nonnegative!(y, x, w, rng_cones, idx_inq)
+#     mul_Hs_nonnegative!(y, x, w, rng_cones, idx_inq)
 
-    if (n_soc - n_sparse_soc) > 0
-        mul_Hs_dense_soc!(y, x, w, η, rng_cones, n_linear, n_sparse_soc, n_soc)
-    end
+#     if (n_soc - n_sparse_soc) > 0
+#         mul_Hs_dense_soc!(y, x, w, η, rng_cones, n_linear, n_soc, n_dense_soc, n_sparse_soc)
+#     end
 
-    n_nonsymmetric = n_exp + n_pow
-    if n_nonsymmetric > 0
-        n_shift = n_linear+n_soc
-        mul_Hs_nonsymmetric!(y, Hs, x, rng_cones, n_shift, n_nonsymmetric)
-    end
+#     n_nonsymmetric = n_exp + n_pow
+#     if n_nonsymmetric > 0
+#         n_shift = n_linear+n_soc
+#         mul_Hs_nonsymmetric!(y, Hs, x, rng_cones, n_shift, n_nonsymmetric)
+#     end
 
-    if n_psd > 0
-        n_shift = n_linear+n_soc+n_exp+n_pow
-        mul_Hs_psd!(y, x, Hspsd, rng_cones, n_shift, n_psd, psd_dim)
-    end
+#     if n_psd > 0
+#         n_shift = n_linear+n_soc+n_exp+n_pow
+#         mul_Hs_psd!(y, x, Hspsd, rng_cones, n_shift, n_psd, psd_dim)
+#     end
 
-    synchronize()
-    return nothing
-end
+#     synchronize()
+#     return nothing
+# end
 
 # x = λ ∘ λ for symmetric cone and x = s for asymmetric cones
 NVTX.@annotate "affine_ds!" function affine_ds!(
@@ -428,6 +342,7 @@ NVTX.@annotate "affine_ds!" function affine_ds!(
 
     n_linear = cones.n_linear
     n_soc = cones.n_soc
+    n_dense_soc = cones.n_dense_soc
     n_sparse_soc = cones.n_sparse_soc
     n_exp = cones.n_exp
     n_pow = cones.n_pow
@@ -443,30 +358,13 @@ NVTX.@annotate "affine_ds!" function affine_ds!(
 
     affine_ds_nonnegative!(ds, λ, rng_cones, idx_inq)
 
-    n_shift = n_linear
-    if n_sparse_soc > 0 && n_sparse_soc <= SPARSE_SOC_PARALELL_NUM
-        affine_ds_soc_parallel_medium!(ds, λ,
-                            cones.worksoc1,
-                            rng_cones, n_shift, n_sparse_soc)
-        n_shift += n_sparse_soc
-        n_soc -= n_sparse_soc
-    end
-
-    if n_soc > 0
-        affine_ds_soc!(ds, λ, rng_cones, n_shift, n_soc)
-        n_shift += n_soc
-    end
+    affine_ds_soc!(sparse_soc_case(Val(n_sparse_soc)), ds, λ, cones.worksoc1, rng_cones, n_linear, n_soc, n_dense_soc, n_sparse_soc)
 
     #update nonsymmetric cones
     n_nonsymmetric = n_exp + n_pow
-    if n_nonsymmetric > 0
-        affine_ds_nonsymmetric!(ds, s, rng_cones, n_shift, n_nonsymmetric)
-        n_shift += n_nonsymmetric
-    end
+    affine_ds_nonsymmetric!(Val(n_nonsymmetric > 0), ds, s, rng_cones, n_linear + cones.n_soc, n_nonsymmetric)
 
-    if n_psd > 0
-        affine_ds_psd_gpu!(ds,λpsd,rng_cones,psd_dim,n_shift,n_psd)
-    end
+    affine_ds_psd!(Val(n_psd > 0), ds, λpsd, rng_cones, psd_dim, n_linear+n_soc+n_nonsymmetric, n_psd)
 
     synchronize()
     return nothing
@@ -483,6 +381,7 @@ NVTX.@annotate "combined_ds_shift!" function combined_ds_shift!(
 
     n_linear = cones.n_linear
     n_soc = cones.n_soc
+    n_dense_soc = cones.n_dense_soc
     n_sparse_soc = cones.n_sparse_soc
     n_exp = cones.n_exp
     n_pow = cones.n_pow
@@ -498,39 +397,19 @@ NVTX.@annotate "combined_ds_shift!" function combined_ds_shift!(
     
     combined_ds_shift_zero!(shift, rng_cones, idx_eq)
 
-    NVTX.NVTX.@range "Nonnegative" begin
-        combined_ds_shift_nonnegative!(shift, step_z, step_s, σμ, rng_cones, idx_inq)
-    end
+    # NVTX.@range "Nonnegative" begin
+    combined_ds_shift_nonnegative!(shift, step_z, step_s, σμ, rng_cones, idx_inq)
+    # end
 
-    n_shift = n_linear
-    NVTX.NVTX.@range "soc medium" begin
-        if n_sparse_soc > 0 && n_sparse_soc <= SPARSE_SOC_PARALELL_NUM
-            combined_ds_shift_soc_parallel_medium!(shift, step_z, step_s, w, η,
+    combined_ds_shift_soc!(sparse_soc_case(Val(n_sparse_soc)), shift, step_z, step_s, w, η,
                                 cones.worksoc1, cones.worksoc2, cones.worksoc3,
-                                rng_cones, n_shift, n_sparse_soc, σμ)
-            n_shift += n_sparse_soc
-            n_soc -= n_sparse_soc
-        end
-    end
-    
-    if n_soc > 0
-        combined_ds_shift_soc!(shift, step_z, step_s, w, η, rng_cones, n_shift, n_soc, σμ)
-        n_shift += n_soc
-    end
+                                rng_cones, n_linear, n_soc, n_dense_soc, n_sparse_soc, σμ)
 
-    if n_exp > 0
-        combined_ds_shift_exp!(shift, step_z, step_s, z, grad, H_dual, rng_cones, σμ, n_shift, n_exp)
-        n_shift += n_exp
-    end
+    combined_ds_shift_exp!(Val(n_exp > 0), shift, step_z, step_s, z, grad, H_dual, rng_cones, σμ, n_linear + n_soc, n_exp)
 
-    if n_pow > 0
-        combined_ds_shift_pow!(shift, step_z, step_s, z, grad, H_dual, αp, rng_cones, σμ, n_shift, n_exp, n_pow)
-        n_shift += n_pow
-    end
+    combined_ds_shift_pow!(Val(n_pow > 0), shift, step_z, step_s, z, grad, H_dual, αp, rng_cones, σμ, n_linear + n_soc + n_exp, n_exp, n_pow)
     
-    if n_psd > 0 
-        combined_ds_shift_psd!(cones,shift,step_z,step_s,n_shift,n_psd,σμ)
-    end
+    combined_ds_shift_psd!(Val(n_psd > 0), cones, shift, step_z, step_s, n_linear + n_soc + n_exp + n_pow, n_psd, σμ)
 
     synchronize()
     return nothing
@@ -547,6 +426,7 @@ NVTX.@annotate "Δs_from_Δz_offset!" function Δs_from_Δz_offset!(
 
     n_linear = cones.n_linear
     n_soc = cones.n_soc
+    n_dense_soc = cones.n_dense_soc
     n_sparse_soc = cones.n_sparse_soc
     n_exp = cones.n_exp
     n_pow = cones.n_pow
@@ -562,29 +442,14 @@ NVTX.@annotate "Δs_from_Δz_offset!" function Δs_from_Δz_offset!(
     
     Δs_from_Δz_offset_nonnegative!(out, ds, z, rng_cones, idx_inq)
 
-    n_shift = n_linear
-    if n_sparse_soc > 0 && n_sparse_soc <= SPARSE_SOC_PARALELL_NUM
-        Δs_from_Δz_offset_soc_parallel_medium!(out, ds, z, w, λ, η, 
+    Δs_from_Δz_offset_soc!(sparse_soc_case(Val(n_sparse_soc)), out, ds, z, w, λ, η, 
                                                 cones.worksoc1, cones.worksoc2, cones.worksoc3,
-                                                rng_cones, n_shift, n_sparse_soc)
-        n_shift += n_sparse_soc
-        n_soc -= n_sparse_soc
-    end
-
-    if n_soc > 0
-        Δs_from_Δz_offset_soc!(out, ds, z, w, λ, η, rng_cones, n_shift, n_soc)
-        n_shift += n_soc
-    end
+                                                rng_cones, n_linear, n_soc, n_dense_soc, n_sparse_soc)
 
     n_nonsymmetric = n_exp+n_pow
-    if n_nonsymmetric > 0
-        Δs_from_Δz_offset_nonsymmetric!(out, ds, rng_cones, n_shift, n_nonsymmetric)
-        n_shift += n_nonsymmetric
-    end
+    Δs_from_Δz_offset_nonsymmetric!(Val(n_nonsymmetric > 0), out, ds, rng_cones, n_linear + cones.n_soc, n_nonsymmetric)
 
-    if n_psd > 0
-        Δs_from_Δz_offset_psd!(cones, out, ds, work, n_shift, n_psd)
-    end
+    Δs_from_Δz_offset_psd!(Val(n_psd > 0), cones, out, ds, work, n_linear + cones.n_soc + n_nonsymmetric, n_psd)
 
     synchronize()
 
@@ -605,6 +470,7 @@ NVTX.@annotate "step_length" function step_length(
     n_linear = cones.n_linear
     numel_linear = cones.numel_linear
     n_soc = cones.n_soc
+    n_dense_soc = cones.n_dense_soc
     n_sparse_soc = cones.n_sparse_soc
     n_exp = cones.n_exp
     n_pow = cones.n_pow
@@ -625,55 +491,23 @@ NVTX.@annotate "step_length" function step_length(
     step_length_nonnegative(dz, ds, z, s, α, αmax, rng_cones, idx_inq)
     @views αmax = min(αmax, minimum(α[1:numel_linear]))
 
-    n_shift = n_linear
-    n_parallel_soc = n_soc
-    if n_sparse_soc > 0 && n_sparse_soc <= SPARSE_SOC_PARALELL_NUM
-        αmax = step_length_soc_parallel_medium(dz, ds, z, s, 
-                            cones.worksoc1, cones.worksoc2, cones.worksoc3,
-                            αmax, rng_cones, n_shift, n_sparse_soc)
-        n_shift += n_sparse_soc
-        n_parallel_soc -= n_sparse_soc
-    end
-
-    if n_parallel_soc > 0
-        αmax = step_length_soc(dz, ds, z, s, α, αmax, rng_cones, n_shift, n_parallel_soc)
-        if αmax < 0
-            throw(DomainError("starting point of line search not in SOC"))
-        end
-    end
+    αmax = step_length_soc(sparse_soc_case(Val(n_sparse_soc)), dz, ds, z, s,
+                            cones.worksoc1, cones.worksoc2, cones.worksoc3, 
+                            α, αmax, rng_cones,
+                            n_linear, n_soc, n_dense_soc, n_sparse_soc)
 
     n_nonsymmetric = n_exp+n_pow
-    if n_psd > 0
-        n_shift = n_linear+n_soc+n_nonsymmetric
-        αmax = step_length_psd(dz, ds, Λisqrt, eigvals, d, Rx, Rinv, workmat1, workmat2, workmat3, αmax, rng_cones, n_shift, n_psd)
-        if αmax < 0
-            throw(DomainError("starting point of line search not in positive semidefinite cones"))
-        end
-    end
+    αmax = step_length_psd(Val(n_psd > 0), dz, ds, Λisqrt, eigvals, d, Rx, Rinv, workmat1, workmat2, workmat3, αmax, rng_cones, n_linear+n_soc+n_nonsymmetric, n_psd)
 
     step = settings.linesearch_backtrack_step
     αmin = settings.min_terminate_step_length
     #if we have any nonsymmetric cones, then back off from full steps slightly
     #so that centrality checks and logarithms don't fail right at the boundaries
-    if(n_nonsymmetric > 0)
-        αmax = min(αmax,settings.max_step_fraction)
-    end
+    αmax = fractional_step(Val(n_nonsymmetric > 0), αmax, settings.max_step_fraction)
   
-    if n_exp > 0
-        n_shift = n_linear+n_soc
-        αmax = step_length_exp(dz, ds, z, s, α, rng_cones, αmax, αmin, step, n_shift, n_exp)
-        if αmax < 0
-            throw(DomainError("starting point of line search not in expotential cones"))
-        end
-    end
+    αmax = step_length_exp(Val(n_exp > 0), dz, ds, z, s, α, rng_cones, αmax, αmin, step, n_linear+n_soc, n_exp)
 
-    if n_pow > 0
-        n_shift = n_linear+n_soc+n_exp
-        αmax = step_length_pow(dz,ds,z,s,α,αp,rng_cones,αmax,αmin,step,n_shift,n_pow)
-        if αmax < 0
-            throw(DomainError("starting point of line search not in power cones"))
-        end
-    end
+    αmax = step_length_pow(Val(n_pow > 0), dz, ds, z, s, α, αp, rng_cones, αmax, αmin, step, n_linear+n_soc+n_exp, n_pow)
 
     return (αmax,αmax)
 end
@@ -700,37 +534,18 @@ NVTX.@annotate "compute_barrier" function compute_barrier(
     workmat1 = cones.workmat1
     workvec  = cones.workvec
 
-    barrier = zero(T)
     work = cones.α
     
-    if n_nn > 0
-        val = compute_barrier_nonnegative(work, z, s, dz, ds, α, rng_cones, cones.idx_inq, n_nn)
-        barrier += val
-    end
+    barrier_nn = compute_barrier_nonnegative(Val(n_nn > 0), work, z, s, dz, ds, α, rng_cones, cones.idx_inq, n_nn)
 
-    if n_soc > 0
-        val = compute_barrier_soc(work, z, s, dz, ds, α, rng_cones, n_linear, n_soc)
-        barrier += val
-    end
+    barrier_soc = compute_barrier_soc(Val(n_soc > 0), work, z, s, dz, ds, α, rng_cones, n_linear, n_soc)
 
-    if n_exp > 0
-        n_shift = n_linear+n_soc
-        val = compute_barrier_exp(work, z, s, dz, ds, α, rng_cones, n_shift, n_exp)
-        barrier += val
-    end
+    barrier_exp = compute_barrier_exp(Val(n_exp > 0), work, z, s, dz, ds, α, rng_cones, n_linear+n_soc, n_exp)
 
-    if n_pow > 0
-        n_shift = n_linear+n_soc+n_exp
-        val = compute_barrier_pow(work, z, s, dz, ds, α, αp, rng_cones, n_shift, n_pow)
-        barrier += val
-    end
+    barrier_pow = compute_barrier_pow(Val(n_pow > 0), work, z, s, dz, ds, α, αp, rng_cones, n_linear+n_soc+n_exp, n_pow)
 
-    if n_psd > 0
-        n_shift = n_linear+n_soc+n_exp+n_pow
-        val = compute_barrier_psd(work, z, s, dz, ds, α, workmat1, workvec, rng_cones, psd_dim, n_shift, n_psd)
-        barrier += val
-    end
+    barrier_psd = compute_barrier_psd(Val(n_psd > 0), work, z, s, dz, ds, α, workmat1, workvec, rng_cones, psd_dim, n_linear+n_soc+n_exp+n_pow, n_psd)
 
-    return barrier
+    return (barrier_nn + barrier_soc + barrier_exp + barrier_pow + barrier_psd)
 end
 

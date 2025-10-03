@@ -39,6 +39,19 @@ function _kernel_unit_initialization_pow!(
 end
 
 @inline function unit_initialization_pow!(
+    ::Val{false},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    αp::AbstractVector{T},
+    rng_cones::AbstractVector,
+    n_shift::Cint,
+    n_pow::Cint
+) where{T}
+    return nothing
+end
+
+@inline function unit_initialization_pow!(
+    ::Val{true},
     z::AbstractVector{T},
     s::AbstractVector{T},
     αp::AbstractVector{T},
@@ -115,6 +128,25 @@ function _kernel_update_scaling_pow!(
 end
 
 @inline function update_scaling_pow!(
+    ::Val{false},
+    s::AbstractVector{T},
+    z::AbstractVector{T},
+    grad::AbstractArray{T},
+    Hs::AbstractArray{T},
+    H_dual::AbstractArray{T},
+    αp::AbstractVector{T},
+    rng_cones::AbstractVector,
+    μ::T,
+    scaling_strategy::ScalingStrategy,
+    n_shift::Cint,
+    n_exp::Cint,
+    n_pow::Cint
+) where {T}
+    return nothing
+end
+
+@inline function update_scaling_pow!(
+    ::Val{true},
     s::AbstractVector{T},
     z::AbstractVector{T},
     grad::AbstractArray{T},
@@ -167,6 +199,19 @@ function _kernel_get_Hs_pow!(
 end
 
 @inline function get_Hs_pow!(
+    ::Val{false},
+    Hsblocks::AbstractVector{T},
+    Hs::AbstractArray{T},
+    rng_blocks::AbstractVector,
+    n_shift::Cint,
+    n_exp::Cint,
+    n_pow::Cint
+) where {T}
+    return nothing
+end
+
+@inline function get_Hs_pow!(
+    ::Val{true},
     Hsblocks::AbstractVector{T},
     Hs::AbstractArray{T},
     rng_blocks::AbstractVector,
@@ -242,6 +287,25 @@ function _kernel_combined_ds_shift_pow!(
 end
 
 @inline function combined_ds_shift_pow!(
+    ::Val{false},
+    shift::AbstractVector{T},
+    step_z::AbstractVector{T},
+    step_s::AbstractVector{T},
+    z::AbstractVector{T},
+    grad::AbstractArray{T},
+    H_dual::AbstractArray{T},
+    αp::AbstractVector{T},
+    rng_cones::AbstractVector,
+    σμ::T,
+    n_shift::Cint,
+    n_exp::Cint,
+    n_pow::Cint
+) where {T}
+    return nothing
+end
+
+@inline function combined_ds_shift_pow!(
+    ::Val{true},
     shift::AbstractVector{T},
     step_z::AbstractVector{T},
     step_s::AbstractVector{T},
@@ -313,6 +377,25 @@ function _kernel_step_length_pow(
 end
 
 @inline function step_length_pow(
+    ::Val{false},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+     z::AbstractVector{T},
+     s::AbstractVector{T},
+     α::AbstractVector{T},
+     αp::AbstractVector{T},
+     rng_cones::AbstractVector,
+     αmax::T,
+     αmin::T,
+     step::T,
+     n_shift::Cint,
+     n_pow::Cint
+) where {T}
+    return αmax
+end
+
+@inline function step_length_pow(
+    ::Val{true},
     dz::AbstractVector{T},
     ds::AbstractVector{T},
      z::AbstractVector{T},
@@ -334,6 +417,10 @@ end
 
     CUDA.@sync kernel(dz,ds,z,s,α,αp,rng_cones,αmax,αmin,step,n_shift,n_pow; threads, blocks)
     @views αmax = min(αmax,minimum(α[1:n_pow]))
+
+    if αmax < 0
+        throw(DomainError("starting point of line search not in power cones"))
+    end
 
     return αmax
 end
@@ -425,6 +512,7 @@ function _kernel_compute_barrier_pow(
 end
 
 @inline function compute_barrier_pow(
+    ::Val{false},
     barrier::AbstractVector{T},
     z::AbstractVector{T},
     s::AbstractVector{T},
@@ -436,8 +524,22 @@ end
     n_shift::Cint,
     n_pow::Cint
 ) where {T}
+    return zero(T)
+end
 
-
+@inline function compute_barrier_pow(
+    ::Val{true},
+    barrier::AbstractVector{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T,
+    αp::AbstractVector{T},
+    rng_cones::AbstractVector,
+    n_shift::Cint,
+    n_pow::Cint
+) where {T}
     kernel = @cuda launch=false _kernel_compute_barrier_pow(barrier,z,s,dz,ds,α,αp,rng_cones,n_shift,n_pow)
     config = launch_configuration(kernel.fun)
     threads = min(n_pow, config.threads)

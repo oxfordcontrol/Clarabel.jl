@@ -38,6 +38,18 @@ function _kernel_unit_initialization_exp!(
 end
 
 @inline function unit_initialization_exp!(
+    ::Val{false},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    rng_cones::AbstractVector,
+    n_shift::Cint,
+    n_exp::Cint
+ ) where{T}
+    return nothing
+end
+
+@inline function unit_initialization_exp!(
+    ::Val{true},
     z::AbstractVector{T},
     s::AbstractVector{T},
     rng_cones::AbstractVector,
@@ -51,7 +63,7 @@ end
     blocks = cld(n_exp, threads)
 
     kernel(z, s, rng_cones, n_shift, n_exp; threads, blocks)
- end
+end
 
  # update the scaling matrix Hs
 @inline function update_Hs_exp(
@@ -110,6 +122,23 @@ function _kernel_update_scaling_exp!(
 end
 
 @inline function update_scaling_exp!(
+    ::Val{false},
+    s::AbstractVector{T},
+    z::AbstractVector{T},
+    grad::AbstractArray{T},
+    Hs::AbstractArray{T},
+    H_dual::AbstractArray{T},
+    rng_cones::AbstractVector,
+    μ::T,
+    scaling_strategy::ScalingStrategy,
+    n_shift::Cint,
+    n_exp::Cint
+) where {T}
+    return nothing
+end
+
+@inline function update_scaling_exp!(
+    ::Val{true},
     s::AbstractVector{T},
     z::AbstractVector{T},
     grad::AbstractArray{T},
@@ -159,6 +188,18 @@ function _kernel_get_Hs_exp!(
 end
 
 @inline function get_Hs_exp!(
+    ::Val{false},
+    Hsblocks::AbstractVector{T},
+    Hs::AbstractArray{T},
+    rng_blocks::AbstractVector,
+    n_shift::Cint,
+    n_exp::Cint
+) where {T}
+    return nothing
+end
+
+@inline function get_Hs_exp!(
+    ::Val{true},
     Hsblocks::AbstractVector{T},
     Hs::AbstractArray{T},
     rng_blocks::AbstractVector,
@@ -214,6 +255,23 @@ function _kernel_combined_ds_shift_exp!(
 end
 
 @inline function combined_ds_shift_exp!(
+    ::Val{false},
+    shift::AbstractVector{T},
+    step_z::AbstractVector{T},
+    step_s::AbstractVector{T},
+    z::AbstractVector{T},
+    grad::AbstractArray{T},
+    H_dual::AbstractArray{T},
+    rng_cones::AbstractVector,
+    σμ::T,
+    n_shift::Cint,
+    n_exp::Cint
+) where {T}
+    return nothing
+end
+
+@inline function combined_ds_shift_exp!(
+    ::Val{true},
     shift::AbstractVector{T},
     step_z::AbstractVector{T},
     step_s::AbstractVector{T},
@@ -282,6 +340,24 @@ function _kernel_step_length_exp(
 end
 
 @inline function step_length_exp(
+    ::Val{false},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+     z::AbstractVector{T},
+     s::AbstractVector{T},
+     α::AbstractVector{T},
+     rng_cones::AbstractVector,
+     αmax::T,
+     αmin::T,
+     step::T,
+     n_shift::Cint,
+     n_exp::Cint
+) where {T}
+    return αmax
+end
+
+@inline function step_length_exp(
+    ::Val{true},
     dz::AbstractVector{T},
     ds::AbstractVector{T},
      z::AbstractVector{T},
@@ -301,6 +377,10 @@ end
 
     CUDA.@sync kernel(dz, ds, z, s, α, rng_cones, αmax, αmin, step, n_shift, n_exp; threads, blocks)
     @views αmax = min(αmax, minimum(α[1:n_exp]))
+
+    if αmax < 0
+        throw(DomainError("starting point of line search not in expotential cones"))
+    end
 
     return αmax
 end
@@ -389,6 +469,7 @@ function _kernel_compute_barrier_exp(
 end
 
 @inline function compute_barrier_exp(
+    ::Val{false},
     barrier::AbstractVector{T},
     z::AbstractVector{T},
     s::AbstractVector{T},
@@ -399,8 +480,21 @@ end
     n_shift::Cint,
     n_exp::Cint
 ) where {T}
+    return zero(T)
+end
 
-
+@inline function compute_barrier_exp(
+    ::Val{true},
+    barrier::AbstractVector{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T,
+    rng_cones::AbstractVector,
+    n_shift::Cint,
+    n_exp::Cint
+) where {T}
     kernel = @cuda launch=false _kernel_compute_barrier_exp(barrier,z,s,dz,ds,α,rng_cones,n_shift,n_exp)
     config = launch_configuration(kernel.fun)
     threads = min(n_exp, config.threads)

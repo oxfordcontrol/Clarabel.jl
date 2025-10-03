@@ -16,7 +16,19 @@
 #     return false
 # end
 
-@inline function margins_nonnegative(
+function margins_nonnegative(
+    ::Val{false},
+    z::AbstractVector{T},
+    α::AbstractVector{T},
+    rng_cones::AbstractVector,
+    idx_inq::Vector{Cint},
+    αmin::T
+) where{T}
+    return (αmin, zero(T))
+end
+
+function margins_nonnegative(
+    ::Val{true},
     z::AbstractVector{T},
     α::AbstractVector{T},
     rng_cones::AbstractVector,
@@ -272,6 +284,22 @@ function _kernel_compute_barrier_nonnegative(
 end
 
 @inline function compute_barrier_nonnegative(
+    ::Val{false},
+    work::AbstractVector{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T,
+    rng_cones::AbstractVector,
+    idx_inq::Vector{Cint},
+    len_nn::Cint
+) where {T}
+    return zero(T)
+end
+
+@inline function compute_barrier_nonnegative(
+    ::Val{true},
     work::AbstractVector{T},
     z::AbstractVector{T},
     s::AbstractVector{T},

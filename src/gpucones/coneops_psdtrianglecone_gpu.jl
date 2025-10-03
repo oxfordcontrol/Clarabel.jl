@@ -8,7 +8,21 @@ using GenericLinearAlgebra  # extends SVD, eigs etc for BigFloats
 # numel(K::PSDTriangleCone{T})  where {T} = K.numel    #number of elements
 
 # function margins is implemented explicitly into the compositecone operation
-@inline function margins_psd(
+function margins_psd(
+    ::Val{false},
+    Z::AbstractArray{T,3},
+    z::AbstractVector{T},
+    eigvals::AbstractMatrix{T},
+    rng_cones::AbstractVector,
+    n_shift::Cint,
+    n_psd::Cint,
+    αmin::T
+) where {T}
+    return (αmin, zero(T))
+end
+
+function margins_psd(
+    ::Val{true},
     Z::AbstractArray{T,3},
     z::AbstractVector{T},
     eigvals::AbstractMatrix{T},
@@ -53,6 +67,19 @@ function _kernel_scaled_unit_shift_psd!(
 end
 
 @inline function scaled_unit_shift_psd!(
+    ::Val{false},
+    z::AbstractVector{T},
+    α::T,
+    rng_cones::AbstractVector,
+    psd_dim::Cint,
+    n_shift::Cint,
+    n_psd::Cint
+) where {T}
+    return nothing
+end
+
+@inline function scaled_unit_shift_psd!(
+    ::Val{true},
     z::AbstractVector{T},
     α::T,
     rng_cones::AbstractVector,
@@ -69,7 +96,20 @@ end
 end
 
 # unit initialization for asymmetric solves
-@inline function unit_initialization_psd_gpu!(
+@inline function unit_initialization_psd!(
+    ::Val{false},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    rng_cones::AbstractVector,
+    psd_dim::Cint,
+    n_shift::Cint,
+    n_psd::Cint
+ ) where{T}
+    return nothing
+ end
+
+@inline function unit_initialization_psd!(
+    ::Val{true},
     z::AbstractVector{T},
     s::AbstractVector{T},
     rng_cones::AbstractVector,
@@ -85,8 +125,8 @@ end
     end
     α = one(T)
 
-    scaled_unit_shift_psd!(z,α,rng_cones,psd_dim,n_shift,n_psd)
-    scaled_unit_shift_psd!(s,α,rng_cones,psd_dim,n_shift,n_psd)
+    scaled_unit_shift_psd!(Val(n_psd > 0), z,α,rng_cones,psd_dim,n_shift,n_psd)
+    scaled_unit_shift_psd!(Val(n_psd > 0), s,α,rng_cones,psd_dim,n_shift,n_psd)
  
     return nothing
  end
@@ -117,6 +157,18 @@ function _kernel_set_identity_scaling_psd!(
 end
 
 @inline function set_identity_scaling_psd!(
+    ::Val{false},
+    R::AbstractArray{T,3},
+    Rinv::AbstractArray{T,3},
+    Hspsd::AbstractArray{T,3},
+    psd_dim::Cint,
+    n_psd::Cint
+) where {T}
+    return nothing
+end
+
+@inline function set_identity_scaling_psd!(
+    ::Val{true},
     R::AbstractArray{T,3},
     Rinv::AbstractArray{T,3},
     Hspsd::AbstractArray{T,3},
@@ -132,6 +184,29 @@ end
 end
 
 @inline function update_scaling_psd!(
+    ::Val{false},
+    L1::AbstractArray{T,3},
+    L2::AbstractArray{T,3},
+    U::AbstractArray{T,3}, 
+    S::AbstractArray{T,2}, 
+    V::AbstractArray{T,3},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    workmat1::AbstractArray{T,3},
+    λpsd::AbstractMatrix{T},
+    Λisqrt::AbstractMatrix{T},
+    R::AbstractArray{T,3},
+    Rinv::AbstractArray{T,3},
+    Hspsd::AbstractArray{T,3},
+    rng_cones::AbstractVector,
+    n_shift::Cint,
+    n_psd::Cint
+) where {T}
+    return nothing
+end
+
+@inline function update_scaling_psd!(
+    ::Val{true},
     L1::AbstractArray{T,3},
     L2::AbstractArray{T,3},
     U::AbstractArray{T,3}, 
@@ -219,6 +294,18 @@ function _kernel_get_Hs_psd!(
 end
 
 @inline function get_Hs_psd!(
+    ::Val{false},
+    Hsblocks::AbstractVector{T},
+    Hspsd::AbstractArray{T,3},
+    rng_blocks::AbstractVector,
+    n_shift::Cint,
+    n_psd::Cint
+) where {T}
+    return nothing
+end
+
+@inline function get_Hs_psd!(
+    ::Val{true},
     Hsblocks::AbstractVector{T},
     Hspsd::AbstractArray{T,3},
     rng_blocks::AbstractVector,
@@ -237,6 +324,20 @@ end
 
 # compute the product y = WᵀWx
 @inline function mul_Hs_psd!(
+    ::Val{false},
+    y::AbstractVector{T},
+    x::AbstractVector{T},
+    Hspsd::AbstractArray{T,3},
+    rng_cones::AbstractVector,
+    n_shift::Cint,
+    n_psd::Cint,
+    psd_dim::Cint
+) where {T}
+    return nothing
+end
+
+@inline function mul_Hs_psd!(
+    ::Val{true},
     y::AbstractVector{T},
     x::AbstractVector{T},
     Hspsd::AbstractArray{T,3},
@@ -285,7 +386,20 @@ function _kernel_affine_ds_psd!(
     return nothing
 end
 
-@inline function affine_ds_psd_gpu!(
+@inline function affine_ds_psd!(
+    ::Val{false},
+    ds::AbstractVector{T},
+    λpsd::AbstractMatrix{T},
+    rng_cones::AbstractVector,
+    psd_dim::Cint,
+    n_shift::Cint,
+    n_psd::Cint
+) where {T}
+    return nothing
+end
+
+@inline function affine_ds_psd!(
+    ::Val{true},
     ds::AbstractVector{T},
     λpsd::AbstractMatrix{T},
     rng_cones::AbstractVector,
@@ -308,6 +422,20 @@ end
 end
 
 @inline function combined_ds_shift_psd!(
+    ::Val{false},
+    cones::CompositeConeGPU{T},
+    shift::AbstractVector{T},
+    step_z::AbstractVector{T},
+    step_s::AbstractVector{T},
+    n_shift::Cint,
+    n_psd::Cint,
+    σμ::T
+) where {T}
+    return nothing
+end
+
+@inline function combined_ds_shift_psd!(
+    ::Val{true},
     cones::CompositeConeGPU{T},
     shift::AbstractVector{T},
     step_z::AbstractVector{T},
@@ -349,7 +477,7 @@ end
 
     mat_to_svec_gpu!(shift,workmat3,rng_cones,n_shift,n_psd)       
     
-    scaled_unit_shift_psd!(shift,-σμ,rng_cones,psd_dim,n_shift,n_psd)                     
+    scaled_unit_shift_psd!(Val(n_psd > 0), shift,-σμ,rng_cones,psd_dim,n_shift,n_psd)                     
 
     return nothing
 
@@ -397,6 +525,19 @@ end
 end
 
 @inline function Δs_from_Δz_offset_psd!(
+    ::Val{false},
+    cones::CompositeConeGPU{T},
+    out::AbstractVector{T},
+    ds::AbstractVector{T},
+    work::AbstractVector{T},
+    n_shift::Cint,
+    n_psd::Cint
+) where {T}
+    return nothing
+end
+
+@inline function Δs_from_Δz_offset_psd!(
+    ::Val{true},
     cones::CompositeConeGPU{T},
     out::AbstractVector{T},
     ds::AbstractVector{T},
@@ -424,6 +565,27 @@ end
 end
 
 @inline function step_length_psd(
+    ::Val{false},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    Λisqrt::AbstractMatrix{T}, 
+    eigvals::AbstractMatrix{T},
+    d::AbstractVector{T}, 
+    Rx::AbstractArray{T,3}, 
+    Rinv::AbstractArray{T,3}, 
+    workmat1::AbstractArray{T,3}, 
+    workmat2::AbstractArray{T,3}, 
+    workmat3::AbstractArray{T,3},
+    αmax::T,
+    rng_cones::AbstractVector,
+    n_shift::Cint, 
+    n_psd::Cint
+) where {T}
+    return αmax
+end
+
+@inline function step_length_psd(
+    ::Val{true},
     dz::AbstractVector{T},
     ds::AbstractVector{T},
     Λisqrt::AbstractMatrix{T}, 
@@ -452,6 +614,10 @@ end
     αs = step_length_psd_component_gpu(workΔ, d, Λisqrt, eigvals, n_psd, αmax)
     
     @views αmax = min(αmax,αz,αs)
+
+    if αmax < 0
+        throw(DomainError("starting point of line search not in positive semidefinite cones"))
+    end
 
     return αmax
 end
@@ -511,6 +677,25 @@ end
 end
 
 @inline function compute_barrier_psd(
+    ::Val{false},
+    barrier::AbstractVector{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    dz::AbstractVector{T},
+    ds::AbstractVector{T},
+    α::T,
+    workmat1::AbstractArray{T,3},
+    workvec::AbstractVector{T},
+    rng_cones::AbstractVector,
+    psd_dim::Cint,
+    n_shift::Cint,
+    n_psd::Cint
+) where {T}
+    return zero(T)
+end
+
+@inline function compute_barrier_psd(
+    ::Val{true},
     barrier::AbstractVector{T},
     z::AbstractVector{T},
     s::AbstractVector{T},

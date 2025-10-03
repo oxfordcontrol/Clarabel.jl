@@ -44,6 +44,19 @@ function _kernel_mul_Hs_nonsymmetric!(
 end
 
 @inline function mul_Hs_nonsymmetric!(
+    ::Val{false},
+    y::AbstractVector{T},
+    Hs::AbstractArray{T},
+    x::AbstractVector{T},
+    rng_cones::AbstractVector,
+    n_shift::Cint,
+    n_nonsymmetric::Cint
+) where {T}
+    return nothing
+end
+
+@inline function mul_Hs_nonsymmetric!(
+    ::Val{true},
     y::AbstractVector{T},
     Hs::AbstractArray{T},
     x::AbstractVector{T},
@@ -61,6 +74,18 @@ end
 end
 
 @inline function affine_ds_nonsymmetric!(
+    ::Val{false},
+    ds::AbstractVector{T}, 
+    s::AbstractVector{T},  
+    rng_cones::AbstractVector,
+    n_shift::Cint, 
+    n_nonsymmetric::Cint
+) where {T}
+    return nothing
+end
+
+@inline function affine_ds_nonsymmetric!(
+    ::Val{true},
     ds::AbstractVector{T}, 
     s::AbstractVector{T},  
     rng_cones::AbstractVector,
@@ -75,6 +100,18 @@ end
 end
 
 @inline function Δs_from_Δz_offset_nonsymmetric!(
+    ::Val{false},
+    out::AbstractVector{T}, 
+    ds::AbstractVector{T}, 
+    rng_cones::AbstractVector, 
+    n_shift::Cint, 
+    n_nonsymmetric::Cint
+) where {T}
+    return nothing
+end
+
+@inline function Δs_from_Δz_offset_nonsymmetric!(
+    ::Val{true},
     out::AbstractVector{T}, 
     ds::AbstractVector{T}, 
     rng_cones::AbstractVector, 
@@ -277,7 +314,23 @@ end
     
 end
 
+# take fractional step 
+function fractional_step(
+    ::Val{false},
+    αmax::T,
+    max_step_fraction::T
+) where {T}
+    return αmax
+end
 
+function fractional_step(
+    ::Val{true},
+    αmax::T,
+    max_step_fraction::T
+) where {T}
+    αmax = min(αmax,max_step_fraction)
+    return αmax
+end
 # #------------------------------------------------------------
 # # Numerical sub-routines for primal barrier computation
 # #------------------------------------------------------------
