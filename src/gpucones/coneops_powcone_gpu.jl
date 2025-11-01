@@ -140,7 +140,9 @@ end
     scaling_strategy::ScalingStrategy,
     n_shift::Cint,
     n_exp::Cint,
-    n_pow::Cint
+    n_pow::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
     return nothing
 end
@@ -158,7 +160,9 @@ end
     scaling_strategy::ScalingStrategy,
     n_shift::Cint,
     n_exp::Cint,
-    n_pow::Cint
+    n_pow::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
 
     kernel = @cuda launch=false _kernel_update_scaling_pow!(s, z, grad, Hs, H_dual, αp, rng_cones, μ, scaling_strategy, n_shift, n_exp, n_pow)
@@ -166,7 +170,8 @@ end
     threads = min(n_pow, config.threads)
     blocks = cld(n_pow, threads)
 
-    kernel(s, z, grad, Hs, H_dual, αp, rng_cones, μ, scaling_strategy, n_shift, n_exp, n_pow; threads, blocks)
+    kernel(s, z, grad, Hs, H_dual, αp, rng_cones, μ, scaling_strategy, n_shift, n_exp, n_pow; threads, blocks, stream=st)
+    record(ev, st)
 end
 
 # return μH*(z) for power cone
@@ -205,7 +210,9 @@ end
     rng_blocks::AbstractVector,
     n_shift::Cint,
     n_exp::Cint,
-    n_pow::Cint
+    n_pow::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
     return nothing
 end
@@ -217,7 +224,9 @@ end
     rng_blocks::AbstractVector,
     n_shift::Cint,
     n_exp::Cint,
-    n_pow::Cint
+    n_pow::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
 
     kernel = @cuda launch=false _kernel_get_Hs_pow!(Hsblocks, Hs, rng_blocks, n_shift, n_exp, n_pow)
@@ -225,7 +234,8 @@ end
     threads = min(n_pow, config.threads)
     blocks = cld(n_pow, threads)
 
-    kernel(Hsblocks, Hs, rng_blocks, n_shift, n_exp, n_pow; threads, blocks)
+    kernel(Hsblocks, Hs, rng_blocks, n_shift, n_exp, n_pow; threads, blocks, stream = st)
+    record(ev, st)
 end
 
 # # compute the product y = Hₛx = μH(z)x
@@ -299,7 +309,9 @@ end
     σμ::T,
     n_shift::Cint,
     n_exp::Cint,
-    n_pow::Cint
+    n_pow::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
     return nothing
 end
@@ -317,7 +329,9 @@ end
     σμ::T,
     n_shift::Cint,
     n_exp::Cint,
-    n_pow::Cint
+    n_pow::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
 
     kernel = @cuda launch=false _kernel_combined_ds_shift_pow!(shift, step_z, step_s, z, grad, H_dual, αp, rng_cones, σμ, n_shift, n_exp, n_pow)
@@ -325,7 +339,8 @@ end
     threads = min(n_pow, config.threads)
     blocks = cld(n_pow, threads)
 
-    kernel(shift, step_z, step_s, z, grad, H_dual, αp, rng_cones, σμ, n_shift, n_exp, n_pow; threads, blocks)
+    kernel(shift, step_z, step_s, z, grad, H_dual, αp, rng_cones, σμ, n_shift, n_exp, n_pow; threads, blocks, stream=st)
+    record(ev, st)
 end
 
 # function Δs_from_Δz_offset!(

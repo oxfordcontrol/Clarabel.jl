@@ -50,7 +50,9 @@ end
     x::AbstractVector{T},
     rng_cones::AbstractVector,
     n_shift::Cint,
-    n_nonsymmetric::Cint
+    n_nonsymmetric::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
     return nothing
 end
@@ -62,7 +64,9 @@ end
     x::AbstractVector{T},
     rng_cones::AbstractVector,
     n_shift::Cint,
-    n_nonsymmetric::Cint
+    n_nonsymmetric::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
 
     kernel = @cuda launch=false _kernel_mul_Hs_nonsymmetric!(y, Hs, x, rng_cones, n_shift, n_nonsymmetric)
@@ -70,7 +74,33 @@ end
     threads = min(n_nonsymmetric, config.threads)
     blocks = cld(n_nonsymmetric, threads)
 
-    kernel(y, Hs, x, rng_cones, n_shift, n_nonsymmetric; threads, blocks)
+    kernel(y, Hs, x, rng_cones, n_shift, n_nonsymmetric; threads, blocks, stream=st)
+    record(ev, st)
+end
+
+function _kernel_affine_ds_nonsymmetric!(
+    ds::AbstractVector{T}, 
+    s::AbstractVector{T},  
+    rng_cones::AbstractVector,
+    n_shift::Cint, 
+    n_nonsymmetric::Cint,
+) where {T}
+
+    i = (blockIdx().x-one(Cint))*blockDim().x+threadIdx().x
+
+    if i <= n_nonsymmetric
+        shift_i = i + n_shift
+        rng_i = rng_cones[shift_i]
+        @views dsi = ds[rng_i]
+        @views si = s[rng_i]
+
+        @inbounds for j = 1:3
+            dsi[j] =  si[j]
+        end
+    end
+
+    return nothing
+
 end
 
 @inline function affine_ds_nonsymmetric!(
@@ -79,7 +109,9 @@ end
     s::AbstractVector{T},  
     rng_cones::AbstractVector,
     n_shift::Cint, 
-    n_nonsymmetric::Cint
+    n_nonsymmetric::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
     return nothing
 end
@@ -90,13 +122,42 @@ end
     s::AbstractVector{T},  
     rng_cones::AbstractVector,
     n_shift::Cint, 
-    n_nonsymmetric::Cint
+    n_nonsymmetric::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
-    CUDA.@allowscalar begin
-        rng = rng_cones[n_shift+1].start:rng_cones[n_shift+n_nonsymmetric].stop
+    kernel = @cuda launch=false _kernel_affine_ds_nonsymmetric!(ds, s, rng_cones, n_shift, n_nonsymmetric)
+    config = launch_configuration(kernel.fun)
+    threads = min(n_nonsymmetric, config.threads)
+    blocks = cld(n_nonsymmetric, threads)
+
+    kernel(ds, s, rng_cones, n_shift, n_nonsymmetric; threads, blocks, stream=st)
+    record(ev, st)
+end
+
+function _kernel_Δs_from_Δz_offset_nonsymmetric!(
+    out::AbstractVector{T}, 
+    ds::AbstractVector{T},  
+    rng_cones::AbstractVector,
+    n_shift::Cint, 
+    n_nonsymmetric::Cint,
+) where {T}
+
+    i = (blockIdx().x-one(Cint))*blockDim().x+threadIdx().x
+
+    if i <= n_nonsymmetric
+        shift_i = i + n_shift
+        rng_i = rng_cones[shift_i]
+        @views outi = out[rng_i]
+        @views dsi = ds[rng_i]
+
+        @inbounds for j = 1:3
+            outi[j] =  dsi[j]
+        end
     end
 
-    @. ds[rng] = s[rng]
+    return nothing
+
 end
 
 @inline function Δs_from_Δz_offset_nonsymmetric!(
@@ -105,7 +166,9 @@ end
     ds::AbstractVector{T}, 
     rng_cones::AbstractVector, 
     n_shift::Cint, 
-    n_nonsymmetric::Cint
+    n_nonsymmetric::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
     return nothing
 end
@@ -116,12 +179,17 @@ end
     ds::AbstractVector{T}, 
     rng_cones::AbstractVector, 
     n_shift::Cint, 
-    n_nonsymmetric::Cint
+    n_nonsymmetric::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
-    CUDA.@allowscalar begin
-        rng = rng_cones[n_shift + 1].start:rng_cones[n_shift + n_nonsymmetric].stop
-    end
-    @. out[rng] = ds[rng]
+    kernel = @cuda launch=false _kernel_Δs_from_Δz_offset_nonsymmetric!(out, ds, rng_cones, n_shift, n_nonsymmetric)
+    config = launch_configuration(kernel.fun)
+    threads = min(n_nonsymmetric, config.threads)
+    blocks = cld(n_nonsymmetric, threads)
+
+    kernel(out, ds, rng_cones, n_shift, n_nonsymmetric; threads, blocks, stream=st)
+    record(ev, st)
 end
 
 # use the dual scaling strategy

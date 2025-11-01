@@ -322,7 +322,8 @@ end
     η::AbstractVector{T},
     rng_cones::AbstractVector,
     n_shift::Cint,
-    n_soc::Cint
+    n_soc::Cint,
+    st::CuStream
 ) where {T}
     return nothing
 end
@@ -336,14 +337,15 @@ end
     η::AbstractVector{T},
     rng_cones::AbstractVector,
     n_shift::Cint,
-    n_soc::Cint
+    n_soc::Cint,
+    st::CuStream
 ) where {T}
     kernel = @cuda launch=false _kernel_update_scaling_soc!(s, z, w, λ, η, rng_cones, n_shift, n_soc)
     config = launch_configuration(kernel.fun)
     threads = min(n_soc, config.threads)
     blocks = cld(n_soc, threads)
 
-    kernel(s, z, w, λ, η, rng_cones, n_shift, n_soc; threads, blocks)
+    kernel(s, z, w, λ, η, rng_cones, n_shift, n_soc; threads, blocks, stream = st)
 end
 
 #Case 0: n_sparse_soc = 0
@@ -361,12 +363,15 @@ end
     n_shift::Cint,
     n_soc::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
-    update_scaling_soc_dense!(Val(n_soc > 0), s, z, w, λ, η, rng_cones, n_shift, n_soc)
+    update_scaling_soc_dense!(Val(n_soc > 0), s, z, w, λ, η, rng_cones, n_shift, n_soc, st)
+    add_record(Val(n_soc > 0), st, ev)
 end
 
-#Case 0: n_sparse_soc > SPARSE_SOC_PARALELL_NUM
+#Case 2: n_sparse_soc > SPARSE_SOC_PARALELL_NUM
 @inline function update_scaling_soc!(
     ::Val{2},
     s::AbstractVector{T},
@@ -381,9 +386,11 @@ end
     n_shift::Cint,
     n_soc::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
-    update_scaling_soc_dense!(Val(n_soc > 0), s, z, w, λ, η, rng_cones, n_shift, n_soc)
+    update_scaling_soc_dense!(Val(n_soc > 0), s, z, w, λ, η, rng_cones, n_shift, n_soc, st)
 end
 
 
@@ -495,7 +502,9 @@ end
     rng_cones::AbstractVector,
     numel_linear::Cint,
     n_shift::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
     return nothing
 end
@@ -509,7 +518,9 @@ end
     rng_cones::AbstractVector,
     numel_linear::Cint,
     n_shift::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
 
     kernel = @cuda launch=false _kernel_update_scaling_soc_sparse!(w, η, d, vut, rng_cones, numel_linear, n_shift, n_sparse_soc)
@@ -517,8 +528,8 @@ end
     threads = min(n_sparse_soc, config.threads)
     blocks = cld(n_sparse_soc, threads)
 
-    kernel(w, η, d, vut, rng_cones, numel_linear, n_shift, n_sparse_soc; threads, blocks)
-
+    kernel(w, η, d, vut, rng_cones, numel_linear, n_shift, n_sparse_soc; threads, blocks, stream=st)
+    record(ev, st)
 end
 
 function _kernel_get_Hs_soc_dense!(
@@ -573,7 +584,8 @@ end
     rng_blocks::AbstractVector,
     n_shift::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream
 ) where {T}
     return nothing
 end
@@ -587,7 +599,8 @@ end
     rng_blocks::AbstractVector,
     n_shift::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream
 ) where {T}
 
     kernel = @cuda launch=false _kernel_get_Hs_soc_dense!(Hsblocks, w, η, rng_cones, rng_blocks, n_shift, n_dense_soc, n_sparse_soc)
@@ -595,7 +608,7 @@ end
     threads = min(n_dense_soc, config.threads)
     blocks = cld(n_dense_soc, threads)
 
-    kernel(Hsblocks, w, η, rng_cones, rng_blocks, n_shift, n_dense_soc, n_sparse_soc; threads, blocks)
+    kernel(Hsblocks, w, η, rng_cones, rng_blocks, n_shift, n_dense_soc, n_sparse_soc; threads, blocks, stream=st)
 
 end
 
@@ -635,9 +648,12 @@ end
     rng_blocks::AbstractVector,
     n_shift::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
-    get_Hs_soc_dense!(Val(n_dense_soc > 0), Hsblocks, w, η, rng_cones, rng_blocks, n_shift, n_dense_soc, n_sparse_soc)
+    get_Hs_soc_dense!(Val(n_dense_soc > 0), Hsblocks, w, η, rng_cones, rng_blocks, n_shift, n_dense_soc, n_sparse_soc, st)
+    add_record(Val(n_dense_soc > 0), st, ev)
 end
 
 @inline function get_Hs_soc!(
@@ -650,7 +666,9 @@ end
     rng_blocks::AbstractVector,
     n_shift::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
 
     #For sparse form, we are returning here the diagonal D block 
@@ -663,11 +681,12 @@ end
     threads = min(n_sparse_soc, config.threads)
     blocks = cld(n_sparse_soc, threads)
 
-    kernel(Hsblocks, η, d, rng_blocks, n_shift, n_sparse_soc; threads, blocks)
+    kernel(Hsblocks, η, d, rng_blocks, n_shift, n_sparse_soc; threads, blocks, stream=st)
 
     #update dense socs
-    get_Hs_soc_dense!(Val(n_dense_soc > 0), Hsblocks, w, η, rng_cones, rng_blocks, n_shift + n_sparse_soc, n_dense_soc, n_sparse_soc)
+    get_Hs_soc_dense!(Val(n_dense_soc > 0), Hsblocks, w, η, rng_cones, rng_blocks, n_shift + n_sparse_soc, n_dense_soc, n_sparse_soc, st)
 
+    record(ev, st)
 end
 
 # compute the product y = WᵀWx
@@ -717,9 +736,12 @@ end
     n_linear::Cint,
     n_soc::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
-    mul_Hs_dense_soc!(Val(n_dense_soc > 0), y, x, w, η, rng_cones, n_linear, n_soc)
+    mul_Hs_dense_soc!(Val(n_dense_soc > 0), y, x, w, η, rng_cones, n_linear, n_soc, st)
+    add_record(Val(n_soc > 0), ev, st)
 end
 
 @inline function mul_Hs_soc!(
@@ -733,7 +755,9 @@ end
     n_linear::Cint,
     n_soc::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
 
     #multiply dense socs
@@ -742,7 +766,8 @@ end
     threads = min(n_soc, config.threads)
     blocks = cld(n_soc, threads)
 
-    kernel(y, x, w, η, rng_cones, n_linear, n_soc; threads, blocks)
+    kernel(y, x, w, η, rng_cones, n_linear, n_soc; threads, blocks, stream=st)
+    record(ev, st)
 end
 
 #multiplication on dense socs
@@ -754,7 +779,8 @@ end
     η::AbstractVector{T},
     rng_cones::AbstractVector,
     n_shift::Cint,
-    n_dense_soc::Cint
+    n_dense_soc::Cint,
+    st::CuStream
 ) where {T}
     return nothing
 end
@@ -767,7 +793,8 @@ end
     η::AbstractVector{T},
     rng_cones::AbstractVector,
     n_shift::Cint,
-    n_dense_soc::Cint
+    n_dense_soc::Cint,
+    st::CuStream
 ) where {T}
 
     kernel = @cuda launch=false _kernel_mul_Hs_soc!(y, x, w, η, rng_cones, n_shift, n_dense_soc)
@@ -775,7 +802,7 @@ end
     threads = min(n_dense_soc, config.threads)
     blocks = cld(n_dense_soc, threads)
 
-    kernel(y, x, w, η, rng_cones, n_shift, n_dense_soc; threads, blocks)
+    kernel(y, x, w, η, rng_cones, n_shift, n_dense_soc; threads, blocks, stream=st)
 end
 
 # returns x = λ ∘ λ for the socone
@@ -820,9 +847,12 @@ end
     n_linear::Cint,
     n_soc::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
-    affine_ds_dense_soc!(Val(n_soc > 0), ds, λ, rng_cones, n_linear, n_soc)
+    affine_ds_dense_soc!(Val(n_soc > 0), ds, λ, rng_cones, n_linear, n_soc, st)
+    add_record(Val(n_soc > 0), st, ev)
 end
 
 @inline function affine_ds_soc!(
@@ -834,9 +864,12 @@ end
     n_linear::Cint,
     n_soc::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
-    affine_ds_dense_soc!(Val(n_soc > 0), ds, λ, rng_cones, n_linear, n_soc)
+    affine_ds_dense_soc!(Val(n_soc > 0), ds, λ, rng_cones, n_linear, n_soc, st)
+    record(ev, st)
 end
 
 @inline function affine_ds_dense_soc!(
@@ -845,7 +878,8 @@ end
     λ::AbstractVector{T},
     rng_cones::AbstractVector,
     n_shift::Cint,
-    n_dense_soc::Cint
+    n_dense_soc::Cint,
+    st::CuStream
 ) where {T}
     return nothing
 end
@@ -856,7 +890,8 @@ end
     λ::AbstractVector{T},
     rng_cones::AbstractVector,
     n_shift::Cint,
-    n_dense_soc::Cint
+    n_dense_soc::Cint,
+    st::CuStream
 ) where {T}
 
     kernel = @cuda launch=false _kernel_affine_ds_soc!(ds, λ, rng_cones, n_shift, n_dense_soc)
@@ -864,7 +899,7 @@ end
     threads = min(n_dense_soc, config.threads)
     blocks = cld(n_dense_soc, threads)
 
-    kernel(ds, λ, rng_cones, n_shift, n_dense_soc; threads, blocks)
+    kernel(ds, λ, rng_cones, n_shift, n_dense_soc; threads, blocks, stream=st)
 end
 
 function _kernel_combined_ds_shift_soc!(
@@ -960,9 +995,12 @@ end
     n_soc::Cint,
     n_dense_soc::Cint,
     n_sparse_soc::Cint,
-    σμ::T
+    σμ::T,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
-    combined_ds_shift_dense_soc!(Val(n_soc > 0), shift, step_z, step_s, w, η, rng_cones, n_linear, n_soc, σμ)
+    combined_ds_shift_dense_soc!(Val(n_soc > 0), shift, step_z, step_s, w, η, rng_cones, n_linear, n_soc, σμ, st)
+    add_record(Val(n_soc > 0), st, ev)
 end
 
 @inline function combined_ds_shift_soc!(
@@ -980,9 +1018,12 @@ end
     n_soc::Cint,
     n_dense_soc::Cint,
     n_sparse_soc::Cint,
-    σμ::T
+    σμ::T,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
-    combined_ds_shift_dense_soc!(Val(n_soc > 0), shift, step_z, step_s, w, η, rng_cones, n_linear, n_soc, σμ)
+    combined_ds_shift_dense_soc!(Val(n_soc > 0), shift, step_z, step_s, w, η, rng_cones, n_linear, n_soc, σμ, st)
+    record(ev, st)
 end
 
 @inline function combined_ds_shift_dense_soc!(
@@ -995,7 +1036,8 @@ end
     rng_cones::AbstractVector,
     n_shift::Cint,
     n_dense_soc::Cint,
-    σμ::T
+    σμ::T,
+    st::CuStream
 ) where {T}
     return nothing
 end
@@ -1010,7 +1052,8 @@ end
     rng_cones::AbstractVector,
     n_shift::Cint,
     n_dense_soc::Cint,
-    σμ::T
+    σμ::T,
+    st::CuStream
 ) where {T}
 
     kernel = @cuda launch=false _kernel_combined_ds_shift_soc!(shift, step_z, step_s, w, η, rng_cones, n_shift, n_dense_soc, σμ)
@@ -1018,7 +1061,7 @@ end
     threads = min(n_dense_soc, config.threads)
     blocks = cld(n_dense_soc, threads)
 
-    kernel(shift, step_z, step_s, w, η, rng_cones, n_shift, n_dense_soc, σμ; threads, blocks)
+    kernel(shift, step_z, step_s, w, η, rng_cones, n_shift, n_dense_soc, σμ; threads, blocks, stream=st)
 end
 
 function _kernel_Δs_from_Δz_offset_soc!(
@@ -1085,9 +1128,12 @@ end
     n_linear::Cint,
     n_soc::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
-    Δs_from_Δz_offset_dense_soc!(Val(n_soc > 0), out, ds, z, w, λ, η, rng_cones, n_linear, n_soc)
+    Δs_from_Δz_offset_dense_soc!(Val(n_soc > 0), out, ds, z, w, λ, η, rng_cones, n_linear, n_soc, st)
+    add_record(Val(n_soc > 0), st, ev)
 end
 
 @inline function Δs_from_Δz_offset_soc!(
@@ -1105,9 +1151,12 @@ end
     n_linear::Cint,
     n_soc::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
-    Δs_from_Δz_offset_dense_soc!(Val(n_soc > 0), out, ds, z, w, λ, η, rng_cones, n_linear, n_soc)
+    Δs_from_Δz_offset_dense_soc!(Val(n_soc > 0), out, ds, z, w, λ, η, rng_cones, n_linear, n_soc, st)
+    record(ev, st)
 end
 
 @inline function Δs_from_Δz_offset_dense_soc!(
@@ -1120,7 +1169,8 @@ end
     η::AbstractVector{T},
     rng_cones::AbstractVector,
     n_shift::Cint,
-    n_dense_soc::Cint
+    n_dense_soc::Cint,
+    st::CuStream
 ) where {T}
     return nothing
 end
@@ -1135,7 +1185,8 @@ end
     η::AbstractVector{T},
     rng_cones::AbstractVector,
     n_shift::Cint,
-    n_dense_soc::Cint
+    n_dense_soc::Cint,
+    st::CuStream
 ) where {T}
 
     kernel = @cuda launch=false _kernel_Δs_from_Δz_offset_soc!(out, ds, z, w, λ, η, rng_cones, n_shift, n_dense_soc)
@@ -1143,7 +1194,7 @@ end
     threads = min(n_dense_soc, config.threads)
     blocks = cld(n_dense_soc, threads)
 
-    kernel(out, ds, z, w, λ, η, rng_cones, n_shift, n_dense_soc; threads, blocks)
+    kernel(out, ds, z, w, λ, η, rng_cones, n_shift, n_dense_soc; threads, blocks, stream=st)
 end
 
 #return maximum allowable step length while remaining in the socone
@@ -1506,7 +1557,9 @@ end
     n_linear::Cint,
     n_soc::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
     #initialize kernel for several sparse SOCs
     dummy_int = Cint(1024)
@@ -1522,16 +1575,15 @@ end
     threads = (1)
     blocks = (n_sparse_soc)
 
-    kernel1(s, z, w, λ, η, workz, works, workw, rng_cones, n_linear, n_sparse_soc, maxthreads; threads, blocks)
-    kernel2(s, z, w, λ, η, workz, works, workw, rng_cones, n_linear, n_sparse_soc, maxthreads; threads, blocks)
-    kernel3(s, z, w, λ, η, workz, works, workw, rng_cones, n_linear, n_sparse_soc, maxthreads; threads, blocks)
-    kernel4(s, z, w, λ, η, workz, works, workw, rng_cones, n_linear, n_sparse_soc, maxthreads; threads, blocks)
-    kernel5(s, z, w, λ, η, workz, works, workw, rng_cones, n_linear, n_sparse_soc, maxthreads; threads, blocks)
-    kernel6(s, z, w, λ, η, workz, works, workw, rng_cones, n_linear, n_sparse_soc, maxthreads; threads, blocks)
+    kernel1(s, z, w, λ, η, workz, works, workw, rng_cones, n_linear, n_sparse_soc, maxthreads; threads, blocks, stream=st)
+    kernel2(s, z, w, λ, η, workz, works, workw, rng_cones, n_linear, n_sparse_soc, maxthreads; threads, blocks, stream=st)
+    kernel3(s, z, w, λ, η, workz, works, workw, rng_cones, n_linear, n_sparse_soc, maxthreads; threads, blocks, stream=st)
+    kernel4(s, z, w, λ, η, workz, works, workw, rng_cones, n_linear, n_sparse_soc, maxthreads; threads, blocks, stream=st)
+    kernel5(s, z, w, λ, η, workz, works, workw, rng_cones, n_linear, n_sparse_soc, maxthreads; threads, blocks, stream=st)
+    kernel6(s, z, w, λ, η, workz, works, workw, rng_cones, n_linear, n_sparse_soc, maxthreads; threads, blocks, stream=st)
 
     #update remaining dense SOCs
-    update_scaling_soc_dense!(Val(n_dense_soc > 0), s, z, w, λ, η, rng_cones, n_linear+n_sparse_soc, n_dense_soc)
-
+    update_scaling_soc_dense!(Val(n_dense_soc > 0), s, z, w, λ, η, rng_cones, n_linear+n_sparse_soc, n_dense_soc, st)
 end
 
 function _kernel_parent1_update_scaling(
@@ -1791,7 +1843,9 @@ end
     rng_cones::AbstractVector,
     numel_linear::Cint,
     n_shift::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
     dummy_int = Cint(1024)
     kernel = @cuda launch=false _kernel_parent_update_scaling_soc_sparse(w, η, d, vut, rng_cones, numel_linear, n_shift, n_sparse_soc, dummy_int)
@@ -1799,8 +1853,8 @@ end
     threads = (1)
     blocks = (n_sparse_soc)
 
-    kernel(w, η, d, vut, rng_cones, numel_linear, n_shift, n_sparse_soc, Cint(config.threads); threads, blocks)
-
+    kernel(w, η, d, vut, rng_cones, numel_linear, n_shift, n_sparse_soc, Cint(config.threads), st; threads, blocks, stream=st)
+    record(ev, st)
 end
 
 function _kernel_parent_update_scaling_soc_sparse(
@@ -1890,7 +1944,9 @@ end
     rng_blocks::AbstractVector,
     n_shift::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
     dummy_int = Cint(1024)
     kernel = @cuda launch=false _kernel_parent_get_Hs_soc(Hsblocks, η, d, rng_blocks, n_shift, n_sparse_soc, dummy_int)
@@ -1898,10 +1954,12 @@ end
     threads = (1)
     blocks = (n_sparse_soc)
 
-    kernel(Hsblocks, η, d, rng_blocks, n_shift, n_sparse_soc, Cint(config.threads); threads, blocks)
+    kernel(Hsblocks, η, d, rng_blocks, n_shift, n_sparse_soc, Cint(config.threads); threads, blocks, stream=st)
 
     #update dense socs
-    get_Hs_soc_dense!(Val(n_dense_soc > 0), Hsblocks, w, η, rng_cones, rng_blocks, n_shift + n_sparse_soc, n_dense_soc, n_sparse_soc)
+    get_Hs_soc_dense!(Val(n_dense_soc > 0), Hsblocks, w, η, rng_cones, rng_blocks, n_shift + n_sparse_soc, n_dense_soc, n_sparse_soc, st)
+
+    record(ev, st)
 end
 
 function _kernel_parent_get_Hs_soc(
@@ -1957,7 +2015,9 @@ end
     n_linear::Cint,
     n_soc::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
     #multiply sparse socs
     dummy_int = Cint(1024)
@@ -1970,12 +2030,14 @@ end
 
     # y = = H^{-1}x = W^TWx
     # where H^{-1} = \eta^{2} (2*ww^T - J)
-    kernel1(y, x, w, η, work, rng_cones, n_linear, n_sparse_soc, Cint(config.threads); threads, blocks)
-    kernel2(y, x, w, η, work, rng_cones, n_linear, n_sparse_soc, Cint(config.threads); threads, blocks)
+    kernel1(y, x, w, η, work, rng_cones, n_linear, n_sparse_soc, Cint(config.threads); threads, blocks, stream=st)
+    kernel2(y, x, w, η, work, rng_cones, n_linear, n_sparse_soc, Cint(config.threads); threads, blocks, stream=st)
 
     #multiply dense socs
     η_shift = view(η, (n_sparse_soc+1):n_soc)
-    mul_Hs_dense_soc!(Val(n_dense_soc > 0), y, x, w, η_shift, rng_cones, n_linear+n_sparse_soc, n_dense_soc)
+    mul_Hs_dense_soc!(Val(n_dense_soc > 0), y, x, w, η_shift, rng_cones, n_linear+n_sparse_soc, n_dense_soc, st)
+
+    record(ev, st)
 end
 
 function _kernel_parent1_mul_Hs_soc(
@@ -2059,7 +2121,9 @@ end
     n_linear::Cint,
     n_soc::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
 
     #initialize kernel
@@ -2071,11 +2135,12 @@ end
     threads = (1)
     blocks = (n_sparse_soc)
 
-    kernel1(ds, λ, work, rng_cones, n_linear, n_sparse_soc, Cint(config.threads); threads, blocks)
-    kernel2(ds, λ, work, rng_cones, n_linear, n_sparse_soc, Cint(config.threads); threads, blocks)
+    kernel1(ds, λ, work, rng_cones, n_linear, n_sparse_soc, Cint(config.threads); threads, blocks, stream=st)
+    kernel2(ds, λ, work, rng_cones, n_linear, n_sparse_soc, Cint(config.threads); threads, blocks, stream=st)
 
     #dense blocks
-    affine_ds_dense_soc!(Val(n_dense_soc > 0), ds, λ, rng_cones, n_linear+n_sparse_soc, n_dense_soc)
+    affine_ds_dense_soc!(Val(n_dense_soc > 0), ds, λ, rng_cones, n_linear+n_sparse_soc, n_dense_soc, st)
+    record(ev, st)
 end
 
 function _kernel_parent1_affine_ds_soc(
@@ -2159,7 +2224,9 @@ end
     n_soc::Cint,
     n_dense_soc::Cint,
     n_sparse_soc::Cint,
-    σμ::T
+    σμ::T,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
     #sparse socs
     dummy_int = Cint(1024)
@@ -2172,13 +2239,14 @@ end
     threads = (1)
     blocks = (n_sparse_soc)
 
-    kernel1(shift, step_z, step_s, w, η, workz, works, work, rng_cones, n_linear, n_sparse_soc, σμ, Cint(config.threads); threads, blocks)
-    kernel2(shift, step_z, step_s, w, η, workz, works, work, rng_cones, n_linear, n_sparse_soc, σμ, Cint(config.threads); threads, blocks)
-    kernel3(shift, step_z, step_s, w, η, workz, works, work, rng_cones, n_linear, n_sparse_soc, σμ, Cint(config.threads); threads, blocks)
-    kernel4(shift, step_z, step_s, w, η, workz, works, work, rng_cones, n_linear, n_sparse_soc, σμ, Cint(config.threads); threads, blocks)
+    kernel1(shift, step_z, step_s, w, η, workz, works, work, rng_cones, n_linear, n_sparse_soc, σμ, Cint(config.threads); threads, blocks, stream=st)
+    kernel2(shift, step_z, step_s, w, η, workz, works, work, rng_cones, n_linear, n_sparse_soc, σμ, Cint(config.threads); threads, blocks, stream=st)
+    kernel3(shift, step_z, step_s, w, η, workz, works, work, rng_cones, n_linear, n_sparse_soc, σμ, Cint(config.threads); threads, blocks, stream=st)
+    kernel4(shift, step_z, step_s, w, η, workz, works, work, rng_cones, n_linear, n_sparse_soc, σμ, Cint(config.threads); threads, blocks, stream=st)
 
     #dense socs
-    combined_ds_shift_dense_soc!(Val(n_dense_soc > 0), shift, step_z, step_s, w, η, rng_cones, n_linear+n_sparse_soc, n_dense_soc, σμ)
+    combined_ds_shift_dense_soc!(Val(n_dense_soc > 0), shift, step_z, step_s, w, η, rng_cones, n_linear+n_sparse_soc, n_dense_soc, σμ, st)
+    record(ev, st)
 end
 
 function _kernel_parent1_combined_ds_shift_soc(
@@ -2452,7 +2520,9 @@ end
     n_linear::Cint,
     n_soc::Cint,
     n_dense_soc::Cint,
-    n_sparse_soc::Cint
+    n_sparse_soc::Cint,
+    st::CuStream,
+    ev::CuEvent
 ) where {T}
     #sparse socs
     dummy_int = Cint(1024)
@@ -2462,11 +2532,12 @@ end
     threads = (1)
     blocks = (n_sparse_soc)
 
-    kernel1(out, ds, z, w, λ, η, workz, workλ, workw, rng_cones, n_linear, n_sparse_soc, Cint(config.threads); threads, blocks)
-    kernel2(out, ds, z, w, λ, η, workz, workλ, workw, rng_cones, n_linear, n_sparse_soc, Cint(config.threads); threads, blocks)
+    kernel1(out, ds, z, w, λ, η, workz, workλ, workw, rng_cones, n_linear, n_sparse_soc, Cint(config.threads); threads, blocks, stream=st)
+    kernel2(out, ds, z, w, λ, η, workz, workλ, workw, rng_cones, n_linear, n_sparse_soc, Cint(config.threads); threads, blocks, stream=st)
 
     #dense socs
-    Δs_from_Δz_offset_dense_soc!(Val(n_dense_soc > 0), out, ds, z, w, λ, η, rng_cones, n_linear+n_sparse_soc, n_dense_soc)
+    Δs_from_Δz_offset_dense_soc!(Val(n_dense_soc > 0), out, ds, z, w, λ, η, rng_cones, n_linear+n_sparse_soc, n_dense_soc, st)
+    record(ev,st)
 end
 
 function _kernel_parent1_Δs_from_Δz_offset_soc(

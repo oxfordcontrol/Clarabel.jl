@@ -6,6 +6,11 @@ using CUDA, CUDA.CUSPARSE
 # conewise scaling operations
 # -------------------------------------
 
+# Define symbolic indices for streams/events
+const SOC_STREAM = 1
+const EXP_STREAM = 2
+const POW_STREAM = 3
+
 struct CompositeConeGPU{T} <: AbstractCone{T}
     #count of each cone type
     type_counts::Dict{Type,Cint}
@@ -76,6 +81,10 @@ struct CompositeConeGPU{T} <: AbstractCone{T}
     worksoc1::Union{CuVector{T}, Nothing}
     worksoc2::Union{CuVector{T}, Nothing}
     worksoc3::Union{CuVector{T}, Nothing}
+
+    #streams for different cones
+    streams::Vector{CuStream}
+    events::Vector{CuEvent}
 
     function CompositeConeGPU{T}(cone_specs::Vector{SupportedCone}, soc_threshold::Int) where {T}
 
@@ -206,6 +215,8 @@ struct CompositeConeGPU{T} <: AbstractCone{T}
 
         Matvut = CuSparseMatrixCSR{T}(rowptr, colval, vut, (2*n_sparse_soc, numel))
 
+        streams = [CuStream() for _ in 1:3]
+        events = [CuEvent() for _ in 1:3]
         return new(type_counts, numel, numel_linear, degree, rng_cones, rng_blocks, _is_symmetric,
                 n_linear, n_nn, n_sparse_soc, n_dense_soc, n_soc, n_exp, n_pow, n_psd,
                 idx_eq, idx_inq,
@@ -213,7 +224,8 @@ struct CompositeConeGPU{T} <: AbstractCone{T}
                 αp,H_dual,Hs,grad,
                 psd_dim, chol1, chol2, U, S, V, eigvals, λpsd, Λisqrt, R, Rinv, Hspsd, α,
                 workmat1, workmat2, workmat3, workvec,
-                worksoc1, worksoc2, worksoc3)
+                worksoc1, worksoc2, worksoc3,
+                streams, events)
     end
 end
 

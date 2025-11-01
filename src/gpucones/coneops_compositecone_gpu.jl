@@ -187,21 +187,27 @@ NVTX.@annotate "update_scaling!" function update_scaling!(
     vut = cones.vut
     numel_linear = cones.numel_linear
 
+    #Streams events
+    streams = cones.streams
+    events = cones.events
+
     update_scaling_nonnegative!(s, z, w, λ, rng_cones, idx_inq)
 
     update_scaling_soc!(sparse_soc_case(Val(n_sparse_soc)), s, z, w, λ, η, 
                                     cones.worksoc1, cones.worksoc2, cones.worksoc3, 
-                                    rng_cones, n_linear, n_soc, n_dense_soc, n_sparse_soc)
+                                    rng_cones, n_linear, n_soc, n_dense_soc, n_sparse_soc, 
+                                    streams[SOC_STREAM], events[SOC_STREAM])
     # off-diagonal update of SOCs
-    update_scaling_soc_sparse!(sparse_soc_case(Val(n_sparse_soc)), w, η, d, vut, rng_cones, numel_linear, n_linear, n_sparse_soc)
+    update_scaling_soc_sparse!(sparse_soc_case(Val(n_sparse_soc)), w, η, d, vut, rng_cones, numel_linear, n_linear, n_sparse_soc, streams[SOC_STREAM], events[SOC_STREAM])
 
-    update_scaling_exp!(Val(n_exp > 0), s, z, grad, Hs, H_dual, rng_cones, μ, scaling_strategy, n_linear+n_soc, n_exp)
+    update_scaling_exp!(Val(n_exp > 0), s, z, grad, Hs, H_dual, rng_cones, μ, scaling_strategy, n_linear+n_soc, n_exp, streams[EXP_STREAM], events[EXP_STREAM])
 
-    update_scaling_pow!(Val(n_pow > 0), s, z, grad, Hs, H_dual, αp, rng_cones, μ, scaling_strategy, n_linear+n_soc+n_exp, n_exp, n_pow)
+    update_scaling_pow!(Val(n_pow > 0), s, z, grad, Hs, H_dual, αp, rng_cones, μ, scaling_strategy, n_linear+n_soc+n_exp, n_exp, n_pow, streams[POW_STREAM], events[POW_STREAM])
 
     update_scaling_psd!(Val(n_psd > 0), cones.chol1, cones.chol2, cones.U, cones.S, cones.V, z, s, cones.workmat1, cones.λpsd, cones.Λisqrt, cones.R, cones.Rinv, cones.Hspsd, rng_cones, n_linear+n_soc+n_exp+n_pow, n_psd)
 
-    synchronize()
+    cones_synchronize(n_soc, n_exp, n_pow, cones.events)
+
     return is_scaling_success = true
 end
 
@@ -230,19 +236,24 @@ NVTX.@annotate "get_Hs!" function get_Hs!(
     n_sparse_soc = cones.n_sparse_soc
     d = cones.d
 
+    #Streams events
+    streams = cones.streams
+    events = cones.events
+
     get_Hs_zero!(Hsblocks, rng_blocks, idx_eq)
 
     get_Hs_nonnegative!(Hsblocks, w, rng_cones, rng_blocks, idx_inq)
 
-    get_Hs_soc!(sparse_soc_case(Val(n_sparse_soc)), Hsblocks, w, η, d, rng_cones, rng_blocks, n_linear, n_dense_soc, n_sparse_soc)
+    get_Hs_soc!(sparse_soc_case(Val(n_sparse_soc)), Hsblocks, w, η, d, rng_cones, rng_blocks, n_linear, n_dense_soc, n_sparse_soc, streams[SOC_STREAM], events[SOC_STREAM])
 
-    get_Hs_exp!(Val(n_exp > 0), Hsblocks, Hs, rng_blocks, n_linear+n_soc, n_exp)
+    get_Hs_exp!(Val(n_exp > 0), Hsblocks, Hs, rng_blocks, n_linear+n_soc, n_exp, streams[EXP_STREAM], events[EXP_STREAM])
 
-    get_Hs_pow!(Val(n_pow > 0), Hsblocks, Hs, rng_blocks, n_linear+n_soc+n_exp, n_exp, n_pow)
+    get_Hs_pow!(Val(n_pow > 0), Hsblocks, Hs, rng_blocks, n_linear+n_soc+n_exp, n_exp, n_pow, streams[POW_STREAM], events[POW_STREAM])
 
     get_Hs_psd!(Val(n_psd > 0), Hsblocks, Hspsd, rng_blocks, n_linear+n_soc+n_exp+n_pow, n_psd)
 
-    synchronize()
+    cones_synchronize(n_soc, n_exp, n_pow, cones.events)
+
     return nothing
 end
 
@@ -273,18 +284,22 @@ NVTX.@annotate "mul_Hs" function mul_Hs!(
     w = cones.w
     η = cones.η
 
+    #Streams events
+    streams = cones.streams
+    events = cones.events
+
     mul_Hs_zero!(y, rng_cones, idx_eq)
     
     mul_Hs_nonnegative!(y, x, w, rng_cones, idx_inq)
 
-    mul_Hs_soc!(sparse_soc_case(Val(n_sparse_soc)), y, x, w, η, cones.worksoc1, rng_cones, n_linear, n_soc, n_dense_soc, n_sparse_soc)
+    mul_Hs_soc!(sparse_soc_case(Val(n_sparse_soc)), y, x, w, η, cones.worksoc1, rng_cones, n_linear, n_soc, n_dense_soc, n_sparse_soc, streams[SOC_STREAM], events[SOC_STREAM])
 
     n_nonsymmetric = n_exp + n_pow
-    mul_Hs_nonsymmetric!(Val(n_nonsymmetric > 0), y, Hs, x, rng_cones, n_linear+n_soc, n_nonsymmetric)
+    mul_Hs_nonsymmetric!(Val(n_nonsymmetric > 0), y, Hs, x, rng_cones, n_linear+n_soc, n_nonsymmetric, streams[EXP_STREAM], events[EXP_STREAM])
 
     mul_Hs_psd!(Val(n_psd > 0), y, x, Hspsd, rng_cones, n_linear+n_soc+n_nonsymmetric, n_psd, psd_dim)
 
-    synchronize()
+    cones_synchronize(n_soc, n_nonsymmetric, cones.events)
 
     return nothing
 end
@@ -354,19 +369,23 @@ NVTX.@annotate "affine_ds!" function affine_ds!(
     psd_dim = cones.psd_dim
     λpsd = cones.λpsd
 
+    #Streams events
+    streams = cones.streams
+    events = cones.events
+
     affine_ds_zero!(ds, rng_cones, idx_eq)
 
     affine_ds_nonnegative!(ds, λ, rng_cones, idx_inq)
 
-    affine_ds_soc!(sparse_soc_case(Val(n_sparse_soc)), ds, λ, cones.worksoc1, rng_cones, n_linear, n_soc, n_dense_soc, n_sparse_soc)
+    affine_ds_soc!(sparse_soc_case(Val(n_sparse_soc)), ds, λ, cones.worksoc1, rng_cones, n_linear, n_soc, n_dense_soc, n_sparse_soc, streams[SOC_STREAM], events[SOC_STREAM])
 
     #update nonsymmetric cones
     n_nonsymmetric = n_exp + n_pow
-    affine_ds_nonsymmetric!(Val(n_nonsymmetric > 0), ds, s, rng_cones, n_linear + cones.n_soc, n_nonsymmetric)
+    affine_ds_nonsymmetric!(Val(n_nonsymmetric > 0), ds, s, rng_cones, n_linear + cones.n_soc, n_nonsymmetric, streams[EXP_STREAM], events[EXP_STREAM])
 
     affine_ds_psd!(Val(n_psd > 0), ds, λpsd, rng_cones, psd_dim, n_linear+n_soc+n_nonsymmetric, n_psd)
 
-    synchronize()
+    cones_synchronize(n_soc, n_nonsymmetric, cones.events)
     return nothing
 end
 
@@ -394,7 +413,11 @@ NVTX.@annotate "combined_ds_shift!" function combined_ds_shift!(
     idx_inq = cones.idx_inq
     w = cones.w
     η = cones.η
-    
+
+    #Streams events
+    streams = cones.streams
+    events = cones.events
+
     combined_ds_shift_zero!(shift, rng_cones, idx_eq)
 
     # NVTX.@range "Nonnegative" begin
@@ -403,15 +426,17 @@ NVTX.@annotate "combined_ds_shift!" function combined_ds_shift!(
 
     combined_ds_shift_soc!(sparse_soc_case(Val(n_sparse_soc)), shift, step_z, step_s, w, η,
                                 cones.worksoc1, cones.worksoc2, cones.worksoc3,
-                                rng_cones, n_linear, n_soc, n_dense_soc, n_sparse_soc, σμ)
+                                rng_cones, n_linear, n_soc, n_dense_soc, n_sparse_soc, σμ, 
+                                streams[SOC_STREAM], events[SOC_STREAM])
 
-    combined_ds_shift_exp!(Val(n_exp > 0), shift, step_z, step_s, z, grad, H_dual, rng_cones, σμ, n_linear + n_soc, n_exp)
+    combined_ds_shift_exp!(Val(n_exp > 0), shift, step_z, step_s, z, grad, H_dual, rng_cones, σμ, n_linear + n_soc, n_exp, streams[EXP_STREAM], events[EXP_STREAM])
 
-    combined_ds_shift_pow!(Val(n_pow > 0), shift, step_z, step_s, z, grad, H_dual, αp, rng_cones, σμ, n_linear + n_soc + n_exp, n_exp, n_pow)
+    combined_ds_shift_pow!(Val(n_pow > 0), shift, step_z, step_s, z, grad, H_dual, αp, rng_cones, σμ, n_linear + n_soc + n_exp, n_exp, n_pow, streams[POW_STREAM], events[POW_STREAM])
     
     combined_ds_shift_psd!(Val(n_psd > 0), cones, shift, step_z, step_s, n_linear + n_soc + n_exp + n_pow, n_psd, σμ)
 
-    synchronize()
+    cones_synchronize(n_soc, n_exp, n_pow, cones.events)
+
     return nothing
 
 end
@@ -438,20 +463,25 @@ NVTX.@annotate "Δs_from_Δz_offset!" function Δs_from_Δz_offset!(
     λ = cones.λ
     η = cones.η
 
+    #Streams events
+    streams = cones.streams
+    events = cones.events
+
     Δs_from_Δz_offset_zero!(out, rng_cones, idx_eq)
     
     Δs_from_Δz_offset_nonnegative!(out, ds, z, rng_cones, idx_inq)
 
     Δs_from_Δz_offset_soc!(sparse_soc_case(Val(n_sparse_soc)), out, ds, z, w, λ, η, 
                                                 cones.worksoc1, cones.worksoc2, cones.worksoc3,
-                                                rng_cones, n_linear, n_soc, n_dense_soc, n_sparse_soc)
+                                                rng_cones, n_linear, n_soc, n_dense_soc, n_sparse_soc,
+                                                streams[SOC_STREAM], events[SOC_STREAM])
 
     n_nonsymmetric = n_exp+n_pow
-    Δs_from_Δz_offset_nonsymmetric!(Val(n_nonsymmetric > 0), out, ds, rng_cones, n_linear + cones.n_soc, n_nonsymmetric)
-
+    Δs_from_Δz_offset_nonsymmetric!(Val(n_nonsymmetric > 0), out, ds, rng_cones, n_linear + cones.n_soc, n_nonsymmetric, streams[EXP_STREAM], events[EXP_STREAM])
+    
     Δs_from_Δz_offset_psd!(Val(n_psd > 0), cones, out, ds, work, n_linear + cones.n_soc + n_nonsymmetric, n_psd)
 
-    synchronize()
+    cones_synchronize(n_soc, n_nonsymmetric, cones.events)
 
     return nothing
 end
@@ -486,6 +516,7 @@ NVTX.@annotate "step_length" function step_length(
     Rinv   = cones.Rinv
     (workmat1, workmat2, workmat3) = (cones.workmat1, cones.workmat2, cones.workmat3)
 
+    #YC: to do multi streams
     @. α = αmax          #Initialize step size
 
     step_length_nonnegative(dz, ds, z, s, α, αmax, rng_cones, idx_inq)
@@ -535,7 +566,8 @@ NVTX.@annotate "compute_barrier" function compute_barrier(
     workvec  = cones.workvec
 
     work = cones.α
-    
+
+    #YC: to do multi streams
     barrier_nn = compute_barrier_nonnegative(Val(n_nn > 0), work, z, s, dz, ds, α, rng_cones, cones.idx_inq, n_nn)
 
     barrier_soc = compute_barrier_soc(Val(n_soc > 0), work, z, s, dz, ds, α, rng_cones, n_linear, n_soc)
@@ -549,3 +581,60 @@ NVTX.@annotate "compute_barrier" function compute_barrier(
     return (barrier_nn + barrier_soc + barrier_exp + barrier_pow + barrier_psd)
 end
 
+####################################################
+# Self-defined Synchronization
+####################################################
+# Synchronization for cones
+@inline function cones_synchronize(
+    n_soc::Cint,
+    n_exp::Cint,
+    n_pow::Cint,
+    ev::Vector{CuEvent}
+)
+    cone_synchronize(Val(n_soc > 0), default_stream(), ev[SOC_STREAM])
+    cone_synchronize(Val(n_exp > 0), default_stream(), ev[EXP_STREAM])
+    cone_synchronize(Val(n_pow > 0), default_stream(), ev[POW_STREAM])
+    synchronize()
+end
+
+@inline function cones_synchronize(
+    n_soc::Cint,
+    n_nonsymmetric::Cint,
+    ev::Vector{CuEvent}
+)
+    cone_synchronize(Val(n_soc > 0), default_stream(), ev[SOC_STREAM])
+    cone_synchronize(Val(n_nonsymmetric > 0), default_stream(), ev[EXP_STREAM])
+    synchronize()
+end
+
+@inline function cone_synchronize(
+    ::Val{false},
+    st::CuStream,
+    ev::CuEvent
+)
+    return nothing
+end
+
+@inline function cone_synchronize(
+    ::Val{true},
+    st::CuStream,
+    ev::CuEvent
+)
+    CUDA.wait(ev, st)    
+end
+
+@inline function add_record(
+    ::Val{false},
+    st::CuStream,
+    ev::CuEvent
+)
+    return nothing
+end
+
+@inline function add_record(
+    ::Val{true},
+    st::CuStream,
+    ev::CuEvent
+)
+    record(ev, st)
+end
