@@ -44,7 +44,16 @@ The set $\mathcal{K}$ is a composition of convex cones; we support zero cones (l
 
 
 ## Installation
-Currently, the GPU implementation is under the branch `CuClarabel` of the package __Clarabel.jl__. You can switch to the GPU version via: `git checkout CuClarabel` under the directory of your local _Clarabel.jl__ package in a terminal. (We aim to merge it back to the `main` branch in the future.)
+Currently, the GPU implementation is under the branch `CuClarabel` of the package __Clarabel.jl__. You can download the GPU version via: 
+```
+pkg> add https://github.com/oxfordcontrol/Clarabel.jl/tree/CuClarabel
+```
+or
+```
+using Pkg
+Pkg.add(url="https://github.com/oxfordcontrol/Clarabel.jl", rev="CuClarabel")
+``` 
+Our long-term goal is to merge it back into the `main` branch in a future release.
 ## Tutorial
 
 ### Use in Julia
