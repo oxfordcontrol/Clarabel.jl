@@ -165,6 +165,9 @@ print("Solution:", solution)
 ```
 The example file can be found under the `python` folder.
 
+### Use in CVXPY
+`CuClarabel` is now available in [CVXPY](https://www.cvxpy.org/) as a standalone solver.
+
 ### Performance tips
 Due to the `just-in-time (JIT)` compilation in Julia, the first call of `CuClarabel` will also be slow in python and it is recommended to solve a mini problem first to trigger the JIT-compilation and get full performance on the subsequent solve of the actual problem. 
 
