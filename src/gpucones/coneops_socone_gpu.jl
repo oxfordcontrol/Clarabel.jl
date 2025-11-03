@@ -741,7 +741,7 @@ end
     ev::CuEvent
 ) where {T}
     mul_Hs_dense_soc!(Val(n_dense_soc > 0), y, x, w, η, rng_cones, n_linear, n_soc, st)
-    add_record(Val(n_soc > 0), ev, st)
+    add_record(Val(n_soc > 0), st, ev)
 end
 
 @inline function mul_Hs_soc!(
