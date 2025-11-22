@@ -53,7 +53,7 @@ function refactor!(ldlsolver::CUDSSDirectLDLSolverMixed{T}) where{T}
     copyto!(ldlsolver.KKTFloat32.nzVal,ldlsolver.KKT.nzVal)
 
     # Update the KKT matrix in the cudss solver
-    cudss_set(ldlsolver.cudssSolver.matrix,ldlsolver.KKTFloat32)
+    cudss_update(ldlsolver.cudssSolver.matrix,ldlsolver.KKTFloat32)
 
     # Refactorization
     cudss("factorization", ldlsolver.cudssSolver, ldlsolver.xFloat32, ldlsolver.bFloat32)
