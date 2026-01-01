@@ -1,3 +1,7 @@
+# ======================================================================
+#  Clarabel MOI wrapper (bucketed, preserves cone grouping order)
+#  Grouping order: Zeros -> Nonnegatives -> SOC -> Exp -> Power -> PSD -> GenPower
+# ======================================================================
 using MathOptInterface, SparseArrays
 using ..Clarabel
 export Optimizer
@@ -99,7 +103,8 @@ mutable struct Optimizer{T} <: MOI.AbstractOptimizer
     use_quad_obj::Bool
     sense::MOI.OptimizationSense
     objconstant::T
-    rowranges::Dict{DefaultInt, UnitRange{DefaultInt}}
+    # Map constraint indices to row ranges in the assembled A,b
+    rowranges::Vector{UnitRange{DefaultInt}}
 
     function Optimizer{T}(; solver_module = Clarabel, user_settings...) where {T}
         solver_module   = solver_module
@@ -111,7 +116,8 @@ mutable struct Optimizer{T} <: MOI.AbstractOptimizer
         use_quad_obj    = true
         sense = MOI.MIN_SENSE
         objconstant = zero(T)
-        rowranges = Dict{DefaultInt, UnitRange{DefaultInt}}()
+        rowranges = UnitRange{DefaultInt}[]
+
         optimizer = new(solver_module,solver,solver_settings,solver_info,solver_solution,solver_nvars,use_quad_obj,sense,objconstant,rowranges)
         for (key, value) in user_settings
             MOI.set(optimizer, MOI.RawOptimizerAttribute(string(key)), value)
@@ -137,7 +143,7 @@ function MOI.empty!(optimizer::Optimizer{T}) where {T}
     optimizer.solver_nvars    = nothing
     optimizer.sense = MOI.MIN_SENSE # model parameter, so needs to be reset
     optimizer.objconstant = zero(T)
-    optimizer.rowranges = Dict{DefaultInt, UnitRange{DefaultInt}}()
+    optimizer.rowranges = UnitRange{DefaultInt}[]
 end
 
 MOI.is_empty(optimizer::Optimizer{T}) where {T} = isnothing(optimizer.solver)
@@ -218,7 +224,7 @@ function MOI.get(opt::Optimizer, attr::MOI.PrimalStatus)
     else
         return ClarabeltoMOIPrimalStatus[opt.solver_info.status]
     end
-    end
+end
 
 MOI.supports(::Optimizer, a::MOI.DualStatus) = true
 function MOI.get(opt::Optimizer, attr::MOI.DualStatus)
@@ -364,15 +370,26 @@ end
 
 function MOI.copy_to(dest::Optimizer{T}, src::MOI.ModelLike) where {T}
 
-    idxmap = MOIU.IndexMap(dest, src)
+    # generate buckets first (cone grouping order)
+    buckets = bucket_constraints_by_cone(src)
+
+    # build idxmap with constraint ids in cone grouping order
+    idxmap = MOIU.IndexMap(dest, src, buckets)
 
     #check all model/variable/constraint attributes to
     #ensure that everything passed is handled by the solver
     copy_to_check_attributes(dest,src)
 
+    # rowranges length = number of constraints in dest indexing
+    ncon = 0
+    for (_F, _S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
+        ncon += length(MOI.get(src, MOI.ListOfConstraintIndices{_F, _S}()))
+    end
+    dest.rowranges = Vector{UnitRange{DefaultInt}}(undef, ncon)
+
     #assemble the constraints data
-    assign_constraint_row_ranges!(dest.rowranges, idxmap, src)
-    A, b, cone_spec, = process_constraints(dest, src, idxmap)
+    assign_constraint_row_ranges!(dest.rowranges, idxmap, src, buckets)
+    A, b, cone_spec, = process_constraints(dest, src, idxmap, buckets)
 
     #assemble the objective data
     dest.sense = MOI.get(src, MOI.ObjectiveSense())
@@ -427,186 +444,149 @@ end
 
 #Set up index map from `src` variables and constraints to `dest` variables and constraints.
 
-function MOIU.IndexMap(dest::Optimizer, src::MOI.ModelLike)
-
+function MOIU.IndexMap(dest::Optimizer, src::MOI.ModelLike, buckets)
     idxmap = MOIU.IndexMap()
 
     vis_src = MOI.get(src, MOI.ListOfVariableIndices())
     for i in eachindex(vis_src)
         idxmap[vis_src[i]] = MOI.VariableIndex(i)
     end
+
     i = 0
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        MOI.supports_constraint(dest, F, S) || throw(MOI.UnsupportedConstraint{F, S}())
-        cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-        for ci in cis_src
-            i += 1
-            idxmap[ci] = MOI.ConstraintIndex{F, S}(i)
+    function assign_bucket!(bucket)
+        for (F,S,cis) in bucket
+            for ci in cis
+                i += 1
+                idxmap[ci] = MOI.ConstraintIndex{F,S}(i)
+            end
         end
     end
+    
+    #Ensure the correct ordering among different types of cones
+    assign_bucket!(buckets.zeros)
+    assign_bucket!(buckets.nonneg)
+    assign_bucket!(buckets.soc)
+    assign_bucket!(buckets.exp)
+    assign_bucket!(buckets.power)
+    assign_bucket!(buckets.psd)
+    assign_bucket!(buckets.genpow)
 
     return idxmap
 end
 
+# ------------------------------
+# NEW: bucket constraints by cone type (preserves grouping order)
+# ------------------------------
+const BucketTriple = Tuple{Type, Type, Vector{MOI.ConstraintIndex}}
 
-function assign_constraint_row_ranges!(
-    rowranges::Dict{DefaultInt, UnitRange{DefaultInt}},
-    idxmap::MOIU.IndexMap,
-    src::MOI.ModelLike
-)
-
-    startrow = 1
-    # for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-    #     cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-    #     for ci_src in cis_src
-    #         set = MOI.get(src, MOI.ConstraintSet(), ci_src)
-    #         ci_dest = idxmap[ci_src]
-    #         endrow = startrow + MOI.dimension(set) - 1
-    #         rowranges[ci_dest.value] = startrow : endrow
-    #         startrow = endrow + 1
-    #     end
-    # end
+function bucket_constraints_by_cone(src::MOI.ModelLike)
+    buckets = (
+        zeros   = BucketTriple[],
+        nonneg  = BucketTriple[],
+        soc     = BucketTriple[],
+        exp     = BucketTriple[],
+        power   = BucketTriple[],
+        psd     = BucketTriple[],
+        genpow  = BucketTriple[],
+    )
 
     for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        #Process zero or nonnegative cones first
+        cis = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
+        isempty(cis) && continue
+
         if S <: MOI.Zeros
-            cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-            for ci_src in cis_src
-                set = MOI.get(src, MOI.ConstraintSet(), ci_src)
-                ci_dest = idxmap[ci_src]
-                endrow = startrow + MOI.dimension(set) - 1
-                rowranges[ci_dest.value] = startrow : endrow
-                startrow = endrow + 1
-            end
+            push!(buckets.zeros, (F, S, cis))
+        elseif S <: MOI.Nonnegatives
+            push!(buckets.nonneg, (F, S, cis))
+        elseif S <: MOI.SecondOrderCone
+            push!(buckets.soc, (F, S, cis))
+        elseif S <: MOI.ExponentialCone
+            push!(buckets.exp, (F, S, cis))
+        elseif S <: MOI.PowerCone
+            push!(buckets.power, (F, S, cis))
+        elseif S <: MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle}
+            push!(buckets.psd, (F, S, cis))
+        elseif S <: Clarabel.MOI.GenPowerCone
+            push!(buckets.genpow, (F, S, cis))
+        else
+            throw(MOI.UnsupportedConstraint{F, S}())
         end
     end
 
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        #Process zero or nonnegative cones first
-        if S <: MOI.Nonnegatives
-            cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-            for ci_src in cis_src
+    return buckets
+end
+
+# ------------------------------
+# Row ranges (bucketed, preserves order)
+# ------------------------------
+function assign_constraint_row_ranges!(
+    rowranges::Vector{UnitRange{DefaultInt}},
+    idxmap::MOIU.IndexMap,
+    src::MOI.ModelLike,
+    buckets
+)
+    startrow = DefaultInt(1)
+
+    function process_bucket!(bucket)
+        for (_F, _S, cis) in bucket
+            for ci_src in cis
                 set = MOI.get(src, MOI.ConstraintSet(), ci_src)
                 ci_dest = idxmap[ci_src]
-                endrow = startrow + MOI.dimension(set) - 1
-                rowranges[ci_dest.value] = startrow : endrow
+                dim = DefaultInt(MOI.dimension(set))
+                endrow = startrow + dim - 1
+                rowranges[ci_dest.value] = startrow:endrow
                 startrow = endrow + 1
             end
         end
+        return nothing
     end
 
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        #Process second-order cones
-        if S <: MOI.SecondOrderCone
-            cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-            for ci_src in cis_src
-                set = MOI.get(src, MOI.ConstraintSet(), ci_src)
-                ci_dest = idxmap[ci_src]
-                endrow = startrow + MOI.dimension(set) - 1
-                rowranges[ci_dest.value] = startrow : endrow
-                startrow = endrow + 1
-            end
-        end
-    end
-
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        #Process exponential cones
-        if S <: MOI.ExponentialCone
-            cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-            for ci_src in cis_src
-                set = MOI.get(src, MOI.ConstraintSet(), ci_src)
-                ci_dest = idxmap[ci_src]
-                endrow = startrow + MOI.dimension(set) - 1
-                rowranges[ci_dest.value] = startrow : endrow
-                startrow = endrow + 1
-            end
-        end
-    end
-
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        #Process power cones
-        if S <: MOI.PowerCone
-            cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-            for ci_src in cis_src
-                set = MOI.get(src, MOI.ConstraintSet(), ci_src)
-                ci_dest = idxmap[ci_src]
-                endrow = startrow + MOI.dimension(set) - 1
-                rowranges[ci_dest.value] = startrow : endrow
-                startrow = endrow + 1
-            end
-        end
-    end
-
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        #Process psd cones
-        if S <: MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle}
-            cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-            for ci_src in cis_src
-                set = MOI.get(src, MOI.ConstraintSet(), ci_src)
-                ci_dest = idxmap[ci_src]
-                endrow = startrow + MOI.dimension(set) - 1
-                rowranges[ci_dest.value] = startrow : endrow
-                startrow = endrow + 1
-            end
-        end
-    end
-
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        #Process genpow cones
-        if S <: Clarabel.MOI.GenPowerCone
-            cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-            for ci_src in cis_src
-                set = MOI.get(src, MOI.ConstraintSet(), ci_src)
-                ci_dest = idxmap[ci_src]
-                endrow = startrow + MOI.dimension(set) - 1
-                rowranges[ci_dest.value] = startrow : endrow
-                startrow = endrow + 1
-            end
-        end
-    end
+    process_bucket!(buckets.zeros)
+    process_bucket!(buckets.nonneg)
+    process_bucket!(buckets.soc)
+    process_bucket!(buckets.exp)
+    process_bucket!(buckets.power)
+    process_bucket!(buckets.psd)
+    process_bucket!(buckets.genpow)
 
     return nothing
 end
 
+# ------------------------------
+# Row range helpers
+# ------------------------------
 function constraint_rows(
-    rowranges::Dict{DefaultInt, UnitRange{DefaultInt}},
-    ci::MOI.ConstraintIndex{<:Any, <:MOI.AbstractScalarSet}
+    rowranges::Vector{UnitRange{DefaultInt}},
+    ci::MOI.ConstraintIndex{<:Any, <:MOI.AbstractScalarSet},
 )
     rowrange = rowranges[ci.value]
-    length(rowrange) == 1 || error()
-    first(rowrange)
+    length(rowrange) == 1 || error("Scalar set had dimension != 1")
+    return first(rowrange)
 end
 
 constraint_rows(
-    rowranges::Dict{DefaultInt, UnitRange{DefaultInt}},
-    ci::MOI.ConstraintIndex{<:Any, <:MOI.AbstractVectorSet}
+    rowranges::Vector{UnitRange{DefaultInt}},
+    ci::MOI.ConstraintIndex{<:Any, <:MOI.AbstractVectorSet},
 ) = rowranges[ci.value]
 
-constraint_rows(
-    optimizer::Optimizer,
-    ci::MOI.ConstraintIndex
-) = constraint_rows(optimizer.rowranges, ci)
+constraint_rows(optimizer::Optimizer, ci::MOI.ConstraintIndex) = constraint_rows(optimizer.rowranges, ci)
 
-
-# constraint assembly
 # -------------------
-
-#construct constraint data as a single collection of
-#constraints Ax + s = b, s \in K, where K is composed
-#of the various cones supported by the solver
-
+# Constraint assembly
+# -------------------
 function process_constraints(
-    dest::Optimizer{T},
-    src::MOI.ModelLike,
-    idxmap
+    dest::Optimizer{T}, 
+    src::MOI.ModelLike, 
+    idxmap,
+    buckets
 ) where {T}
 
     rowranges = dest.rowranges
-    m = mapreduce(length, +, values(rowranges), init=0)
+    m = isempty(rowranges) ? 0 : last(rowranges[end])
     b = zeros(T, m)
 
     #these will be used for a triplet representation of A
-    nnz = calculate_nnz(src)
+    nnz = calculate_nnz(src, buckets)
     I = sizehint!(DefaultInt[], nnz)
     J = sizehint!(DefaultInt[], nnz)
     V = sizehint!(T[], nnz)
@@ -616,7 +596,7 @@ function process_constraints(
 
     push_constraint!(
         (I, J, V), b, cone_spec,
-        src, idxmap, rowranges)
+        src, idxmap, rowranges, buckets)
 
     #we have built Ax + b \in Cone, but we actually
     #want to pose the problem as Ax + s = b, s\ in Cone
@@ -629,160 +609,68 @@ function process_constraints(
 
 end
 
-function calculate_nnz(
-    src::MOI.ModelLike
-)
+function calculate_nnz(src::MOI.ModelLike, buckets)
     nnz = 0
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-        for ci in cis_src
-            f = MOI.get(src, MOI.ConstraintFunction(), ci)
-            
-            nnz += calculate_nnz_single(f)
+
+    function scan_bucket!(bucket)
+        for (_F, _S, cis) in bucket
+            for ci in cis
+                f = MOI.get(src, MOI.ConstraintFunction(), ci)
+                nnz += calculate_nnz_single(f)
+            end
         end
     end
+
+    scan_bucket!(buckets.zeros)
+    scan_bucket!(buckets.nonneg)
+    scan_bucket!(buckets.soc)
+    scan_bucket!(buckets.exp)
+    scan_bucket!(buckets.power)
+    scan_bucket!(buckets.psd)
+    scan_bucket!(buckets.genpow)
 
     return nnz
 end
 
-function calculate_nnz_single(
-    f::MOI.VectorAffineFunction{T}
-) where {T}
-    return length(f.terms)
-end
+calculate_nnz_single(f::MOI.VectorAffineFunction{T}) where {T} = length(f.terms)
+calculate_nnz_single(f::MOI.VectorOfVariables) = length(f.variables)
 
-function calculate_nnz_single(
-    f::MOI.VectorOfVariables
-)
-
-    return length(f.variables)
-end
-
+# bucketed push_constraint! (preserves grouping order)
 function push_constraint!(
     triplet::SparseTriplet,
     b::Vector{T},
     cone_spec::Vector{Clarabel.SupportedCone},
     src::MOI.ModelLike,
     idxmap,
-    rowranges::Dict{DefaultInt, UnitRange{DefaultInt}}
+    rowranges::Vector{UnitRange{DefaultInt}},
+    buckets
 ) where {T}
 
-    # for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-    #     cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-    #     for ci in cis_src
-    #         s = MOI.get(src, MOI.ConstraintSet(), ci)
-    #         f = MOI.get(src, MOI.ConstraintFunction(), ci)
-    #         rows = constraint_rows(rowranges, idxmap[ci])
-    #         push_constraint_constant!(b, rows, f, s)
-    #         push_constraint_linear!(triplet, f, rows, idxmap, s)
-    #         push_constraint_set!(cone_spec, rows, s)
-    #     end
-    # end
-
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        #Zero and nonnegative cones
-        if S <: MOI.Zeros
-            cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-            for ci in cis_src
+    function process_bucket!(bucket)
+        for (_F, _S, cis) in bucket
+            # println("cis is ", cis)
+            for ci in cis
                 s = MOI.get(src, MOI.ConstraintSet(), ci)
                 f = MOI.get(src, MOI.ConstraintFunction(), ci)
                 rows = constraint_rows(rowranges, idxmap[ci])
+
+                # println("b len is ", length(b))
+                # println("row is ", rows)
                 push_constraint_constant!(b, rows, f, s)
                 push_constraint_linear!(triplet, f, rows, idxmap, s)
                 push_constraint_set!(cone_spec, rows, s)
             end
         end
+        return nothing
     end
 
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        #Zero and nonnegative cones
-        if S <: MOI.Nonnegatives
-            cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-            for ci in cis_src
-                s = MOI.get(src, MOI.ConstraintSet(), ci)
-                f = MOI.get(src, MOI.ConstraintFunction(), ci)
-                rows = constraint_rows(rowranges, idxmap[ci])
-                push_constraint_constant!(b, rows, f, s)
-                push_constraint_linear!(triplet, f, rows, idxmap, s)
-                push_constraint_set!(cone_spec, rows, s)
-            end
-        end
-    end
-
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        #Second-order cones
-        if S <: MOI.SecondOrderCone
-            cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-            for ci in cis_src
-                s = MOI.get(src, MOI.ConstraintSet(), ci)
-                f = MOI.get(src, MOI.ConstraintFunction(), ci)
-                rows = constraint_rows(rowranges, idxmap[ci])
-                push_constraint_constant!(b, rows, f, s)
-                push_constraint_linear!(triplet, f, rows, idxmap, s)
-                push_constraint_set!(cone_spec, rows, s)
-            end
-        end
-    end
-
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        #Exponential cones
-        if S <: MOI.ExponentialCone
-            cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-            for ci in cis_src
-                s = MOI.get(src, MOI.ConstraintSet(), ci)
-                f = MOI.get(src, MOI.ConstraintFunction(), ci)
-                rows = constraint_rows(rowranges, idxmap[ci])
-                push_constraint_constant!(b, rows, f, s)
-                push_constraint_linear!(triplet, f, rows, idxmap, s)
-                push_constraint_set!(cone_spec, rows, s)
-            end
-        end
-    end
-
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        #Power cones
-        if S <: MOI.PowerCone
-            cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-            for ci in cis_src
-                s = MOI.get(src, MOI.ConstraintSet(), ci)
-                f = MOI.get(src, MOI.ConstraintFunction(), ci)
-                rows = constraint_rows(rowranges, idxmap[ci])
-                push_constraint_constant!(b, rows, f, s)
-                push_constraint_linear!(triplet, f, rows, idxmap, s)
-                push_constraint_set!(cone_spec, rows, s)
-            end
-        end
-    end
-
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        #Positive semidefinite cones
-        if S <: MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle}
-            cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-            for ci in cis_src
-                s = MOI.get(src, MOI.ConstraintSet(), ci)
-                f = MOI.get(src, MOI.ConstraintFunction(), ci)
-                rows = constraint_rows(rowranges, idxmap[ci])
-                push_constraint_constant!(b, rows, f, s)
-                push_constraint_linear!(triplet, f, rows, idxmap, s)
-                push_constraint_set!(cone_spec, rows, s)
-            end
-        end
-    end
-
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        #Genpow cones
-        if S <: Clarabel.MOI.GenPowerCone
-            cis_src = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-            for ci in cis_src
-                s = MOI.get(src, MOI.ConstraintSet(), ci)
-                f = MOI.get(src, MOI.ConstraintFunction(), ci)
-                rows = constraint_rows(rowranges, idxmap[ci])
-                push_constraint_constant!(b, rows, f, s)
-                push_constraint_linear!(triplet, f, rows, idxmap, s)
-                push_constraint_set!(cone_spec, rows, s)
-            end
-        end
-    end
+    process_bucket!(buckets.zeros)
+    process_bucket!(buckets.nonneg)
+    process_bucket!(buckets.soc)
+    process_bucket!(buckets.exp)
+    process_bucket!(buckets.power)
+    process_bucket!(buckets.psd)
+    process_bucket!(buckets.genpow)
 
     return nothing
 end
@@ -835,14 +723,12 @@ function push_constraint_linear!(
     idxmap,
     s::OptimizerSupportedMOICones{T},
 ) where {T}
-
     (I, J, V) = triplet
-    cols = [idxmap[var].value for var in f.variables]
-    append!(I, rows)
-    append!(J, cols)
-    vals = ones(T, length(cols))
-    append!(V, vals)
-
+    @inbounds for k in eachindex(f.variables)
+        push!(I, rows[k])
+        push!(J, idxmap[f.variables[k]].value)
+        push!(V, one(T))
+    end
     return nothing
 end
 
