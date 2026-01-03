@@ -4,7 +4,7 @@
 # ======================================================================
 using MathOptInterface, SparseArrays
 using ..Clarabel
-export Optimizer
+export Optimizer, direct_optimizer
 
 #-----------------------------
 # Const definitions
@@ -128,6 +128,36 @@ end
 
 Optimizer(args...; kwargs...) = Optimizer{Clarabel.DefaultFloat}(args...; kwargs...)
 
+"""
+    direct_optimizer(; T=Clarabel.DefaultFloat, solver_module=Clarabel,
+                      cache=:universal_fallback, bridge=true, user_settings...)
+
+Return a MOI optimizer stack intended for use with `JuMP.direct_model(...)`.
+This avoids slow `default_copy_to` paths (Model→Model copying) in some JuMP/MOI
+configurations by constructing the backend stack explicitly:
+
+    Bridges.full_bridge_optimizer(CachingOptimizer(cache_model, Optimizer(...)), T)
+
+Example:
+    using JuMP, Clarabel
+    model = direct_model(Clarabel.direct_optimizer())
+    set_string_names_on_creation(model, false)
+"""
+function direct_optimizer(;
+    T::Type = Clarabel.DefaultFloat,
+    solver_module = Clarabel,
+    bridge::Bool = true,
+    user_settings...
+)
+    # Base non-incremental solver
+    opt = Optimizer{T}(; solver_module = solver_module, user_settings...)
+
+    cache_model = MOI.Utilities.UniversalFallback(MOI.Utilities.Model{T}())
+
+    cached = MOI.Utilities.CachingOptimizer(cache_model, opt)
+
+    return bridge ? MOI.Bridges.full_bridge_optimizer(cached, T) : cached
+end
 
 #-----------------------------
 # Required basic methods
