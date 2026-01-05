@@ -5,6 +5,7 @@
 using MathOptInterface, SparseArrays
 using ..Clarabel
 export Optimizer, direct_optimizer
+using CUDA
 
 #-----------------------------
 # Const definitions
@@ -25,6 +26,55 @@ const OptimizerSupportedMOICones{T} = Union{
     MOI.PowerCone{T},
     Clarabel.MOI.GenPowerCone{T}
 } where {T}
+
+# =============================
+# Cache backend (Zaphod+SCS-style)
+# =============================
+
+# Define _SetConstants addressing power cones
+struct _SetConstants{T}
+    b::Vector{T}
+    power_exp::Dict{Int,T}                 # key = first row index
+    genpow_params::Dict{Int,Tuple{Vector{T},Int}}  # key = first row index
+    _SetConstants{T}() where {T} = new{T}(T[], Dict{Int,T}(), Dict{Int,Tuple{Vector{T},Int}}())
+end
+
+function Base.empty!(x::_SetConstants)
+    empty!(x.b)
+    empty!(x.power_exp)
+    empty!(x.genpow_params)
+    return x
+end
+
+Base.resize!(x::_SetConstants, n) = resize!(x.b, n)
+
+# Important: the order here is the order we will iterate to build cone_spec / rowranges.
+MOI.Utilities.@product_of_sets(
+    Cones,
+    MOI.Zeros,
+    MOI.Nonnegatives,
+    MOI.SecondOrderCone,
+    MOI.ExponentialCone,
+    MOI.PowerCone{T},
+    MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle},
+    Clarabel.MOI.GenPowerCone{T},
+)
+
+const OptimizerCache{T} = MOI.Utilities.GenericModel{
+    T,
+    MOI.Utilities.ObjectiveContainer{T},
+    MOI.Utilities.VariablesContainer{T},
+    MOI.Utilities.MatrixOfConstraints{
+        T,
+        MOI.Utilities.MutableSparseMatrixCSC{
+            T,
+            Int,
+            MOI.Utilities.OneBasedIndexing,
+        },
+        _SetConstants{T},
+        Cones{T},
+    },
+}
 
 #Optimizer will consolidate cones of these types if possible
 const OptimizerMergeableTypes = [Clarabel.ZeroConeT, Clarabel.NonnegativeConeT]
@@ -128,35 +178,8 @@ end
 
 Optimizer(args...; kwargs...) = Optimizer{Clarabel.DefaultFloat}(args...; kwargs...)
 
-"""
-    direct_optimizer(; T=Clarabel.DefaultFloat, solver_module=Clarabel,
-                      cache=:universal_fallback, bridge=true, user_settings...)
-
-Return a MOI optimizer stack intended for use with `JuMP.direct_model(...)`.
-This avoids slow `default_copy_to` paths (Model→Model copying) in some JuMP/MOI
-configurations by constructing the backend stack explicitly:
-
-    Bridges.full_bridge_optimizer(CachingOptimizer(cache_model, Optimizer(...)), T)
-
-Example:
-    using JuMP, Clarabel
-    model = direct_model(Clarabel.direct_optimizer())
-    set_string_names_on_creation(model, false)
-"""
-function direct_optimizer(;
-    T::Type = Clarabel.DefaultFloat,
-    solver_module = Clarabel,
-    bridge::Bool = true,
-    user_settings...
-)
-    # Base non-incremental solver
-    opt = Optimizer{T}(; solver_module = solver_module, user_settings...)
-
-    cache_model = MOI.Utilities.UniversalFallback(MOI.Utilities.Model{T}())
-
-    cached = MOI.Utilities.CachingOptimizer(cache_model, opt)
-
-    return bridge ? MOI.Bridges.full_bridge_optimizer(cached, T) : cached
+function MOI.default_cache(::Optimizer{T}, ::Type{T}) where {T}
+    return MOI.Utilities.UniversalFallback(OptimizerCache{T}())
 end
 
 #-----------------------------
@@ -298,7 +321,7 @@ end
 MOI.supports(::Optimizer, ::MOI.VariablePrimal) = true
 function MOI.get(opt::Optimizer, a::MOI.VariablePrimal, vi::MOI.VariableIndex)
     MOI.check_result_index_bounds(opt, a)
-    return opt.solver_solution.x[vi.value]
+    CUDA.@allowscalar return opt.solver_solution.x[vi.value]
 end
 
 MOI.supports(::Optimizer, ::MOI.ConstraintPrimal) = true
@@ -310,7 +333,7 @@ function MOI.get(
 
     MOI.check_result_index_bounds(opt, a)
     rows = constraint_rows(opt.rowranges, ci)
-    return opt.solver_solution.s[rows]
+    CUDA.@allowscalar return opt.solver_solution.s[rows]
 end
 
 MOI.supports(::Optimizer, ::MOI.ConstraintDual) = true
@@ -322,7 +345,7 @@ function MOI.get(
 
     MOI.check_result_index_bounds(opt, a)
     rows = constraint_rows(opt.rowranges, ci)
-    return opt.solver_solution.z[rows]
+    CUDA.@allowscalar return opt.solver_solution.z[rows]
 end
 
 MOI.supports(::Optimizer, ::MOI.TimeLimitSec) = true
@@ -347,6 +370,54 @@ function MOI.set(model::Optimizer, ::MOI.NumberOfThreads, threads::Int)
 end
 
 
+# Default: load affine function constants into b
+function MOI.Utilities.load_constants(x::_SetConstants, offset, f)
+    MOI.Utilities.load_constants(x.b, offset, f)
+    return
+end
+
+# PowerCone stores exponent (one scalar) at the first row of this constraint
+function MOI.Utilities.load_constants(
+    x::_SetConstants{T},
+    offset::Int,
+    set::MOI.PowerCone{T},
+) where {T}
+    x.power_exp[offset + 1] = set.exponent
+    return
+end
+
+# GenPowerCone: store its parameters at first row
+function MOI.Utilities.load_constants(
+    x::_SetConstants{T},
+    offset::Int,
+    set::Clarabel.MOI.GenPowerCone{T},
+) where {T}
+    x.genpow_params[offset + 1] = (copy(set.α), set.dim2)
+    return
+end
+
+function MOI.Utilities.set_from_constants(x::_SetConstants, S, rows)
+    return MOI.Utilities.set_from_constants(x.b, S, rows)
+end
+
+function MOI.Utilities.set_from_constants(
+    x::_SetConstants{T},
+    ::Type{MOI.PowerCone{T}},
+    rows,
+) where {T}
+    @assert length(rows) == 3
+    return MOI.PowerCone{T}(x.power_exp[first(rows)])
+end
+
+function MOI.Utilities.set_from_constants(
+    x::_SetConstants{T},
+    ::Type{Clarabel.MOI.GenPowerCone{T}},
+    rows,
+) where {T}
+    α, dim2 = x.genpow_params[first(rows)]
+    return Clarabel.MOI.GenPowerCone(α, dim2)
+end
+
 #------------------------------
 # supported constraint types
 #------------------------------
@@ -357,15 +428,6 @@ function MOI.supports_constraint(
     t::Type{<:OptimizerSupportedMOICones{T}}
 ) where{T}  
     true
-end
-
-
-function MOI.supports_constraint(
-    opt::Optimizer{T},
-    ::Type{<:MOI.VectorOfVariables},
-    t::Type{<:OptimizerSupportedMOICones{T}}
-) where {T}     
-    return true
 end
 
 
@@ -391,6 +453,99 @@ function MOI.supports(
     opt.use_quad_obj
 end
 
+# ---- NEW: block metadata for row reordering for SOCs----
+struct _Block{T}
+    ci::MOI.ConstraintIndex
+    set::Any
+    r1::Int
+    len::Int
+end
+
+# collect blocks for a given set type S (VectorAffineFunction{T}-in-S only)
+function _collect_blocks(::Type{S}, src::OptimizerCache{T}) where {S,T}
+    blocks = _Block{T}[]
+    for ci in MOI.get(src, MOI.ListOfConstraintIndices{MOI.VectorAffineFunction{T}, S}())
+        rows = MOI.Utilities.rows(src.constraints.sets, ci)
+        set  = MOI.get(src, MOI.ConstraintSet(), ci)
+        push!(blocks, _Block{T}(ci, set, first(rows), length(rows)))
+    end
+    return blocks
+end
+
+# build desired block order:
+# Zeros -> Nonneg -> (SOC large then SOC small) -> Exp -> Power -> PSD -> GenPower
+function _ordered_blocks_with_soc_split(src::OptimizerCache{T}, n_threshold::Int) where {T}
+    blocks = _Block{T}[]
+
+    append!(blocks, _collect_blocks(MOI.Zeros, src))
+    append!(blocks, _collect_blocks(MOI.Nonnegatives, src))
+
+    soc_blocks = _collect_blocks(MOI.SecondOrderCone, src)
+    small_soc = _Block{T}[]
+    large_soc = _Block{T}[]
+    for bl in soc_blocks
+        if bl.len > n_threshold
+            push!(large_soc, bl)
+        else
+            push!(small_soc, bl)
+        end
+    end
+    append!(blocks, large_soc)
+    append!(blocks, small_soc)
+
+    append!(blocks, _collect_blocks(MOI.ExponentialCone, src))
+
+    # NOTE: use unparameterized MOI.PowerCone here; it still matches indices
+    append!(blocks, _collect_blocks(MOI.PowerCone{T}, src))
+
+    append!(blocks, _collect_blocks(MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle}, src))
+
+    append!(blocks, _collect_blocks(Clarabel.MOI.GenPowerCone{T}, src))
+
+    return blocks
+end
+
+# permute rows of A,b by block order, and rebuild rowranges + cone_spec
+function _apply_block_order!(
+    dest::Optimizer{T},
+    src::OptimizerCache{T},
+    A::SparseMatrixCSC{T,Int},
+    b::Vector{T},
+    blocks::Vector{_Block{T}},
+) where {T}
+    m = length(b)
+
+    # build row permutation p: new_row -> old_row
+    p = Vector{Int}(undef, m)
+    new_r = 0
+
+    for bl in blocks
+        for k in 1:bl.len
+            p[new_r + k] = bl.r1 + k - 1
+        end
+        new_r += bl.len
+    end
+    @assert new_r == m
+
+    # apply permutation
+    A2 = A[p, :]
+    b2 = b[p]
+
+    # rebuild rowranges indexed by ci.value (sparse index space)
+    max_ci = length(dest.rowranges)  # already allocated by caller
+    fill!(dest.rowranges, 0: -1)     # mark unfilled (optional)
+
+    cone_spec = Clarabel.SupportedCone[]
+    new_r = 1
+    for bl in blocks
+        r2 = new_r + bl.len - 1
+        dest.rowranges[bl.ci.value] = UnitRange{DefaultInt}(new_r, r2)
+        _push_cone_spec_merged!(cone_spec, bl.set)
+        new_r = r2 + 1
+    end
+
+    return A2, b2, cone_spec
+end
 
 #------------------------------
 # copy_to interface
@@ -399,39 +554,68 @@ end
 #NB: this solver does *not* support MOI incremental interface
 
 function MOI.copy_to(dest::Optimizer{T}, src::MOI.ModelLike) where {T}
+    cache = OptimizerCache{T}()
+    index_map = MOI.copy_to(cache, src)        # MOI builds A/b efficiently into MutableSparseMatrixCSC
+    MOI.copy_to(dest, cache)                   # we extract into Clarabel solver data
+    return index_map
+end
 
-    # generate buckets first (cone grouping order)
-    buckets = bucket_constraints_by_cone(src)
+function MOI.copy_to(
+    dest::Optimizer{T},
+    src::MOI.Utilities.UniversalFallback{OptimizerCache{T}},
+) where {T}
+    MOI.Utilities.throw_unsupported(src)
+    return MOI.copy_to(dest, src.model)
+end
 
-    # build idxmap with constraint ids in cone grouping order
-    idxmap = MOIU.IndexMap(dest, src, buckets)
+function MOI.copy_to(dest::Optimizer{T}, src::OptimizerCache{T}) where {T}
+    MOI.empty!(dest)
 
-    #check all model/variable/constraint attributes to
-    #ensure that everything passed is handled by the solver
-    copy_to_check_attributes(dest,src)
+    # ---------------------------
+    # Extract constraint matrix
+    # ---------------------------
+    Ab = src.constraints
 
-    # rowranges length = number of constraints in dest indexing
-    ncon = 0
-    for (_F, _S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        ncon += length(MOI.get(src, MOI.ListOfConstraintIndices{_F, _S}()))
-    end
-    dest.rowranges = Vector{UnitRange{DefaultInt}}(undef, ncon)
+    # Clarabel uses Ax + s = b with s in Cone.
+    # The cache stores "A_cache * x + const in set". Your original wrapper flips sign of A.
+    # Keep the same convention:
+    A = -convert(SparseMatrixCSC{T,Int}, Ab.coefficients)
+    b = copy(Ab.constants.b)
 
-    #assemble the constraints data
-    assign_constraint_row_ranges!(dest.rowranges, idxmap, src, buckets)
-    A, b, cone_spec, = process_constraints(dest, src, idxmap, buckets)
+    n = size(A, 2)
+    dest.solver_nvars = n
 
-    #assemble the objective data
+    # ---------------------------
+    # Objective: build P, q, c
+    # ---------------------------
     dest.sense = MOI.get(src, MOI.ObjectiveSense())
-    P, q, dest.objconstant = process_objective(dest, src, idxmap)
+    P, q, c = _process_objective_from_cache(dest, src, n)
 
-    #Just make a fresh solver with this data, using whatever
-    #solver module is configured.   The module will be either
-    #Clarabel or ClarabelRs
-    dest.solver_nvars = length(q)
-    dest.solver = dest.solver_module.Solver(P,q,A,b,cone_spec,dest.solver_settings)
+    # ---------------------------
+    # Build rowranges + cone_spec in your preferred order
+    # ---------------------------
+    # We also need dest.rowranges indexed by dest ConstraintIndex value.
+    # We'll iterate constraint types in the same order as Cones declaration.
+    # Allocate rowranges so it is safe to index by ci.value (not dense in GenericModel)
+    max_ci = 0
+    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
+        for ci in MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
+            max_ci = max(max_ci, ci.value)
+        end
+    end
+    dest.rowranges = Vector{UnitRange{DefaultInt}}(undef, max_ci)
 
-    return idxmap
+    blocks = _ordered_blocks_with_soc_split(src, Clarabel.SOC_NO_EXPANSION_MAX_SIZE)
+
+    A, b, cone_spec = _apply_block_order!(dest, src, A, b, blocks)
+
+    # ---------------------------
+    # Create solver
+    # ---------------------------
+    dest.objconstant = c
+    dest.solver = dest.solver_module.Solver(P, q, A, b, cone_spec, dest.solver_settings)
+
+    return MOI.Utilities.identity_index_map(src)
 end
 
 function copy_to_check_attributes(dest, src)
@@ -470,118 +654,6 @@ function copy_to_check_attributes(dest, src)
     return nothing
 end
 
-
-
-#Set up index map from `src` variables and constraints to `dest` variables and constraints.
-
-function MOIU.IndexMap(dest::Optimizer, src::MOI.ModelLike, buckets)
-    idxmap = MOIU.IndexMap()
-
-    vis_src = MOI.get(src, MOI.ListOfVariableIndices())
-    for i in eachindex(vis_src)
-        idxmap[vis_src[i]] = MOI.VariableIndex(i)
-    end
-
-    i = 0
-    function assign_bucket!(bucket)
-        for (F,S,cis) in bucket
-            for ci in cis
-                i += 1
-                idxmap[ci] = MOI.ConstraintIndex{F,S}(i)
-            end
-        end
-    end
-    
-    #Ensure the correct ordering among different types of cones
-    assign_bucket!(buckets.zeros)
-    assign_bucket!(buckets.nonneg)
-    assign_bucket!(buckets.soc)
-    assign_bucket!(buckets.exp)
-    assign_bucket!(buckets.power)
-    assign_bucket!(buckets.psd)
-    assign_bucket!(buckets.genpow)
-
-    return idxmap
-end
-
-# ------------------------------
-# NEW: bucket constraints by cone type (preserves grouping order)
-# ------------------------------
-const BucketTriple = Tuple{Type, Type, Vector{MOI.ConstraintIndex}}
-
-function bucket_constraints_by_cone(src::MOI.ModelLike)
-    buckets = (
-        zeros   = BucketTriple[],
-        nonneg  = BucketTriple[],
-        soc     = BucketTriple[],
-        exp     = BucketTriple[],
-        power   = BucketTriple[],
-        psd     = BucketTriple[],
-        genpow  = BucketTriple[],
-    )
-
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        cis = MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-        isempty(cis) && continue
-
-        if S <: MOI.Zeros
-            push!(buckets.zeros, (F, S, cis))
-        elseif S <: MOI.Nonnegatives
-            push!(buckets.nonneg, (F, S, cis))
-        elseif S <: MOI.SecondOrderCone
-            push!(buckets.soc, (F, S, cis))
-        elseif S <: MOI.ExponentialCone
-            push!(buckets.exp, (F, S, cis))
-        elseif S <: MOI.PowerCone
-            push!(buckets.power, (F, S, cis))
-        elseif S <: MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle}
-            push!(buckets.psd, (F, S, cis))
-        elseif S <: Clarabel.MOI.GenPowerCone
-            push!(buckets.genpow, (F, S, cis))
-        else
-            throw(MOI.UnsupportedConstraint{F, S}())
-        end
-    end
-
-    return buckets
-end
-
-# ------------------------------
-# Row ranges (bucketed, preserves order)
-# ------------------------------
-function assign_constraint_row_ranges!(
-    rowranges::Vector{UnitRange{DefaultInt}},
-    idxmap::MOIU.IndexMap,
-    src::MOI.ModelLike,
-    buckets
-)
-    startrow = DefaultInt(1)
-
-    function process_bucket!(bucket)
-        for (_F, _S, cis) in bucket
-            for ci_src in cis
-                set = MOI.get(src, MOI.ConstraintSet(), ci_src)
-                ci_dest = idxmap[ci_src]
-                dim = DefaultInt(MOI.dimension(set))
-                endrow = startrow + dim - 1
-                rowranges[ci_dest.value] = startrow:endrow
-                startrow = endrow + 1
-            end
-        end
-        return nothing
-    end
-
-    process_bucket!(buckets.zeros)
-    process_bucket!(buckets.nonneg)
-    process_bucket!(buckets.soc)
-    process_bucket!(buckets.exp)
-    process_bucket!(buckets.power)
-    process_bucket!(buckets.psd)
-    process_bucket!(buckets.genpow)
-
-    return nothing
-end
-
 # ------------------------------
 # Row range helpers
 # ------------------------------
@@ -601,232 +673,11 @@ constraint_rows(
 
 constraint_rows(optimizer::Optimizer, ci::MOI.ConstraintIndex) = constraint_rows(optimizer.rowranges, ci)
 
-# -------------------
-# Constraint assembly
-# -------------------
-function process_constraints(
-    dest::Optimizer{T}, 
-    src::MOI.ModelLike, 
-    idxmap,
-    buckets
-) where {T}
-
-    rowranges = dest.rowranges
-    m = isempty(rowranges) ? 0 : last(rowranges[end])
-    b = zeros(T, m)
-
-    #these will be used for a triplet representation of A
-    nnz = calculate_nnz(src, buckets)
-    I = sizehint!(DefaultInt[], nnz)
-    J = sizehint!(DefaultInt[], nnz)
-    V = sizehint!(T[], nnz)
-
-    #these will be used for the Clarabel API cone types
-    cone_spec = sizehint!(Clarabel.SupportedCone[],length(rowranges))
-
-    push_constraint!(
-        (I, J, V), b, cone_spec,
-        src, idxmap, rowranges, buckets)
-
-    #we have built Ax + b \in Cone, but we actually
-    #want to pose the problem as Ax + s = b, s\ in Cone
-    V .= -V  #changes sign of A
-
-    n = MOI.get(src, MOI.NumberOfVariables())
-    A = sparse(I, J, V, m, n)
-
-    return (A, b, cone_spec)
-
-end
-
-function calculate_nnz(src::MOI.ModelLike, buckets)
-    nnz = 0
-
-    function scan_bucket!(bucket)
-        for (_F, _S, cis) in bucket
-            for ci in cis
-                f = MOI.get(src, MOI.ConstraintFunction(), ci)
-                nnz += calculate_nnz_single(f)
-            end
-        end
-    end
-
-    scan_bucket!(buckets.zeros)
-    scan_bucket!(buckets.nonneg)
-    scan_bucket!(buckets.soc)
-    scan_bucket!(buckets.exp)
-    scan_bucket!(buckets.power)
-    scan_bucket!(buckets.psd)
-    scan_bucket!(buckets.genpow)
-
-    return nnz
-end
-
-calculate_nnz_single(f::MOI.VectorAffineFunction{T}) where {T} = length(f.terms)
-calculate_nnz_single(f::MOI.VectorOfVariables) = length(f.variables)
-
-# bucketed push_constraint! (preserves grouping order)
-function push_constraint!(
-    triplet::SparseTriplet,
-    b::Vector{T},
-    cone_spec::Vector{Clarabel.SupportedCone},
-    src::MOI.ModelLike,
-    idxmap,
-    rowranges::Vector{UnitRange{DefaultInt}},
-    buckets
-) where {T}
-
-    function process_bucket!(bucket)
-        for (_F, _S, cis) in bucket
-            # println("cis is ", cis)
-            for ci in cis
-                s = MOI.get(src, MOI.ConstraintSet(), ci)
-                f = MOI.get(src, MOI.ConstraintFunction(), ci)
-                rows = constraint_rows(rowranges, idxmap[ci])
-
-                # println("b len is ", length(b))
-                # println("row is ", rows)
-                push_constraint_constant!(b, rows, f, s)
-                push_constraint_linear!(triplet, f, rows, idxmap, s)
-                push_constraint_set!(cone_spec, rows, s)
-            end
-        end
-        return nothing
-    end
-
-    process_bucket!(buckets.zeros)
-    process_bucket!(buckets.nonneg)
-    process_bucket!(buckets.soc)
-    process_bucket!(buckets.exp)
-    process_bucket!(buckets.power)
-    process_bucket!(buckets.psd)
-    process_bucket!(buckets.genpow)
-
-    return nothing
-end
-
-function push_constraint_constant!(
-    b::AbstractVector{T},
-    rows::UnitRange{DefaultInt},
-    f::MOI.VectorAffineFunction{T},
-    ::OptimizerSupportedMOICones{T},
-) where {T}
-
-    b[rows] .= f.constants
-    return nothing
-end
-
-function push_constraint_constant!(
-    b::AbstractVector{T},
-    rows::UnitRange{DefaultInt},
-    f::MOI.VectorOfVariables,
-    s::OptimizerSupportedMOICones{T},
-) where {T}
-    b[rows] .= zero(T)
-    return nothing
-end
-
-function push_constraint_linear!(
-    triplet::SparseTriplet,
-    f::MOI.VectorAffineFunction{T},
-    rows::UnitRange{DefaultInt},
-    idxmap,
-    s::OptimizerSupportedMOICones{T},
-) where {T}
-    (I, J, V) = triplet
-    for term in f.terms
-        row = rows[term.output_index]
-        var = term.scalar_term.variable
-        coeff = term.scalar_term.coefficient
-        col = idxmap[var].value
-        push!(I, row)
-        push!(J, col)
-        push!(V, coeff)
-    end
-    return nothing
-end
-
-function push_constraint_linear!(
-    triplet::SparseTriplet{T},
-    f::MOI.VectorOfVariables,
-    rows::UnitRange{DefaultInt},
-    idxmap,
-    s::OptimizerSupportedMOICones{T},
-) where {T}
-    (I, J, V) = triplet
-    @inbounds for k in eachindex(f.variables)
-        push!(I, rows[k])
-        push!(J, idxmap[f.variables[k]].value)
-        push!(V, one(T))
-    end
-    return nothing
-end
-
-
-function push_constraint_set!(
-    cone_spec::Vector{Clarabel.SupportedCone},
-    rows::Union{DefaultInt,UnitRange{DefaultInt}},
-    s::OptimizerSupportedMOICones{T},
-) where {T}
-
-    #we need to handle PowerCones differently here because
-    # 1) they have a power and not a a dimension (always 3),
-    # 2) we can't use [typeof(s)] as a key into MOItoClarabelCones
-    # because typeof(s) = MOI.PowerCone{T} and the dictionary
-    # has keys with the *unparametrized* types
-    if isa(s,MOI.PowerCone)
-        pow_cone_type = MOItoClarabelCones[MOI.PowerCone]
-        push!(cone_spec, pow_cone_type(s.exponent))
-        return nothing
-    end
-
-    # handle ExponentialCone differently because it
-    # doesn't take dimension as a parameter (always 3)
-    if isa(s,MOI.ExponentialCone)
-        exp_cone_type = MOItoClarabelCones[MOI.ExponentialCone]
-        push!(cone_spec, exp_cone_type())
-        return nothing
-    end
-
-    # handle GenPowerCone (takes two parameters)
-    if isa(s,Clarabel.MOI.GenPowerCone)
-        genpow_cone_type = MOItoClarabelCones[Clarabel.MOI.GenPowerCone]
-        push!(cone_spec, genpow_cone_type(s.α,s.dim2))
-        return nothing
-    end
-
-    next_type = MOItoClarabelCones[typeof(s)]
-    next_dim  = _to_optimizer_conedim(s)
-
-    # merge cones together where :
-    # 1) cones of the same type appear consecutively and
-    # 2) those cones are 1-D.
-    # This is just the zero and nonnegative cones
-
-    if isempty(cone_spec) || next_type ∉ OptimizerMergeableTypes || next_type != typeof(cone_spec[end])
-        push!(cone_spec, next_type(next_dim))
-    else
-        #overwrite with a a cone of enlarged dimension
-        cone_spec[end] = next_type(next_dim + cone_spec[end].dim)
-    end
-
-    return nothing
-end
-
 # converts number of elements to optimizer's internal dimension parameter.
 # For matrices, this is just the matrix side dimension.  Conversion differs
 # for square vs triangular form
 _to_optimizer_conedim(set::MOI.AbstractVectorSet) = MOI.dimension(set)
 _to_optimizer_conedim(set::MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle}) = MOI.side_dimension(set)
-
-function push_constraint_set!(
-    cone_spec::Vector{Clarabel.SupportedCone},
-    rows::Union{DefaultInt,UnitRange{DefaultInt}},
-    s::MathOptInterface.AbstractSet
-)
-    #landing here means that s ∉ OptimizerSupportedMOICones.
-    throw(MOI.UnsupportedConstraint(s))
-end
 
 
 # objective assembly
@@ -835,86 +686,124 @@ end
 # Construct cost function data so that minimize `1/2 x' P x + q' x + c`,
 # being careful of objective sense
 
-function process_objective(
-    dest::Optimizer{T},
-    src::MOI.ModelLike,
-    idxmap
-) where {T}
 
+function _process_objective_from_cache(
+    dest::Optimizer{T},
+    src::OptimizerCache{T},
+    n::Int,
+) where {T}
     sense = dest.sense
-    n = MOI.get(src, MOI.NumberOfVariables())
 
     if sense == MOI.FEASIBILITY_SENSE
+        return (spzeros(T, n, n), zeros(T, n), zero(T))
+    end
+
+    ftype = MOI.get(src, MOI.ObjectiveFunctionType())
+
+    if ftype == MOI.ScalarAffineFunction{T}
+        f = MOI.get(src, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}())
         P = spzeros(T, n, n)
-        q = zeros(T,n)
-        c = T(0.)
-
-    else
-        function_type = MOI.get(src, MOI.ObjectiveFunctionType())
-        q = zeros(T,n)
-
-        if function_type == MOI.ScalarAffineFunction{T}
-            faffine = MOI.get(src, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}())
-            P = spzeros(T, n, n)
-            process_objective_linearterm!(q, faffine.terms, idxmap)
-            c = faffine.constant
-
-        elseif function_type == MOI.ScalarQuadraticFunction{T}
-            fquadratic = MOI.get(src, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{T}}())
-            I = [DefaultInt(idxmap[term.variable_1].value) for term in fquadratic.quadratic_terms]
-            J = [DefaultInt(idxmap[term.variable_2].value) for term in fquadratic.quadratic_terms]
-            V = [term.coefficient for term in fquadratic.quadratic_terms]
-            upper_triangularize!((I, J, V))
-            P = sparse(I, J, V, n, n)
-            process_objective_linearterm!(q, fquadratic.affine_terms, idxmap)
-            c = fquadratic.constant
-
-        else
-            throw(MOI.UnsupportedAttribute(MOI.ObjectiveFunction{function_type}()))
+        q = zeros(T, n)
+        for term in f.terms
+            q[term.variable.value] += term.coefficient
         end
+        c = f.constant
+        if sense == MOI.MAX_SENSE
+            q .= -q
+            c = -c
+        end
+        return (P, q, c)
 
+    elseif ftype == MOI.ScalarQuadraticFunction{T}
+        f = MOI.get(src, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{T}}())
+        q = zeros(T, n)
+        for term in f.affine_terms
+            q[term.variable.value] += term.coefficient
+        end
+        I = Int[]
+        J = Int[]
+        V = T[]
+        sizehint!(I, length(f.quadratic_terms))
+        sizehint!(J, length(f.quadratic_terms))
+        sizehint!(V, length(f.quadratic_terms))
+        for qt in f.quadratic_terms
+            i = qt.variable_1.value
+            j = qt.variable_2.value
+            if i > j
+                i, j = j, i
+            end
+            push!(I, i); push!(J, j); push!(V, qt.coefficient)
+        end
+        P = sparse(I, J, V, n, n)
+        c = f.constant
         if sense == MOI.MAX_SENSE
             P.nzval .= -P.nzval
-            q       .= -q
-            c        = -c
+            q .= -q
+            c = -c
         end
-
+        return (P, q, c)
+    else
+        throw(MOI.UnsupportedAttribute(MOI.ObjectiveFunction{ftype}()))
     end
-    return (P, q, c)
 end
 
+# function _append_cones_and_rowranges!(
+#     dest::Optimizer{T},
+#     src::OptimizerCache{T},
+#     cone_spec::Vector{Clarabel.SupportedCone},
+# ) where {T}
 
-function process_objective_linearterm!(
-    q::AbstractVector{T},
-    terms::Vector{<:MOI.ScalarAffineTerm},
-    idxmapfun::Function = identity
-) where {T}
+#     function process_one_settype!(S)
+#         for ci in MOI.get(src, MOI.ListOfConstraintIndices{MOI.VectorAffineFunction{T}, S}())
+#             rows = MOI.Utilities.rows(src.constraints.sets, ci)
+#             dest.rowranges[ci.value] = UnitRange{DefaultInt}(first(rows), last(rows))
+#             set = MOI.get(src, MOI.ConstraintSet(), ci)
+#             _push_cone_spec_merged!(cone_spec, set)
+#         end
+#         return nothing
+#     end
 
-    q .= 0
-    for term in terms
-        var = term.variable
-        coeff = term.coefficient
-        q[idxmapfun(var).value] += coeff
+#     process_one_settype!(MOI.Zeros)
+#     process_one_settype!(MOI.Nonnegatives)
+#     process_one_settype!(MOI.SecondOrderCone)
+#     process_one_settype!(MOI.ExponentialCone)
+#     process_one_settype!(MOI.PowerCone{T})
+#     process_one_settype!(MOI.Scaled{MOI.PositiveSemidefiniteConeTriangle})
+#     process_one_settype!(Clarabel.MOI.GenPowerCone{T})
+
+#     return nothing
+# end
+
+function _push_cone_spec_merged!(cone_spec::Vector{Clarabel.SupportedCone}, s)
+    # Power cone special casing
+    if isa(s, MOI.PowerCone)
+        pow_cone_type = MOItoClarabelCones[MOI.PowerCone]
+        push!(cone_spec, pow_cone_type(s.exponent))
+        return nothing
+    end
+
+    # Exponential cone special casing
+    if isa(s, MOI.ExponentialCone)
+        exp_cone_type = MOItoClarabelCones[MOI.ExponentialCone]
+        push!(cone_spec, exp_cone_type())
+        return nothing
+    end
+
+    # GenPower special casing
+    if isa(s, Clarabel.MOI.GenPowerCone)
+        genpow_cone_type = MOItoClarabelCones[Clarabel.MOI.GenPowerCone]
+        push!(cone_spec, genpow_cone_type(s.α, s.dim2))
+        return nothing
+    end
+
+    next_type = MOItoClarabelCones[typeof(s)]
+    next_dim  = _to_optimizer_conedim(s)
+
+    # Merge only Zero/Nonneg consecutive blocks 
+    if isempty(cone_spec) || next_type ∉ OptimizerMergeableTypes || next_type != typeof(cone_spec[end])
+        push!(cone_spec, next_type(next_dim))
+    else
+        cone_spec[end] = next_type(next_dim + cone_spec[end].dim)
     end
     return nothing
-end
-
-function process_objective_linearterm!(
-    q::AbstractVector{T},
-    terms::Vector{<:MOI.ScalarAffineTerm},
-    idxmap::MOIU.IndexMap
-) where {T}
-    process_objective_linearterm!(q, terms, var -> idxmap[var])
-end
-
-function upper_triangularize!(triplet::SparseTriplet{T}) where {T}
-
-    (I, J, V) = triplet
-    n = length(V)
-    (length(I) == length(J) == n) || error()
-    for i = eachindex(I)
-        if I[i] > J[i]
-            I[i], J[i] = J[i], I[i]
-        end
-    end
 end

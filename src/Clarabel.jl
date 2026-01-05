@@ -117,7 +117,6 @@ module Clarabel
          include("./MOI_wrapper/MOI_wrapper.jl")
     end
     const Optimizer{T} = Clarabel.MOIwrapper.Optimizer{T}
-    direct_optimizer(args...; kwargs...) = Clarabel.MOIwrapper.direct_optimizer(args...; kwargs...)
 
     # Functions for use in python
     include("python/py2jl.jl")
