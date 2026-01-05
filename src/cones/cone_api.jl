@@ -99,7 +99,7 @@ function orders(cone::SupportedCone, soc_threshold::Int)
     elseif isa(cone, NonnegativeConeT)
         0
     elseif isa(cone, SecondOrderConeT)
-        (cone.dim > soc_threshold) ? 2 : 1
+        (cone.dim > soc_threshold) ? 1 : 2
     elseif isa(cone, ExponentialConeT)
         3
     elseif isa(cone, PowerConeT)

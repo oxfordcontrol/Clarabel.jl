@@ -396,7 +396,7 @@ function fractional_step(
     αmax::T,
     max_step_fraction::T
 ) where {T}
-    αmax = min(αmax,max_step_fraction)
+    αmax = min(αmax,one(T) - sqrt(eps(T)))
     return αmax
 end
 # #------------------------------------------------------------
