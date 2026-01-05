@@ -118,8 +118,11 @@ module Clarabel
     end
     const Optimizer{T} = Clarabel.MOIwrapper.Optimizer{T}
 
+    ###############################################################
     # Functions for use in python
-    include("python/py2jl.jl")
+    # YC: examples for cupy and Julia's CuVetor conversion
+    ###############################################################
+    # include("python/py2jl.jl")
 
     #precompile minimal MOI / native examples
     using SnoopPrecompile
