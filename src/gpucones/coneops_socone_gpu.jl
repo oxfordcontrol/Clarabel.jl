@@ -393,7 +393,9 @@ end
     st::CuStream,
     ev::CuEvent
 ) where {T}
-    update_scaling_soc_dense!(Val(n_dense_soc > 0), s, z, w, λ, η, rng_cones, n_linear, n_sparse_soc, n_dense_soc, st)
+    #YC: Assume the dimension of sparse SOCs is moderate, then treat sparse SOCs as dense SOCs
+    update_scaling_soc_dense!(Val(n_soc > 0), s, z, w, λ, η, rng_cones, 
+                                n_linear, zero(Cint), n_soc, st)
 end
 
 
