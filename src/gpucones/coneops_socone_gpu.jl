@@ -370,7 +370,7 @@ end
     st::CuStream,
     ev::CuEvent
 ) where {T}
-    update_scaling_soc_dense!(Val(n_soc > 0), s, z, w, λ, η, rng_cones, n_linear, n_sparse_soc, n_dense_soc, st)
+    update_scaling_soc_dense!(Val(n_dense_soc > 0), s, z, w, λ, η, rng_cones, n_linear, n_sparse_soc, n_dense_soc, st)
     add_record(Val(n_soc > 0), st, ev)
 end
 
@@ -393,7 +393,7 @@ end
     st::CuStream,
     ev::CuEvent
 ) where {T}
-    update_scaling_soc_dense!(Val(n_soc > 0), s, z, w, λ, η, rng_cones, n_linear, n_sparse_soc, n_dense_soc, st)
+    update_scaling_soc_dense!(Val(n_dense_soc > 0), s, z, w, λ, η, rng_cones, n_linear, n_sparse_soc, n_dense_soc, st)
 end
 
 
