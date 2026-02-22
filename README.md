@@ -137,7 +137,10 @@ It is also possible to call the julia functions directly via JuliaCall. For exam
 ```
 # Update b vector
 bpy = cp.array([2.0, 1.0, 1.0, 1.0], dtype=cp.float64)
-bjl = jl.Clarabel.cupy_to_cuvector(jl.Float64, int(bpy.data.ptr), bpy.size)
+
+# Get Python extension in Clarabel.jl
+pyext = jl.Base.get_extension(jl.Clarabel, jl.Symbol("PythonExt"))
+bjl = pyext.cupy_to_cuvector(jl.Float64, int(bpy.data.ptr), bpy.size)
 
 # "_b" is the replacement of "!" in julia function
 jl.Clarabel.update_b_b(jl.solver,bjl)          #Clarabel.update_b!()
@@ -159,7 +162,7 @@ indptr_ptr  = int(Ppy.indptr.data.ptr)
 n_rows, n_cols = Ppy.shape
 nnz = Ppy.nnz
 
-jl.Pjl = jl.Clarabel.cupy_to_cucsrmat(jl.Float64, data_ptr, indices_ptr, indptr_ptr, n_rows, n_cols, nnz)
+jl.Pjl = pyext.cupy_to_cucsrmat(jl.Float64, data_ptr, indices_ptr, indptr_ptr, n_rows, n_cols, nnz)
 
 jl.Clarabel.update_P_b(jl.solver, jl.Pjl)          #Clarabel.update_P!()
 
