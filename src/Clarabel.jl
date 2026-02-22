@@ -2,7 +2,7 @@ __precompile__()
 module Clarabel
 
     using SparseArrays, LinearAlgebra, Printf
-    using CUDA, CUDA.CUBLAS, NVTX, PythonCall # for GPU implementation
+    using CUDA, CUDA.CUBLAS, NVTX # for GPU implementation
 
     const DefaultFloat = Float64
     const DefaultInt   = Int64
