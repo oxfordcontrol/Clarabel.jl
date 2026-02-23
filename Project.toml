@@ -20,15 +20,18 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [weakdeps]
+CliqueTrees = "60701a23-6482-424a-84db-faee86b9b1f8"
 HSL = "34c5aeac-e683-54a6-a0e9-6e0fdc586c50"
 Pardiso = "46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2"
 
 [extensions]
+CliqueTreesExt = "CliqueTrees"
 HSLExt = "HSL"
 PardisoExt = "Pardiso"
 
 [compat]
 AMD = "0.4, 0.5"
+CliqueTrees = "1.15"
 DataStructures = "0.18"
 GenericLinearAlgebra = "0.3"
 HSL = "0.4, 0.5"
