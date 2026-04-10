@@ -128,6 +128,10 @@ Optimizer(args...; kwargs...) = Optimizer{Clarabel.DefaultFloat}(args...; kwargs
 
 # reset the optimizer
 function MOI.empty!(optimizer::Optimizer{T}) where {T}
+
+    #force immediate finalize to avoid resource exhaustion during MOI tests
+    finalize(optimizer.solver)
+
     #flush everything, keeping the currently configured settings
     optimizer.solver          = nothing
     optimizer.solver_settings = optimizer.solver_settings #preserve settings / no change
