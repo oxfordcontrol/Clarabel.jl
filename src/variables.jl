@@ -161,6 +161,40 @@ function variables_combined_step_rhs!(
     return nothing
 end
 
+# Pure corrector used only when the step size is too small
+function variables_pure_corrector_step_rhs!(
+    d::DefaultVariables{T},
+    r::DefaultResiduals{T},
+    variables::DefaultVariables{T},
+    cones::CompositeCone{T},
+    step::DefaultVariables{T},
+    σ::T,
+    μ::T
+) where {T}
+
+    dotσμ = σ*μ
+ 
+    @. d.x  = -σ*r.rx
+       d.τ  = -σ*r.rτ
+       d.κ  = - dotσμ
+
+    # ds is different for symmetric and asymmetric cones:
+    # Symmetric cones: d.s = − σμe
+    # Asymmetric cones: d.s = σμ*g(z)
+
+    # YC: No higher_correction by setting Δz to 0
+    # it is less efficient but ok since the correction rarely happens
+    step.z .= zero(T)
+    combined_ds_shift!(cones,d.z,step.z,step.s,dotσμ)
+
+    @. d.s = d.z
+
+    # now we copy the scaled res for rz and d.z is no longer work
+    @. d.z = -σ*r.rz
+
+    return nothing
+end
+
 # Calls shift_to_cone on all conic variables and does not 
 # touch the primal variables. Used for symmetric problems.
 

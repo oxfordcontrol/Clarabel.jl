@@ -337,7 +337,7 @@ function solve!(
             α = solver_get_step_length(s,:combined,scaling)
 
             # check for undersized step and update strategy
-            (action,scaling) = _strategy_checkpoint_small_step(s, α, scaling)
+            (action,scaling) = _strategy_checkpoint_small_step(s, α, μ, scaling)
             if     action === NoUpdate; ();  #just keep going 
             elseif action === Update; α = zero(T); continue; 
             elseif action === Fail;   α = zero(T); break; 
@@ -445,7 +445,7 @@ end
 # Mehrotra heuristic
 function _calc_centering_parameter(α::T) where{T}
 
-    return σ = (1-α)^3
+    return σ = (1-α)*min((1-α)^2, 0.25)
 end
 
 
@@ -489,7 +489,45 @@ function _strategy_checkpoint_numerical_error(s::Solver{T}, is_kkt_solve_success
 end 
 
 
-function _strategy_checkpoint_small_step(s::Solver{T}, α::T, scaling::ScalingStrategy) where {T}
+function _strategy_checkpoint_small_step(s::Solver{T}, α::T, μ::T, scaling::ScalingStrategy) where {T}
+
+    # Pure centering step if the step size is too small
+    if (α < s.settings.min_switch_step_length)
+        σ = _calc_centering_parameter(α)
+
+        variables_affine_step_rhs!(
+            s.step_rhs, s.residuals,
+            s.variables, s.cones
+        )
+
+        #calculate the combined step and length
+        #--------------
+        variables_pure_corrector_step_rhs!(
+            s.step_rhs, s.residuals,
+            s.variables, s.cones,
+            s.step_lhs, σ, μ
+        )
+
+        @timeit s.timers "kkt solve" begin
+        is_kkt_solve_success =
+            kkt_solve!(
+                s.kktsystem, s.step_lhs, s.step_rhs,
+                s.data, s.variables, s.cones, :combined
+            )
+        end
+
+        # check for numerical failure
+        if !is_kkt_solve_success
+            #out of tricks.  Bail out with an error
+            s.info.status = NUMERICAL_ERROR
+            return (Fail::StrategyCheckpoint,scaling)
+        end
+
+        #compute final step length and update the current iterate
+        #--------------
+        α = solver_get_step_length(s,:combined,scaling)
+
+    end
 
     if !is_symmetric(s.cones) &&
         scaling == PrimalDual::ScalingStrategy && α < s.settings.min_switch_step_length
