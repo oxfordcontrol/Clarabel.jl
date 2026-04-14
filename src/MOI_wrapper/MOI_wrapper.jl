@@ -253,6 +253,11 @@ function MOI.set(opt::Optimizer, param::MOI.RawOptimizerAttribute, value)
         opt.use_quad_obj = value
     else
         setproperty!(opt.solver_settings, Symbol(param.name), value)
+
+        #Also update the solver if it has already been created, so that changes to attributes
+        if opt.solver !== nothing
+            setproperty!(opt.solver.settings, Symbol(param.name), value)
+        end
     end
 end
 
