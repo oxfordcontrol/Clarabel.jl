@@ -70,12 +70,12 @@ function psd_complete!(A::AbstractMatrix{T}, pattern::SparsityPattern) where {T 
         #sorted using numerical ordering σ(i)
         α = get_separators(sntree, j)
 
-        # index set containing the row indices of the lower-triangular zeros in 
+        # index set containing the row indices of the lower-triangular zeros in
         # column i (i: representative index) sorted by σ(i)
-        i = ν[1]
+        ν = collect(ν)
+        α = collect(α)
 
-        ν = collect(ν) #unborks indexing below
-        α = collect(α) #unborks indexing below
+        i = ν[1]
 
         η = collect(i+1:1:N)
         filter!(x -> !insorted(x, α) && !insorted(x, ν), η)
