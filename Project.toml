@@ -30,7 +30,7 @@ PardisoExt = "Pardiso"
 [compat]
 AMD = "0.4, 0.5"
 DataStructures = "0.18, 0.19"
-GenericLinearAlgebra = "0.3"
+GenericLinearAlgebra = "0.3, 0.4"
 HSL = "0.4, 0.5"
 JSON = "0.21, 1"
 MathOptInterface = "1.20"
