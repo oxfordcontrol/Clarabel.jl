@@ -182,14 +182,30 @@ end
 # -------------------------------------
 
 """
-	solve!(solver)
+	solve!(solver; warmstart=false, warmstart_weight=0.01)
 
 Computes the solution to the problem in a `Clarabel.Solver` previously defined in [`setup!`](@ref).
+
+`warmstart=true` (or `:smoothing`) uses barrier smoothing of the previous
+solution. `warmstart=:convex_combination` blends the previous solution with
+the cone unit start, with `warmstart_weight` specifying the unit-start weight
+in `(0,1]`. `false` (or `:cold`) uses the standard cold start. Warmstarting
+falls back to the cold start if no previous solved solution is available.
 """
 function solve!(
     s::Solver{T};
-    warmstart::Bool=false
+    warmstart::Union{Bool,Symbol}=false,
+    warmstart_weight::Real=0.01
 ) where{T}
+
+    method = warmstart === true ? :smoothing : warmstart === false ? :cold : warmstart
+    method in (:cold,:smoothing,:convex_combination) ||
+        throw(ArgumentError("Unknown warmstart method: $method"))
+    weight = T(warmstart_weight)
+    if method == :convex_combination
+        isfinite(weight) && zero(T) < weight <= one(T) ||
+            throw(ArgumentError("warmstart_weight must be finite and in (0,1]"))
+    end
 
     # initialization needed for first loop pass 
     iter   = 0
@@ -210,7 +226,7 @@ function solve!(
     @timeit s.timers "solve!" begin
 
         # initialize variables to some reasonable starting point
-        @timeit s.timers "default start" solver_default_start!(s, warmstart)
+        @timeit s.timers "default start" solver_default_start!(s, method, weight)
 
         @timeit s.timers "IP iteration" begin
 
@@ -381,14 +397,18 @@ function solve!(
 end
 
 
-function solver_default_start!(s::Solver{T},warmstart::Bool) where {T}
+function solver_default_start!(s::Solver{T},method::Symbol,weight::T=T(0.01)) where {T}
 
     # If there are only symmetric cones, use CVXOPT style initilization
     # Otherwise, initialize along central rays
 
-    #YC: warm-start technique (currently only for feasible solution)
-    if warmstart && !status_is_infeasible(s.info.status)
-        variables_warmstart!(s)        
+    # Use the saved solution status: info_reset! has already reset info.status.
+    if method != :cold && s.solution.status in (SOLVED,ALMOST_SOLVED)
+        if method == :convex_combination
+            variables_convex_combination_start!(s,weight)
+        else
+            variables_warmstart!(s)
+        end
         return nothing
     end
 

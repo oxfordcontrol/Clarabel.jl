@@ -313,6 +313,21 @@ function inv_circ_op!(
 
 end
 
+# Smooth a primal-dual pair with unit scaling unless a cone overrides it.
+function smoothing_pair!(
+    K::AbstractCone{T},
+    work::AbstractVector{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    μ::T
+) where {T}
+
+    @. work = z - s
+    smoothing!(K,work,z,s,μ)
+    @. s = z - work
+    return nothing
+end
+
 function smoothing!(
     K::AbstractCone{T},
     work::AbstractVector{T},

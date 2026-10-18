@@ -305,6 +305,24 @@ function variables_dims(variables::DefaultVariables{T}) where {T}
     return (length(variables.x), length(variables.s))
 end
 
+# Fixed-weight convex-combination baseline. Form the combination in the
+# solver's equilibrated coordinates so the unit point matches its cone units.
+function variables_convex_combination_start!(s::Solver{T},weight::T) where {T}
+    previous = s.step_lhs
+    variables_copyto!(previous,s.solution,zero(T))
+    variables_scale!(previous,s.data)
+    variables_unit_initialization!(s.variables,s.cones)
+
+    keep = one(T)-weight
+    @. s.variables.x = keep*previous.x
+    @. s.variables.s = keep*previous.s + weight*s.variables.s
+    @. s.variables.z = keep*previous.z + weight*s.variables.z
+    # The previous optimum has τ=1 and κ=0; the unit start has τ=κ=1.
+    s.variables.τ = one(T)
+    s.variables.κ = weight
+    return nothing
+end
+
 #Warm start from the previous iterates
 function variables_warmstart!(
     s::Solver{T}

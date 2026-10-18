@@ -411,6 +411,38 @@ end
 #--------------------------------
 # Warm start 
 #--------------------------------
+function smoothing_pair!(
+    K::SecondOrderCone{T},
+    work::AbstractVector{T},
+    z::AbstractVector{T},
+    s::AbstractVector{T},
+    μ::T
+) where {T}
+
+    # μ is the common centering parameter. The paper uses λ = s₀*/z₀*
+    # and the SOC smoothing parameter μ⁰ = λμ.
+    λ = s[1] / z[1]
+    μ_soc = λ * μ
+    if !(s[1] > zero(T) && z[1] > zero(T) &&
+         isfinite(λ) && λ > zero(T) && isfinite(μ_soc) && μ_soc > zero(T))
+        # The ratio is undefined at a zero primal or dual SOC point.
+        @. work = z - s
+        smoothing!(K,work,z,s,μ)
+        @. s = z - work
+        return nothing
+    end
+
+    # c = s* - λz* has c₀ = 0 by construction. Use the closed form
+    # for this case rather than the general quartic-based calculation.
+    @. work = s - λ*z
+    work[1] = zero(T)
+    @views s[2:end] .= work[2:end] ./ 2
+    s[1] = hypot(sqrt(μ_soc),norm(view(s,2:length(s))))
+    z[1] = s[1] / λ
+    @views z[2:end] .= -s[2:end] ./ λ
+    return nothing
+end
+
 function smoothing!(
     K::SecondOrderCone{T},
     work::AbstractVector{T},

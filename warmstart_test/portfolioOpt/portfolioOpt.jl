@@ -2,10 +2,10 @@ using CSV
 using Statistics, LinearAlgebra
 using SparseArrays
 using Clarabel
+using JLD2
 using TimerOutputs
 
 include("./utils.jl")
-include("..//plots.jl")
 
 N = 300 # 20 is max. number of assets
 T = 500 # num of days used for estimation
@@ -54,24 +54,30 @@ Clarabel.solve!(solver)
 
 #solver for the cold_start
 solver_c = deepcopy(solver)
+solver_cc = deepcopy(solver)  # independent convex-combination sequence
+warmup_comparison!(solver; weight=0.01)
 
 ##########################################
 # Recording time and iteration number
 ##########################################
 nsample = maxdays - T
-solve_time_w = Vector{Float64}(undef,nsample) 
-solve_time_c = Vector{Float64}(undef,nsample) 
-iter_w = Vector{Int64}(undef,nsample) 
-iter_c = Vector{Int64}(undef,nsample) 
+solve_time_w = fill(Inf,nsample)
+solve_time_c = fill(Inf,nsample)
+iter_w = fill(-1,nsample)
+iter_c = fill(-1,nsample)
 
 
-#save data needed in a table 
-tables = Dict() 
+#save data needed in a table
+tables = Dict()
 tables[:varVal] = Vector(1:nsample)
-tables[:warm_time] = solve_time_w 
-tables[:cold_time] = solve_time_c 
-tables[:warm_iterations] = iter_w 
-tables[:cold_iterations] = iter_c 
+tables[:warm_time] = solve_time_w
+tables[:cold_time] = solve_time_c
+tables[:warm_iterations] = iter_w
+tables[:cold_iterations] = iter_c
+init_convex_comparison!(tables,nsample; weight=0.01)
+tables[:output_prefix] = joinpath(@__DIR__,"..","results","portfolio")
+iter_cc = tables[:convex_iterations]
+solve_time_cc = tables[:convex_time]
 
 njump = 1
 
@@ -89,12 +95,11 @@ for i in 1:nsample
     Clarabel.update_A!(solver,A)
     Clarabel.solve!(solver;warmstart=true)
 
-    if solver.solution.status === Clarabel.SOLVED 
-        tables[:warm_time][i] = TimerOutputs.tottime(solver.timers["solve!"])/1e9 
-        tables[:warm_iterations][i] = solver.info.iterations 
-    else 
-        tables[:warm_time][i] = Inf 
-    end 
+    record_comparison_result!(tables,:warm,solver,i)
+
+    # Convex combination of its own previous solution and the cone unit start.
+    Clarabel.update_A!(solver_cc,A)
+    solve_convex_comparison!(solver_cc,tables,i)
 
     sleep(0.01)
 
@@ -102,24 +107,16 @@ for i in 1:nsample
     Clarabel.update_A!(solver_c,A)
     Clarabel.solve!(solver_c)
 
-    if solver_c.solution.status === Clarabel.SOLVED 
-        tables[:cold_time][i] = TimerOutputs.tottime(solver_c.timers["solve!"])/1e9 
-        tables[:cold_iterations][i] = solver_c.info.iterations 
-    else 
-        tables[:cold_time][i] = Inf 
-    end 
-    sleep(0.01) 
+    record_comparison_result!(tables,:cold,solver_c,i)
+    sleep(0.01)
 
 end
 
-# ################################################
-# #Postprocess 
-# ################################################
-# tablename = "portfolio"
-# filename = ".//..//results//bench_"*tablename*"_table" 
-# problems = "Time index"
-# save_table(tables,problems,filename,tablename)
-# plot_warmstart(iter_w,iter_c,filename)
-# geomean = compute_geomean(iter_w,iter_c)
-# println("iteration reduction ratio ", 1-geomean_iter, " vs. time reduction ratio ", 1-geomean_time)
-# # @save ".//..//results//"*tablename*".jld2" iter_w=iter_w iter_c=iter_c solve_time_w=solve_time_w solve_time_c=solve_time_c varVal=tables[:varVal] 
+# Save all three methods separately from historical results.
+filename = joinpath(@__DIR__,"..","results","bench_portfolio_comparison_table")
+save_table(tables,"Time index",filename,"portfolio_comparison")
+save_comparison(tables,joinpath(@__DIR__,"..","results","portfolio"))
+geomean_iter = compute_geomean(iter_w,iter_c)
+geomean_time = compute_geomean(solve_time_w,solve_time_c)
+geomean_iter_cc = compute_geomean(iter_cc,iter_c)
+geomean_time_cc = compute_geomean(solve_time_cc,solve_time_c)

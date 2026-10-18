@@ -1,0 +1,27 @@
+126:[[deps.Clarabel]]
+127-deps = ["AMD", "DataStructures", "GenericLinearAlgebra", "JSON", "LinearAlgebra", "MathOptInterface", "Printf", "QDLDL", "SnoopPrecompile", "SparseArrays", "StaticArrays", "SuiteSparse", "TOML", "TimerOutputs"]
+128-path = "/home/cyw/code/Clarabel.jl"
+129-uuid = "61c947e1-3e6d-4ee4-985a-eec8c727bd6e"
+130-version = "0.11.0"
+131-
+--
+614:[[deps.JuMP]]
+615-deps = ["LinearAlgebra", "MacroTools", "MathOptInterface", "MutableArithmetics", "OrderedCollections", "PrecompileTools", "Printf", "SparseArrays"]
+616-git-tree-sha1 = "c21108220410d7b77d0385c487259abb7e5c97db"
+617-uuid = "4076af6c-e467-56ae-b986-b466b2749572"
+618-version = "1.32.1"
+619-
+--
+823:[[deps.MLDatasets]]
+824-deps = ["CSV", "Chemfiles", "DataDeps", "DataFrames", "DelimitedFiles", "FileIO", "FixedPointNumbers", "GZip", "Glob", "HDF5", "ImageShow", "JLD2", "JSON3", "LazyModules", "MAT", "MLUtils", "NPZ", "Pickle", "Printf", "Requires", "SparseArrays", "Statistics", "Tables"]
+825-git-tree-sha1 = "1d1e9cd3a514beedf9cde753b098b2b0d385b598"
+826-uuid = "eb30cadb-4394-5ae3-aed4-317e484a6458"
+827-version = "0.7.21"
+828-
+--
+1366:[[deps.StatsBase]]
+1367-deps = ["AliasTables", "DataAPI", "DataStructures", "IrrationalConstants", "LinearAlgebra", "LogExpFunctions", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "StatsAPI"]
+1368-git-tree-sha1 = "adb9da019510162e67a4493fc235c23203d8b09e"
+1369-uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+1370-version = "0.34.13"
+1371-

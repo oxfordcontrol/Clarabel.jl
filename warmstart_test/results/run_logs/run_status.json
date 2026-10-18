@@ -1,0 +1,30 @@
+{
+  "svm_l1": {
+    "state": "complete",
+    "log": "/home/cyw/code/Clarabel.jl/warmstart_test/results/run_logs/svm_l1.log",
+    "started_utc": "2026-10-18T15:21:47.777928+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 497.3107858660005
+  },
+  "svm_l2": {
+    "state": "complete",
+    "log": "/home/cyw/code/Clarabel.jl/warmstart_test/results/run_logs/svm_l2.log",
+    "started_utc": "2026-10-18T15:30:05.088963+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 1300.0208040999987
+  },
+  "rebalancing": {
+    "state": "complete",
+    "log": "/home/cyw/code/Clarabel.jl/warmstart_test/results/run_logs/rebalancing.log",
+    "started_utc": "2026-10-18T15:51:45.110955+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 27.799798477999502
+  },
+  "frontier": {
+    "state": "complete",
+    "log": "/home/cyw/code/Clarabel.jl/warmstart_test/results/run_logs/frontier.log",
+    "started_utc": "2026-10-18T15:52:12.913453+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 10.730317614999876
+  }
+}

@@ -275,15 +275,12 @@ function smoothing!(
     μ::T
 ) where {T}
 
-    @. work = z - s     #before smoothing
-
     for (cone,rng) in zip(cones,cones.rng_cones)
         worki = view(work,rng)
         zi    = view(z,rng)
         si   = view(s,rng)
-        @conedispatch smoothing!(cone,worki,zi,si,μ)
+        @conedispatch smoothing_pair!(cone,worki,zi,si,μ)
     end
 
-    # generate snew via z - s = znew - snew = work
-    @. s = z - work
+    return nothing
 end

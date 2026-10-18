@@ -1,0 +1,1260 @@
+diff --git a/src/cones/coneops_compositecone.jl b/src/cones/coneops_compositecone.jl
+index 4a31664..2eb3a32 100644
+--- a/src/cones/coneops_compositecone.jl
++++ b/src/cones/coneops_compositecone.jl
+@@ -275,15 +275,12 @@ function smoothing!(
+     μ::T
+ ) where {T}
+ 
+-    @. work = z - s     #before smoothing
+-
+     for (cone,rng) in zip(cones,cones.rng_cones)
+         worki = view(work,rng)
+         zi    = view(z,rng)
+         si   = view(s,rng)
+-        @conedispatch smoothing!(cone,worki,zi,si,μ)
++        @conedispatch smoothing_pair!(cone,worki,zi,si,μ)
+     end
+ 
+-    # generate snew via z - s = znew - snew = work
+-    @. s = z - work
+-end
+\ No newline at end of file
++    return nothing
++end
+diff --git a/src/cones/coneops_defaults.jl b/src/cones/coneops_defaults.jl
+index ea69265..a25ca7c 100644
+--- a/src/cones/coneops_defaults.jl
++++ b/src/cones/coneops_defaults.jl
+@@ -313,6 +313,21 @@ function inv_circ_op!(
+ 
+ end
+ 
++# Smooth a primal-dual pair with unit scaling unless a cone overrides it.
++function smoothing_pair!(
++    K::AbstractCone{T},
++    work::AbstractVector{T},
++    z::AbstractVector{T},
++    s::AbstractVector{T},
++    μ::T
++) where {T}
++
++    @. work = z - s
++    smoothing!(K,work,z,s,μ)
++    @. s = z - work
++    return nothing
++end
++
+ function smoothing!(
+     K::AbstractCone{T},
+     work::AbstractVector{T},
+@@ -323,4 +338,4 @@ function smoothing!(
+ 
+     error("Incomplete cone operation specification: ",typeof(K))
+ 
+-end
+\ No newline at end of file
++end
+diff --git a/src/cones/coneops_socone.jl b/src/cones/coneops_socone.jl
+index 9692c72..49e254d 100644
+--- a/src/cones/coneops_socone.jl
++++ b/src/cones/coneops_socone.jl
+@@ -411,6 +411,38 @@ end
+ #--------------------------------
+ # Warm start 
+ #--------------------------------
++function smoothing_pair!(
++    K::SecondOrderCone{T},
++    work::AbstractVector{T},
++    z::AbstractVector{T},
++    s::AbstractVector{T},
++    μ::T
++) where {T}
++
++    # μ is the common centering parameter. The paper uses λ = s₀*/z₀*
++    # and the SOC smoothing parameter μ⁰ = λμ.
++    λ = s[1] / z[1]
++    μ_soc = λ * μ
++    if !(s[1] > zero(T) && z[1] > zero(T) &&
++         isfinite(λ) && λ > zero(T) && isfinite(μ_soc) && μ_soc > zero(T))
++        # The ratio is undefined at a zero primal or dual SOC point.
++        @. work = z - s
++        smoothing!(K,work,z,s,μ)
++        @. s = z - work
++        return nothing
++    end
++
++    # c = s* - λz* has c₀ = 0 by construction. Use the closed form
++    # for this case rather than the general quartic-based calculation.
++    @. work = s - λ*z
++    work[1] = zero(T)
++    @views s[2:end] .= work[2:end] ./ 2
++    s[1] = hypot(sqrt(μ_soc),norm(view(s,2:length(s))))
++    z[1] = s[1] / λ
++    @views z[2:end] .= -s[2:end] ./ λ
++    return nothing
++end
++
+ function smoothing!(
+     K::SecondOrderCone{T},
+     work::AbstractVector{T},
+@@ -533,4 +565,4 @@ function _step_length_soc_component(
+ 
+     return min(αmax,r1,r2)
+ 
+-end
+\ No newline at end of file
++end
+diff --git a/src/solver.jl b/src/solver.jl
+index 01520dc..b28b864 100644
+--- a/src/solver.jl
++++ b/src/solver.jl
+@@ -182,15 +182,31 @@ end
+ # -------------------------------------
+ 
+ """
+-	solve!(solver)
++	solve!(solver; warmstart=false, warmstart_weight=0.01)
+ 
+ Computes the solution to the problem in a `Clarabel.Solver` previously defined in [`setup!`](@ref).
++
++`warmstart=true` (or `:smoothing`) uses barrier smoothing of the previous
++solution. `warmstart=:convex_combination` blends the previous solution with
++the cone unit start, with `warmstart_weight` specifying the unit-start weight
++in `(0,1]`. `false` (or `:cold`) uses the standard cold start. Warmstarting
++falls back to the cold start if no previous solved solution is available.
+ """
+ function solve!(
+     s::Solver{T};
+-    warmstart::Bool=false
++    warmstart::Union{Bool,Symbol}=false,
++    warmstart_weight::Real=0.01
+ ) where{T}
+ 
++    method = warmstart === true ? :smoothing : warmstart === false ? :cold : warmstart
++    method in (:cold,:smoothing,:convex_combination) ||
++        throw(ArgumentError("Unknown warmstart method: $method"))
++    weight = T(warmstart_weight)
++    if method == :convex_combination
++        isfinite(weight) && zero(T) < weight <= one(T) ||
++            throw(ArgumentError("warmstart_weight must be finite and in (0,1]"))
++    end
++
+     # initialization needed for first loop pass 
+     iter   = 0
+     σ = one(T) 
+@@ -210,7 +226,7 @@ function solve!(
+     @timeit s.timers "solve!" begin
+ 
+         # initialize variables to some reasonable starting point
+-        @timeit s.timers "default start" solver_default_start!(s, warmstart)
++        @timeit s.timers "default start" solver_default_start!(s, method, weight)
+ 
+         @timeit s.timers "IP iteration" begin
+ 
+@@ -381,14 +397,18 @@ function solve!(
+ end
+ 
+ 
+-function solver_default_start!(s::Solver{T},warmstart::Bool) where {T}
++function solver_default_start!(s::Solver{T},method::Symbol,weight::T=T(0.01)) where {T}
+ 
+     # If there are only symmetric cones, use CVXOPT style initilization
+     # Otherwise, initialize along central rays
+ 
+-    #YC: warm-start technique (currently only for feasible solution)
+-    if warmstart && !status_is_infeasible(s.info.status)
+-        variables_warmstart!(s)        
++    # Use the saved solution status: info_reset! has already reset info.status.
++    if method != :cold && s.solution.status in (SOLVED,ALMOST_SOLVED)
++        if method == :convex_combination
++            variables_convex_combination_start!(s,weight)
++        else
++            variables_warmstart!(s)
++        end
+         return nothing
+     end
+ 
+diff --git a/src/variables.jl b/src/variables.jl
+index a08be56..0cac2e5 100644
+--- a/src/variables.jl
++++ b/src/variables.jl
+@@ -305,6 +305,24 @@ function variables_dims(variables::DefaultVariables{T}) where {T}
+     return (length(variables.x), length(variables.s))
+ end
+ 
++# Fixed-weight convex-combination baseline. Form the combination in the
++# solver's equilibrated coordinates so the unit point matches its cone units.
++function variables_convex_combination_start!(s::Solver{T},weight::T) where {T}
++    previous = s.step_lhs
++    variables_copyto!(previous,s.solution,zero(T))
++    variables_scale!(previous,s.data)
++    variables_unit_initialization!(s.variables,s.cones)
++
++    keep = one(T)-weight
++    @. s.variables.x = keep*previous.x
++    @. s.variables.s = keep*previous.s + weight*s.variables.s
++    @. s.variables.z = keep*previous.z + weight*s.variables.z
++    # The previous optimum has τ=1 and κ=0; the unit start has τ=κ=1.
++    s.variables.τ = one(T)
++    s.variables.κ = weight
++    return nothing
++end
++
+ #Warm start from the previous iterates
+ function variables_warmstart!(
+     s::Solver{T}
+@@ -327,4 +345,4 @@ function variables_warmstart!(
+     variables_scale!(s.variables, s.data)
+     s.variables.κ = ratio
+ 
+-end
+\ No newline at end of file
++end
+diff --git a/test/run_component_tests.jl b/test/run_component_tests.jl
+index 87cedd5..9ba1346 100644
+--- a/test/run_component_tests.jl
++++ b/test/run_component_tests.jl
+@@ -5,6 +5,8 @@ using Random, Test
+     #tests on cones
+     include("./UnitTests/test_coneops_psdtrianglecone.jl")
+     include("./UnitTests/test_coneops_secondordercone.jl")
++    include("./UnitTests/test_warmstart_smoothing.jl")
++    include("./UnitTests/test_warmstart_convex_combination.jl")
+ 
+     #tests on constructors 
+     include("./UnitTests/test_constructors.jl")
+diff --git a/warmstart_test/plots.jl b/warmstart_test/plots.jl
+index cc29744..9d232d5 100755
+--- a/warmstart_test/plots.jl
++++ b/warmstart_test/plots.jl
+@@ -1,6 +1,6 @@
+ using Plots
+ using Statistics
+-function plot_warmstart(warm_start,cold_start,filename)
++function plot_warmstart(warm_start,cold_start,filename; convex_start=nothing)
+     @assert(length(warm_start) == length(cold_start))
+     # Create the indices
+     indices = 1:length(warm_start)
+@@ -8,11 +8,18 @@ function plot_warmstart(warm_start,cold_start,filename)
+     # Plot the vectors
+     scatter(indices, warm_start, marker=:circle, label="warm_start")
+     scatter!(indices, cold_start, marker=:diamond, label="cold_start")
++    if !isnothing(convex_start)
++        @assert length(convex_start) == length(warm_start)
++        scatter!(indices,convex_start,marker=:cross,label="convex combination")
++    end
+ 
+     xlabel!("Times")
+     ylabel!("Iterations")
+ 
+-    ymax = Int(ceil(max(maximum(warm_start),maximum(cold_start))/5.0)*5)
++    all_iterations = isnothing(convex_start) ? vcat(warm_start,cold_start) :
++        vcat(warm_start,cold_start,convex_start)
++    valid = filter(x -> isfinite(x) && x >= 0,all_iterations)
++    ymax = isempty(valid) ? 5 : max(5,5*ceil(Int,maximum(valid)/5))
+     ylims!(0, ymax)
+ 
+     # Save the plot
+@@ -36,4 +43,4 @@ function plot_varying_warmstart(warm_start_b,warm_start_q,warm_start_A,class)
+ 
+     # Save the plot
+     savefig("./results//"*class*"_varying_disturbance.pdf")
+-end
+\ No newline at end of file
++end
+diff --git a/warmstart_test/portfolioOpt/efficientFrontier.jl b/warmstart_test/portfolioOpt/efficientFrontier.jl
+index cac27d1..549e38f 100755
+--- a/warmstart_test/portfolioOpt/efficientFrontier.jl
++++ b/warmstart_test/portfolioOpt/efficientFrontier.jl
+@@ -2,10 +2,10 @@ using CSV
+ using Statistics, LinearAlgebra
+ using SparseArrays
+ using Clarabel
++using JLD2
+ using TimerOutputs
+ 
+ include("./utils.jl")
+-include("../plots.jl")
+ 
+ N = 300 # 20 is max. number of assets
+ T = 500 # num of days used for estimation
+@@ -46,18 +46,20 @@ Clarabel.solve!(solver)
+ 
+ #solver for the cold_start
+ solver_c = deepcopy(solver)
++solver_cc = deepcopy(solver)  # independent convex-combination sequence
++warmup_comparison!(solver; weight=0.01)
+ 
+ bnew = deepcopy(solver.data.b)
+ ##########################################
+ # Recording time and iteration number
+ ##########################################
+ nsample = 10
+-t_values = Vector{Float64}(undef,nsample) 
+-ft_values = Vector{Float64}(undef,nsample) 
+-solve_time_w = Vector{Float64}(undef,nsample) 
+-solve_time_c = Vector{Float64}(undef,nsample) 
+-iter_w = Vector{Int64}(undef,nsample) 
+-iter_c = Vector{Int64}(undef,nsample) 
++t_values = fill(Inf,nsample)
++ft_values = fill(Inf,nsample)
++solve_time_w = fill(Inf,nsample)
++solve_time_c = fill(Inf,nsample)
++iter_w = fill(-1,nsample)
++iter_c = fill(-1,nsample)
+ 
+ 
+ #save data needed in a table 
+@@ -67,7 +69,11 @@ tables[:ft] = ft_values
+ tables[:warm_time] = solve_time_w 
+ tables[:cold_time] = solve_time_c 
+ tables[:warm_iterations] = iter_w 
+-tables[:cold_iterations] = iter_c 
++tables[:cold_iterations] = iter_c
++init_convex_comparison!(tables,nsample; weight=0.01)
++tables[:output_prefix] = joinpath(@__DIR__,"..","results","portfolio_efficientFrontier")
++iter_cc = tables[:convex_iterations]
++solve_time_cc = tables[:convex_time]
+ 
+ 
+ for i in 1:nsample
+@@ -82,12 +88,11 @@ for i in 1:nsample
+     Clarabel.update_b!(solver,bnew)
+     Clarabel.solve!(solver;warmstart=true)
+ 
+-    if solver.solution.status === Clarabel.SOLVED 
+-        tables[:warm_time][i] = TimerOutputs.tottime(solver.timers["solve!"])/1e9 
+-        tables[:warm_iterations][i] = solver.info.iterations 
+-    else 
+-        tables[:warm_time][i] = Inf 
+-    end 
++    record_comparison_result!(tables,:warm,solver,i)
++
++    # Convex combination of its own previous solution and the cone unit start.
++    Clarabel.update_b!(solver_cc,bnew)
++    solve_convex_comparison!(solver_cc,tables,i)
+ 
+     sleep(0.01)
+ 
+@@ -95,12 +100,7 @@ for i in 1:nsample
+     Clarabel.update_b!(solver_c,bnew)
+     Clarabel.solve!(solver_c)
+ 
+-    if solver_c.solution.status === Clarabel.SOLVED 
+-        tables[:cold_time][i] = TimerOutputs.tottime(solver_c.timers["solve!"])/1e9 
+-        tables[:cold_iterations][i] = solver_c.info.iterations 
+-    else 
+-        tables[:cold_time][i] = Inf 
+-    end 
++    record_comparison_result!(tables,:cold,solver_c,i)
+     sleep(0.01) 
+ 
+     tables[:t][i] = r0
+@@ -111,9 +111,11 @@ end
+ ################################################
+ #Postprocess 
+ ################################################
+-filename = ".//..//results//bench_portfolio_efficientFrontier_table" 
++filename = joinpath(@__DIR__,"..","results","bench_portfolio_efficientFrontier_comparison_table")
+ problems = "\$ r_0 \$ value"
+ save_efficientFrontier_table(tables,problems,filename)
+-plot_warmstart(iter_w,iter_c,filename)
+ geomean_iter = compute_geomean(iter_w,iter_c)
+-geomean_time = compute_geomean(solve_time_w,solve_time_c)
+\ No newline at end of file
++geomean_time = compute_geomean(solve_time_w,solve_time_c)
++geomean_iter_cc = compute_geomean(iter_cc,iter_c)
++geomean_time_cc = compute_geomean(solve_time_cc,solve_time_c)
++save_comparison(tables,joinpath(@__DIR__,"..","results","portfolio_efficientFrontier"))
+diff --git a/warmstart_test/portfolioOpt/higherorderRiskMeansure.jl b/warmstart_test/portfolioOpt/higherorderRiskMeansure.jl
+index db083f9..42dc751 100755
+--- a/warmstart_test/portfolioOpt/higherorderRiskMeansure.jl
++++ b/warmstart_test/portfolioOpt/higherorderRiskMeansure.jl
+@@ -6,7 +6,6 @@ using TimerOutputs
+ using JLD2
+ 
+ include("./utils.jl")
+-include("..//plots.jl")
+ 
+ N = 300 # 20 is max. number of assets
+ T = 500 # num of days used for estimation
+@@ -97,6 +96,8 @@ Clarabel.solve!(solver)
+ 
+ #solver for the cold_start
+ solver_c = deepcopy(solver)
++solver_cc = deepcopy(solver)  # independent convex-combination sequence
++warmup_comparison!(solver; weight=0.01)
+ 
+ ##########################################
+ # Recording time and iteration number
+@@ -104,10 +105,10 @@ solver_c = deepcopy(solver)
+ nsample = maxdays - T        #Total number of reoptimization
+ njump = 1          #Interval for a reoptimization
+ @assert(iszero(T%10))
+-solve_time_w = Vector{Float64}(undef,nsample) 
+-solve_time_c = Vector{Float64}(undef,nsample) 
+-iter_w = Vector{Int64}(undef,nsample) 
+-iter_c = Vector{Int64}(undef,nsample) 
++solve_time_w = fill(Inf,nsample)
++solve_time_c = fill(Inf,nsample)
++iter_w = fill(-1,nsample)
++iter_c = fill(-1,nsample)
+ 
+ 
+ #save data needed in a table 
+@@ -116,7 +117,11 @@ tables[:varVal] = Vector(1:nsample)
+ tables[:warm_time] = solve_time_w 
+ tables[:cold_time] = solve_time_c 
+ tables[:warm_iterations] = iter_w 
+-tables[:cold_iterations] = iter_c 
++tables[:cold_iterations] = iter_c
++init_convex_comparison!(tables,nsample; weight=0.01)
++tables[:output_prefix] = joinpath(@__DIR__,"..","results","portfolio_higherorderRisk")
++iter_cc = tables[:convex_iterations]
++solve_time_cc = tables[:convex_time]
+ 
+ #qp is the linear cost
+ qnew = deepcopy(solver.data.q)
+@@ -153,13 +158,11 @@ for i in 1:nsample
+     # Clarabel.update_q!(solver,qnew)
+     Clarabel.solve!(solver;warmstart=true)
+ 
+-    if solver.solution.status === Clarabel.SOLVED 
+-        tables[:warm_time][i] = TimerOutputs.tottime(solver.timers["solve!"])/1e9 
+-        tables[:warm_iterations][i] = solver.info.iterations 
+-    else
+-        error("warm start fails at ", i) 
+-        tables[:warm_time][i] = Inf 
+-    end 
++    record_comparison_result!(tables,:warm,solver,i)
++
++    # Convex combination of its own previous solution and the cone unit start.
++    Clarabel.update_A!(solver_cc,A)
++    solve_convex_comparison!(solver_cc,tables,i)
+ 
+     sleep(0.1)
+ 
+@@ -168,26 +171,16 @@ for i in 1:nsample
+     # Clarabel.update_q!(solver_c,qnew)
+     Clarabel.solve!(solver_c)
+ 
+-    if solver_c.solution.status === Clarabel.SOLVED 
+-        tables[:cold_time][i] = TimerOutputs.tottime(solver_c.timers["solve!"])/1e9 
+-        tables[:cold_iterations][i] = solver_c.info.iterations 
+-    else 
+-        error("cold start fails at ", i) 
+-        tables[:cold_time][i] = Inf 
+-    end 
++    record_comparison_result!(tables,:cold,solver_c,i)
+     sleep(0.1) 
+ 
+ end
+ 
+-# ################################################
+-# #Postprocess 
+-# ################################################
+-# tablename = "portfolio_higherorderRisk"
+-# filename = ".//..//results//bench_"*tablename*"_table" 
+-# problems = "Times"
+-# save_table(tables,problems,filename,tablename)
+-# plot_warmstart(iter_w,iter_c,filename)
+-# geomean_iter = compute_geomean(iter_w,iter_c)
+-# geomean_time = compute_geomean(solve_time_w,solve_time_c)
+-# println("iteration reduction ratio ", 1-geomean_iter, " vs. time reduction ratio ", 1-geomean_time)
+-# # @save ".//..//results//"*tablename*".jld2" iter_w=iter_w iter_c=iter_c solve_time_w=solve_time_w solve_time_c=solve_time_c varVal=tables[:varVal] 
+\ No newline at end of file
++# Save all three methods separately from historical results.
++filename = joinpath(@__DIR__,"..","results","bench_portfolio_higherorderRisk_comparison_table")
++save_table(tables,"Time index",filename,"portfolio_higherorderRisk_comparison")
++save_comparison(tables,joinpath(@__DIR__,"..","results","portfolio_higherorderRisk"))
++geomean_iter = compute_geomean(iter_w,iter_c)
++geomean_time = compute_geomean(solve_time_w,solve_time_c)
++geomean_iter_cc = compute_geomean(iter_cc,iter_c)
++geomean_time_cc = compute_geomean(solve_time_cc,solve_time_c)
+diff --git a/warmstart_test/portfolioOpt/portfolioOpt.jl b/warmstart_test/portfolioOpt/portfolioOpt.jl
+index b977ff5..e124a14 100755
+--- a/warmstart_test/portfolioOpt/portfolioOpt.jl
++++ b/warmstart_test/portfolioOpt/portfolioOpt.jl
+@@ -2,10 +2,10 @@ using CSV
+ using Statistics, LinearAlgebra
+ using SparseArrays
+ using Clarabel
++using JLD2
+ using TimerOutputs
+ 
+ include("./utils.jl")
+-include("..//plots.jl")
+ 
+ N = 300 # 20 is max. number of assets
+ T = 500 # num of days used for estimation
+@@ -54,15 +54,17 @@ Clarabel.solve!(solver)
+ 
+ #solver for the cold_start
+ solver_c = deepcopy(solver)
++solver_cc = deepcopy(solver)  # independent convex-combination sequence
++warmup_comparison!(solver; weight=0.01)
+ 
+ ##########################################
+ # Recording time and iteration number
+ ##########################################
+ nsample = maxdays - T
+-solve_time_w = Vector{Float64}(undef,nsample) 
+-solve_time_c = Vector{Float64}(undef,nsample) 
+-iter_w = Vector{Int64}(undef,nsample) 
+-iter_c = Vector{Int64}(undef,nsample) 
++solve_time_w = fill(Inf,nsample)
++solve_time_c = fill(Inf,nsample)
++iter_w = fill(-1,nsample)
++iter_c = fill(-1,nsample)
+ 
+ 
+ #save data needed in a table 
+@@ -71,7 +73,11 @@ tables[:varVal] = Vector(1:nsample)
+ tables[:warm_time] = solve_time_w 
+ tables[:cold_time] = solve_time_c 
+ tables[:warm_iterations] = iter_w 
+-tables[:cold_iterations] = iter_c 
++tables[:cold_iterations] = iter_c
++init_convex_comparison!(tables,nsample; weight=0.01)
++tables[:output_prefix] = joinpath(@__DIR__,"..","results","portfolio")
++iter_cc = tables[:convex_iterations]
++solve_time_cc = tables[:convex_time]
+ 
+ njump = 1
+ 
+@@ -89,12 +95,11 @@ for i in 1:nsample
+     Clarabel.update_A!(solver,A)
+     Clarabel.solve!(solver;warmstart=true)
+ 
+-    if solver.solution.status === Clarabel.SOLVED 
+-        tables[:warm_time][i] = TimerOutputs.tottime(solver.timers["solve!"])/1e9 
+-        tables[:warm_iterations][i] = solver.info.iterations 
+-    else 
+-        tables[:warm_time][i] = Inf 
+-    end 
++    record_comparison_result!(tables,:warm,solver,i)
++
++    # Convex combination of its own previous solution and the cone unit start.
++    Clarabel.update_A!(solver_cc,A)
++    solve_convex_comparison!(solver_cc,tables,i)
+ 
+     sleep(0.01)
+ 
+@@ -102,24 +107,16 @@ for i in 1:nsample
+     Clarabel.update_A!(solver_c,A)
+     Clarabel.solve!(solver_c)
+ 
+-    if solver_c.solution.status === Clarabel.SOLVED 
+-        tables[:cold_time][i] = TimerOutputs.tottime(solver_c.timers["solve!"])/1e9 
+-        tables[:cold_iterations][i] = solver_c.info.iterations 
+-    else 
+-        tables[:cold_time][i] = Inf 
+-    end 
++    record_comparison_result!(tables,:cold,solver_c,i)
+     sleep(0.01) 
+ 
+ end
+ 
+-# ################################################
+-# #Postprocess 
+-# ################################################
+-# tablename = "portfolio"
+-# filename = ".//..//results//bench_"*tablename*"_table" 
+-# problems = "Time index"
+-# save_table(tables,problems,filename,tablename)
+-# plot_warmstart(iter_w,iter_c,filename)
+-# geomean = compute_geomean(iter_w,iter_c)
+-# println("iteration reduction ratio ", 1-geomean_iter, " vs. time reduction ratio ", 1-geomean_time)
+-# # @save ".//..//results//"*tablename*".jld2" iter_w=iter_w iter_c=iter_c solve_time_w=solve_time_w solve_time_c=solve_time_c varVal=tables[:varVal] 
+\ No newline at end of file
++# Save all three methods separately from historical results.
++filename = joinpath(@__DIR__,"..","results","bench_portfolio_comparison_table")
++save_table(tables,"Time index",filename,"portfolio_comparison")
++save_comparison(tables,joinpath(@__DIR__,"..","results","portfolio"))
++geomean_iter = compute_geomean(iter_w,iter_c)
++geomean_time = compute_geomean(solve_time_w,solve_time_c)
++geomean_iter_cc = compute_geomean(iter_cc,iter_c)
++geomean_time_cc = compute_geomean(solve_time_cc,solve_time_c)
+diff --git a/warmstart_test/portfolioOpt/utils.jl b/warmstart_test/portfolioOpt/utils.jl
+index 1cfd8de..66a817e 100755
+--- a/warmstart_test/portfolioOpt/utils.jl
++++ b/warmstart_test/portfolioOpt/utils.jl
+@@ -7,7 +7,7 @@ using TimerOutputs
+ include("..//save_table.jl")
+ 
+ function get_return_data(N::Int, rng)
+-    returns = CSV.File("./sp500_stock_returns_5y.csv")
++    returns = CSV.File(joinpath(@__DIR__,"sp500_stock_returns_5y.csv"))
+     returns = returns[rng] # just get first row of returns at time t=0
+     R = zeros(length(rng),N)
+     companies = propertynames(returns[1])
+@@ -24,7 +24,7 @@ end
+ """returns the nxn covariance matrix between the returns of n assets,
+ stored in R, a matrix of size Txn where T is the number of days in the data (2516)"""
+ function calc_variance(N::Int, day::Int, R::Matrix{T},rt) where {T}
+-    Xbar = inv(sqrt(N-1))*(R-ones(day)*rt)
++    Xbar = inv(sqrt(day-1))*(R-ones(day)*rt)
+ 
+     VarM = Xbar'*Xbar + eps(T)*I      #eps is the regularization ensuring p.s.d.
+ 
+@@ -32,14 +32,8 @@ function calc_variance(N::Int, day::Int, R::Matrix{T},rt) where {T}
+ end
+ 
+ function calc_QR_emd(N::Int, day::Int, R::Matrix{T},rt) where {T}
+-    Xbar = inv(sqrt(N-1))*(R-ones(day)*rt)
++    Xbar = inv(sqrt(day-1))*(R-ones(day)*rt)
+     emd = qr(Xbar)
+ 
+     return emd
+ end
+-
+-function compute_geomean(warm_vec,cold_vec)
+-    geometric_mean = exp(mean(log.(warm_vec./cold_vec)))
+-
+-    return geometric_mean
+-end
+\ No newline at end of file
+diff --git a/warmstart_test/save_table.jl b/warmstart_test/save_table.jl
+index 7f0635b..0ea132d 100755
+--- a/warmstart_test/save_table.jl
++++ b/warmstart_test/save_table.jl
+@@ -1,123 +1,55 @@
+-using Printf
+-
+-function save_table(tables,problems,filename,tablename)
+-    io = open(filename*".tex", "w"); 
+-    
+-    println(io,"\\scriptsize") 
+-    println(io,"\\begin{longtable}" * "{||c" * "||cc"^(2) * "||}") 
+-    println(io,"\\caption{\\detailtablecaption}") 
+-    println(io,"\\label{table:"*tablename*"}") 
+-    println(io,"\\\\") 
+-    
+-    #print primary headerss 
+-    for label in ["iterations", "solve time (s)"] 
+-        print(io,"& \\multicolumn{2}{c||}{$label}"); 
+-    end  
+-    print(io, "\\\\[2ex] \n") 
+-
+-    #print secondary headers 
+-    print(io, problems); 
+-    print(io," & Warm & Cold"^(2)); 
+-    print(io, "\\\\[1ex]\n") 
+-    println(io,"\\hline") 
+-    println(io,"\\endhead") 
+-    
+-
+-    for (i,λv) in enumerate(tables[:varVal]) 
+-        print(io, "\\sc{" * @sprintf("%4.3g",λv)  * "}") 
+-        iter_warm = tables[:warm_iterations][i] 
+-        total_time_warm = tables[:warm_time][i] 
+-        # avg_time_warm = "" 
+-        iter_cold = tables[:cold_iterations][i] 
+-        total_time_cold = tables[:cold_time][i] 
+-        # avg_time_cold = "" 
+-
+-        if(!isfinite(total_time_warm)) 
+-            iter_warm = "-" 
+-            total_time_warm = "-" 
+-            # avg_time_warm = "-" 
+-        else  
+-            total_time_warm = @sprintf("%4.3g",total_time_warm) 
+-            # avg_time_warm = @sprintf("%4.3g",parse(Float64, total_time_warm)/iter_warm) 
+-        end 
+-
+-        if(!isfinite(total_time_cold)) 
+-            iter_cold = "-" 
+-            total_time_cold = "-" 
+-            # avg_time_cold = "-" 
+-        else  
+-            total_time_cold = @sprintf("%4.3g",total_time_cold) 
+-            # avg_time_cold = @sprintf("%4.3g",parse(Float64, total_time_cold)/iter_cold) 
+-        end 
+-        print(io, " & $iter_warm & $iter_cold & $total_time_warm & $total_time_cold") 
+-        print(io, "\\\\ \n") 
+-    end  
+-
+-    println(io,"\\end{longtable}") 
+-    close(io) 
+-end
+-
+-
+-##########################################
+-# Efficient frontier
+-##########################################
+-function save_efficientFrontier_table(tables,problems,filename)
+-    io = open(filename, "w"); 
+-    
+-    println(io,"\\scriptsize") 
+-    println(io,"\\begin{longtable}" * "{||cc" * "||cc"^(2) * "||}") 
+-    println(io,"\\caption{Efficient frontier}") 
+-    println(io,"\\label{table:efficient-frontier}") 
+-    println(io,"\\\\") 
+-    
+-    #print primary headerss 
+-    print(io,"\\multicolumn{2}{||c||}{{Values}} ")
+-    for label in ["iterations", "solve time (s)"] 
+-        print(io,"& \\multicolumn{2}{c||}{{$label}}"); 
+-    end  
+-    print(io, "\\\\[2ex] \n") 
+-    println(io,"\\hline") 
+-
+-    #print secondary headers 
+-    print(io, " \$r_0 \$ & \$f(r_0)\$"); 
+-    print(io," & Warm & Cold"^(2)); 
+-    print(io, "\\\\[1ex]\n") 
+-    println(io,"\\hline") 
+-    println(io,"\\endhead") 
+-    
+-
+-    for (i,tval) in enumerate(tables[:t]) 
+-        print(io, "\\sc{" * @sprintf("%4.3g",tval)  * "}") 
+-        print(io, " & \\sc{" * @sprintf("%4.3g",tables[:ft][i])  * "}") 
+-        iter_warm = tables[:warm_iterations][i] 
+-        total_time_warm = tables[:warm_time][i] 
+-        # avg_time_warm = "" 
+-        iter_cold = tables[:cold_iterations][i] 
+-        total_time_cold = tables[:cold_time][i] 
+-        # avg_time_cold = "" 
+-
+-        if(!isfinite(total_time_warm)) 
+-            iter_warm = "-" 
+-            total_time_warm = "-" 
+-            # avg_time_warm = "-" 
+-        else  
+-            total_time_warm = @sprintf("%4.3g",total_time_warm) 
+-            # avg_time_warm = @sprintf("%4.3g",parse(Float64, total_time_warm)/iter_warm) 
+-        end 
+-
+-        if(!isfinite(total_time_cold)) 
+-            iter_cold = "-" 
+-            total_time_cold = "-" 
+-            # avg_time_cold = "-" 
+-        else  
+-            total_time_cold = @sprintf("%4.3g",total_time_cold) 
+-            # avg_time_cold = @sprintf("%4.3g",parse(Float64, total_time_cold)/iter_cold) 
+-        end 
+-        print(io, " & $iter_warm & $iter_cold & $total_time_warm & $total_time_cold") 
+-        print(io, "\\\\ \n") 
+-    end  
+-
+-    println(io,"\\end{longtable}") 
+-    close(io) 
+-end
+-
++using Printf
++include("comparison_utils.jl")
++
++function _comparison_columns(tables)
++    return haskey(tables,:convex_time) ?
++        ((:warm,"Smooth"),(:convex,"Convex"),(:cold,"Cold")) :
++        ((:warm,"Warm"),(:cold,"Cold"))
++end
++
++function _save_comparison_table(tables,filename,tablename,caption,headers,values)
++    columns = _comparison_columns(tables)
++    nmethods = length(columns)
++    mkpath(dirname(filename))
++    open(filename,"w") do io
++        println(io,"\\scriptsize")
++        println(io,"\\begin{longtable}{||",repeat("c",length(headers)),
++                "||",repeat("c",nmethods),"||",repeat("c",nmethods),"||}")
++        println(io,"\\caption{",caption,"}")
++        println(io,"\\label{table:",tablename,"}\\\\")
++        print(io,repeat(" & ",length(headers)-1))
++        for label in ("iterations","solve time (s)")
++            print(io," & \\multicolumn{",nmethods,"}{c||}{",label,"}")
++        end
++        println(io,"\\\\[2ex]")
++        print(io,join(headers," & "))
++        for _ in 1:2, (_,label) in columns
++            print(io," & ",label)
++        end
++        println(io,"\\\\[1ex]\n\\hline\n\\endhead")
++        for i in eachindex(first(values))
++            print(io,join([@sprintf("%4.3g",v[i]) for v in values]," & "))
++            for (method,_) in columns
++                success = isfinite(tables[Symbol(method,:_time)][i])
++                print(io," & ",success ? string(tables[Symbol(method,:_iterations)][i]) : "-")
++            end
++            for (method,_) in columns
++                time = tables[Symbol(method,:_time)][i]
++                print(io," & ",isfinite(time) ? @sprintf("%4.3g",time) : "-")
++            end
++            println(io,"\\\\")
++        end
++        println(io,"\\end{longtable}")
++    end
++    return nothing
++end
++
++function save_table(tables,problems,filename,tablename)
++    return _save_comparison_table(tables,filename*".tex",tablename,
++        "\\detailtablecaption",[problems],[tables[:varVal]])
++end
++
++function save_efficientFrontier_table(tables,problems,filename)
++    return _save_comparison_table(tables,filename*".tex","efficient-frontier-comparison",
++        "Efficient frontier",[problems,raw"$f(r_0)$"],[tables[:t],tables[:ft]])
++end
+diff --git a/warmstart_test/svm_L1.jl b/warmstart_test/svm_L1.jl
+index 270c337..a82a7fd 100755
+--- a/warmstart_test/svm_L1.jl
++++ b/warmstart_test/svm_L1.jl
+@@ -1,10 +1,10 @@
+ using MLDatasets
+ using Clarabel
+ using JuMP
++using JLD2
+ using TimerOutputs
+ 
+ include("save_table.jl")
+-include("plots.jl")
+ 
+ trainset = MNIST(:train)
+ length(trainset)
+@@ -42,12 +42,15 @@ set_optimizer_attribute(model,"presolve_enable", false)
+ set_optimizer_attribute(model,"chordal_decomposition_enable",false)
+ 
+ optimize!(model)
+-solver = model.moi_backend.optimizer.model.optimizer.solver     #warm start
++solver = JuMP.unsafe_backend(model).solver     #warm start
+ solver_c = deepcopy(solver)                                     #cold start
++solver_cc = deepcopy(solver)  # independent convex-combination sequence
++warmup_comparison!(solver; weight=0.01)
+ #Clarabel.solve!(solver)
+ 
+ #The linear cost vector q where the first entry is λ 
+ qs = deepcopy(solver.data.q)
++λ_index = only(findall(==(λ),qs))
+ 
+ #################################################
+ # Tuning hyperparameter λ
+@@ -59,10 +62,10 @@ rng = range(2*λ,stop = (nsample+1)*λ, length = nsample)
+ ##########################################
+ # Recording time and iteration number
+ ##########################################
+-solve_time_w = Vector{Float64}(undef,nsample) 
+-solve_time_c = Vector{Float64}(undef,nsample) 
+-iter_w = Vector{Int64}(undef,nsample) 
+-iter_c = Vector{Int64}(undef,nsample) 
++solve_time_w = fill(Inf,nsample)
++solve_time_c = fill(Inf,nsample)
++iter_w = fill(-1,nsample)
++iter_c = fill(-1,nsample)
+ 
+ 
+ #save data needed in a table 
+@@ -71,32 +74,30 @@ tables[:varVal] = Vector(rng)
+ tables[:warm_time] = solve_time_w 
+ tables[:cold_time] = solve_time_c 
+ tables[:warm_iterations] = iter_w 
+-tables[:cold_iterations] = iter_c 
++tables[:cold_iterations] = iter_c
++init_convex_comparison!(tables,nsample; weight=0.01)
++tables[:output_prefix] = joinpath(@__DIR__,"results","svm_hyperparameter_tuning")
++iter_cc = tables[:convex_iterations]
++solve_time_cc = tables[:convex_time]
+ 
+-@assert(qs[786] == init_λ)
++@assert(qs[λ_index] == init_λ)
+ #warm start
+ for (i,λv) in enumerate(tables[:varVal]) 
+-    qs[786] = λv
++    qs[λ_index] = λv
+     Clarabel.update_q!(solver,qs)
+     Clarabel.solve!(solver;warmstart=true)
+ 
+-    if solver.solution.status === Clarabel.SOLVED 
+-        tables[:warm_time][i] = TimerOutputs.tottime(solver.timers["solve!"])/1e9 
+-        tables[:warm_iterations][i] = solver.info.iterations 
+-    else 
+-        tables[:warm_time][i] = Inf 
+-    end 
++    record_comparison_result!(tables,:warm,solver,i)
++
++    # Convex combination of its own previous solution and the cone unit start.
++    Clarabel.update_q!(solver_cc,qs)
++    solve_convex_comparison!(solver_cc,tables,i)
+     sleep(0.1) 
+ 
+     Clarabel.update_q!(solver_c,qs)
+     Clarabel.solve!(solver_c)
+ 
+-    if solver_c.solution.status === Clarabel.SOLVED 
+-        tables[:cold_time][i] = TimerOutputs.tottime(solver_c.timers["solve!"])/1e9 
+-        tables[:cold_iterations][i] = solver_c.info.iterations 
+-    else 
+-        tables[:cold_time][i] = Inf 
+-    end 
++    record_comparison_result!(tables,:cold,solver_c,i)
+     sleep(0.1) 
+ end
+ 
+@@ -104,10 +105,12 @@ end
+ #Postprocess 
+ ################################################
+ tablename = "svm_hyperparameter_tuning"
+-filename = ".//results//bench_"*tablename*"_table" 
++filename = joinpath(@__DIR__,"results","bench_"*tablename*"_comparison_table")
+ problems = "\$ \\lambda \$ value"
+ save_table(tables,problems,filename,tablename)
+ geomean_iter = compute_geomean(iter_w,iter_c)
+ geomean_time = compute_geomean(solve_time_w,solve_time_c)
++geomean_iter_cc = compute_geomean(iter_cc,iter_c)
++geomean_time_cc = compute_geomean(solve_time_cc,solve_time_c)
+ 
+-@save ".//results//"*tablename*".jld2" iter_w=iter_w iter_c=iter_c solve_time_w=solve_time_w solve_time_c=solve_time_c varVal=tables[:varVal] 
+\ No newline at end of file
++save_comparison(tables,joinpath(@__DIR__,"results",tablename))
+diff --git a/warmstart_test/svm_L2_robust.jl b/warmstart_test/svm_L2_robust.jl
+index 4bb630c..648a3d8 100755
+--- a/warmstart_test/svm_L2_robust.jl
++++ b/warmstart_test/svm_L2_robust.jl
+@@ -1,6 +1,7 @@
+ using MLDatasets
+ using Clarabel
+ using JuMP
++using JLD2
+ using TimerOutputs
+ 
+ include("save_table.jl")
+@@ -40,12 +41,15 @@ set_optimizer_attribute(model,"presolve_enable", false)
+ set_optimizer_attribute(model,"chordal_decomposition_enable",false)
+ 
+ optimize!(model)
+-solver = model.moi_backend.optimizer.model.optimizer.solver     #warm start
++solver = JuMP.unsafe_backend(model).solver     #warm start
+ solver_c = deepcopy(solver)                                     #cold start
++solver_cc = deepcopy(solver)  # independent convex-combination sequence
++warmup_comparison!(solver; weight=0.01)
+ #Clarabel.solve!(solver)
+ 
+ #The linear cost vector q where the first entry is λ 
+ qs = deepcopy(solver.data.q)
++λ_index = only(findall(==(λ),qs))
+ 
+ #################################################
+ # Tuning hyperparameter λ
+@@ -58,10 +62,10 @@ rng = range(λ+step,stop = nsample*step+λ, length = nsample)
+ ##########################################
+ # Recording time and iteration number
+ ##########################################
+-solve_time_w = Vector{Float64}(undef,nsample) 
+-solve_time_c = Vector{Float64}(undef,nsample) 
+-iter_w = Vector{Int64}(undef,nsample) 
+-iter_c = Vector{Int64}(undef,nsample) 
++solve_time_w = fill(Inf,nsample)
++solve_time_c = fill(Inf,nsample)
++iter_w = fill(-1,nsample)
++iter_c = fill(-1,nsample)
+ 
+ 
+ #save data needed in a table 
+@@ -70,31 +74,29 @@ tables[:varVal] = Vector(rng)
+ tables[:warm_time] = solve_time_w 
+ tables[:cold_time] = solve_time_c 
+ tables[:warm_iterations] = iter_w 
+-tables[:cold_iterations] = iter_c 
++tables[:cold_iterations] = iter_c
++init_convex_comparison!(tables,nsample; weight=0.01)
++tables[:output_prefix] = joinpath(@__DIR__,"results","svm_robust_hyperparameter_tuning")
++iter_cc = tables[:convex_iterations]
++solve_time_cc = tables[:convex_time]
+ 
+ #warm start
+ for (i,λv) in enumerate(tables[:varVal]) 
+-    qs[1] = λv
++    qs[λ_index] = λv
+     Clarabel.update_q!(solver,qs)
+     Clarabel.solve!(solver;warmstart=true)
+ 
+-    if solver.solution.status === Clarabel.SOLVED 
+-        tables[:warm_time][i] = TimerOutputs.tottime(solver.timers["solve!"])/1e9 
+-        tables[:warm_iterations][i] = solver.info.iterations 
+-    else 
+-        tables[:warm_time][i] = Inf 
+-    end 
++    record_comparison_result!(tables,:warm,solver,i)
++
++    # Convex combination of its own previous solution and the cone unit start.
++    Clarabel.update_q!(solver_cc,qs)
++    solve_convex_comparison!(solver_cc,tables,i)
+     sleep(0.1) 
+ 
+     Clarabel.update_q!(solver_c,qs)
+     Clarabel.solve!(solver_c)
+ 
+-    if solver_c.solution.status === Clarabel.SOLVED 
+-        tables[:cold_time][i] = TimerOutputs.tottime(solver_c.timers["solve!"])/1e9 
+-        tables[:cold_iterations][i] = solver_c.info.iterations 
+-    else 
+-        tables[:cold_time][i] = Inf 
+-    end 
++    record_comparison_result!(tables,:cold,solver_c,i)
+     sleep(0.1) 
+ end
+ 
+@@ -102,10 +104,12 @@ end
+ #Postprocess 
+ ################################################
+ tablename = "svm_robust_hyperparameter_tuning"
+-filename = ".//results//bench_"*tablename*"_table" 
++filename = joinpath(@__DIR__,"results","bench_"*tablename*"_comparison_table")
+ problems = "\$ \\lambda \$ value"
+ save_table(tables,problems,filename,tablename)
+ geomean_iter = compute_geomean(iter_w,iter_c)
+ geomean_time = compute_geomean(solve_time_w,solve_time_c)
++geomean_iter_cc = compute_geomean(iter_cc,iter_c)
++geomean_time_cc = compute_geomean(solve_time_cc,solve_time_c)
+ 
+-@save ".//results//"*tablename*".jld2" iter_w=iter_w iter_c=iter_c solve_time_w=solve_time_w solve_time_c=solve_time_c varVal=tables[:varVal] 
+\ No newline at end of file
++save_comparison(tables,joinpath(@__DIR__,"results",tablename))
+diff --git a/warmstart_test/varying_perturbation.jl b/warmstart_test/varying_perturbation.jl
+index 36d756e..8ebc6b3 100755
+--- a/warmstart_test/varying_perturbation.jl
++++ b/warmstart_test/varying_perturbation.jl
+@@ -1,167 +1,73 @@
+-using Random, StatsBase, LinearAlgebra
+-using SparseArrays
+-using Revise
+-using Clarabel, JuMP
+-using ClarabelBenchmarks
+-using TimerOutputs
+-
+-include("save_table.jl")
+-
+-class   = "mpc"
+-
+-problems = keys(ClarabelBenchmarks.PROBLEMS[class])
+-
+-nsample = length(problems)
+-solve_time_w = Vector{Float64}(undef,nsample)
+-solve_time_c = Vector{Float64}(undef,nsample)
+-iter_w = Vector{Int64}(undef,nsample)
+-iter_c = Vector{Int64}(undef,nsample)
+-ratio_time = Vector{Float64}(undef,nsample)
+-ratio_iter = Vector{Float64}(undef,nsample)
+-
+-#save data needed in a table
+-tables = Dict()
+-tables[:problems] = keys(ClarabelBenchmarks.PROBLEMS[class])
+-tables[:varVal] = Vector(1:nsample)
+-tables[:warm_time] = solve_time_w 
+-tables[:cold_time] = solve_time_c 
+-tables[:warm_iterations] = iter_w 
+-tables[:cold_iterations] = iter_c 
+-tables[:ratio_time] = ratio_time
+-tables[:ratio_iter] = ratio_iter
+-
+-lenr = 31
+-geomean_iter = Vector{Float64}(undef,lenr)
+-geomean_time = Vector{Float64}(undef,lenr)
+-
+-###################################################
+-# YC: We can switch among perturbation on q,b, and A
+-# Now, code is for the update of A
+-###################################################
+-#Varying noise level
+-for (k,noise) in enumerate(10.0.^(range(-3,0,length=lenr)))
+-    for (i,example) in enumerate(problems)
+-
+-        # test examples
+-        println("current problem ", i, " is ", example)
+-
+-        #Initialize a solver
+-        model = Model(Clarabel.Optimizer)
+-        # set_optimizer_attribute(model,"tol_gap_abs", 1e-6)
+-        # set_optimizer_attribute(model,"tol_gap_rel", 1e-6)
+-        # set_optimizer_attribute(model,"tol_feas", 1e-6)
+-        # set_optimizer_attribute(model,"tol_ktratio", 1e-4)
+-        #We disable the equilibriation for the convenient update of linear costs
+-        set_optimizer_attribute(model,"equilibrate_enable",false)       
+-        #We disable the presolve and chordal decomposition for the use of parametric updates
+-        set_optimizer_attribute(model,"presolve_enable", false)
+-        set_optimizer_attribute(model,"chordal_decomposition_enable",false)
+-        ClarabelBenchmarks.PROBLEMS[class][example](model)
+-        solver = model.moi_backend.optimizer.model.optimizer.solver
+-        solver_c = deepcopy(solver)
+-
+-        #generating perturbation
+-        seed = Random.MersenneTwister(1000 + i)
+-
+-        # Generate the samples
+-        # q = solver.data.q
+-        # len = length(q)
+-        # num_noise = Int(min(ceil(0.1*len),20))
+-        # println("num noise: ", num_noise)
+-
+-        # indices = StatsBase.sample(seed,1:len, num_noise; replace = false)
+-        # noiseq = (1 .- 2*rand(seed, num_noise))
+-
+-        # #Perturb only nonzero entries
+-        # qnew = deepcopy(q)
+-
+-        # for (j,ele) in enumerate(indices)
+-        #     if abs(q[ele]) > 1e-6
+-        #         qnew[ele] = (1 + noise*noiseq[j])*q[ele]
+-        #     else
+-        #         qnew[ele] = noise*noiseq[j]
+-        #     end
+-        # end
+-        A = solver.data.A
+-        len = length(A.nzval)
+-        num_noise = Int(min(ceil(0.1*len),20))
+-        @assert(length(A.nzval) > 20)
+-        println("num noise: ", num_noise)
+-
+-        indices = StatsBase.sample(seed,1:len, num_noise; replace = false)
+-        noiseV = (1 .- 2*rand(seed, num_noise))
+-
+-        #Perturb only nonzero entries
+-        Anew = deepcopy(A)
+-
+-        for (j,ele) in enumerate(indices)
+-            if abs(A.nzval[ele]) > 1e-6
+-                Anew.nzval[ele] = (1 + noise*noiseV[j])*Anew.nzval[ele]
+-            else
+-                Anew.nzval[ele] = noise*noiseV[j]
+-            end
+-        end
+-
+-        #warm start solve
+-        Clarabel.update_A!(solver,Anew)
+-        # Clarabel.update_b!(solver,bnew)
+-        # Clarabel.update_q!(solver,qnew)
+-        Clarabel.solve!(solver;warmstart=true)
+-
+-        if solver.solution.status === Clarabel.SOLVED 
+-            tables[:warm_time][i] = TimerOutputs.tottime(solver.timers["solve!"])/1e9 
+-            tables[:warm_iterations][i] = solver.info.iterations 
+-        else 
+-            tables[:warm_time][i] = Inf 
+-        end 
+-
+-        sleep(0.01)
+-
+-        #cold start solve
+-        Clarabel.update_A!(solver_c,Anew)
+-        # Clarabel.update_b!(solver_c,bnew)
+-        # Clarabel.update_q!(solver_c,qnew)
+-        Clarabel.solve!(solver_c)
+-
+-        if solver_c.solution.status === Clarabel.SOLVED 
+-            tables[:cold_time][i] = TimerOutputs.tottime(solver_c.timers["solve!"])/1e9 
+-            tables[:cold_iterations][i] = solver_c.info.iterations 
+-        else 
+-            tables[:cold_time][i] = Inf 
+-        end 
+-        sleep(0.01) 
+-
+-        #record reduction ratios
+-        if solver_c.solution.status === Clarabel.SOLVED && solver.solution.status === Clarabel.SOLVED 
+-            tables[:ratio_iter][i] = tables[:warm_iterations][i]/tables[:cold_iterations][i]
+-            tables[:ratio_time][i] = tables[:warm_time][i]/tables[:cold_time][i]
+-        else
+-            tables[:ratio_iter][i] = Inf
+-            tables[:ratio_time][i] = Inf
+-        end
+-    end
+-
+-    # Create a boolean mask where both a and b are finite
+-    finite_mask = isfinite.(tables[:ratio_iter]) .&& tables[:ratio_iter] .> 0.0
+-
+-    # Use the mask to filter both vectors
+-    geomean_iter[k] = exp(mean(log.(tables[:ratio_iter][finite_mask])))
+-    geomean_time[k] = exp(mean(log.(tables[:ratio_time][finite_mask])))
+-end
+-
+-
+-# ################################################
+-# #Postprocess 
+-# ################################################
+-
+-@save ".//results//"*class*"_varying_disturbance_A.jld2" geomean_iter=geomean_iter geomean_time=geomean_time
+-
+-geomean_iter_A = JLD2.jldopen(".//results//mpc_varying_disturbance_A.jld2", "r") do file
+-    file["geomean_iter"]
+-end
+-geomean_iter_b = JLD2.jldopen(".//results//mpc_varying_disturbance_b.jld2", "r") do file
+-    file["geomean_iter"]
+-end
+-geomean_iter_q = JLD2.jldopen(".//results//mpc_varying_disturbance_q.jld2", "r") do file
+-    file["geomean_iter"]
+-end
+\ No newline at end of file
++using Random, StatsBase, LinearAlgebra, SparseArrays
++using Clarabel, JuMP, ClarabelBenchmarks, JLD2, TimerOutputs
++include("save_table.jl")
++
++class = get(ENV,"CLARABEL_BENCHMARK_CLASS","mpc")
++perturbation = Symbol(get(ENV,"CLARABEL_PERTURBATION","A"))
++perturbation in (:A,:b,:q) || error("CLARABEL_PERTURBATION must be A, b, or q")
++problems = collect(keys(ClarabelBenchmarks.PROBLEMS[class]))
++nsample = length(problems)
++noise_levels = 10.0.^(range(-3,0,length=31))
++geomean_iter = fill(NaN,length(noise_levels))
++geomean_time = fill(NaN,length(noise_levels))
++geomean_iter_cc = fill(NaN,length(noise_levels))
++geomean_time_cc = fill(NaN,length(noise_levels))
++comparison_runs = Vector{Dict}(undef,length(noise_levels))
++
++for (k,noise) in enumerate(noise_levels)
++    tables = Dict{Symbol,Any}(:problems=>problems,:varVal=>collect(1:nsample),
++        :warm_time=>fill(Inf,nsample),:cold_time=>fill(Inf,nsample),
++        :warm_iterations=>fill(-1,nsample),:cold_iterations=>fill(-1,nsample))
++    init_convex_comparison!(tables,nsample; weight=0.01)
++    for (i,example) in enumerate(problems)
++        println("Current problem ",i," is ",example,"; noise = ",noise)
++        model = Model(Clarabel.Optimizer)
++        set_optimizer_attribute(model,"equilibrate_enable",false)
++        set_optimizer_attribute(model,"presolve_enable",false)
++        set_optimizer_attribute(model,"chordal_decomposition_enable",false)
++        ClarabelBenchmarks.PROBLEMS[class][example](model)
++        solver = model.moi_backend.optimizer.model.optimizer.solver
++        solver_c,solver_cc = deepcopy(solver),deepcopy(solver)
++        warmup_comparison!(solver; weight=0.01)
++
++        # All methods receive the same perturbation and original solved problem.
++        seed = Random.MersenneTwister(1000+i)
++        updated = deepcopy(getproperty(solver.data,perturbation))
++        values = perturbation == :A ? updated.nzval : updated
++        num_noise = Int(min(ceil(0.1*length(values)),20))
++        indices = StatsBase.sample(seed,eachindex(values),num_noise; replace=false)
++        signs = 1 .- 2*rand(seed,num_noise)
++        for (j,index) in enumerate(indices)
++            values[index] = abs(values[index]) > 1e-6 ?
++                (1+noise*signs[j])*values[index] : noise*signs[j]
++        end
++        update! = perturbation == :A ? Clarabel.update_A! :
++            perturbation == :b ? Clarabel.update_b! : Clarabel.update_q!
++
++        update!(solver,updated)
++        Clarabel.solve!(solver; warmstart=true)
++        record_comparison_result!(tables,:warm,solver,i)
++        sleep(0.01)
++
++        update!(solver_cc,updated)
++        solve_convex_comparison!(solver_cc,tables,i)
++        sleep(0.01)
++
++        update!(solver_c,updated)
++        Clarabel.solve!(solver_c)
++        record_comparison_result!(tables,:cold,solver_c,i)
++        sleep(0.01)
++    end
++    geomean_iter[k] = compute_geomean(tables[:warm_iterations],tables[:cold_iterations])
++    geomean_time[k] = compute_geomean(tables[:warm_time],tables[:cold_time])
++    geomean_iter_cc[k] = compute_geomean(tables[:convex_iterations],tables[:cold_iterations])
++    geomean_time_cc[k] = compute_geomean(tables[:convex_time],tables[:cold_time])
++    comparison_runs[k] = comparison_data(tables)
++end
++
++# Separate files preserve the historical datasets and distinguish A/b/q runs.
++output = joinpath(@__DIR__,"results",class*"_varying_disturbance_"*string(perturbation)*"_comparison.jld2")
++mkpath(dirname(output))
++JLD2.jldsave(output; geomean_iter,geomean_time,geomean_iter_cc,geomean_time_cc,
++            comparison_runs,convex_weight=0.01,noise_levels,
++            methods=["smoothing","convex_combination","cold"])

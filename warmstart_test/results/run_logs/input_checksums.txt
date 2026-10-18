@@ -1,0 +1,1 @@
+72cc676084520bc87aa28255a08c7bd3d238b48bf38eead3d66463e885108f72  warmstart_test/portfolioOpt/sp500_stock_returns_5y.csv

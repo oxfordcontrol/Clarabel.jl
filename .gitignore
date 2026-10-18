@@ -10,3 +10,10 @@ statprof
 # Pkg generated files
 Manifest.toml
 /docs/Manifest.toml
+
+# Benchmark build files and verbose solver logs
+/warmstart_test/results/*.log
+/warmstart_test/results/bench_*_comparison_table.tex
+/warmstart_test/results/run_logs/*.log
+__pycache__/
+*.pyc
